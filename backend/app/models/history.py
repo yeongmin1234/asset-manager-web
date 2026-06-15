@@ -1,5 +1,6 @@
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy import Enum as SqlEnum
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
-class AssetActionType(StrEnum):
+class AssetActionType(str, Enum):
     CREATED = "등록"
     UPDATED = "수정"
     STATUS_CHANGED = "상태변경"
@@ -33,10 +34,10 @@ class AssetHistory(Base):
         ),
         nullable=False,
     )
-    field_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
-    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
-    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    field_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    memo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     changed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -12,8 +14,8 @@ from app.services.lookup_service import get_active_categories
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 
-@router.get("", response_model=list[CategoryLookup])
-def list_categories(db: Session = Depends(get_db)) -> list[CategoryLookup]:
+@router.get("", response_model=List[CategoryLookup])
+def list_categories(db: Session = Depends(get_db)) -> List[CategoryLookup]:
     try:
         return get_active_categories(db)
     except SQLAlchemyError as exc:

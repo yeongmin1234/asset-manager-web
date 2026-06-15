@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
-from enum import StrEnum
+from enum import Enum
+from typing import Optional
 
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy import Enum as SqlEnum
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
-class AssetStatus(StrEnum):
+class AssetStatus(str, Enum):
     IN_USE = "사용중"
     UNUSED = "미사용"
     DISPOSED = "폐기"
@@ -24,25 +25,25 @@ class Asset(Base):
         nullable=False,
         index=True,
     )
-    department_id: Mapped[int | None] = mapped_column(
+    department_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("departments.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    department_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    department_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    model_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    serial_number: Mapped[str | None] = mapped_column(
+    model_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    serial_number: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
         index=True,
     )
-    purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    purchase_price: Mapped[Decimal | None] = mapped_column(
+    purchase_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    purchase_price: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(14, 2),
         nullable=True,
     )
-    user_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    user_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     status: Mapped[AssetStatus] = mapped_column(
         SqlEnum(
             AssetStatus,
@@ -52,7 +53,7 @@ class Asset(Base):
         nullable=False,
         default=AssetStatus.UNUSED,
     )
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -64,7 +65,7 @@ class Asset(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
-    deleted_at: Mapped[datetime | None] = mapped_column(
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         index=True,

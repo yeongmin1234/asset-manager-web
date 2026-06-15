@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -31,8 +33,8 @@ def read_stats_summary(db: Session = Depends(get_db)) -> AssetStatsSummary:
         ) from exc
 
 
-@router.get("/by-category", response_model=list[CategoryAssetStats])
-def read_stats_by_category(db: Session = Depends(get_db)) -> list[CategoryAssetStats]:
+@router.get("/by-category", response_model=List[CategoryAssetStats])
+def read_stats_by_category(db: Session = Depends(get_db)) -> List[CategoryAssetStats]:
     try:
         return get_asset_stats_by_category(db)
     except SQLAlchemyError as exc:
@@ -42,10 +44,10 @@ def read_stats_by_category(db: Session = Depends(get_db)) -> list[CategoryAssetS
         ) from exc
 
 
-@router.get("/by-department", response_model=list[DepartmentAssetStats])
+@router.get("/by-department", response_model=List[DepartmentAssetStats])
 def read_stats_by_department(
     db: Session = Depends(get_db),
-) -> list[DepartmentAssetStats]:
+) -> List[DepartmentAssetStats]:
     try:
         return get_asset_stats_by_department(db)
     except SQLAlchemyError as exc:
@@ -55,8 +57,8 @@ def read_stats_by_department(
         ) from exc
 
 
-@router.get("/monthly", response_model=list[MonthlyAssetStats])
-def read_stats_monthly(db: Session = Depends(get_db)) -> list[MonthlyAssetStats]:
+@router.get("/monthly", response_model=List[MonthlyAssetStats])
+def read_stats_monthly(db: Session = Depends(get_db)) -> List[MonthlyAssetStats]:
     try:
         return get_asset_stats_monthly(db)
     except SQLAlchemyError as exc:

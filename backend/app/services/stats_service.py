@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Dict, List
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -46,7 +47,7 @@ def get_asset_stats_summary(db: Session) -> AssetStatsSummary:
     )
 
 
-def get_asset_stats_by_category(db: Session) -> list[CategoryAssetStats]:
+def get_asset_stats_by_category(db: Session) -> List[CategoryAssetStats]:
     rows = db.execute(
         select(
             Category.name.label("category_name"),
@@ -67,7 +68,7 @@ def get_asset_stats_by_category(db: Session) -> list[CategoryAssetStats]:
     ]
 
 
-def get_asset_stats_by_department(db: Session) -> list[DepartmentAssetStats]:
+def get_asset_stats_by_department(db: Session) -> List[DepartmentAssetStats]:
     department_label = func.coalesce(
         func.nullif(Asset.department_name, ""),
         Department.name,
@@ -93,7 +94,7 @@ def get_asset_stats_by_department(db: Session) -> list[DepartmentAssetStats]:
     ]
 
 
-def get_asset_stats_monthly(db: Session) -> list[MonthlyAssetStats]:
+def get_asset_stats_monthly(db: Session) -> List[MonthlyAssetStats]:
     months = get_recent_month_labels()
     first_month = months[0]
     registered_month = func.to_char(
@@ -162,7 +163,7 @@ def get_asset_stats_monthly(db: Session) -> list[MonthlyAssetStats]:
     registered_by_month = {
         row.month: int(row.registered_count or 0) for row in registered_rows
     }
-    disposed_by_month: dict[str, int] = {month: 0 for month in months}
+    disposed_by_month: Dict[str, int] = {month: 0 for month in months}
     for row in [*disposed_history_rows, *fallback_disposed_rows]:
         disposed_by_month[row.month] = disposed_by_month.get(row.month, 0) + int(
             row.disposed_count or 0
@@ -178,7 +179,7 @@ def get_asset_stats_monthly(db: Session) -> list[MonthlyAssetStats]:
     ]
 
 
-def get_recent_month_labels(month_count: int = 3) -> list[str]:
+def get_recent_month_labels(month_count: int = 3) -> List[str]:
     today = datetime.now()
     month_start = datetime(today.year, today.month, 1)
     labels = []

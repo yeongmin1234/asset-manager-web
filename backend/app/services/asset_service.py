@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 from io import BytesIO
 import re
+from typing import Dict, List, Optional, Set, Union
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -58,12 +59,12 @@ ALLOWED_IMPORT_STATUSES = {status.value for status in AssetStatus}
 def get_assets(
     db: Session,
     *,
-    status: AssetStatus | None = None,
-    category_id: int | None = None,
-    department_id: int | None = None,
-    department_name: str | None = None,
-    keyword: str | None = None,
-) -> list[Asset]:
+    status: Optional[AssetStatus] = None,
+    category_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    department_name: Optional[str] = None,
+    keyword: Optional[str] = None,
+) -> List[Asset]:
     statement = (
         select(Asset)
         .options(joinedload(Asset.category), joinedload(Asset.department))
@@ -106,7 +107,7 @@ def get_assets(
     return list(db.scalars(statement).all())
 
 
-def build_assets_excel(assets: list[Asset]) -> BytesIO:
+def build_assets_excel(assets: List[Asset]) -> BytesIO:
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = "자산목록"
@@ -208,12 +209,12 @@ def preview_assets_import(db: Session, file_bytes: bytes) -> AssetImportPreviewR
         if serial
     }
 
-    seen_serials: set[str] = set()
-    rows: list[AssetImportPreviewRow] = []
+    seen_serials: Set[str] = set()
+    rows: List[AssetImportPreviewRow] = []
 
     for raw_row in raw_rows:
         row_number = raw_row["row_number"]
-        errors: list[str] = []
+        errors: List[str] = []
         name = normalize_text(raw_row.get("제품명"))
         category_name = normalize_text(raw_row.get("분류"))
         department_name = normalize_text(raw_row.get("부서(사용자명)"))
@@ -272,11 +273,11 @@ def preview_assets_import(db: Session, file_bytes: bytes) -> AssetImportPreviewR
 
 def commit_assets_import(
     db: Session,
-    rows: list[AssetImportPreviewRow],
+    rows: List[AssetImportPreviewRow],
 ) -> AssetImportCommitResponse:
-    errors: list[AssetImportPreviewRow] = []
+    errors: List[AssetImportPreviewRow] = []
     created_count = 0
-    seen_serials: set[str] = set()
+    seen_serials: Set[str] = set()
 
     for row in rows:
         data = row.data
@@ -349,9 +350,9 @@ def commit_assets_import(
 def validate_import_commit_row(
     db: Session,
     data: AssetImportData,
-    seen_serials: set[str],
-) -> list[str]:
-    errors: list[str] = []
+    seen_serials: Set[str],
+) -> List[str]:
+    errors: List[str] = []
     status_value = data.status.value if isinstance(data.status, AssetStatus) else data.status
 
     if not data.name:
@@ -387,7 +388,7 @@ def validate_import_commit_row(
     return errors
 
 
-def parse_asset_import_excel(file_bytes: bytes) -> list[dict[str, object]]:
+def parse_asset_import_excel(file_bytes: bytes) -> List[Dict[str, object]]:
     workbook = load_workbook(BytesIO(file_bytes), data_only=True)
     worksheet = workbook.active
     header_values = [normalize_text(cell.value) for cell in worksheet[1]]
@@ -396,7 +397,7 @@ def parse_asset_import_excel(file_bytes: bytes) -> list[dict[str, object]]:
     if missing_headers:
         raise AssetValidationError(f"엑셀 양식 컬럼이 없습니다: {', '.join(missing_headers)}")
 
-    rows: list[dict[str, object]] = []
+    rows: List[Dict[str, object]] = []
     for row_index in range(2, worksheet.max_row + 1):
         row_values = [worksheet.cell(row=row_index, column=column).value for column in range(1, worksheet.max_column + 1)]
         if all(value is None or str(value).strip() == "" for value in row_values):
@@ -414,14 +415,14 @@ def parse_asset_import_excel(file_bytes: bytes) -> list[dict[str, object]]:
     return rows
 
 
-def normalize_text(value: object) -> str | None:
+def normalize_text(value: object) -> Optional[str]:
     if value is None:
         return None
     normalized_value = str(value).strip()
     return normalized_value or None
 
 
-def normalize_serial_number_for_import(value: object, errors: list[str]) -> str | None:
+def normalize_serial_number_for_import(value: object, errors: List[str]) -> Optional[str]:
     serial_number = normalize_text(value)
     if not serial_number:
         return None
@@ -433,7 +434,7 @@ def normalize_serial_number_for_import(value: object, errors: list[str]) -> str 
     return normalized_serial_number
 
 
-def parse_import_date(value: object, errors: list[str]) -> date | None:
+def parse_import_date(value: object, errors: List[str]) -> Optional[date]:
     if value is None or str(value).strip() == "":
         return None
     if isinstance(value, datetime):
@@ -449,7 +450,7 @@ def parse_import_date(value: object, errors: list[str]) -> date | None:
         return None
 
 
-def format_status(status: AssetStatus | str | None) -> str:
+def format_status(status: Optional[Union[AssetStatus, str]]) -> str:
     if status is None:
         return ""
     return status.value if isinstance(status, AssetStatus) else str(status)
@@ -463,7 +464,7 @@ def format_department_user(asset: Asset) -> str:
     return asset.user_name or ""
 
 
-def format_excel_date(value: date | datetime | None) -> str:
+def format_excel_date(value: Optional[Union[date, datetime]]) -> str:
     if value is None:
         return ""
     if isinstance(value, datetime):
@@ -605,7 +606,7 @@ def ensure_serial_number_is_available(
     db: Session,
     serial_number: str,
     *,
-    exclude_asset_id: int | None = None,
+    exclude_asset_id: Optional[int] = None,
 ) -> None:
     statement = select(Asset.id).where(
         Asset.serial_number == serial_number,

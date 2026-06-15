@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,10 +11,10 @@ def record_asset_history(
     *,
     asset_id: int,
     action_type: AssetActionType,
-    field_name: str | None = None,
-    old_value: object | None = None,
-    new_value: object | None = None,
-    memo: str | None = None,
+    field_name: Optional[str] = None,
+    old_value: Optional[object] = None,
+    new_value: Optional[object] = None,
+    memo: Optional[str] = None,
 ) -> AssetHistory:
     history = AssetHistory(
         asset_id=asset_id,
@@ -39,8 +41,8 @@ def record_asset_disposed(
     db: Session,
     asset_id: int,
     *,
-    old_value: object | None = None,
-    new_value: object | None = None,
+    old_value: Optional[object] = None,
+    new_value: Optional[object] = None,
 ) -> AssetHistory:
     return record_asset_history(
         db,
@@ -57,7 +59,7 @@ def record_asset_deleted(
     db: Session,
     asset_id: int,
     *,
-    new_value: object | None = None,
+    new_value: Optional[object] = None,
 ) -> AssetHistory:
     return record_asset_history(
         db,
@@ -69,7 +71,7 @@ def record_asset_deleted(
     )
 
 
-def get_asset_history(db: Session, asset_id: int) -> list[AssetHistory]:
+def get_asset_history(db: Session, asset_id: int) -> List[AssetHistory]:
     statement = (
         select(AssetHistory)
         .where(AssetHistory.asset_id == asset_id)

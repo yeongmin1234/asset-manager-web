@@ -1,3 +1,5 @@
+from typing import Dict
+
 from fastapi import APIRouter
 
 from app.db.database import check_database_connection
@@ -6,7 +8,7 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-def health_check() -> dict[str, str]:
+def health_check() -> Dict[str, str]:
     return {
         "status": "ok",
         "service": "asset-manager-backend",
@@ -14,7 +16,7 @@ def health_check() -> dict[str, str]:
 
 
 @router.get("/health/db")
-def database_health_check() -> dict[str, str]:
+def database_health_check() -> Dict[str, str]:
     is_connected, message = check_database_connection()
     if is_connected:
         return {

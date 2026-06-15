@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from typing import Generator, Optional, Tuple
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -27,8 +27,8 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def check_database_connection() -> tuple[bool, str | None]:
-    engine: Engine | None = None
+def check_database_connection() -> Tuple[bool, Optional[str]]:
+    engine: Optional[Engine] = None
     try:
         engine = create_database_engine()
         with engine.connect() as connection:

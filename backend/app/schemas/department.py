@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,9 +15,9 @@ class DepartmentCreate(DepartmentBase):
 
 
 class DepartmentUpdate(BaseModel):
-    name: str | None = None
-    sort_order: int | None = None
-    is_active: bool | None = None
+    name: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
 
 
 class DepartmentRead(DepartmentBase):

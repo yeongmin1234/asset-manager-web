@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -10,8 +12,8 @@ from app.services.lookup_service import get_active_departments
 router = APIRouter(prefix="/departments", tags=["departments"])
 
 
-@router.get("", response_model=list[DepartmentLookup])
-def list_departments(db: Session = Depends(get_db)) -> list[DepartmentLookup]:
+@router.get("", response_model=List[DepartmentLookup])
+def list_departments(db: Session = Depends(get_db)) -> List[DepartmentLookup]:
     try:
         return get_active_departments(db)
     except SQLAlchemyError as exc:

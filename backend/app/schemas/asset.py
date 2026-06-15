@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 import re
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -9,20 +10,20 @@ from app.models.asset import AssetStatus
 
 class AssetBase(BaseModel):
     category_id: int
-    department_id: int | None = None
-    department_name: str | None = Field(default=None, max_length=100)
+    department_id: Optional[int] = None
+    department_name: Optional[str] = Field(default=None, max_length=100)
     name: str
-    model_name: str | None = None
-    serial_number: str | None = Field(default=None, max_length=100)
-    purchase_date: date | None = None
-    purchase_price: Decimal | None = None
-    user_name: str | None = None
+    model_name: Optional[str] = None
+    serial_number: Optional[str] = Field(default=None, max_length=100)
+    purchase_date: Optional[date] = None
+    purchase_price: Optional[Decimal] = None
+    user_name: Optional[str] = None
     status: AssetStatus = AssetStatus.UNUSED
-    note: str | None = None
+    note: Optional[str] = None
 
     @field_validator("department_name")
     @classmethod
-    def normalize_department_name(cls, value: str | None) -> str | None:
+    def normalize_department_name(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
 
@@ -31,7 +32,7 @@ class AssetBase(BaseModel):
 
     @field_validator("serial_number")
     @classmethod
-    def normalize_serial_number(cls, value: str | None) -> str | None:
+    def normalize_serial_number(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
 
@@ -48,21 +49,21 @@ class AssetCreate(AssetBase):
 
 
 class AssetUpdate(BaseModel):
-    category_id: int | None = None
-    department_id: int | None = None
-    department_name: str | None = Field(default=None, max_length=100)
-    name: str | None = None
-    model_name: str | None = None
-    serial_number: str | None = Field(default=None, max_length=100)
-    purchase_date: date | None = None
-    purchase_price: Decimal | None = None
-    user_name: str | None = None
-    status: AssetStatus | None = None
-    note: str | None = None
+    category_id: Optional[int] = None
+    department_id: Optional[int] = None
+    department_name: Optional[str] = Field(default=None, max_length=100)
+    name: Optional[str] = None
+    model_name: Optional[str] = None
+    serial_number: Optional[str] = Field(default=None, max_length=100)
+    purchase_date: Optional[date] = None
+    purchase_price: Optional[Decimal] = None
+    user_name: Optional[str] = None
+    status: Optional[AssetStatus] = None
+    note: Optional[str] = None
 
     @field_validator("department_name")
     @classmethod
-    def normalize_department_name(cls, value: str | None) -> str | None:
+    def normalize_department_name(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
 
@@ -71,7 +72,7 @@ class AssetUpdate(BaseModel):
 
     @field_validator("serial_number")
     @classmethod
-    def normalize_serial_number(cls, value: str | None) -> str | None:
+    def normalize_serial_number(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
 
@@ -87,41 +88,41 @@ class AssetRead(AssetBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    deleted_at: datetime | None = None
+    deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class AssetImportData(BaseModel):
-    name: str | None = None
-    category_name: str | None = None
-    department_name: str | None = None
-    status: AssetStatus | str | None = None
-    serial_number: str | None = None
-    note: str | None = None
-    purchase_date: date | None = None
-    model_name: str | None = None
+    name: Optional[str] = None
+    category_name: Optional[str] = None
+    department_name: Optional[str] = None
+    status: Optional[Union[AssetStatus, str]] = None
+    serial_number: Optional[str] = None
+    note: Optional[str] = None
+    purchase_date: Optional[date] = None
+    model_name: Optional[str] = None
 
 
 class AssetImportPreviewRow(BaseModel):
     row_number: int
     is_valid: bool
-    data: AssetImportData | None = None
-    errors: list[str] = Field(default_factory=list)
+    data: Optional[AssetImportData] = None
+    errors: List[str] = Field(default_factory=list)
 
 
 class AssetImportPreviewResponse(BaseModel):
     total_rows: int
     valid_rows: int
     error_rows: int
-    rows: list[AssetImportPreviewRow]
+    rows: List[AssetImportPreviewRow]
 
 
 class AssetImportCommitRequest(BaseModel):
-    rows: list[AssetImportPreviewRow]
+    rows: List[AssetImportPreviewRow]
 
 
 class AssetImportCommitResponse(BaseModel):
     created_count: int
     skipped_count: int
-    errors: list[AssetImportPreviewRow] = Field(default_factory=list)
+    errors: List[AssetImportPreviewRow] = Field(default_factory=list)

@@ -1,3 +1,5 @@
+from typing import List
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -5,7 +7,7 @@ from app.models.category import Category
 from app.models.department import Department
 
 
-def get_active_categories(db: Session) -> list[Category]:
+def get_active_categories(db: Session) -> List[Category]:
     statement = (
         select(Category)
         .where(Category.is_active.is_(True))
@@ -14,7 +16,7 @@ def get_active_categories(db: Session) -> list[Category]:
     return list(db.scalars(statement).all())
 
 
-def get_active_departments(db: Session) -> list[Department]:
+def get_active_departments(db: Session) -> List[Department]:
     statement = (
         select(Department)
         .where(Department.is_active.is_(True))

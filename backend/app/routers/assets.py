@@ -1,4 +1,5 @@
 from datetime import date
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -32,15 +33,15 @@ from app.services.history_service import get_asset_history
 router = APIRouter(prefix="/assets", tags=["assets"])
 
 
-@router.get("", response_model=list[AssetRead])
+@router.get("", response_model=List[AssetRead])
 def list_assets(
-    status_filter: AssetStatus | None = Query(default=None, alias="status"),
-    category_id: int | None = None,
-    department_id: int | None = None,
-    department_name: str | None = None,
-    keyword: str | None = None,
+    status_filter: Optional[AssetStatus] = Query(default=None, alias="status"),
+    category_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    department_name: Optional[str] = None,
+    keyword: Optional[str] = None,
     db: Session = Depends(get_db),
-) -> list[AssetRead]:
+) -> List[AssetRead]:
     try:
         return get_assets(
             db,
@@ -59,11 +60,11 @@ def list_assets(
 
 @router.get("/export/excel")
 def export_assets_excel(
-    status_filter: AssetStatus | None = Query(default=None, alias="status"),
-    category_id: int | None = None,
-    department_id: int | None = None,
-    department_name: str | None = None,
-    keyword: str | None = None,
+    status_filter: Optional[AssetStatus] = Query(default=None, alias="status"),
+    category_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    department_name: Optional[str] = None,
+    keyword: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     try:
@@ -161,11 +162,11 @@ def read_asset(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
         ) from exc
 
 
-@router.get("/{asset_id}/history", response_model=list[AssetHistoryRead])
+@router.get("/{asset_id}/history", response_model=List[AssetHistoryRead])
 def list_asset_history(
     asset_id: int,
     db: Session = Depends(get_db),
-) -> list[AssetHistoryRead]:
+) -> List[AssetHistoryRead]:
     try:
         get_asset(db, asset_id)
         return get_asset_history(db, asset_id)

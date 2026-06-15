@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,7 +14,7 @@ LOCAL_DEV_CORS_ORIGINS = [
 ]
 
 
-def get_cors_origins() -> list[str]:
+def get_cors_origins() -> List[str]:
     return list(dict.fromkeys([*settings.cors_origins, *LOCAL_DEV_CORS_ORIGINS]))
 
 
