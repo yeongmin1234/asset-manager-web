@@ -1,24 +1,26 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+DEFAULT_ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+ENV_FILE="${ASSET_MANAGER_ENV:-$DEFAULT_ROOT_DIR/deploy/.env}"
+
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  . "$ENV_FILE"
+  set +a
+fi
+
+ROOT_DIR="${NAS_PROJECT_DIR:-$DEFAULT_ROOT_DIR}"
 LOG_DIR="$ROOT_DIR/logs"
 PID_FILE="$LOG_DIR/frontend.pid"
 LOG_FILE="$LOG_DIR/frontend.log"
 DIST_DIR="$ROOT_DIR/frontend/dist"
-ENV_FILE="${ASSET_MANAGER_ENV:-$ROOT_DIR/deploy/.env}"
 
 mkdir -p "$LOG_DIR"
 
 if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo "Frontend is already running. pid=$(cat "$PID_FILE")"
   exit 0
-fi
-
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  . "$ENV_FILE"
-  set +a
 fi
 
 if [ ! -d "$DIST_DIR" ]; then
@@ -30,6 +32,12 @@ fi
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-3010}"
 
-nohup python3 -m http.server "$FRONTEND_PORT" --bind "$FRONTEND_HOST" --directory "$DIST_DIR" >> "$LOG_FILE" 2>&1 &
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+else
+  PYTHON_BIN="python"
+fi
+
+nohup "$PYTHON_BIN" -m http.server "$FRONTEND_PORT" --bind "$FRONTEND_HOST" --directory "$DIST_DIR" >> "$LOG_FILE" 2>&1 &
 echo "$!" > "$PID_FILE"
-echo "Frontend static server started. pid=$(cat "$PID_FILE"), log=$LOG_FILE"
+echo "Frontend static server started. pid=$(cat "$PID_FILE"), port=$FRONTEND_PORT, log=$LOG_FILE"

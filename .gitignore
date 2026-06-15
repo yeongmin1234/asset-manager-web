@@ -26,6 +26,7 @@ frontend/.env
 deploy/.env
 
 # Logs
+logs
 logs/
 *.log
 *.out.log
@@ -35,6 +36,7 @@ logs/
 postgres/data/
 uploads/
 exports/
+backups
 backups/
 *.sql
 *.dump

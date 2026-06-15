@@ -1,18 +1,20 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-LOG_DIR="$ROOT_DIR/logs"
-LOG_FILE="$LOG_DIR/health_check.log"
-ENV_FILE="${ASSET_MANAGER_ENV:-$ROOT_DIR/deploy/.env}"
-
-mkdir -p "$LOG_DIR"
+DEFAULT_ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+ENV_FILE="${ASSET_MANAGER_ENV:-$DEFAULT_ROOT_DIR/deploy/.env}"
 
 if [ -f "$ENV_FILE" ]; then
   set -a
   . "$ENV_FILE"
   set +a
 fi
+
+ROOT_DIR="${NAS_PROJECT_DIR:-$DEFAULT_ROOT_DIR}"
+LOG_DIR="$ROOT_DIR/logs"
+LOG_FILE="$LOG_DIR/health_check.log"
+
+mkdir -p "$LOG_DIR"
 
 FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:3010}"
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://127.0.0.1:8001/health}"
