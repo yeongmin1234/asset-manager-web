@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import List, Union
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://asset_user:change_me@localhost:5432/asset_manager"
     )
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3010"]
+    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3010"]
     upload_dir: str = "../uploads"
     export_dir: str = "../exports"
 
@@ -23,7 +24,7 @@ class Settings(BaseSettings):
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
+    def parse_cors_origins(cls, value: Union[str, List[str]]) -> List[str]:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
