@@ -1,10 +1,10 @@
 import React from "react";
 
 const SHORTCUTS = [
-  { id: "quick", title: "빠른 등록", desc: "새 자산을 빠르게 등록합니다.", icon: "+" },
-  { id: "assets", title: "자산 목록", desc: "등록된 자산을 조회하고 관리합니다.", icon: "≡" },
-  { id: "excel", title: "엑셀 관리", desc: "엑셀로 가져오고 내보냅니다.", icon: "▧" },
-  { id: "reports", title: "통계 / 리포트", desc: "자산 현황을 확인합니다.", icon: "◔" },
+  { id: "quick", title: "빠른 등록", desc: "새 자산 등록", icon: "+" },
+  { id: "assets", title: "자산 목록", desc: "목록 조회", icon: "≡" },
+  { id: "excel", title: "엑셀 관리", desc: "가져오기/내보내기", icon: "▧" },
+  { id: "reports", title: "통계 / 리포트", desc: "현황 보기", icon: "◔" },
 ];
 
 function ShortcutPanel({ onNavigate }) {

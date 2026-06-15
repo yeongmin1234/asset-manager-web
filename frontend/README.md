@@ -55,3 +55,15 @@ Backend 또는 PostgreSQL이 꺼져 있으면 목록/상세/이력/선택값/처
 - Frontend 배포 외부 포트: `3010`
 - Backend 개발 API 주소: `http://127.0.0.1:8001`
 - 포트 `80`, `8080`은 SCM 또는 NAS 내부 서비스와 충돌할 수 있으므로 사용하지 않습니다.
+
+## NAS 직접 실행 기준
+
+운영 NAS에서는 개발 서버를 실행하지 않고 정적 빌드 결과만 제공합니다.
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+기본 운영 후보는 `frontend/dist`를 `3010` 포트의 정적 서버로 제공하는 방식입니다. 운영 API 주소는 빌드 전에 `VITE_API_BASE_URL=http://192.168.222.210:8001`처럼 지정합니다.

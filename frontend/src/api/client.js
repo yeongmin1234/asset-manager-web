@@ -202,6 +202,13 @@ export async function getCategories() {
   return normalizeCollection(await request("/categories"));
 }
 
+export async function createCategory(category) {
+  return request("/categories", {
+    method: "POST",
+    body: category,
+  });
+}
+
 export async function getDepartments() {
   return normalizeCollection(await request("/departments"));
 }

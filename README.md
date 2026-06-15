@@ -2,7 +2,7 @@
 
 React + FastAPI + PostgreSQL 기반의 사내 자산관리 시스템 기본 구조입니다.
 
-이번 단계에서는 로컬 PostgreSQL 개발 DB, Alembic migration, seed 데이터, 자산 CRUD API, 자산 빠른 등록, 자산 현황/분류별/부서별/월별 통계(최근 3개월), 프론트엔드 기본 화면, Docker Compose 초안, NAS 운영 문서를 포함합니다.
+이번 단계에서는 로컬 PostgreSQL 개발 DB, Alembic migration, seed 데이터, 자산 CRUD API, 변경 이력, 자산 빠른 등록, 자산 현황/분류별/부서별/월별 통계(최근 3개월), 엑셀 내보내기/가져오기 보조 기능, 포털형 프론트엔드 화면, NAS 직접 실행 운영 문서를 포함합니다.
 프론트엔드는 업무용 SaaS 대시보드 톤으로 정리되어 PC/노트북에서는 빠른 등록, 넓은 목록과 통계 카드 중심으로, 모바일에서는 1열 반응형으로 표시됩니다.
 
 ## 기술 스택
@@ -11,7 +11,7 @@ React + FastAPI + PostgreSQL 기반의 사내 자산관리 시스템 기본 구�
 - Backend: FastAPI
 - Database: PostgreSQL
 - DB Driver: psycopg, SQLAlchemy
-- Deploy: Docker Compose
+- Deploy: NAS direct run scripts
 - Server: Synology NAS
 
 ## 개발용 Backend 실행
@@ -89,9 +89,9 @@ dev_start_all.bat
 
 - Frontend 개발 서버: `5173`
 - Backend 개발 서버: `8001`
-- Frontend 배포 외부 포트: `3010`
-- Backend 배포 외부 포트: `8010`
-- PostgreSQL: 컨테이너 내부 `5432`, 외부 포트 매핑 없음
+- Frontend 운영 포트: `3010`
+- Backend 운영 포트: `8001`
+- PostgreSQL: 신규 자산관리 전용 DB `5432` 또는 NAS 내부 전용 포트
 - 포트 `80`, `8080`은 기존 SCM 또는 NAS 내부 서비스와 충돌할 수 있으므로 절대 사용하지 않습니다.
 
 ## 검증 명령
@@ -111,13 +111,6 @@ cd frontend
 npm run build
 ```
 
-Docker Compose:
-
-```bash
-cd deploy
-docker compose config
-```
-
 ## NAS 운영 경로
 
 Synology NAS 운영 경로는 다음을 기준으로 합니다.
@@ -128,10 +121,18 @@ Synology NAS 운영 경로는 다음을 기준으로 합니다.
 
 자세한 폴더 구조와 운영 주의사항은 `docs/NAS_DEPLOYMENT.md`에 정리했습니다.
 
+NAS 배포 전 구조 점검은 다음 문서를 함께 확인하세요.
+
+- `docs/DEPLOYMENT.md`
+- `docs/ENVIRONMENT.md`
+- `docs/NAS_DIRECT_DEPLOYMENT.md`
+- `docs/NAS_DEPLOYMENT.md`
+
+NAS 운영은 Docker/Compose를 사용하지 않는 직접 실행 방식으로 정리합니다. `deploy/*.sh` 스크립트는 다음 단계에서 NAS 배포 전 사용자 확인 후 실행합니다.
+
 ## 제외된 기능
 
 - 로그인 및 권한관리
 - QR/바코드 기능
-- 엑셀 내보내기
 - 실제 NAS 배포
 - 실제 운영 DB 접속

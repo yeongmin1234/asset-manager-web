@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createCategory,
   createAsset,
   downloadAssetsExcel,
   getAssets,
@@ -15,6 +16,7 @@ import {
 import AssetDetail from "./components/AssetDetail.jsx";
 import AssetForm from "./components/AssetForm.jsx";
 import AssetList from "./components/AssetList.jsx";
+import CategoryCreateModal from "./components/CategoryCreateModal.jsx";
 import CategoryStats from "./components/CategoryStats.jsx";
 import DepartmentStats from "./components/DepartmentStats.jsx";
 import AssetExcelTools from "./components/AssetExcelTools.jsx";
@@ -24,6 +26,8 @@ import PortalHero from "./components/PortalHero.jsx";
 import PortalSidebar from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
+import ServerStatusPopover from "./components/ServerStatusPopover.jsx";
+import SettingsPage from "./components/SettingsPage.jsx";
 import ShortcutPanel from "./components/ShortcutPanel.jsx";
 import StatsSummary from "./components/StatsSummary.jsx";
 import "./styles/app.css";
@@ -50,10 +54,14 @@ const INITIAL_STATS_SUMMARY = {
 
 function App() {
   const [backendStatus, setBackendStatus] = useState({
+    backendOk: null,
+    checkedAt: null,
+    dbOk: null,
     isLoading: false,
     message: "백엔드 연결 상태를 확인할 수 있습니다.",
     type: "idle",
   });
+  const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [assets, setAssets] = useState([]);
   const [statsSummary, setStatsSummary] = useState(INITIAL_STATS_SUMMARY);
@@ -81,6 +89,11 @@ function App() {
     isLoading: false,
     categoryError: "",
     departmentError: "",
+  });
+  const [categoryCreateState, setCategoryCreateState] = useState({
+    isOpen: false,
+    isSubmitting: false,
+    error: "",
   });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formError, setFormError] = useState("");
@@ -112,11 +125,12 @@ function App() {
   const sortLabel = useMemo(() => getSortLabel(sortConfig), [sortConfig]);
 
   const checkBackend = useCallback(async () => {
-    setBackendStatus({
+    setBackendStatus((current) => ({
+      ...current,
       isLoading: true,
       message: "백엔드 상태를 확인 중입니다.",
       type: "idle",
-    });
+    }));
 
     try {
       const [healthResult, dbResult] = await Promise.allSettled([
@@ -132,12 +146,18 @@ function App() {
         dbResult.status === "fulfilled" ? dbResult.value : { status: "error" };
       const dbMessage = dbHealth.status === "ok" ? "DB 연결 정상" : "DB 연결 확인 필요";
       setBackendStatus({
+        backendOk: true,
+        checkedAt: new Date().toISOString(),
+        dbOk: dbHealth.status === "ok",
         isLoading: false,
         message: `${healthResult.value.service || "Backend"} 정상, ${dbMessage}`,
         type: dbHealth.status === "ok" ? "ok" : "warning",
       });
     } catch (error) {
       setBackendStatus({
+        backendOk: false,
+        checkedAt: new Date().toISOString(),
+        dbOk: false,
         isLoading: false,
         message: error.message,
         type: "error",
@@ -319,6 +339,60 @@ function App() {
     setFilters(INITIAL_FILTERS);
   };
 
+  const handleCategoryTabSelect = (categoryId) => {
+    setFilters((current) => ({
+      ...current,
+      category_id: categoryId,
+    }));
+  };
+
+  const handleCreateCategory = async (name) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setCategoryCreateState((current) => ({
+        ...current,
+        error: "분류명을 입력해주세요.",
+      }));
+      return false;
+    }
+
+    const hasDuplicate = categories.some(
+      (category) => category.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+    );
+    if (hasDuplicate) {
+      setCategoryCreateState((current) => ({
+        ...current,
+        error: "이미 존재하는 분류명입니다.",
+      }));
+      return false;
+    }
+
+    setCategoryCreateState((current) => ({
+      ...current,
+      isSubmitting: true,
+      error: "",
+    }));
+
+    try {
+      const created = await createCategory({ name: trimmedName });
+      setCategories((current) => [...current, created]);
+      setFilters((current) => ({
+        ...current,
+        category_id: String(created.id),
+      }));
+      setCategoryCreateState({ isOpen: false, isSubmitting: false, error: "" });
+      await loadLookups();
+      return true;
+    } catch (error) {
+      setCategoryCreateState((current) => ({
+        ...current,
+        isSubmitting: false,
+        error: error.message,
+      }));
+      return false;
+    }
+  };
+
   const handleSortChange = (key) => {
     setSortConfig((current) => {
       if (current.key !== key) {
@@ -438,6 +512,12 @@ function App() {
         onSelectAsset={setSelectedAssetId}
         sortConfig={sortConfig}
         onSortChange={handleSortChange}
+        categories={categories}
+        activeCategoryId={filters.category_id}
+        onCategorySelect={handleCategoryTabSelect}
+        onOpenCategoryCreate={() =>
+          setCategoryCreateState({ isOpen: true, isSubmitting: false, error: "" })
+        }
       />
     </section>
   );
@@ -504,9 +584,12 @@ function App() {
     }
 
     if (activeSection === "settings") {
-      return renderReadyCard(
-        "설정",
-        "조직별 운영 정책과 권한 설정은 다음 단계에서 확장할 수 있습니다.",
+      return (
+        <SettingsPage
+          backendStatus={backendStatus}
+          onCheckBackend={checkBackend}
+          onNavigate={handleNavigate}
+        />
       );
     }
 
@@ -545,17 +628,13 @@ function App() {
             />
           </label>
           <div className="portal-topbar-actions">
-            <span className={`status-chip status-chip-${backendStatus.type}`}>
-              {formatBackendStatus(backendStatus)}
-            </span>
-            <button
-              type="button"
-              className="secondary-button compact-button"
-              onClick={checkBackend}
-              disabled={backendStatus.isLoading}
-            >
-              {backendStatus.isLoading ? "확인 중" : "상태 확인"}
-            </button>
+            <ServerStatusPopover
+              isOpen={isServerStatusOpen}
+              onToggle={() => setIsServerStatusOpen((current) => !current)}
+              onClose={() => setIsServerStatusOpen(false)}
+              onCheck={checkBackend}
+              status={backendStatus}
+            />
             <button type="button" className="icon-button portal-alert-button" aria-label="알림">
               ◦
             </button>
@@ -605,6 +684,16 @@ function App() {
         error={formError}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleCreateAsset}
+      />
+
+      <CategoryCreateModal
+        isOpen={categoryCreateState.isOpen}
+        error={categoryCreateState.error}
+        isSubmitting={categoryCreateState.isSubmitting}
+        onClose={() =>
+          setCategoryCreateState({ isOpen: false, isSubmitting: false, error: "" })
+        }
+        onSubmit={handleCreateCategory}
       />
     </div>
   );
@@ -670,19 +759,6 @@ function getSortLabel(sortConfig) {
 
   const direction = sortConfig.direction === "desc" ? "내림차순" : "오름차순";
   return `현재 정렬: ${labelMap[sortConfig.key]} ${direction}`;
-}
-
-function formatBackendStatus(status) {
-  if (status.isLoading) {
-    return "상태 확인 중";
-  }
-  if (status.type === "ok") {
-    return "Backend 정상 · DB 정상";
-  }
-  if (status.type === "idle") {
-    return "상태 확인 대기";
-  }
-  return "연결 확인 필요";
 }
 
 export default App;

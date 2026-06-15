@@ -9,7 +9,7 @@ const INITIAL_FORM = {
   note: "",
 };
 
-const SERIAL_PATTERN = /^[A-Za-z0-9._-]+$/;
+const SERIAL_PATTERN = /^[A-Za-z0-9]+$/;
 
 function QuickAssetForm({
   categories,
@@ -59,7 +59,7 @@ function QuickAssetForm({
 
     const serialNumber = form.serial_number.trim();
     if (serialNumber && !SERIAL_PATTERN.test(serialNumber)) {
-      setError("시리얼번호는 영문, 숫자, 마침표, 밑줄, 하이픈만 입력할 수 있습니다.");
+      setError("시리얼번호는 영문과 숫자만 입력할 수 있습니다.");
       return;
     }
 
@@ -174,7 +174,7 @@ function QuickAssetForm({
             name="serial_number"
             value={form.serial_number}
             onChange={handleChange}
-            placeholder="예: SN-2026-001"
+            placeholder="예: SN2026001"
           />
         </label>
 

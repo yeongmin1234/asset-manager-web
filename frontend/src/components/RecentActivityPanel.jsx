@@ -14,8 +14,8 @@ function RecentActivityPanel({ assets = [], onNavigate }) {
 
       {recentAssets.length === 0 ? (
         <div className="recent-empty">
-          <strong>표시할 최근 활동이 없습니다.</strong>
-          <span>자산 등록 또는 수정 후 이 영역에서 흐름을 확인할 수 있습니다.</span>
+          <strong>최근 활동이 없습니다.</strong>
+          <span>자산 변경 후 표시됩니다.</span>
         </div>
       ) : (
         <div className="recent-activity-list">

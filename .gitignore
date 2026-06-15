@@ -1,8 +1,15 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 backend/.venv/
+backend/venv/
 .venv/
+venv/
 
 # Node
 frontend/node_modules/
@@ -14,16 +21,27 @@ dist/
 .env
 *.env
 !*.env.example
+backend/.env
+frontend/.env
+deploy/.env
 
 # Logs
 logs/
 *.log
+*.out.log
+*.err.log
 
 # Data
 postgres/data/
 uploads/
 exports/
 backups/
+*.sql
+*.dump
+*.backup
+*.bak
+*.sqlite
+*.sqlite3
 
 # OS
 .DS_Store

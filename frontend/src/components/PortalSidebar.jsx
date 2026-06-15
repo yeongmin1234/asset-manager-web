@@ -33,8 +33,8 @@ function PortalSidebar({ activeSection = "dashboard", onNavigate }) {
       <div className="portal-help-card">
         <strong>시스템 문의</strong>
         <span>총무팀 전산 담당자</span>
-        <span>02-1234-5678</span>
-        <span>it-support@company.com</span>
+        <span>02-710-4143</span>
+        <span>yeong00o@limotech.co.kr</span>
       </div>
     </aside>
   );

@@ -1,4 +1,5 @@
 import React from "react";
+import AssetCategoryTabs from "./AssetCategoryTabs.jsx";
 import StatusBadge from "./StatusBadge.jsx";
 
 const SORTABLE_COLUMNS = {
@@ -17,40 +18,52 @@ function AssetList({
   onSelectAsset,
   sortConfig,
   onSortChange,
+  categories,
+  activeCategoryId,
+  onCategorySelect,
+  onOpenCategoryCreate,
 }) {
   const safeAssets = Array.isArray(assets) ? assets : [];
+  const isSpecificCategorySelected = Boolean(activeCategoryId);
 
-  if (isLoading) {
-    return <div className="state-panel">자산 목록을 불러오는 중입니다.</div>;
-  }
+  const renderContent = () => {
+    if (isLoading) {
+      return <div className="state-panel">자산 목록을 불러오는 중입니다.</div>;
+    }
 
-  if (error) {
+    if (error) {
+      return (
+        <div className="state-panel state-error">
+          <strong>자산 목록을 불러오지 못했습니다.</strong>
+          <span>Backend 또는 DB 연결을 확인해주세요.</span>
+          <span className="state-detail">{error}</span>
+        </div>
+      );
+    }
+
+    if (safeAssets.length === 0) {
+      return (
+        <div className="state-panel">
+          <strong>
+            {isSpecificCategorySelected
+              ? "이 분류에 등록된 자산이 없습니다."
+              : hasActiveFilters
+                ? "현재 조건에 맞는 자산이 없습니다."
+                : "등록된 자산이 없습니다."}
+          </strong>
+          <span>
+            {isSpecificCategorySelected
+              ? "빠른 등록 또는 상세 등록으로 자산을 추가해보세요."
+              : hasActiveFilters
+                ? "검색어나 필터 조건을 조정하거나 필터 초기화를 눌러 전체 목록을 확인하세요."
+                : "먼저 자산을 등록해주세요. Backend 또는 DB가 준비되지 않은 경우 상태를 확인하세요."}
+          </span>
+        </div>
+      );
+    }
+
     return (
-      <div className="state-panel state-error">
-        <strong>자산 목록을 불러오지 못했습니다.</strong>
-        <span>Backend 또는 DB 연결을 확인해주세요.</span>
-        <span className="state-detail">{error}</span>
-      </div>
-    );
-  }
-
-  if (safeAssets.length === 0) {
-    return (
-      <div className="state-panel">
-        <strong>
-          {hasActiveFilters ? "현재 조건에 맞는 자산이 없습니다." : "등록된 자산이 없습니다."}
-        </strong>
-        <span>
-          {hasActiveFilters
-            ? "검색어나 필터 조건을 조정하거나 필터 초기화를 눌러 전체 목록을 확인하세요."
-            : "먼저 자산을 등록해주세요. Backend 또는 DB가 준비되지 않은 경우 상태를 확인하세요."}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="asset-list">
+      <>
       <div className="asset-table-wrap">
         <table className="asset-table">
           <thead>
@@ -143,6 +156,19 @@ function AssetList({
           </article>
         ))}
       </div>
+      </>
+    );
+  };
+
+  return (
+    <div className="asset-list">
+      <AssetCategoryTabs
+        categories={categories}
+        activeCategoryId={activeCategoryId}
+        onSelectCategory={onCategorySelect}
+        onOpenCreate={onOpenCategoryCreate}
+      />
+      {renderContent()}
     </div>
   );
 }

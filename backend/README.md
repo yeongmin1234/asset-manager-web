@@ -123,6 +123,20 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
+## NAS 직접 실행 기준
+
+운영 NAS에서는 Docker를 사용하지 않고 Python venv와 uvicorn으로 직접 실행합니다.
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+운영 환경변수는 `backend/.env` 또는 `deploy/.env`에 작성하되 Git에는 포함하지 않습니다. 운영 DB는 기존 SCM MySQL이 아닌 신규 자산관리 전용 PostgreSQL 또는 전용 DB만 사용합니다.
+
 ## 로컬 개발 CORS
 
 FastAPI는 로컬 frontend 개발 서버에서 API를 호출할 수 있도록 제한된 origin만 허용합니다.
