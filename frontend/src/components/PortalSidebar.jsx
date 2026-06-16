@@ -3,6 +3,7 @@ import React from "react";
 const MENU_ITEMS = [
   { id: "dashboard", label: "대시보드", icon: "⌂" },
   { id: "assets", label: "자산 관리", icon: "▣" },
+  { id: "software", label: "SW 현황", icon: "▧" },
   { id: "excel", label: "엑셀 관리", icon: "▤" },
   { id: "stats", label: "통계 / 리포트", icon: "▥" },
   { id: "history", label: "변경 이력", icon: "◷" },

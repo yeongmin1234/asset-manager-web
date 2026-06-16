@@ -262,6 +262,34 @@ export async function getStatsMonthly() {
   return normalizeCollection(await request("/stats/monthly"));
 }
 
+export async function getSoftwareItems(filters = {}) {
+  return normalizeCollection(await request("/software", { query: filters }));
+}
+
+export async function getSoftwareStatsSummary() {
+  return request("/software/summary");
+}
+
+export async function createSoftwareItem(item) {
+  return request("/software", {
+    method: "POST",
+    body: item,
+  });
+}
+
+export async function updateSoftwareItem(softwareId, item) {
+  return request(`/software/${softwareId}`, {
+    method: "PUT",
+    body: item,
+  });
+}
+
+export async function deleteSoftwareItem(softwareId) {
+  return request(`/software/${softwareId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createAsset(asset) {
   return request("/assets", {
     method: "POST",

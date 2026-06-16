@@ -29,6 +29,7 @@ import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
 import ServerStatusPopover from "./components/ServerStatusPopover.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
 import ShortcutPanel from "./components/ShortcutPanel.jsx";
+import SoftwarePage from "./components/SoftwarePage.jsx";
 import StatsSummary from "./components/StatsSummary.jsx";
 import "./styles/app.css";
 
@@ -559,6 +560,10 @@ function App() {
       return renderExcelManagement();
     }
 
+    if (activeSection === "software") {
+      return <SoftwarePage />;
+    }
+
     if (activeSection === "stats") {
       return (
         <>
@@ -648,13 +653,14 @@ function App() {
         <div
           className={
             activeSection === "excel"
+              || activeSection === "software"
               ? "portal-content portal-content-wide"
               : "portal-content"
           }
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "excel" && (
+          {activeSection !== "excel" && activeSection !== "software" && (
             <aside className="portal-aside">
               <ShortcutPanel onNavigate={handleNavigate} />
               <RecentActivityPanel assets={displayedAssets} onNavigate={handleNavigate} />
