@@ -41,15 +41,20 @@ run_frontend_build() {
   echo "Frontend build failed."
   cat "$BUILD_LOG"
 
-  if grep -E "@rollup/rollup-linux-x64-gnu|optional dependencies" "$BUILD_LOG" >/dev/null 2>&1; then
+  if grep -E "@rollup/rollup-linux-x64-gnu|optional dependencies|removing both package-lock.json and node_modules" "$BUILD_LOG" >/dev/null 2>&1; then
     echo "Rollup optional dependency issue detected."
+    echo "Removing node_modules and package-lock.json for Rollup optional dependency recovery."
+    rm -rf node_modules package-lock.json || return 1
     echo "Reinstalling frontend dependencies with optional packages."
-    rm -rf node_modules || return 1
     npm install --include=optional || return 1
 
     echo "Retrying frontend build."
     if npm run build; then
       echo "Frontend build completed after Rollup optional dependency recovery."
+      if [ -n "$(git status --short package-lock.json 2>/dev/null)" ]; then
+        echo "package-lock.json changed during recovery. Do not commit this change on NAS unless reviewed."
+        git status --short package-lock.json
+      fi
       return 0
     fi
 
