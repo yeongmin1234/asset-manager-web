@@ -11,10 +11,15 @@ import SoftwareQuickForm from "./SoftwareQuickForm.jsx";
 import SoftwareStats from "./SoftwareStats.jsx";
 
 const INITIAL_FILTERS = {
-  keyword: "",
-  license_type: "",
   expiration_status: "",
 };
+
+const SOFTWARE_TABS = [
+  { label: "전체", value: "" },
+  { label: "영구", value: "영구" },
+  { label: "구독", value: "구독" },
+  { label: "사용중지", value: "사용중지" },
+];
 
 const INITIAL_SUMMARY = {
   total_software: 0,
@@ -30,18 +35,11 @@ function SoftwarePage() {
   const [summary, setSummary] = useState(INITIAL_SUMMARY);
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [editingItem, setEditingItem] = useState(null);
-
-  const activeFilters = useMemo(
-    () => ({
-      keyword: filters.keyword.trim(),
-      license_type: filters.license_type,
-    }),
-    [filters],
-  );
+  const [activeTab, setActiveTab] = useState("");
 
   const displayedItems = useMemo(
-    () => filterByExpirationStatus(items, filters.expiration_status),
-    [filters.expiration_status, items],
+    () => filterSoftwareItems(items, activeTab, filters.expiration_status),
+    [activeTab, filters.expiration_status, items],
   );
 
   const expirationSummary = useMemo(
@@ -52,13 +50,13 @@ function SoftwarePage() {
   const loadItems = useCallback(async () => {
     setListState({ isLoading: true, error: "" });
     try {
-      setItems(await getSoftwareItems(activeFilters));
+      setItems(await getSoftwareItems());
       setListState({ isLoading: false, error: "" });
     } catch (error) {
       setItems([]);
       setListState({ isLoading: false, error: error.message });
     }
-  }, [activeFilters]);
+  }, []);
 
   const loadSummary = useCallback(async () => {
     setSummaryState({ isLoading: true, error: "" });
@@ -123,22 +121,29 @@ function SoftwarePage() {
         isLoading={listState.isLoading}
         error={listState.error}
         filters={filters}
+        activeTab={activeTab}
         editingItemId={editingItem?.id || null}
         onDelete={handleDelete}
         onEdit={setEditingItem}
         onFilterChange={setFilters}
+        onTabChange={setActiveTab}
+        tabs={SOFTWARE_TABS}
       />
     </>
   );
 }
 
-function filterByExpirationStatus(items, expirationStatus) {
+function filterSoftwareItems(items, licenseType, expirationStatus) {
   const safeItems = Array.isArray(items) ? items : [];
-  if (!expirationStatus) {
-    return safeItems;
-  }
 
   return safeItems.filter((item) => {
+    if (licenseType && item.license_type !== licenseType) {
+      return false;
+    }
+    if (!expirationStatus) {
+      return true;
+    }
+
     const daysLeft = getDaysUntilExpire(item.expire_date);
     if (expirationStatus === "no_date") {
       return daysLeft === null;

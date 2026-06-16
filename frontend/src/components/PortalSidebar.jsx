@@ -14,7 +14,14 @@ function PortalSidebar({ activeSection = "dashboard", onNavigate }) {
   return (
     <aside className="portal-sidebar" aria-label="포털 메뉴">
       <div className="portal-brand">
-        <img className="portal-brand-logo" src="/logo.png" alt="ASSET MANAGER 사내 자산관리 시스템" />
+        <button
+          type="button"
+          className="portal-brand-button"
+          onClick={() => onNavigate?.("dashboard")}
+          aria-label="대시보드로 이동"
+        >
+          <img className="portal-brand-logo" src="/logo.png" alt="ASSET MANAGER 사내 자산관리 시스템" />
+        </button>
       </div>
 
       <nav className="portal-nav">

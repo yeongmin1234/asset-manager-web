@@ -5,15 +5,17 @@ function SoftwareList({
   isLoading,
   error,
   filters,
+  activeTab,
   editingItemId,
   onDelete,
   onEdit,
   onFilterChange,
+  onTabChange,
+  tabs,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
-  const hasActiveFilters = Boolean(
-    filters.keyword.trim() || filters.license_type || filters.expiration_status,
-  );
+  const safeTabs = Array.isArray(tabs) ? tabs : [];
+  const hasActiveFilters = Boolean(activeTab || filters.expiration_status);
 
   const renderContent = () => {
     if (isLoading) {
@@ -43,7 +45,7 @@ function SoftwareList({
             <tr>
               <th>소프트웨어명</th>
               <th>소유</th>
-              <th>종류</th>
+              <th>라이선스 구분</th>
               <th>수량</th>
               <th>만료일</th>
               <th>기타</th>
@@ -103,31 +105,24 @@ function SoftwareList({
       <div className="section-heading">
         <div>
           <h2>SW 목록</h2>
-          <p>최신 등록순으로 표시됩니다.</p>
+          <p>탭과 만료 상태를 기준으로 최신 등록순으로 표시됩니다.</p>
         </div>
       </div>
 
-      <div className="software-filter-grid">
-        <label className="field">
-          <span>검색어</span>
-          <input
-            value={filters.keyword}
-            onChange={(event) => onFilterChange({ ...filters, keyword: event.target.value })}
-            placeholder="소프트웨어명, 소유, 기타 검색"
-          />
-        </label>
-        <label className="field">
-          <span>종류</span>
-          <select
-            value={filters.license_type}
-            onChange={(event) => onFilterChange({ ...filters, license_type: event.target.value })}
+      <div className="software-tabs" aria-label="SW 구분 탭">
+        {safeTabs.map((tab) => (
+          <button
+            type="button"
+            key={tab.label}
+            className={activeTab === tab.value ? "software-tab active" : "software-tab"}
+            onClick={() => onTabChange(tab.value)}
           >
-            <option value="">전체</option>
-            <option value="영구">영구</option>
-            <option value="구독">구독</option>
-            <option value="사용중지">사용중지</option>
-          </select>
-        </label>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="software-filter-grid">
         <label className="field">
           <span>만료 상태</span>
           <select

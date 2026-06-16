@@ -1,66 +1,26 @@
 import React, { useMemo, useState } from "react";
-import StatusBadge from "./StatusBadge.jsx";
-
-const CATEGORY_EXAMPLES = ["노트북", "모니터", "프린터", "네트워크 장비", "기타"];
-const REQUIRED_EXCEL_COLUMNS = ["제품명", "분류", "상태"];
-const OPTIONAL_EXCEL_COLUMNS = ["시리얼번호", "부서(사용자명)", "구매일", "메모"];
-const LIST_COLUMNS = ["제품명", "상태", "시리얼번호", "부서(사용자명)", "구매일"];
 
 const SETTINGS_SECTIONS = [
-  {
-    id: "basic",
-    label: "기본 정보",
-    description: "회사명, 시스템명, 운영 환경",
-    icon: "i",
-  },
-  {
-    id: "master",
-    label: "자산 기준",
-    description: "분류, 상태값, 부서 기준",
-    icon: "M",
-  },
-  {
-    id: "excel",
-    label: "엑셀 설정",
-    description: "업로드 양식과 검증 규칙",
-    icon: "X",
-  },
-  {
-    id: "display",
-    label: "화면 설정",
-    description: "목록 표시, 기본 화면 기준",
-    icon: "D",
-  },
-  {
-    id: "backup",
-    label: "데이터/백업",
-    description: "백업 정책과 데이터 관리 안내",
-    icon: "B",
-  },
-  {
-    id: "system",
-    label: "시스템 정보",
-    description: "Frontend, Backend, DB 상태",
-    icon: "S",
-  },
+  { id: "basic", label: "기본 정보", description: "시스템 운영 기준", icon: "i" },
+  { id: "access", label: "접속 정보", description: "Frontend, Backend, Health", icon: "A" },
+  { id: "ports", label: "서버/포트", description: "운영 포트 기준", icon: "P" },
+  { id: "database", label: "DB 정보", description: "PostgreSQL 위치", icon: "D" },
+  { id: "db-rules", label: "DB 주의사항", description: "관리 및 복구 주의", icon: "!" },
+  { id: "paths", label: "경로 정보", description: "PC, NAS, env 경로", icon: "F" },
+  { id: "deploy", label: "배포 정보", description: "개발/운영 반영 흐름", icon: "G" },
+  { id: "backup", label: "백업/운영", description: "스크립트와 보관 기준", icon: "B" },
+  { id: "handover", label: "인수인계", description: "담당자 변경 시 확인", icon: "H" },
+  { id: "caution", label: "주의사항", description: "절대 금지 항목", icon: "X" },
 ];
 
-const formatBackendStatus = (backendStatus) => {
-  if (backendStatus?.loading) return "상태 확인 중";
-  if (backendStatus?.ok) return "Backend 정상 / DB 정상";
-  if (backendStatus?.status === "idle") return "상태 확인 대기";
-  return "연결 확인 필요";
-};
-
-function SettingsCard({ title, description, children, action }) {
+function SettingsCard({ title, description, children, important = false }) {
   return (
-    <section className="settings-card">
+    <section className={important ? "settings-card settings-card-important" : "settings-card"}>
       <div className="settings-card-heading">
         <div>
           <h4>{title}</h4>
           {description ? <p>{description}</p> : null}
         </div>
-        {action ? <div className="settings-card-action">{action}</div> : null}
       </div>
       <div className="settings-card-body">{children}</div>
     </section>
@@ -69,29 +29,14 @@ function SettingsCard({ title, description, children, action }) {
 
 function InfoList({ items }) {
   return (
-    <dl className="settings-info-list">
+    <dl className="settings-info-list settings-info-list-readable">
       {items.map((item) => (
         <div key={item.label}>
           <dt>{item.label}</dt>
-          <dd>{item.value}</dd>
+          <dd>{item.href ? <a href={item.href}>{item.value}</a> : item.value}</dd>
         </div>
       ))}
     </dl>
-  );
-}
-
-function ColumnGroup({ title, columns, tone = "blue" }) {
-  return (
-    <div className="settings-column-group">
-      <strong>{title}</strong>
-      <div className="settings-chip-list">
-        {columns.map((column) => (
-          <span className={`settings-chip settings-chip-${tone}`} key={column}>
-            {column}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -105,7 +50,7 @@ function RuleList({ rules }) {
   );
 }
 
-function SettingsPage({ backendStatus, onCheckBackend, onNavigate }) {
+function SettingsPage() {
   const [activeSettingsSection, setActiveSettingsSection] = useState("basic");
 
   const activeSection = useMemo(
@@ -115,160 +60,155 @@ function SettingsPage({ backendStatus, onCheckBackend, onNavigate }) {
     [activeSettingsSection],
   );
 
-  const statusText = formatBackendStatus(backendStatus);
-
   const renderDetail = () => {
     switch (activeSettingsSection) {
-      case "master":
+      case "access":
         return (
-          <div className="settings-grid">
-            <SettingsCard
-              title="분류/부서 기준"
-              description="현재 자산 등록과 엑셀 업로드에서 사용하는 기준입니다."
-            >
-              <ColumnGroup title="분류 예시" columns={CATEGORY_EXAMPLES} />
-              <InfoList
-                items={[
-                  { label: "부서 입력", value: "부서(사용자명) 자유 입력" },
-                  { label: "운영 방식", value: "현재는 기준 안내만 제공" },
-                  { label: "향후 확장", value: "분류/부서 CRUD로 확장 가능" },
-                ]}
-              />
-            </SettingsCard>
-            <SettingsCard title="상태값 기준" description="자산 목록과 상세 화면에서 동일하게 표시합니다.">
-              <div className="settings-status-list">
-                <div className="settings-status-item">
-                  <StatusBadge status="사용중" />
-                  <span>현재 사용 중인 자산</span>
-                </div>
-                <div className="settings-status-item">
-                  <StatusBadge status="미사용" />
-                  <span>보관 중이거나 배정 전인 자산</span>
-                </div>
-                <div className="settings-status-item">
-                  <StatusBadge status="폐기" />
-                  <span>사용 종료 또는 폐기 처리된 자산</span>
-                </div>
-              </div>
-            </SettingsCard>
-          </div>
+          <SettingsCard title="접속 정보" description="운영 화면과 상태 점검 URL입니다.">
+            <InfoList
+              items={[
+                { label: "Frontend URL", value: "http://192.168.222.210:3010", href: "http://192.168.222.210:3010/" },
+                { label: "Backend API URL", value: "http://192.168.222.210:8010", href: "http://192.168.222.210:8010/" },
+                { label: "Backend Health", value: "http://127.0.0.1:8010/health", href: "http://127.0.0.1:8010/health" },
+                { label: "DB Health", value: "http://127.0.0.1:8010/health/db", href: "http://127.0.0.1:8010/health/db" },
+              ]}
+            />
+          </SettingsCard>
         );
-      case "excel":
+      case "ports":
         return (
-          <div className="settings-grid-single">
-            <SettingsCard
-              title="엑셀 업로드 기준"
-              description="양식 다운로드, 미리보기, 정상 행 일괄 등록에 공통 적용되는 규칙입니다."
-              action={
-                <button className="btn btn-secondary" type="button" onClick={() => onNavigate?.("excel")}>
-                  엑셀 관리로 이동
-                </button>
-              }
-            >
-              <div className="settings-two-column">
-                <ColumnGroup title="필수 컬럼" columns={REQUIRED_EXCEL_COLUMNS} tone="blue" />
-                <ColumnGroup title="선택 컬럼" columns={OPTIONAL_EXCEL_COLUMNS} tone="gray" />
-              </div>
-              <RuleList
-                rules={[
-                  "시리얼번호는 영문 대문자 A-Z와 숫자 0-9만 허용합니다.",
-                  "중복 시리얼번호는 등록할 수 없습니다.",
-                  "구매일은 YYYY-MM-DD 형식을 권장합니다.",
-                  "오류 행은 저장하지 않고 정상 행만 일괄 등록합니다.",
-                ]}
-              />
-            </SettingsCard>
-          </div>
+          <SettingsCard title="서버/포트 정보" description="80, 8080 포트는 기존 서비스 보호를 위해 사용하지 않습니다.">
+            <InfoList
+              items={[
+                { label: "Frontend Port", value: "3010" },
+                { label: "Backend Port", value: "8010" },
+                { label: "PostgreSQL Host Port", value: "15432" },
+                { label: "PostgreSQL Container Port", value: "5432" },
+                { label: "사용 금지 포트", value: "80, 8080" },
+              ]}
+            />
+          </SettingsCard>
         );
-      case "display":
+      case "database":
         return (
-          <div className="settings-grid-single">
-            <SettingsCard title="화면 표시 기준" description="현재 포털 UI에 적용된 기본 표시 정책입니다.">
-              <InfoList
-                items={[
-                  { label: "테마", value: "밝은 테마" },
-                  { label: "레이아웃", value: "포털형 사이드바" },
-                  { label: "주 사용 환경", value: "PC/노트북 중심" },
-                  { label: "반응형", value: "모바일 1열 표시 지원" },
-                  { label: "기본 정렬", value: "최근 등록순" },
-                ]}
-              />
-              <ColumnGroup title="자산 목록 표시 컬럼" columns={LIST_COLUMNS} tone="blue" />
-            </SettingsCard>
-          </div>
+          <SettingsCard title="DB 정보" description="비밀번호와 DATABASE_URL 전체 문자열은 표시하지 않습니다." important>
+            <InfoList
+              items={[
+                { label: "DB 종류", value: "PostgreSQL" },
+                { label: "Container Name", value: "asset-postgres" },
+                { label: "DB Name", value: "asset_manager_prod" },
+                { label: "DB User", value: "asset_user" },
+                { label: "DB Host", value: "127.0.0.1" },
+                { label: "DB Port", value: "15432" },
+                { label: "Container 내부 Port", value: "5432" },
+                { label: "PostgreSQL 데이터 폴더", value: "/volume6/총무/서버/자산관리 프로젝트/postgres-data" },
+              ]}
+            />
+          </SettingsCard>
+        );
+      case "db-rules":
+        return (
+          <SettingsCard title="DB 관리 주의사항" description="장애 대응 전 반드시 확인할 항목입니다." important>
+            <RuleList
+              rules={[
+                "PostgreSQL 데이터 폴더는 직접 삭제/수정하지 말 것",
+                "DB 비밀번호는 backend/.env에서만 관리하며 화면에는 표시하지 않음",
+                "DB 비밀번호에 @가 포함될 경우 DATABASE_URL에서는 %40으로 URL 인코딩 필요",
+                "DB 접속 문제 발생 시 먼저 DB Health URL을 확인",
+                "DB 복구/백업 작업 전에는 반드시 백업 파일 존재 여부를 확인",
+              ]}
+            />
+          </SettingsCard>
+        );
+      case "paths":
+        return (
+          <SettingsCard title="경로 정보" description="운영/개발 파일 위치입니다. .env 내용은 표시하지 않습니다.">
+            <InfoList
+              items={[
+                { label: "PC 개발 경로", value: "C:\\Users\\박종윤\\Desktop\\asset-manager-web" },
+                { label: "NAS 운영 경로", value: "/volume6/총무/서버/자산관리 프로젝트/asset-manager-web" },
+                { label: "Backend env 위치", value: "backend/.env" },
+                { label: "Frontend env 위치", value: "frontend/.env" },
+                { label: "Deploy env 위치", value: "deploy/.env" },
+                { label: "Upload Directory", value: "../uploads" },
+                { label: "Export Directory", value: "../exports" },
+              ]}
+            />
+          </SettingsCard>
+        );
+      case "deploy":
+        return (
+          <SettingsCard title="배포 정보" description="NAS 운영 반영 시 기준 흐름입니다.">
+            <RuleList
+              rules={[
+                "개발 흐름: PC/Codex 수정 → GitHub push → NAS git pull",
+                "NAS에서는 되도록 직접 코드 수정하지 않음",
+                "Frontend 변경 후 npm run build 필요",
+                "Backend 변경 후 backend 재시작 필요",
+                "DB migration 변경 시 backend에서 alembic upgrade head 필요",
+              ]}
+            />
+          </SettingsCard>
         );
       case "backup":
         return (
-          <div className="settings-grid">
-            <SettingsCard title="데이터/백업 안내" description="운영 전 점검해야 할 데이터 관리 기준입니다.">
-              <RuleList
-                rules={[
-                  "운영 DB는 정기 백업 정책을 별도로 수립해야 합니다.",
-                  "배포 전에는 DB와 환경 파일 백업을 권장합니다.",
-                  ".env 파일은 백업하되 Git에는 올리지 않습니다.",
-                  "엑셀 내보내기는 데이터 확인 및 보조 백업 용도로 사용합니다.",
-                ]}
-              />
-            </SettingsCard>
-            <SettingsCard title="사용자/권한 안내" description="현재는 제한된 내부 사용을 전제로 합니다.">
-              <ColumnGroup title="향후 권한 구조 예시" columns={["관리자", "일반 사용자", "조회 전용"]} />
-              <p className="settings-muted">
-                이번 단계에서는 실제 계정 생성, 로그인, 권한 부여 기능을 제공하지 않습니다.
-              </p>
-            </SettingsCard>
-          </div>
+          <SettingsCard title="백업/운영 정보" description="백업 위치는 스크립트 내용을 기준으로 확인합니다.">
+            <InfoList
+              items={[
+                { label: "DB 백업 스크립트", value: "deploy/backup_db.sh" },
+                { label: "Health Check", value: "deploy/health_check.sh" },
+                { label: "로그 로테이션", value: "deploy/rotate_logs.sh" },
+                { label: "백업 보관 기준", value: "30일" },
+                { label: "백업 위치 확인", value: "deploy/backup_db.sh 내용을 기준으로 확인" },
+              ]}
+            />
+          </SettingsCard>
         );
-      case "system":
+      case "handover":
         return (
-          <div className="settings-grid-single">
-            <SettingsCard
-              title="시스템 상태"
-              description="현재 로컬 개발 기준의 상태와 접속 정보를 확인합니다."
-              action={
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={onCheckBackend}
-                  disabled={backendStatus?.loading}
-                >
-                  {backendStatus?.loading ? "확인 중..." : "상태 확인"}
-                </button>
-              }
-            >
-              <InfoList
-                items={[
-                  { label: "Frontend", value: "http://127.0.0.1:5173" },
-                  { label: "Backend", value: "http://127.0.0.1:8001" },
-                  { label: "Backend/DB", value: statusText },
-                  { label: "버전", value: "Local Preview Version" },
-                ]}
-              />
-              <div className="settings-status-inline">
-                <StatusBadge status={backendStatus?.ok ? "사용중" : "미사용"} />
-                <span>{statusText}</span>
-              </div>
-            </SettingsCard>
-          </div>
+          <SettingsCard title="인수인계 메모" description="담당자 변경 시 가장 먼저 확인할 정보입니다." important>
+            <InfoList
+              items={[
+                { label: "앱 접속 주소", value: "http://192.168.222.210:3010", href: "http://192.168.222.210:3010/" },
+                { label: "NAS 프로젝트 경로", value: "/volume6/총무/서버/자산관리 프로젝트/asset-manager-web" },
+                { label: "DB 컨테이너", value: "asset-postgres" },
+                { label: "DB 데이터 폴더", value: "/volume6/총무/서버/자산관리 프로젝트/postgres-data" },
+                { label: "DB 백업", value: "deploy/backup_db.sh 기준으로 관리" },
+                { label: "서비스 점검", value: "deploy/health_check.sh로 확인" },
+                { label: "금지 사항", value: "80/8080 포트와 기존 SCM 서버는 절대 변경하지 않음" },
+              ]}
+            />
+          </SettingsCard>
+        );
+      case "caution":
+        return (
+          <SettingsCard title="주의사항" description="민감정보와 기존 NAS 서비스 보호를 위한 운영 원칙입니다." important>
+            <RuleList
+              rules={[
+                "기존 서버/SCM/기존 NAS 서비스 건드리지 않기",
+                "80/8080 포트 사용 또는 변경 금지",
+                ".env 파일 Git 업로드 금지",
+                "PostgreSQL 데이터 폴더 직접 삭제 금지",
+                "DB 비밀번호, GitHub token 등 민감정보 화면 표시 금지",
+              ]}
+            />
+          </SettingsCard>
         );
       case "basic":
       default:
         return (
-          <div className="settings-grid-single">
-            <SettingsCard title="운영 정보" description="저장 기능 없이 현재 적용 기준을 확인하는 영역입니다.">
-              <InfoList
-                items={[
-                  { label: "시스템명", value: "사내 자산관리 시스템" },
-                  { label: "회사명", value: "The Limo &" },
-                  { label: "관리 부서", value: "총무팀" },
-                  { label: "운영 환경", value: "로컬 개발 환경 / NAS 배포 예정" },
-                  { label: "로고", value: "사이드바 상단에 회사 로고 적용" },
-                ]}
-              />
-              <p className="settings-muted">
-                향후 저장 기능이 필요해질 경우 이 영역에 운영 정보 수정 기능을 연결할 수 있습니다.
-              </p>
-            </SettingsCard>
-          </div>
+          <SettingsCard title="기본 정보" description="읽기 전용 운영 기준 정보입니다.">
+            <InfoList
+              items={[
+                { label: "시스템명", value: "사내 자산관리 시스템" },
+                { label: "회사명", value: "The Limo &" },
+                { label: "관리 부서", value: "총무팀" },
+                { label: "운영 방식", value: "NAS 직접 실행" },
+                { label: "운영 범위", value: "회사 내부망 전용" },
+              ]}
+            />
+            <p className="settings-muted">이 설정 화면은 저장 기능이 없는 읽기 전용 인수인계 정보입니다.</p>
+          </SettingsCard>
         );
     }
   };
@@ -277,11 +217,11 @@ function SettingsPage({ backendStatus, onCheckBackend, onNavigate }) {
     <section className="settings-page" aria-labelledby="settings-title">
       <div className="settings-hero">
         <div>
-          <span className="section-kicker">System Settings</span>
+          <span className="section-kicker">Read Only Operations</span>
           <h2 id="settings-title">설정</h2>
-          <p>시스템 운영 기준과 관리 정보를 확인합니다.</p>
+          <p>운영 정보, DB 위치, 백업/인수인계 기준을 확인합니다.</p>
         </div>
-        <span className="settings-version-badge">Local Preview Version</span>
+        <span className="settings-version-badge">읽기 전용</span>
       </div>
 
       <div className="settings-layout">
