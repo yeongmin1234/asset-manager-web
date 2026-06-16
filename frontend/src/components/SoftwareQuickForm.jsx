@@ -14,6 +14,27 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const isEditMode = Boolean(editingItem);
+
+  useEffect(() => {
+    if (!editingItem) {
+      setForm(INITIAL_FORM);
+      setMessage("");
+      setError("");
+      return;
+    }
+
+    setForm({
+      name: editingItem.name || "",
+      owner_name: editingItem.owner_name || "",
+      license_type: editingItem.license_type || "영구",
+      quantity: String(editingItem.quantity ?? 1),
+      expire_date: editingItem.expire_date || "",
+      note: editingItem.note || "",
+    });
+    setMessage("");
+    setError("");
+  }, [editingItem]);
 
   const canSubmit = useMemo(
     () => !isSubmitting && Boolean(form.name.trim()) && Number(form.quantity || 0) >= 0,
@@ -128,24 +149,3 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
 }
 
 export default SoftwareQuickForm;
-  const isEditMode = Boolean(editingItem);
-
-  useEffect(() => {
-    if (!editingItem) {
-      setForm(INITIAL_FORM);
-      setMessage("");
-      setError("");
-      return;
-    }
-
-    setForm({
-      name: editingItem.name || "",
-      owner_name: editingItem.owner_name || "",
-      license_type: editingItem.license_type || "영구",
-      quantity: String(editingItem.quantity ?? 1),
-      expire_date: editingItem.expire_date || "",
-      note: editingItem.note || "",
-    });
-    setMessage("");
-    setError("");
-  }, [editingItem]);
