@@ -20,6 +20,7 @@ const INITIAL_FORM = {
 
 function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit }) {
   const [form, setForm] = useState(INITIAL_FORM);
+  const [activeTab, setActiveTab] = useState("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -28,6 +29,7 @@ function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit }) {
   useEffect(() => {
     if (!editingItem) {
       setForm(INITIAL_FORM);
+      setActiveTab("basic");
       setMessage("");
       setError("");
       return;
@@ -50,6 +52,7 @@ function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit }) {
       lease_payment_day: editingItem.lease_payment_day || "",
       tax_note: editingItem.tax_note || "",
     });
+    setActiveTab("basic");
     setMessage("");
     setError("");
   }, [editingItem]);
@@ -116,31 +119,56 @@ function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit }) {
         </div>
       </div>
 
-      <form className="vehicle-create-form" onSubmit={handleSubmit}>
-        <Field name="company_name" label="사업자" value={form.company_name} onChange={handleChange} />
-        <Field name="vehicle_number" label="차량번호" value={form.vehicle_number} onChange={handleChange} required />
-        <Field name="vehicle_name" label="차명" value={form.vehicle_name} onChange={handleChange} required />
-        <Field name="driver_name" label="사용자" value={form.driver_name} onChange={handleChange} />
-        <label className="field">
-          <span>소유권</span>
-          <select name="ownership_type" value={form.ownership_type} onChange={handleChange}>
-            <option value="회사">회사</option>
-            <option value="리스">리스</option>
-          </select>
-        </label>
-        <Field name="insurance_company" label="보험사" value={form.insurance_company} onChange={handleChange} />
-        <Field name="insurance_type" label="자동차보험 유형" value={form.insurance_type} onChange={handleChange} />
-        <Field name="insurance_start_date" label="보험 시작일" type="date" value={form.insurance_start_date} onChange={handleChange} />
-        <Field name="insurance_end_date" label="보험 종료일" type="date" value={form.insurance_end_date} onChange={handleChange} />
-        <Field name="lease_company" label="리스사" value={form.lease_company} onChange={handleChange} />
-        <Field name="lease_start_date" label="리스 시작일" type="date" value={form.lease_start_date} onChange={handleChange} />
-        <Field name="lease_end_date" label="리스 종료일" type="date" value={form.lease_end_date} onChange={handleChange} />
-        <Field name="monthly_lease_amount" label="월 리스금액" type="number" min="0" value={form.monthly_lease_amount} onChange={handleChange} />
-        <Field name="lease_payment_day" label="리스 납부일" value={form.lease_payment_day} onChange={handleChange} />
-        <label className="field vehicle-tax-note-field">
-          <span>자동차세 및 기타</span>
-          <textarea name="tax_note" rows="2" value={form.tax_note} onChange={handleChange} />
-        </label>
+      <form onSubmit={handleSubmit}>
+        <div className="vehicle-form-tabs" aria-label="차량 등록 정보 탭">
+          <button
+            type="button"
+            className={activeTab === "basic" ? "vehicle-form-tab active" : "vehicle-form-tab"}
+            onClick={() => setActiveTab("basic")}
+          >
+            기본/보험 정보
+          </button>
+          <button
+            type="button"
+            className={activeTab === "lease" ? "vehicle-form-tab active" : "vehicle-form-tab"}
+            onClick={() => setActiveTab("lease")}
+          >
+            리스 정보
+          </button>
+        </div>
+
+        {activeTab === "basic" && (
+          <div className="vehicle-create-form">
+            <Field name="company_name" label="사업자" value={form.company_name} onChange={handleChange} />
+            <Field name="vehicle_number" label="차량번호" value={form.vehicle_number} onChange={handleChange} required />
+            <Field name="vehicle_name" label="차명" value={form.vehicle_name} onChange={handleChange} required />
+            <Field name="driver_name" label="사용자" value={form.driver_name} onChange={handleChange} />
+            <label className="field">
+              <span>소유권</span>
+              <select name="ownership_type" value={form.ownership_type} onChange={handleChange}>
+                <option value="회사">회사</option>
+                <option value="리스">리스</option>
+              </select>
+            </label>
+            <Field name="insurance_company" label="보험사" value={form.insurance_company} onChange={handleChange} />
+            <Field name="insurance_start_date" label="보험 시작일" type="date" value={form.insurance_start_date} onChange={handleChange} />
+            <Field name="insurance_end_date" label="보험 종료일" type="date" value={form.insurance_end_date} onChange={handleChange} />
+          </div>
+        )}
+
+        {activeTab === "lease" && (
+          <div className="vehicle-create-form vehicle-lease-form">
+            <Field name="lease_company" label="리스사" value={form.lease_company} onChange={handleChange} />
+            <Field name="lease_start_date" label="리스 시작일" type="date" value={form.lease_start_date} onChange={handleChange} />
+            <Field name="lease_end_date" label="리스 종료일" type="date" value={form.lease_end_date} onChange={handleChange} />
+            <Field name="monthly_lease_amount" label="월 리스금액" type="number" min="0" value={form.monthly_lease_amount} onChange={handleChange} />
+            <Field name="lease_payment_day" label="리스 납부일" value={form.lease_payment_day} onChange={handleChange} />
+            <label className="field vehicle-tax-note-field">
+              <span>자동차세 및 기타</span>
+              <textarea name="tax_note" rows="2" value={form.tax_note} onChange={handleChange} />
+            </label>
+          </div>
+        )}
 
         <div className="quick-create-actions">
           {message && <span className="inline-success">{message}</span>}

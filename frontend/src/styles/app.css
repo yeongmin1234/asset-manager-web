@@ -1859,6 +1859,36 @@ p {
   grid-template-columns: repeat(5, minmax(160px, 1fr));
 }
 
+.vehicle-form-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vehicle-form-tab {
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 7px 14px;
+}
+
+.vehicle-form-tab:hover,
+.vehicle-form-tab.active {
+  background: #eaf2ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.vehicle-lease-form {
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+}
+
 .software-note-field,
 .software-license-key-field,
 .vehicle-tax-note-field {
