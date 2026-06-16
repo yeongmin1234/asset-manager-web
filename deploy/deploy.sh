@@ -16,7 +16,8 @@ LOG_FILE="$LOG_DIR/deploy.log"
 
 mkdir -p "$LOG_DIR"
 TMP_LOG="$LOG_DIR/deploy.$$.tmp"
-trap 'rm -f "$TMP_LOG"' EXIT
+BUILD_LOG="$LOG_DIR/frontend-build.$$.tmp"
+trap 'rm -f "$TMP_LOG" "$BUILD_LOG"' EXIT
 
 check_url() {
   label="$1"
@@ -27,6 +28,37 @@ check_url() {
     echo "FAIL $label $url"
     return 1
   fi
+}
+
+run_frontend_build() {
+  echo "Running frontend build."
+  if npm run build > "$BUILD_LOG" 2>&1; then
+    cat "$BUILD_LOG"
+    echo "Frontend build completed."
+    return 0
+  fi
+
+  echo "Frontend build failed."
+  cat "$BUILD_LOG"
+
+  if grep -E "@rollup/rollup-linux-x64-gnu|optional dependencies" "$BUILD_LOG" >/dev/null 2>&1; then
+    echo "Rollup optional dependency issue detected."
+    echo "Reinstalling frontend dependencies with optional packages."
+    rm -rf node_modules
+    npm install --include=optional
+
+    echo "Retrying frontend build."
+    if npm run build; then
+      echo "Frontend build completed after Rollup optional dependency recovery."
+      return 0
+    fi
+
+    echo "Frontend build retry failed."
+    return 1
+  fi
+
+  echo "Frontend build failed for a non-Rollup optional dependency reason."
+  return 1
 }
 
 run_deploy() {
@@ -81,7 +113,7 @@ run_deploy() {
   else
     npm install
   fi
-  npm run build
+  run_frontend_build
 
   echo "== Restart services =="
   "$ROOT_DIR/deploy/stop_all.sh"
