@@ -12,6 +12,8 @@ import {
   getStatsByDepartment,
   getStatsMonthly,
   getStatsSummary,
+  getVisitorsSummary,
+  pingVisitor,
 } from "./api/client.js";
 import AssetDetail from "./components/AssetDetail.jsx";
 import AssetForm from "./components/AssetForm.jsx";
@@ -21,6 +23,7 @@ import CategoryStats from "./components/CategoryStats.jsx";
 import DepartmentStats from "./components/DepartmentStats.jsx";
 import AssetExcelTools from "./components/AssetExcelTools.jsx";
 import FilterBar from "./components/FilterBar.jsx";
+import HistoryPage from "./components/HistoryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import PortalHero from "./components/PortalHero.jsx";
 import PortalSidebar from "./components/PortalSidebar.jsx";
@@ -61,6 +64,12 @@ function App() {
     isLoading: false,
     message: "백엔드 연결 상태를 확인할 수 있습니다.",
     type: "idle",
+  });
+  const [visitorSummary, setVisitorSummary] = useState({
+    active_count: null,
+    active_window_seconds: 180,
+    visitors: [],
+    error: "",
   });
   const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
@@ -167,6 +176,24 @@ function App() {
       setBackendStatus((current) => ({
         ...current,
         isLoading: false,
+      }));
+    }
+  }, []);
+
+  const refreshVisitors = useCallback(async () => {
+    try {
+      await pingVisitor();
+      const summary = await getVisitorsSummary();
+      setVisitorSummary({
+        active_count: Number(summary?.active_count || 0),
+        active_window_seconds: Number(summary?.active_window_seconds || 180),
+        visitors: Array.isArray(summary?.visitors) ? summary.visitors : [],
+        error: "",
+      });
+    } catch (error) {
+      setVisitorSummary((current) => ({
+        ...current,
+        error: error.message,
       }));
     }
   }, []);
@@ -294,7 +321,13 @@ function App() {
   useEffect(() => {
     checkBackend();
     loadLookups();
-  }, [checkBackend, loadLookups]);
+    refreshVisitors();
+  }, [checkBackend, loadLookups, refreshVisitors]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(refreshVisitors, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [refreshVisitors]);
 
   useEffect(() => {
     loadAssets();
@@ -582,10 +615,7 @@ function App() {
     }
 
     if (activeSection === "history") {
-      return renderReadyCard(
-        "변경 이력",
-        "전체 변경 이력 화면은 준비 중입니다. 현재는 자산 상세 모달에서 개별 이력을 확인할 수 있습니다.",
-      );
+      return <HistoryPage />;
     }
 
     if (activeSection === "settings") {
@@ -639,6 +669,7 @@ function App() {
               onClose={() => setIsServerStatusOpen(false)}
               onCheck={checkBackend}
               status={backendStatus}
+              visitorSummary={visitorSummary}
             />
             <button type="button" className="icon-button portal-alert-button" aria-label="알림">
               ◦

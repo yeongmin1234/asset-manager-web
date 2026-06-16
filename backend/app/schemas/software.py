@@ -12,7 +12,7 @@ class SoftwareItemBase(BaseModel):
     license_type: SoftwareLicenseType = SoftwareLicenseType.PERPETUAL
     quantity: int = Field(default=1, ge=0)
     expire_date: Optional[date] = None
-    note: Optional[str] = None
+    license_key: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -22,7 +22,7 @@ class SoftwareItemBase(BaseModel):
             raise ValueError("software name is required.")
         return normalized_value
 
-    @field_validator("owner_name", "note")
+    @field_validator("owner_name", "license_key")
     @classmethod
     def normalize_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:

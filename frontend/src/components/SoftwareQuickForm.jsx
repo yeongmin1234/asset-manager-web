@@ -6,7 +6,7 @@ const INITIAL_FORM = {
   license_type: "영구",
   quantity: "1",
   expire_date: "",
-  note: "",
+  license_key: "",
 };
 
 function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
@@ -30,7 +30,7 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
       license_type: editingItem.license_type || "영구",
       quantity: String(editingItem.quantity ?? 1),
       expire_date: editingItem.expire_date || "",
-      note: editingItem.note || "",
+      license_key: editingItem.license_key || "",
     });
     setMessage("");
     setError("");
@@ -60,7 +60,7 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
       license_type: form.license_type,
       quantity: Number(form.quantity || 0),
       expire_date: form.expire_date || null,
-      note: form.note.trim() || null,
+      license_key: form.license_key.trim() || null,
     };
 
     setIsSubmitting(true);
@@ -126,9 +126,9 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
             onChange={handleChange}
           />
         </label>
-        <label className="field software-note-field">
-          <span>기타</span>
-          <input name="note" value={form.note} onChange={handleChange} />
+        <label className="field software-license-key-field">
+          <span>라이선스키/CDKEY</span>
+          <input name="license_key" value={form.license_key} onChange={handleChange} />
         </label>
 
         <div className="quick-create-actions">

@@ -198,6 +198,16 @@ export async function getDatabaseHealth() {
   return request("/health/db");
 }
 
+export async function pingVisitor() {
+  return request("/visitors/ping", {
+    method: "POST",
+  });
+}
+
+export async function getVisitorsSummary() {
+  return request("/visitors/summary");
+}
+
 export async function getCategories() {
   return normalizeCollection(await request("/categories"));
 }
@@ -244,6 +254,10 @@ export async function getAsset(assetId) {
 
 export async function getAssetHistory(assetId) {
   return request(`/assets/${assetId}/history`);
+}
+
+export async function getActivityLogs(limit = 100) {
+  return normalizeCollection(await request("/activity-logs", { query: { limit } }));
 }
 
 export async function getStatsSummary() {

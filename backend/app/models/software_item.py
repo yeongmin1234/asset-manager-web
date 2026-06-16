@@ -32,6 +32,7 @@ class SoftwareItem(Base):
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     expire_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    license_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

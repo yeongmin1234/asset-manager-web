@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -42,11 +42,17 @@ def list_software_items(
 
 @router.post("", response_model=SoftwareItemRead, status_code=status.HTTP_201_CREATED)
 def create_new_software_item(
+    request: Request,
     payload: SoftwareItemCreate,
     db: Session = Depends(get_db),
 ) -> SoftwareItemRead:
     try:
-        return create_software_item(db, payload)
+        return create_software_item(
+            db,
+            payload,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -57,12 +63,19 @@ def create_new_software_item(
 
 @router.put("/{software_id}", response_model=SoftwareItemRead)
 def update_existing_software_item(
+    request: Request,
     software_id: int,
     payload: SoftwareItemUpdate,
     db: Session = Depends(get_db),
 ) -> SoftwareItemRead:
     try:
-        return update_software_item(db, software_id, payload)
+        return update_software_item(
+            db,
+            software_id,
+            payload,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except SoftwareItemNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -78,11 +91,17 @@ def update_existing_software_item(
 
 @router.delete("/{software_id}", response_model=SoftwareItemRead)
 def delete_existing_software_item(
+    request: Request,
     software_id: int,
     db: Session = Depends(get_db),
 ) -> SoftwareItemRead:
     try:
-        return delete_software_item(db, software_id)
+        return delete_software_item(
+            db,
+            software_id,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except SoftwareItemNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

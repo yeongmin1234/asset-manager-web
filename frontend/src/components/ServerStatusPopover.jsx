@@ -20,6 +20,42 @@ function formatCheckedAt(value) {
   }).format(date);
 }
 
+function formatLastSeen(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function shortenUserAgent(value) {
+  const text = String(value || "");
+  if (!text) {
+    return "-";
+  }
+  if (text.includes("Edg/")) {
+    return "Edge";
+  }
+  if (text.includes("Chrome/")) {
+    return "Chrome";
+  }
+  if (text.includes("Firefox/")) {
+    return "Firefox";
+  }
+  if (text.includes("Safari/")) {
+    return "Safari";
+  }
+  return text.slice(0, 32);
+}
+
 function StatusValue({ isOk, unknownLabel = "확인 대기" }) {
   if (isOk === null || isOk === undefined) {
     return (
@@ -51,8 +87,10 @@ function getStatusButtonClass(status) {
   return "server-status-button-idle";
 }
 
-function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status }) {
+function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status, visitorSummary }) {
   const wrapperRef = useRef(null);
+  const activeCount = visitorSummary?.active_count;
+  const visitors = Array.isArray(visitorSummary?.visitors) ? visitorSummary.visitors : [];
 
   useEffect(() => {
     if (!isOpen) {
@@ -94,7 +132,11 @@ function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status }) {
         aria-haspopup="dialog"
       >
         <span className="server-status-button-dot" aria-hidden="true" />
-        {status?.isLoading ? "확인 중..." : "서버 상태"}
+        {status?.isLoading
+          ? "확인 중..."
+          : activeCount === null || activeCount === undefined
+            ? "서버 상태"
+            : `현재 접속 ${activeCount}명`}
       </button>
 
       {isOpen ? (
@@ -151,6 +193,28 @@ function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status }) {
           {hasError && status?.message ? (
             <p className="server-status-error">{status.message}</p>
           ) : null}
+
+          <div className="visitor-summary">
+            <div className="visitor-summary-heading">
+              <strong>접속자 현황</strong>
+              <span>최근 {visitorSummary?.active_window_seconds || 180}초 기준</span>
+            </div>
+            {visitorSummary?.error ? (
+              <p className="visitor-summary-error">접속자 현황을 불러오지 못했습니다.</p>
+            ) : visitors.length > 0 ? (
+              <div className="visitor-list">
+                {visitors.map((visitor) => (
+                  <div className="visitor-item" key={visitor.ip_address}>
+                    <strong>{visitor.ip_address}</strong>
+                    <span>{shortenUserAgent(visitor.user_agent)}</span>
+                    <span>{formatLastSeen(visitor.last_seen)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="visitor-summary-empty">현재 접속 정보를 확인 중입니다.</p>
+            )}
+          </div>
 
           <button
             type="button"

@@ -48,7 +48,7 @@ function SoftwareList({
               <th>라이선스 구분</th>
               <th>수량</th>
               <th>만료일</th>
-              <th>기타</th>
+              <th>라이선스키/CDKEY</th>
               <th>관리</th>
             </tr>
           </thead>
@@ -73,7 +73,7 @@ function SoftwareList({
                     <ExpirationBadge expireDate={item.expire_date} />
                   </div>
                 </td>
-                <td>{item.note || "-"}</td>
+                <td className="software-license-key-cell">{item.license_key || "-"}</td>
                 <td>
                   <div className="software-row-actions">
                     <button
@@ -109,36 +109,38 @@ function SoftwareList({
         </div>
       </div>
 
-      <div className="software-tabs" aria-label="SW 구분 탭">
-        {safeTabs.map((tab) => (
-          <button
-            type="button"
-            key={tab.label}
-            className={activeTab === tab.value ? "software-tab active" : "software-tab"}
-            onClick={() => onTabChange(tab.value)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="software-list-controls">
+        <div className="software-tabs" aria-label="SW 구분 탭">
+          {safeTabs.map((tab) => (
+            <button
+              type="button"
+              key={tab.label}
+              className={activeTab === tab.value ? "software-tab active" : "software-tab"}
+              onClick={() => onTabChange(tab.value)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <div className="software-filter-grid">
-        <label className="field">
-          <span>만료 상태</span>
-          <select
-            value={filters.expiration_status}
-            onChange={(event) =>
-              onFilterChange({ ...filters, expiration_status: event.target.value })
-            }
-          >
-            <option value="">전체</option>
-            <option value="within_30">만료 예정 30일 이내</option>
-            <option value="within_60">만료 예정 60일 이내</option>
-            <option value="within_90">만료 예정 90일 이내</option>
-            <option value="expired">만료됨</option>
-            <option value="no_date">만료일 없음</option>
-          </select>
-        </label>
+        <div className="software-filter-grid">
+          <label className="field">
+            <span>만료 상태</span>
+            <select
+              value={filters.expiration_status}
+              onChange={(event) =>
+                onFilterChange({ ...filters, expiration_status: event.target.value })
+              }
+            >
+              <option value="">전체</option>
+              <option value="within_30">만료 예정 30일 이내</option>
+              <option value="within_60">만료 예정 60일 이내</option>
+              <option value="within_90">만료 예정 90일 이내</option>
+              <option value="expired">만료됨</option>
+              <option value="no_date">만료일 없음</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {renderContent()}

@@ -11,6 +11,10 @@ from app.schemas.software import (
     SoftwareItemUpdate,
     SoftwareStatsSummary,
 )
+from app.services.activity_log_service import (
+    record_software_activity,
+    serialize_software_activity_data,
+)
 
 
 class SoftwareItemNotFoundError(Exception):
@@ -43,9 +47,25 @@ def get_software_items(
     return list(db.scalars(statement).all())
 
 
-def create_software_item(db: Session, payload: SoftwareItemCreate) -> SoftwareItem:
+def create_software_item(
+    db: Session,
+    payload: SoftwareItemCreate,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> SoftwareItem:
     software_item = SoftwareItem(**payload.model_dump())
     db.add(software_item)
+    db.flush()
+    record_software_activity(
+        db,
+        action_type="등록",
+        target_id=software_item.id,
+        target_name=software_item.name,
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        after_data=serialize_software_activity_data(software_item),
+    )
     db.commit()
     db.refresh(software_item)
     return software_item
@@ -64,19 +84,50 @@ def update_software_item(
     db: Session,
     software_id: int,
     payload: SoftwareItemUpdate,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
 ) -> SoftwareItem:
     software_item = get_software_item(db, software_id)
+    before_data = serialize_software_activity_data(software_item)
     for field_name, value in payload.model_dump().items():
         setattr(software_item, field_name, value)
     software_item.updated_at = datetime.now(timezone.utc)
+    db.flush()
+    record_software_activity(
+        db,
+        action_type="수정",
+        target_id=software_item.id,
+        target_name=software_item.name,
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        before_data=before_data,
+        after_data=serialize_software_activity_data(software_item),
+    )
     db.commit()
     db.refresh(software_item)
     return software_item
 
 
-def delete_software_item(db: Session, software_id: int) -> SoftwareItemRead:
+def delete_software_item(
+    db: Session,
+    software_id: int,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> SoftwareItemRead:
     software_item = get_software_item(db, software_id)
+    before_data = serialize_software_activity_data(software_item)
     deleted_item = SoftwareItemRead.model_validate(software_item)
+    record_software_activity(
+        db,
+        action_type="삭제",
+        target_id=software_item.id,
+        target_name=software_item.name,
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        before_data=before_data,
+    )
     db.delete(software_item)
     db.commit()
     return deleted_item

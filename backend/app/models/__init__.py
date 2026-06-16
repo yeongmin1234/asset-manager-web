@@ -1,3 +1,4 @@
+from app.models.activity_log import SystemActivityLog
 from app.models.asset import Asset, AssetStatus
 from app.models.category import Category
 from app.models.department import Department
@@ -11,6 +12,7 @@ __all__ = [
     "AssetStatus",
     "Category",
     "Department",
+    "SystemActivityLog",
     "SoftwareItem",
     "SoftwareLicenseType",
 ]
