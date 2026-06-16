@@ -42,8 +42,14 @@ if is_placeholder_database_url "$POSTGRES_PASSWORD"; then
   exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Database backup failed: docker command is not available."
+DOCKER_CMD=""
+if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+  DOCKER_CMD="docker"
+elif command -v sudo >/dev/null 2>&1 && sudo docker ps >/dev/null 2>&1; then
+  DOCKER_CMD="sudo docker"
+else
+  echo "Database backup failed: docker is not available or permission is denied."
+  echo "Check Docker permission or sudo docker access for the current user."
   exit 1
 fi
 
@@ -51,14 +57,14 @@ echo "Backing up asset manager PostgreSQL database only."
 echo "Output: $BACKUP_FILE"
 rm -f "$TMP_BACKUP_FILE"
 if [ -n "$POSTGRES_PASSWORD" ]; then
-  if ! docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" \
+  if ! $DOCKER_CMD exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$POSTGRES_CONTAINER" \
     pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c > "$TMP_BACKUP_FILE"; then
     rm -f "$TMP_BACKUP_FILE"
     echo "Database backup failed: container pg_dump did not complete."
     exit 1
   fi
 else
-  if ! docker exec "$POSTGRES_CONTAINER" \
+  if ! $DOCKER_CMD exec "$POSTGRES_CONTAINER" \
     pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c > "$TMP_BACKUP_FILE"; then
     rm -f "$TMP_BACKUP_FILE"
     echo "Database backup failed: container pg_dump did not complete."
