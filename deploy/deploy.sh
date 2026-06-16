@@ -47,6 +47,8 @@ run_frontend_build() {
     rm -rf node_modules package-lock.json || return 1
     echo "Reinstalling frontend dependencies with optional packages."
     npm install --include=optional || return 1
+    echo "Installing Rollup Linux optional package explicitly."
+    npm install --no-save @rollup/rollup-linux-x64-gnu || return 1
 
     echo "Retrying frontend build."
     if npm run build; then
