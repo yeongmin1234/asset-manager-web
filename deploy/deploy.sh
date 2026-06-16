@@ -45,6 +45,20 @@ run_deploy() {
   fi
   git pull --ff-only
 
+  echo "== Database backup =="
+  BACKUP_SCRIPT="$ROOT_DIR/deploy/backup_db.sh"
+  if [ ! -f "$BACKUP_SCRIPT" ]; then
+    echo "Database backup script not found: $BACKUP_SCRIPT"
+    return 1
+  fi
+  if [ ! -x "$BACKUP_SCRIPT" ]; then
+    echo "Database backup script is not executable: $BACKUP_SCRIPT"
+    return 1
+  fi
+  echo "Starting database backup before migration."
+  "$BACKUP_SCRIPT"
+  echo "Database backup completed."
+
   echo "== Backend dependency check =="
   cd "$ROOT_DIR/backend"
   if [ ! -d ".venv" ]; then

@@ -34,6 +34,7 @@ import SettingsPage from "./components/SettingsPage.jsx";
 import ShortcutPanel from "./components/ShortcutPanel.jsx";
 import SoftwarePage from "./components/SoftwarePage.jsx";
 import StatsSummary from "./components/StatsSummary.jsx";
+import VehiclePage from "./components/VehiclePage.jsx";
 import "./styles/app.css";
 
 const INITIAL_FILTERS = {
@@ -597,6 +598,10 @@ function App() {
       return <SoftwarePage />;
     }
 
+    if (activeSection === "vehicles") {
+      return <VehiclePage />;
+    }
+
     if (activeSection === "stats") {
       return (
         <>
@@ -685,13 +690,14 @@ function App() {
           className={
             activeSection === "excel"
               || activeSection === "software"
+              || activeSection === "vehicles"
               ? "portal-content portal-content-wide"
               : "portal-content"
           }
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "excel" && activeSection !== "software" && (
+          {activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && (
             <aside className="portal-aside">
               <ShortcutPanel onNavigate={handleNavigate} />
               <RecentActivityPanel assets={displayedAssets} onNavigate={handleNavigate} />

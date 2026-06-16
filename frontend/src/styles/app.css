@@ -1852,8 +1852,16 @@ p {
     minmax(180px, 1fr);
 }
 
+.vehicle-create-form {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
+}
+
 .software-note-field,
-.software-license-key-field {
+.software-license-key-field,
+.vehicle-tax-note-field {
   grid-column: auto;
 }
 
@@ -1945,6 +1953,25 @@ p {
 .software-row.editing {
   background: #f1f7ff;
   box-shadow: inset 4px 0 0 var(--brand);
+}
+
+.vehicle-table {
+  min-width: 1760px;
+}
+
+.vehicle-table th,
+.vehicle-table td {
+  white-space: nowrap;
+}
+
+.vehicle-row.editing {
+  background: #f1f7ff;
+  box-shadow: inset 4px 0 0 var(--brand);
+}
+
+.vehicle-note-cell {
+  max-width: 220px;
+  white-space: normal;
 }
 
 .software-license-key-cell {
@@ -2836,6 +2863,7 @@ input:disabled {
   .filter-grid,
   .quick-create-form,
   .software-create-form,
+  .vehicle-create-form,
   .software-filter-grid,
   .asset-form,
   .detail-grid {
@@ -2844,6 +2872,7 @@ input:disabled {
 
   .quick-note-field,
   .software-note-field,
+  .vehicle-tax-note-field,
   .quick-create-actions {
     grid-column: 1 / -1;
   }

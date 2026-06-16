@@ -304,6 +304,34 @@ export async function deleteSoftwareItem(softwareId) {
   });
 }
 
+export async function getVehicles(filters = {}) {
+  return normalizeCollection(await request("/vehicles", { query: filters }));
+}
+
+export async function getVehicleSummary() {
+  return request("/vehicles/summary");
+}
+
+export async function createVehicle(vehicle) {
+  return request("/vehicles", {
+    method: "POST",
+    body: vehicle,
+  });
+}
+
+export async function updateVehicle(vehicleId, vehicle) {
+  return request(`/vehicles/${vehicleId}`, {
+    method: "PUT",
+    body: vehicle,
+  });
+}
+
+export async function deleteVehicle(vehicleId) {
+  return request(`/vehicles/${vehicleId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createAsset(asset) {
   return request("/assets", {
     method: "POST",
