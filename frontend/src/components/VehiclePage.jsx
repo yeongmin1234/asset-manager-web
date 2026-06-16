@@ -32,6 +32,7 @@ function VehiclePage() {
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [editingItem, setEditingItem] = useState(null);
   const [activeTab, setActiveTab] = useState("");
+  const [activePageTab, setActivePageTab] = useState("list");
 
   const displayedItems = useMemo(
     () => filterVehicles(items, activeTab),
@@ -76,6 +77,7 @@ function VehiclePage() {
       await createVehicle(payload);
     }
     await Promise.all([loadItems(), loadSummary()]);
+    setActivePageTab("list");
   };
 
   const handleDelete = async (item) => {
@@ -90,33 +92,67 @@ function VehiclePage() {
     await Promise.all([loadItems(), loadSummary()]);
   };
 
+  const handleEdit = (item) => {
+    setEditingItem(item);
+    setActivePageTab("form");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setActivePageTab("list");
+  };
+
   return (
     <>
-      <div className="portal-screen-heading">
-        <h2>법인차량 관리</h2>
-        <p>회사 법인차량, 보험, 리스 만기 정보를 관리합니다.</p>
+      <div className="portal-screen-heading vehicle-page-heading">
+        <div>
+          <h2>법인차량 관리</h2>
+          <p>회사 법인차량, 보험, 리스 만기 정보를 관리합니다.</p>
+        </div>
+        <VehicleStats
+          summary={summary}
+          isLoading={summaryState.isLoading}
+          error={summaryState.error}
+          compact
+        />
       </div>
-      <VehicleStats
-        summary={summary}
-        isLoading={summaryState.isLoading}
-        error={summaryState.error}
-      />
-      <VehicleQuickForm
-        editingItem={editingItem}
-        onCancelEdit={() => setEditingItem(null)}
-        onSubmit={handleSubmit}
-      />
-      <VehicleList
-        items={displayedItems}
-        isLoading={listState.isLoading}
-        error={listState.error}
-        activeTab={activeTab}
-        editingItemId={editingItem?.id || null}
-        onDelete={handleDelete}
-        onEdit={setEditingItem}
-        onTabChange={setActiveTab}
-        tabs={VEHICLE_TABS}
-      />
+
+      <div className="vehicle-page-tabs" aria-label="법인차량 화면 탭">
+        <button
+          type="button"
+          className={activePageTab === "list" ? "vehicle-page-tab active" : "vehicle-page-tab"}
+          onClick={() => setActivePageTab("list")}
+        >
+          차량 목록
+        </button>
+        <button
+          type="button"
+          className={activePageTab === "form" ? "vehicle-page-tab active" : "vehicle-page-tab"}
+          onClick={() => setActivePageTab("form")}
+        >
+          빠른 등록
+        </button>
+      </div>
+
+      {activePageTab === "list" ? (
+        <VehicleList
+          items={displayedItems}
+          isLoading={listState.isLoading}
+          error={listState.error}
+          activeTab={activeTab}
+          editingItemId={editingItem?.id || null}
+          onDelete={handleDelete}
+          onEdit={handleEdit}
+          onTabChange={setActiveTab}
+          tabs={VEHICLE_TABS}
+        />
+      ) : (
+        <VehicleQuickForm
+          editingItem={editingItem}
+          onCancelEdit={handleCancelEdit}
+          onSubmit={handleSubmit}
+        />
+      )}
     </>
   );
 }

@@ -7,7 +7,7 @@ const INITIAL_SUMMARY = {
   expiring_soon_count: 0,
 };
 
-function VehicleStats({ summary, isLoading, error }) {
+function VehicleStats({ summary, isLoading, error, compact = false }) {
   const safeSummary = { ...INITIAL_SUMMARY, ...(summary || {}) };
   const cards = [
     { label: "전체 차량", value: safeSummary.total_vehicles, tone: "blue" },
@@ -17,15 +17,27 @@ function VehicleStats({ summary, isLoading, error }) {
   ];
 
   return (
-    <section className="stats-summary vehicle-stats" aria-labelledby="vehicle-stats-title">
-      <div className="section-heading">
-        <div>
-          <h2 id="vehicle-stats-title">차량 요약</h2>
-          <p>소유권과 보험/리스 만기 임박 차량을 확인합니다.</p>
+    <section
+      className={compact ? "vehicle-stats vehicle-stats-compact" : "stats-summary vehicle-stats"}
+      aria-labelledby={compact ? undefined : "vehicle-stats-title"}
+      aria-label={compact ? "차량 요약" : undefined}
+    >
+      {!compact && (
+        <div className="section-heading">
+          <div>
+            <h2 id="vehicle-stats-title">차량 요약</h2>
+            <p>소유권과 보험/리스 만기 임박 차량을 확인합니다.</p>
+          </div>
+          {isLoading && <span className="status-pill">집계 중</span>}
+          {error && <span className="lookup-warning">{error}</span>}
         </div>
-        {isLoading && <span className="status-pill">집계 중</span>}
-        {error && <span className="lookup-warning">{error}</span>}
-      </div>
+      )}
+      {compact && (isLoading || error) && (
+        <div className="vehicle-stats-note">
+          {isLoading && <span className="status-pill">집계 중</span>}
+          {error && <span className="lookup-warning">{error}</span>}
+        </div>
+      )}
       <div className="stats-grid">
         {cards.map((card) => (
           <article className={`stats-card stats-card-${card.tone}`} key={card.label}>
