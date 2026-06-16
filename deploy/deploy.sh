@@ -44,8 +44,8 @@ run_frontend_build() {
   if grep -E "@rollup/rollup-linux-x64-gnu|optional dependencies" "$BUILD_LOG" >/dev/null 2>&1; then
     echo "Rollup optional dependency issue detected."
     echo "Reinstalling frontend dependencies with optional packages."
-    rm -rf node_modules
-    npm install --include=optional
+    rm -rf node_modules || return 1
+    npm install --include=optional || return 1
 
     echo "Retrying frontend build."
     if npm run build; then
@@ -75,7 +75,7 @@ run_deploy() {
     git status --short
     return 1
   fi
-  git pull --ff-only
+  git pull --ff-only || return 1
 
   echo "== Database backup =="
   BACKUP_SCRIPT="$ROOT_DIR/deploy/backup_db.sh"
@@ -88,47 +88,48 @@ run_deploy() {
     return 1
   fi
   echo "Starting database backup before migration."
-  "$BACKUP_SCRIPT"
+  "$BACKUP_SCRIPT" || return 1
   echo "Database backup completed."
 
   echo "== Backend dependency check =="
+  unset DATABASE_URL
   cd "$ROOT_DIR/backend"
   if [ ! -d ".venv" ]; then
-    python3 -m venv .venv
+    python3 -m venv .venv || return 1
   fi
   . .venv/bin/activate
-  python -m pip install -r requirements.txt
+  python -m pip install -r requirements.txt || return 1
 
   echo "== Backend compile check =="
-  python -m compileall app
+  python -m compileall app || return 1
 
   echo "== Database migration =="
-  alembic upgrade head
-  alembic current
+  alembic upgrade head || return 1
+  alembic current || return 1
 
   echo "== Frontend build =="
   cd "$ROOT_DIR/frontend"
   if [ -f "package-lock.json" ]; then
-    npm ci
+    npm ci || return 1
   else
-    npm install
+    npm install || return 1
   fi
-  run_frontend_build
+  run_frontend_build || return 1
 
   echo "== Restart services =="
-  "$ROOT_DIR/deploy/stop_all.sh"
-  "$ROOT_DIR/deploy/start_backend.sh"
-  "$ROOT_DIR/deploy/start_frontend.sh"
+  "$ROOT_DIR/deploy/stop_all.sh" || return 1
+  "$ROOT_DIR/deploy/start_backend.sh" || return 1
+  "$ROOT_DIR/deploy/start_frontend.sh" || return 1
 
   echo "== Health check =="
-  "$ROOT_DIR/deploy/health_check.sh"
+  "$ROOT_DIR/deploy/health_check.sh" || return 1
 
   echo "== Direct endpoint check =="
-  check_url "Backend health" "http://127.0.0.1:8010/health"
-  check_url "Backend DB health" "http://127.0.0.1:8010/health/db"
-  check_url "Software list" "http://127.0.0.1:8010/software"
-  check_url "Software summary" "http://127.0.0.1:8010/software/summary"
-  check_url "Frontend" "http://127.0.0.1:3010"
+  check_url "Backend health" "http://127.0.0.1:8010/health" || return 1
+  check_url "Backend DB health" "http://127.0.0.1:8010/health/db" || return 1
+  check_url "Software list" "http://127.0.0.1:8010/software" || return 1
+  check_url "Software summary" "http://127.0.0.1:8010/software/summary" || return 1
+  check_url "Frontend" "http://127.0.0.1:3010" || return 1
 }
 
 if run_deploy > "$TMP_LOG" 2>&1; then
