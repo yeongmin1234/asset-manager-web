@@ -30,11 +30,51 @@ check_url() {
   fi
 }
 
+restore_package_lock_if_only_dirty() {
+  reason="$1"
+  current_dir="$(pwd)"
+  cd "$ROOT_DIR"
+
+  status="$(git status --porcelain)"
+  if [ -z "$status" ]; then
+    cd "$current_dir"
+    return 0
+  fi
+
+  other_changes="$(printf '%s\n' "$status" | grep -v '^.. frontend/package-lock\.json$' || true)"
+  if [ -n "$other_changes" ]; then
+    echo "Working tree is dirty. Commit, stash, or remove local changes before deploy."
+    echo "Changed files:"
+    git status --short
+    cd "$current_dir"
+    return 1
+  fi
+
+  echo "$reason"
+  echo "Only frontend/package-lock.json changed. Restoring it before continuing."
+  git restore -- frontend/package-lock.json || {
+    cd "$current_dir"
+    return 1
+  }
+
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Working tree is still dirty after restoring frontend/package-lock.json."
+    echo "Changed files:"
+    git status --short
+    cd "$current_dir"
+    return 1
+  fi
+
+  cd "$current_dir"
+  return 0
+}
+
 run_frontend_build() {
   echo "Running frontend build."
   if npm run build > "$BUILD_LOG" 2>&1; then
     cat "$BUILD_LOG"
     echo "Frontend build completed."
+    restore_package_lock_if_only_dirty "Checking for package-lock changes after frontend build." || return 1
     return 0
   fi
 
@@ -46,21 +86,25 @@ run_frontend_build() {
     echo "Removing node_modules and package-lock.json for Rollup optional dependency recovery."
     rm -rf node_modules package-lock.json || return 1
     echo "Reinstalling frontend dependencies with optional packages."
-    npm install --include=optional || return 1
+    npm install --include=optional || {
+      restore_package_lock_if_only_dirty "Cleaning package-lock change after failed optional dependency install." || return 1
+      return 1
+    }
     echo "Installing Rollup Linux optional package explicitly."
-    npm install --no-save @rollup/rollup-linux-x64-gnu || return 1
+    npm install --no-save @rollup/rollup-linux-x64-gnu || {
+      restore_package_lock_if_only_dirty "Cleaning package-lock change after failed Rollup optional package install." || return 1
+      return 1
+    }
 
     echo "Retrying frontend build."
     if npm run build; then
       echo "Frontend build completed after Rollup optional dependency recovery."
-      if [ -n "$(git status --short package-lock.json 2>/dev/null)" ]; then
-        echo "package-lock.json changed during recovery. Do not commit this change on NAS unless reviewed."
-        git status --short package-lock.json
-      fi
+      restore_package_lock_if_only_dirty "Checking for package-lock changes after Rollup optional dependency recovery." || return 1
       return 0
     fi
 
     echo "Frontend build retry failed."
+    restore_package_lock_if_only_dirty "Cleaning package-lock change after failed Rollup recovery build." || return 1
     return 1
   fi
 
@@ -76,12 +120,7 @@ run_deploy() {
   echo "== Git update =="
   cd "$ROOT_DIR"
   git status --short
-  if [ -n "$(git status --porcelain)" ]; then
-    echo "Working tree is dirty. Commit, stash, or remove local changes before deploy."
-    echo "Changed files:"
-    git status --short
-    return 1
-  fi
+  restore_package_lock_if_only_dirty "Checking working tree before deploy." || return 1
   git pull --ff-only || return 1
 
   echo "== Database backup =="

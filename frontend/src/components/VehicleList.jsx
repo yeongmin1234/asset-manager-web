@@ -1,4 +1,19 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useMemo, useRef, useState } from "react";
+
+const COLUMN_WIDTH_STORAGE_KEY = "assetManager.vehicleTable.columnWidths";
+const VEHICLE_COLUMNS = [
+  { key: "company", label: "사업자", initialWidth: 110, minWidth: 80 },
+  { key: "vehicleNumber", label: "차량번호", initialWidth: 120, minWidth: 90 },
+  { key: "vehicleName", label: "차명", initialWidth: 280, minWidth: 160 },
+  { key: "driver", label: "사용자", initialWidth: 100, minWidth: 80 },
+  { key: "ownership", label: "소유권", initialWidth: 80, minWidth: 70 },
+  { key: "insuranceCompany", label: "보험사", initialWidth: 110, minWidth: 90 },
+  { key: "insuranceStart", label: "보험 시작일", initialWidth: 120, minWidth: 100 },
+  { key: "insuranceEnd", label: "보험 종료일", initialWidth: 120, minWidth: 100 },
+  { key: "insuranceDDay", label: "보험 D-Day", initialWidth: 90, minWidth: 80 },
+  { key: "leaseDetail", label: "리스 상세", initialWidth: 100, minWidth: 90 },
+  { key: "actions", label: "관리", initialWidth: 120, minWidth: 100 },
+];
 
 function VehicleList({
   items,
@@ -14,6 +29,50 @@ function VehicleList({
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
   const [expandedItemId, setExpandedItemId] = useState(null);
+  const [columnWidths, setColumnWidths] = useState(getInitialColumnWidths);
+  const resizeStateRef = useRef(null);
+
+  const tableWidth = useMemo(
+    () => VEHICLE_COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
+    [columnWidths],
+  );
+
+  const handleColumnResizeStart = (event, column) => {
+    event.preventDefault();
+    resizeStateRef.current = {
+      key: column.key,
+      minWidth: column.minWidth,
+      startX: event.clientX,
+      startWidth: columnWidths[column.key],
+    };
+    document.body.classList.add("vehicle-column-resizing");
+
+    const handleMouseMove = (moveEvent) => {
+      const resizeState = resizeStateRef.current;
+      if (!resizeState) {
+        return;
+      }
+      const nextWidth = Math.max(
+        resizeState.minWidth,
+        resizeState.startWidth + moveEvent.clientX - resizeState.startX,
+      );
+      setColumnWidths((currentWidths) => {
+        const nextWidths = { ...currentWidths, [resizeState.key]: nextWidth };
+        saveColumnWidths(nextWidths);
+        return nextWidths;
+      });
+    };
+
+    const handleMouseUp = () => {
+      resizeStateRef.current = null;
+      document.body.classList.remove("vehicle-column-resizing");
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -38,20 +97,27 @@ function VehicleList({
 
     return (
       <div className="asset-table-wrap">
-        <table className="asset-table vehicle-table">
+        <table className="asset-table vehicle-table" style={{ minWidth: `${tableWidth}px` }}>
+          <colgroup>
+            {VEHICLE_COLUMNS.map((column) => (
+              <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <th>사업자</th>
-              <th>차량번호</th>
-              <th>차명</th>
-              <th>사용자</th>
-              <th>소유권</th>
-              <th>보험사</th>
-              <th>보험 시작일</th>
-              <th>보험 종료일</th>
-              <th>보험 D-Day</th>
-              <th>리스 상세</th>
-              <th className="vehicle-actions-cell">관리</th>
+              {VEHICLE_COLUMNS.map((column) => (
+                <th
+                  key={column.key}
+                  className={column.key === "actions" ? "vehicle-actions-cell" : undefined}
+                >
+                  <span className="vehicle-resizable-heading">{column.label}</span>
+                  <span
+                    aria-hidden="true"
+                    className="vehicle-column-resize-handle"
+                    onMouseDown={(event) => handleColumnResizeStart(event, column)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -222,6 +288,44 @@ function formatCurrency(value) {
     return "-";
   }
   return Number(value || 0).toLocaleString("ko-KR");
+}
+
+function getInitialColumnWidths() {
+  const defaultWidths = VEHICLE_COLUMNS.reduce(
+    (widths, column) => ({ ...widths, [column.key]: column.initialWidth }),
+    {},
+  );
+
+  if (typeof window === "undefined") {
+    return defaultWidths;
+  }
+
+  try {
+    const savedWidths = JSON.parse(window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY) || "{}");
+    return VEHICLE_COLUMNS.reduce((widths, column) => {
+      const savedWidth = Number(savedWidths[column.key]);
+      return {
+        ...widths,
+        [column.key]: Number.isFinite(savedWidth)
+          ? Math.max(column.minWidth, savedWidth)
+          : column.initialWidth,
+      };
+    }, {});
+  } catch {
+    return defaultWidths;
+  }
+}
+
+function saveColumnWidths(widths) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(widths));
+  } catch {
+    // Ignore storage failures; resizing still works for the current page state.
+  }
 }
 
 export default VehicleList;
