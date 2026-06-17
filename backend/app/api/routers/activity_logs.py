@@ -15,6 +15,21 @@ router = APIRouter(prefix="/activity-logs", tags=["activity-logs"])
 @router.get("", response_model=List[ActivityLogRead])
 def list_activity_logs(
     limit: int = Query(default=100, ge=1, le=200),
+    target_type: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> List[ActivityLogRead]:
+    try:
+        return get_activity_logs(db, limit=limit, target_type=target_type)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while loading activity logs.",
+        ) from exc
+
+
+@router.get("/recent", response_model=List[ActivityLogRead])
+def list_recent_activity_logs(
+    limit: int = Query(default=10, ge=1, le=50),
     db: Session = Depends(get_db),
 ) -> List[ActivityLogRead]:
     try:

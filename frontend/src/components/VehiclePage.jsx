@@ -7,6 +7,7 @@ import {
   updateVehicle,
 } from "../api/client.js";
 import VehicleList, { getDaysUntilDate } from "./VehicleList.jsx";
+import VehicleInsuranceHistory from "./VehicleInsuranceHistory.jsx";
 import VehicleQuickForm from "./VehicleQuickForm.jsx";
 import VehicleStats from "./VehicleStats.jsx";
 
@@ -125,6 +126,13 @@ function VehiclePage() {
       >
         빠른 등록
       </button>
+      <button
+        type="button"
+        className={activePageTab === "history" ? "vehicle-page-tab active" : "vehicle-page-tab"}
+        onClick={() => setActivePageTab("history")}
+      >
+        보험 이력
+      </button>
     </div>
   );
 
@@ -146,10 +154,18 @@ function VehiclePage() {
       <section className="content-panel vehicle-main-panel">
         <div className="section-heading vehicle-main-heading">
           <div>
-            <h2>{activePageTab === "list" ? "차량 목록" : editingItem ? "차량 수정" : "빠른 등록"}</h2>
+            <h2>
+              {activePageTab === "list"
+                ? "차량 목록"
+                : activePageTab === "history"
+                  ? "보험 이력"
+                  : editingItem ? "차량 수정" : "빠른 등록"}
+            </h2>
             <p>
               {activePageTab === "list"
                 ? "보험 중심 목록으로 확인하고, 리스 정보는 리스 상세에서 확인합니다."
+                : activePageTab === "history"
+                  ? "차량을 선택해 단기보험 이력을 관리합니다."
                 : "법인차량과 보험/리스 정보를 등록합니다."}
             </p>
           </div>
@@ -173,6 +189,8 @@ function VehiclePage() {
               onTabChange={setActiveTab}
               tabs={VEHICLE_TABS}
             />
+          ) : activePageTab === "history" ? (
+            <VehicleInsuranceHistory vehicles={items} />
           ) : (
             <VehicleQuickForm
               editingItem={editingItem}

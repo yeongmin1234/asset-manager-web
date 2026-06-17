@@ -4,7 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.routers import activity_logs, company_vehicles, software, stats, visitors
+from app.api.routers import (
+    activity_logs,
+    company_vehicles,
+    software,
+    stats,
+    vehicle_insurance_histories,
+    visitors,
+)
 from app.routers import assets, categories, departments, health
 
 
@@ -35,5 +42,6 @@ app.include_router(assets.router)
 app.include_router(stats.router)
 app.include_router(software.router)
 app.include_router(company_vehicles.router)
+app.include_router(vehicle_insurance_histories.router)
 app.include_router(visitors.router)
 app.include_router(activity_logs.router)

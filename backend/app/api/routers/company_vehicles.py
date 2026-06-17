@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -41,11 +41,17 @@ def list_company_vehicles(
 
 @router.post("", response_model=CompanyVehicleRead, status_code=status.HTTP_201_CREATED)
 def create_new_company_vehicle(
+    request: Request,
     payload: CompanyVehicleCreate,
     db: Session = Depends(get_db),
 ) -> CompanyVehicleRead:
     try:
-        return create_company_vehicle(db, payload)
+        return create_company_vehicle(
+            db,
+            payload,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -56,12 +62,19 @@ def create_new_company_vehicle(
 
 @router.put("/{vehicle_id}", response_model=CompanyVehicleRead)
 def update_existing_company_vehicle(
+    request: Request,
     vehicle_id: int,
     payload: CompanyVehicleUpdate,
     db: Session = Depends(get_db),
 ) -> CompanyVehicleRead:
     try:
-        return update_company_vehicle(db, vehicle_id, payload)
+        return update_company_vehicle(
+            db,
+            vehicle_id,
+            payload,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except CompanyVehicleNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -77,11 +90,17 @@ def update_existing_company_vehicle(
 
 @router.delete("/{vehicle_id}", response_model=CompanyVehicleRead)
 def delete_existing_company_vehicle(
+    request: Request,
     vehicle_id: int,
     db: Session = Depends(get_db),
 ) -> CompanyVehicleRead:
     try:
-        return delete_company_vehicle(db, vehicle_id)
+        return delete_company_vehicle(
+            db,
+            vehicle_id,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except CompanyVehicleNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

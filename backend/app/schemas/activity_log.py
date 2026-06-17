@@ -14,6 +14,7 @@ class ActivityLogRead(BaseModel):
     actor_ip: Optional[str] = None
     actor_name: Optional[str] = None
     user_agent: Optional[str] = None
+    summary: Optional[str] = None
     before_data: Optional[Dict[str, object]] = None
     after_data: Optional[Dict[str, object]] = None
     created_at: datetime

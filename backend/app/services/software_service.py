@@ -64,6 +64,7 @@ def create_software_item(
         target_name=software_item.name,
         actor_ip=actor_ip,
         user_agent=user_agent,
+        summary=f"SW 등록: {software_item.name}",
         after_data=serialize_software_activity_data(software_item),
     )
     db.commit()
@@ -101,6 +102,7 @@ def update_software_item(
         target_name=software_item.name,
         actor_ip=actor_ip,
         user_agent=user_agent,
+        summary=f"SW 수정: {software_item.name}",
         before_data=before_data,
         after_data=serialize_software_activity_data(software_item),
     )
@@ -126,6 +128,7 @@ def delete_software_item(
         target_name=software_item.name,
         actor_ip=actor_ip,
         user_agent=user_agent,
+        summary=f"SW 삭제: {software_item.name}",
         before_data=before_data,
     )
     db.delete(software_item)

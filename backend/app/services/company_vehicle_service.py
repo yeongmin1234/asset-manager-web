@@ -11,6 +11,10 @@ from app.schemas.company_vehicle import (
     CompanyVehicleSummary,
     CompanyVehicleUpdate,
 )
+from app.services.activity_log_service import (
+    record_vehicle_activity,
+    serialize_vehicle_activity_data,
+)
 
 
 class CompanyVehicleNotFoundError(Exception):
@@ -29,9 +33,26 @@ def get_company_vehicles(
     return list(db.scalars(statement).all())
 
 
-def create_company_vehicle(db: Session, payload: CompanyVehicleCreate) -> CompanyVehicle:
+def create_company_vehicle(
+    db: Session,
+    payload: CompanyVehicleCreate,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> CompanyVehicle:
     vehicle = CompanyVehicle(**payload.model_dump())
     db.add(vehicle)
+    db.flush()
+    record_vehicle_activity(
+        db,
+        action_type="등록",
+        target_id=vehicle.id,
+        target_name=format_vehicle_target_name(vehicle),
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        summary=f"차량 등록: {format_vehicle_target_name(vehicle)}",
+        after_data=serialize_vehicle_activity_data(vehicle),
+    )
     db.commit()
     db.refresh(vehicle)
     return vehicle
@@ -48,19 +69,53 @@ def update_company_vehicle(
     db: Session,
     vehicle_id: int,
     payload: CompanyVehicleUpdate,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
 ) -> CompanyVehicle:
     vehicle = get_company_vehicle(db, vehicle_id)
+    before_data = serialize_vehicle_activity_data(vehicle)
     for field_name, value in payload.model_dump().items():
         setattr(vehicle, field_name, value)
     vehicle.updated_at = datetime.now(timezone.utc)
+    db.flush()
+    record_vehicle_activity(
+        db,
+        action_type="수정",
+        target_id=vehicle.id,
+        target_name=format_vehicle_target_name(vehicle),
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        summary=f"차량 수정: {format_vehicle_target_name(vehicle)}",
+        before_data=before_data,
+        after_data=serialize_vehicle_activity_data(vehicle),
+    )
     db.commit()
     db.refresh(vehicle)
     return vehicle
 
 
-def delete_company_vehicle(db: Session, vehicle_id: int) -> CompanyVehicleRead:
+def delete_company_vehicle(
+    db: Session,
+    vehicle_id: int,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> CompanyVehicleRead:
     vehicle = get_company_vehicle(db, vehicle_id)
+    before_data = serialize_vehicle_activity_data(vehicle)
+    target_name = format_vehicle_target_name(vehicle)
     deleted_vehicle = CompanyVehicleRead.model_validate(vehicle)
+    record_vehicle_activity(
+        db,
+        action_type="삭제",
+        target_id=vehicle.id,
+        target_name=target_name,
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        summary=f"차량 삭제: {target_name}",
+        before_data=before_data,
+    )
     db.delete(vehicle)
     db.commit()
     return deleted_vehicle
@@ -110,3 +165,8 @@ def get_company_vehicle_summary(db: Session) -> CompanyVehicleSummary:
         lease_count=int(row.lease_count or 0),
         expiring_soon_count=int(row.expiring_soon_count or 0),
     )
+
+
+def format_vehicle_target_name(vehicle: CompanyVehicle) -> str:
+    parts = [vehicle.vehicle_number, vehicle.vehicle_name]
+    return " / ".join(part for part in parts if part) or f"차량 #{vehicle.id}"

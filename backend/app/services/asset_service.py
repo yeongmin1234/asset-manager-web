@@ -28,6 +28,10 @@ from app.services.history_service import (
     record_asset_disposed,
     record_asset_history,
 )
+from app.services.activity_log_service import (
+    record_asset_activity,
+    serialize_asset_activity_data,
+)
 
 
 class AssetNotFoundError(Exception):
@@ -484,7 +488,13 @@ def get_asset(db: Session, asset_id: int) -> Asset:
     return asset
 
 
-def create_asset(db: Session, asset_create: AssetCreate) -> Asset:
+def create_asset(
+    db: Session,
+    asset_create: AssetCreate,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> Asset:
     validate_category(db, asset_create.category_id)
     if asset_create.department_id is not None:
         validate_department(db, asset_create.department_id)
@@ -497,6 +507,16 @@ def create_asset(db: Session, asset_create: AssetCreate) -> Asset:
         db.add(asset)
         db.flush()
         record_asset_created(db, asset.id)
+        record_asset_activity(
+            db,
+            action_type="등록",
+            target_id=asset.id,
+            target_name=asset.name,
+            actor_ip=actor_ip,
+            user_agent=user_agent,
+            summary=f"자산 등록: {asset.name}",
+            after_data=serialize_asset_activity_data(asset),
+        )
         db.commit()
         db.refresh(asset)
     except Exception:
@@ -506,9 +526,17 @@ def create_asset(db: Session, asset_create: AssetCreate) -> Asset:
     return asset
 
 
-def update_asset(db: Session, asset_id: int, asset_update: AssetUpdate) -> Asset:
+def update_asset(
+    db: Session,
+    asset_id: int,
+    asset_update: AssetUpdate,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> Asset:
     asset = get_asset(db, asset_id)
     update_data = asset_update.model_dump(exclude_unset=True)
+    before_data = serialize_asset_activity_data(asset)
 
     if "category_id" in update_data:
         validate_category(db, update_data["category_id"])
@@ -542,28 +570,17 @@ def update_asset(db: Session, asset_id: int, asset_update: AssetUpdate) -> Asset
                 new_value=new_value,
             )
 
-        db.commit()
-        db.refresh(asset)
-    except Exception:
-        db.rollback()
-        raise
-
-    return asset
-
-
-def dispose_asset(db: Session, asset_id: int) -> Asset:
-    asset = get_asset(db, asset_id)
-    if asset.status == AssetStatus.DISPOSED:
-        return asset
-
-    try:
-        old_status = asset.status
-        asset.status = AssetStatus.DISPOSED
-        record_asset_disposed(
+        db.flush()
+        record_asset_activity(
             db,
-            asset_id=asset.id,
-            old_value=old_status,
-            new_value=AssetStatus.DISPOSED,
+            action_type="수정",
+            target_id=asset.id,
+            target_name=asset.name,
+            actor_ip=actor_ip,
+            user_agent=user_agent,
+            summary=f"자산 수정: {asset.name}",
+            before_data=before_data,
+            after_data=serialize_asset_activity_data(asset),
         )
         db.commit()
         db.refresh(asset)
@@ -574,13 +591,72 @@ def dispose_asset(db: Session, asset_id: int) -> Asset:
     return asset
 
 
-def soft_delete_asset(db: Session, asset_id: int) -> Asset:
+def dispose_asset(
+    db: Session,
+    asset_id: int,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> Asset:
+    asset = get_asset(db, asset_id)
+    if asset.status == AssetStatus.DISPOSED:
+        return asset
+
+    try:
+        before_data = serialize_asset_activity_data(asset)
+        old_status = asset.status
+        asset.status = AssetStatus.DISPOSED
+        record_asset_disposed(
+            db,
+            asset_id=asset.id,
+            old_value=old_status,
+            new_value=AssetStatus.DISPOSED,
+        )
+        db.flush()
+        record_asset_activity(
+            db,
+            action_type="폐기",
+            target_id=asset.id,
+            target_name=asset.name,
+            actor_ip=actor_ip,
+            user_agent=user_agent,
+            summary=f"자산 폐기: {asset.name}",
+            before_data=before_data,
+            after_data=serialize_asset_activity_data(asset),
+        )
+        db.commit()
+        db.refresh(asset)
+    except Exception:
+        db.rollback()
+        raise
+
+    return asset
+
+
+def soft_delete_asset(
+    db: Session,
+    asset_id: int,
+    *,
+    actor_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> Asset:
     asset = get_asset(db, asset_id)
 
     try:
+        before_data = serialize_asset_activity_data(asset)
         deleted_at = datetime.now(timezone.utc)
         asset.deleted_at = deleted_at
         record_asset_deleted(db, asset.id, new_value=deleted_at)
+        record_asset_activity(
+            db,
+            action_type="삭제",
+            target_id=asset.id,
+            target_name=asset.name,
+            actor_ip=actor_ip,
+            user_agent=user_agent,
+            summary=f"자산 삭제: {asset.name}",
+            before_data=before_data,
+        )
         db.commit()
         db.refresh(asset)
     except Exception:

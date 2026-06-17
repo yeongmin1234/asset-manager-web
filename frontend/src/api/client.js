@@ -256,8 +256,12 @@ export async function getAssetHistory(assetId) {
   return request(`/assets/${assetId}/history`);
 }
 
-export async function getActivityLogs(limit = 100) {
-  return normalizeCollection(await request("/activity-logs", { query: { limit } }));
+export async function getActivityLogs({ limit = 100, target_type = "" } = {}) {
+  return normalizeCollection(await request("/activity-logs", { query: { limit, target_type } }));
+}
+
+export async function getRecentActivityLogs(limit = 10) {
+  return normalizeCollection(await request("/activity-logs/recent", { query: { limit } }));
 }
 
 export async function getStatsSummary() {
@@ -328,6 +332,30 @@ export async function updateVehicle(vehicleId, vehicle) {
 
 export async function deleteVehicle(vehicleId) {
   return request(`/vehicles/${vehicleId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getVehicleInsuranceHistories(vehicleId) {
+  return normalizeCollection(await request(`/vehicles/${vehicleId}/insurance-histories`));
+}
+
+export async function createVehicleInsuranceHistory(vehicleId, history) {
+  return request(`/vehicles/${vehicleId}/insurance-histories`, {
+    method: "POST",
+    body: history,
+  });
+}
+
+export async function updateVehicleInsuranceHistory(historyId, history) {
+  return request(`/vehicles/insurance-histories/${historyId}`, {
+    method: "PUT",
+    body: history,
+  });
+}
+
+export async function deleteVehicleInsuranceHistory(historyId) {
+  return request(`/vehicles/insurance-histories/${historyId}`, {
     method: "DELETE",
   });
 }

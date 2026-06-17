@@ -19,6 +19,7 @@ class SystemActivityLog(Base):
     actor_ip: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     actor_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     before_data: Mapped[Optional[Dict[str, object]]] = mapped_column(JSON, nullable=True)
     after_data: Mapped[Optional[Dict[str, object]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

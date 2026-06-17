@@ -1,7 +1,7 @@
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -184,11 +184,17 @@ def list_asset_history(
 
 @router.post("", response_model=AssetRead, status_code=status.HTTP_201_CREATED)
 def create_new_asset(
+    request: Request,
     asset_create: AssetCreate,
     db: Session = Depends(get_db),
 ) -> AssetRead:
     try:
-        return create_asset(db, asset_create)
+        return create_asset(
+            db,
+            asset_create,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except AssetConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -208,12 +214,19 @@ def create_new_asset(
 
 @router.put("/{asset_id}", response_model=AssetRead)
 def update_existing_asset(
+    request: Request,
     asset_id: int,
     asset_update: AssetUpdate,
     db: Session = Depends(get_db),
 ) -> AssetRead:
     try:
-        return update_asset(db, asset_id, asset_update)
+        return update_asset(
+            db,
+            asset_id,
+            asset_update,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except AssetNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -238,11 +251,17 @@ def update_existing_asset(
 
 @router.patch("/{asset_id}/dispose", response_model=AssetRead)
 def dispose_existing_asset(
+    request: Request,
     asset_id: int,
     db: Session = Depends(get_db),
 ) -> AssetRead:
     try:
-        return dispose_asset(db, asset_id)
+        return dispose_asset(
+            db,
+            asset_id,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except AssetNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -257,11 +276,17 @@ def dispose_existing_asset(
 
 @router.delete("/{asset_id}", response_model=AssetRead)
 def delete_existing_asset(
+    request: Request,
     asset_id: int,
     db: Session = Depends(get_db),
 ) -> AssetRead:
     try:
-        return soft_delete_asset(db, asset_id)
+        return soft_delete_asset(
+            db,
+            asset_id,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     except AssetNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

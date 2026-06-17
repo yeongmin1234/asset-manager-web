@@ -2207,6 +2207,62 @@ p {
   color: #475569;
 }
 
+.vehicle-history-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.vehicle-history-selector {
+  max-width: 520px;
+}
+
+.vehicle-history-selected {
+  align-items: center;
+  background: #f8fbff;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.vehicle-history-selected strong {
+  color: var(--text);
+}
+
+.vehicle-history-selected span {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.vehicle-history-table {
+  min-width: 980px;
+}
+
+.vehicle-history-note-cell {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.vehicle-history-form {
+  align-items: end;
+  background: #f8fafc;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  padding: 12px;
+}
+
+.vehicle-history-note-field,
+.vehicle-history-form .quick-create-actions {
+  grid-column: 1 / -1;
+}
+
 .vehicle-table th {
   position: relative;
   user-select: none;
@@ -3182,6 +3238,12 @@ input:disabled {
   overflow: hidden;
 }
 
+.history-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .activity-history-table th:nth-child(1),
 .activity-history-table td:nth-child(1) {
   min-width: 110px;
@@ -3294,8 +3356,9 @@ input:disabled {
   .filter-grid,
   .quick-create-form,
   .software-create-form,
-  .vehicle-create-form,
-  .software-filter-grid,
+    .vehicle-create-form,
+    .vehicle-history-form,
+    .software-filter-grid,
   .asset-form,
   .detail-grid {
     grid-template-columns: 1fr;

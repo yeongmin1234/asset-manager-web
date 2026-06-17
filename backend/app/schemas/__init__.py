@@ -9,6 +9,11 @@ from app.schemas.company_vehicle import (
 )
 from app.schemas.department import DepartmentCreate, DepartmentRead, DepartmentUpdate
 from app.schemas.history import AssetHistoryCreate, AssetHistoryRead
+from app.schemas.vehicle_insurance_history import (
+    VehicleInsuranceHistoryCreate,
+    VehicleInsuranceHistoryRead,
+    VehicleInsuranceHistoryUpdate,
+)
 
 __all__ = [
     "ActivityLogRead",
@@ -27,4 +32,7 @@ __all__ = [
     "DepartmentCreate",
     "DepartmentRead",
     "DepartmentUpdate",
+    "VehicleInsuranceHistoryCreate",
+    "VehicleInsuranceHistoryRead",
+    "VehicleInsuranceHistoryUpdate",
 ]

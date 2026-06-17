@@ -720,7 +720,7 @@ function App() {
           {activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && (
             <aside className="portal-aside">
               <ShortcutPanel onNavigate={handleNavigate} />
-              <RecentActivityPanel assets={displayedAssets} onNavigate={handleNavigate} />
+              <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
           )}
         </div>
