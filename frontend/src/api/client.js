@@ -198,6 +198,10 @@ export async function getDatabaseHealth() {
   return request("/health/db");
 }
 
+export async function getNetworkStatus() {
+  return request("/network/status");
+}
+
 export async function pingVisitor() {
   return request("/visitors/ping", {
     method: "POST",

@@ -25,6 +25,7 @@ import AssetExcelTools from "./components/AssetExcelTools.jsx";
 import FilterBar from "./components/FilterBar.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
+import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
 import PortalHero from "./components/PortalHero.jsx";
 import PortalSidebar from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
@@ -610,6 +611,10 @@ function App() {
       return <VehiclePage />;
     }
 
+    if (activeSection === "network") {
+      return <NetworkStatusPage />;
+    }
+
     if (activeSection === "stats") {
       return (
         <>
@@ -711,13 +716,14 @@ function App() {
             activeSection === "excel"
               || activeSection === "software"
               || activeSection === "vehicles"
+              || activeSection === "network"
               ? "portal-content portal-content-wide"
               : "portal-content"
           }
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && (
+          {activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "network" && (
             <aside className="portal-aside">
               <ShortcutPanel onNavigate={handleNavigate} />
               <RecentActivityPanel onNavigate={handleNavigate} />

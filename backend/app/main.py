@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.api.routers import (
     activity_logs,
     company_vehicles,
+    network_status,
     software,
     stats,
     vehicle_insurance_histories,
@@ -43,5 +44,6 @@ app.include_router(stats.router)
 app.include_router(software.router)
 app.include_router(company_vehicles.router)
 app.include_router(vehicle_insurance_histories.router)
+app.include_router(network_status.router)
 app.include_router(visitors.router)
 app.include_router(activity_logs.router)

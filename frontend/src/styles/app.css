@@ -3494,6 +3494,129 @@ input:disabled {
   -webkit-text-fill-color: #ffffff !important;
 }
 
+.network-status-heading {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.network-refresh-button {
+  min-width: 96px;
+  white-space: nowrap;
+}
+
+.network-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 16px;
+}
+
+.network-summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  padding: 16px;
+}
+
+.network-summary-card span {
+  color: #64748b;
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.network-summary-card strong {
+  color: #0f172a;
+  display: block;
+  font-size: 1.8rem;
+  line-height: 1.1;
+  margin-top: 8px;
+}
+
+.network-summary-card-ok {
+  border-color: #bbf7d0;
+}
+
+.network-summary-card-warning {
+  border-color: #fde68a;
+}
+
+.network-summary-card-down {
+  border-color: #fecaca;
+}
+
+.network-status-panel {
+  padding: 18px;
+}
+
+.network-panel-heading {
+  margin-bottom: 12px;
+}
+
+.network-table-scroll {
+  overflow-x: auto;
+}
+
+.network-status-table {
+  min-width: 860px;
+}
+
+.network-status-table th,
+.network-status-table td {
+  white-space: nowrap;
+}
+
+.network-target {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.network-service-name {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.network-status-badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  justify-content: center;
+  min-width: 48px;
+  padding: 5px 10px;
+}
+
+.network-status-badge-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.network-status-badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.network-status-badge-down {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@media (max-width: 760px) {
+  .network-status-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .network-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .history-list-panel {
   display: grid;
   gap: 0;
