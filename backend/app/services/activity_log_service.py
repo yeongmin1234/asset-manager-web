@@ -25,6 +25,8 @@ ASSET_LOG_FIELDS = (
     "name",
     "category_id",
     "department_name",
+    "location_group",
+    "location_detail",
     "user_name",
     "status",
     "model_name",

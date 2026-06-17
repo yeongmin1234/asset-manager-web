@@ -9,6 +9,8 @@ const SORTABLE_COLUMNS = {
   department_name: "부서(사용자명)",
 };
 
+const LOCATION_TABS = ["", "본사", "백화점", "파주창고", "기타"];
+
 function AssetList({
   assets,
   isLoading,
@@ -21,6 +23,8 @@ function AssetList({
   categories,
   activeCategoryId,
   onCategorySelect,
+  activeLocationGroup,
+  onLocationSelect,
   onOpenCategoryCreate,
 }) {
   const safeAssets = Array.isArray(assets) ? assets : [];
@@ -88,6 +92,7 @@ function AssetList({
               >
                 부서(사용자명)
               </SortableHeader>
+              <th>위치</th>
               <th>구매일</th>
             </tr>
           </thead>
@@ -116,6 +121,7 @@ function AssetList({
                 </td>
                 <td>{asset.serial_number || "-"}</td>
                 <td>{getDepartmentUserLabel(asset)}</td>
+                <td>{getLocationLabel(asset)}</td>
                 <td>{asset.purchase_date || "-"}</td>
               </tr>
             ))}
@@ -150,6 +156,8 @@ function AssetList({
               <dd>{asset.serial_number || "-"}</dd>
               <dt>부서(사용자명)</dt>
               <dd>{getDepartmentUserLabel(asset)}</dd>
+              <dt>위치</dt>
+              <dd>{getLocationLabel(asset)}</dd>
               <dt>구매일</dt>
               <dd>{asset.purchase_date || "-"}</dd>
             </dl>
@@ -162,6 +170,19 @@ function AssetList({
 
   return (
     <div className="asset-list">
+      <div className="asset-location-tabs" aria-label="위치별 보기">
+        <span>위치별 보기</span>
+        {LOCATION_TABS.map((location) => (
+          <button
+            type="button"
+            key={location || "all"}
+            className={activeLocationGroup === location ? "asset-location-tab active" : "asset-location-tab"}
+            onClick={() => onLocationSelect?.(location)}
+          >
+            {location || "전체"}
+          </button>
+        ))}
+      </div>
       <AssetCategoryTabs
         categories={categories}
         activeCategoryId={activeCategoryId}
@@ -175,6 +196,15 @@ function AssetList({
 
 function getDepartmentUserLabel(asset) {
   return asset?.department_name || asset?.user_name || "-";
+}
+
+function getLocationLabel(asset) {
+  const group = asset?.location_group || "";
+  const detail = asset?.location_detail || "";
+  if (group && detail) {
+    return `${group} / ${detail}`;
+  }
+  return group || detail || "-";
 }
 
 function SortableHeader({ column, sortConfig, onSortChange, children }) {

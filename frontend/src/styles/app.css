@@ -2151,6 +2151,55 @@ p {
   white-space: nowrap;
 }
 
+.software-license-badge {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.software-license-badge.permanent {
+  background: #334155;
+  border-color: #334155;
+  color: #ffffff;
+}
+
+.software-license-badge.subscription {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.software-license-badge.inactive {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.software-license-badge.unknown {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.software-table .software-expire-cell {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.software-expiry-date,
+.software-expiry-status {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .software-license-view-button {
   min-height: 30px;
   padding: 6px 10px;
@@ -2997,6 +3046,55 @@ input:disabled {
   padding: 10px;
 }
 
+.asset-location-tabs {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+.asset-location-tabs > span {
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 900;
+  margin-right: 2px;
+}
+
+.asset-location-tab {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  padding: 7px 13px;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  white-space: nowrap;
+}
+
+.asset-location-tab:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+}
+
+.asset-location-tab.active,
+.asset-location-tab.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
 .vehicle-main-panel {
   gap: 0;
   padding: 10px 12px 12px;
@@ -3065,7 +3163,7 @@ input:disabled {
 
 .asset-table {
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 820px;
   width: 100%;
 }
 
@@ -3088,7 +3186,7 @@ input:disabled {
 
 .asset-table th:nth-child(1),
 .asset-table td:nth-child(1) {
-  width: 30%;
+  width: 28%;
 }
 
 .asset-table th:nth-child(2),
@@ -3098,16 +3196,21 @@ input:disabled {
 
 .asset-table th:nth-child(3),
 .asset-table td:nth-child(3) {
-  width: 22%;
+  width: 18%;
 }
 
 .asset-table th:nth-child(4),
 .asset-table td:nth-child(4) {
-  width: 20%;
+  width: 18%;
 }
 
 .asset-table th:nth-child(5),
 .asset-table td:nth-child(5) {
+  width: 16%;
+}
+
+.asset-table th:nth-child(6),
+.asset-table td:nth-child(6) {
   width: 14%;
 }
 
@@ -3596,6 +3699,66 @@ input:disabled {
   -webkit-text-fill-color: #ffffff !important;
 }
 
+.software-tabs .software-tab.software-tab-permanent:not(.active) {
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.software-tabs .software-tab.software-tab-permanent:not(.active):hover {
+  background: #f1f5f9 !important;
+  border-color: #334155 !important;
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155;
+}
+
+.software-tabs .software-tab.software-tab-permanent.active,
+.software-tabs .software-tab.software-tab-permanent.active:hover {
+  background: #334155 !important;
+  border-color: #334155 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.software-tabs .software-tab.software-tab-subscription:not(.active) {
+  border-color: #86efac;
+  color: #166534;
+}
+
+.software-tabs .software-tab.software-tab-subscription:not(.active):hover {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+  -webkit-text-fill-color: #166534;
+}
+
+.software-tabs .software-tab.software-tab-subscription.active,
+.software-tabs .software-tab.software-tab-subscription.active:hover {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+}
+
+.software-tabs .software-tab.software-tab-inactive:not(.active) {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.software-tabs .software-tab.software-tab-inactive:not(.active):hover {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
+  -webkit-text-fill-color: #b91c1c;
+}
+
+.software-tabs .software-tab.software-tab-inactive.active,
+.software-tabs .software-tab.software-tab-inactive.active:hover {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+}
+
 .network-status-heading {
   align-items: center;
   display: flex;
@@ -3860,13 +4023,14 @@ input:disabled {
 
 .dashboard-hero-compact h2 {
   color: #0f172a;
-  font-size: 1.4rem;
+  font-size: 1.52rem;
   line-height: 1.2;
   margin: 2px 0 4px;
 }
 
 .dashboard-hero-compact p {
   color: #64748b;
+  font-size: 0.95rem;
   margin: 0;
 }
 
@@ -3934,7 +4098,7 @@ input:disabled {
 .dashboard-card-heading h3,
 .dashboard-panel-heading h3 {
   color: #0f172a;
-  font-size: 1rem;
+  font-size: 1.06rem;
   margin: 0;
 }
 
@@ -3952,13 +4116,13 @@ input:disabled {
 
 .dashboard-summary-card dt {
   color: #64748b;
-  font-size: 0.84rem;
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
 .dashboard-summary-card dd {
   color: #0f172a;
-  font-size: 0.94rem;
+  font-size: 1.08rem;
   font-weight: 900;
   margin: 0;
 }
@@ -4008,12 +4172,12 @@ input:disabled {
 .dashboard-attention-list strong {
   color: #0f172a;
   display: block;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
 }
 
 .dashboard-attention-list p {
   color: #64748b;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   margin: 2px 0 0;
 }
 
@@ -4058,7 +4222,7 @@ input:disabled {
 
 .dashboard-recent-item span,
 .dashboard-recent-item strong {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 900;
 }
 
@@ -4072,7 +4236,7 @@ input:disabled {
 
 .dashboard-recent-item p {
   color: #64748b;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;

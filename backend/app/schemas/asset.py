@@ -12,6 +12,8 @@ class AssetBase(BaseModel):
     category_id: int
     department_id: Optional[int] = None
     department_name: Optional[str] = Field(default=None, max_length=100)
+    location_group: Optional[str] = Field(default=None, max_length=50)
+    location_detail: Optional[str] = Field(default=None, max_length=150)
     name: str
     model_name: Optional[str] = None
     serial_number: Optional[str] = Field(default=None, max_length=100)
@@ -21,9 +23,9 @@ class AssetBase(BaseModel):
     status: AssetStatus = AssetStatus.UNUSED
     note: Optional[str] = None
 
-    @field_validator("department_name")
+    @field_validator("department_name", "location_group", "location_detail")
     @classmethod
-    def normalize_department_name(cls, value: Optional[str]) -> Optional[str]:
+    def normalize_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
 
@@ -52,6 +54,8 @@ class AssetUpdate(BaseModel):
     category_id: Optional[int] = None
     department_id: Optional[int] = None
     department_name: Optional[str] = Field(default=None, max_length=100)
+    location_group: Optional[str] = Field(default=None, max_length=50)
+    location_detail: Optional[str] = Field(default=None, max_length=150)
     name: Optional[str] = None
     model_name: Optional[str] = None
     serial_number: Optional[str] = Field(default=None, max_length=100)
@@ -61,9 +65,9 @@ class AssetUpdate(BaseModel):
     status: Optional[AssetStatus] = None
     note: Optional[str] = None
 
-    @field_validator("department_name")
+    @field_validator("department_name", "location_group", "location_detail")
     @classmethod
-    def normalize_department_name(cls, value: Optional[str]) -> Optional[str]:
+    def normalize_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
 

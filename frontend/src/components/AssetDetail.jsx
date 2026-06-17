@@ -263,6 +263,7 @@ function AssetDetail({
           label="부서(사용자명)"
           value={departmentName || asset.user_name || formatLookupId(asset.department_id)}
         />
+        <DetailItem label="위치" value={formatLocation(asset)} />
         <DetailItem label="모델명" value={asset.model_name} />
         <DetailItem label="시리얼번호" value={asset.serial_number} />
         <DetailItem label="구매일" value={asset.purchase_date} />
@@ -345,6 +346,15 @@ function formatPrice(value) {
     return "";
   }
   return Number(value).toLocaleString("ko-KR");
+}
+
+function formatLocation(asset) {
+  const group = asset?.location_group || "";
+  const detail = asset?.location_detail || "";
+  if (group && detail) {
+    return `${group} / ${detail}`;
+  }
+  return group || detail || "";
 }
 
 function formatDateTime(value) {

@@ -42,6 +42,7 @@ const INITIAL_FILTERS = {
   keyword: "",
   status: "",
   category_id: "",
+  location_group: "",
   department_id: "",
 };
 
@@ -127,6 +128,7 @@ function App() {
       keyword: filters.keyword.trim(),
       status: filters.status,
       category_id: filters.category_id,
+      location_group: filters.location_group,
       department_id: filters.department_id,
     }),
     [filters],
@@ -390,6 +392,13 @@ function App() {
     }));
   };
 
+  const handleLocationTabSelect = (locationGroup) => {
+    setFilters((current) => ({
+      ...current,
+      location_group: locationGroup,
+    }));
+  };
+
   const handleCreateCategory = async (name) => {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -559,6 +568,8 @@ function App() {
         categories={categories}
         activeCategoryId={filters.category_id}
         onCategorySelect={handleCategoryTabSelect}
+        activeLocationGroup={filters.location_group}
+        onLocationSelect={handleLocationTabSelect}
         onOpenCategoryCreate={() =>
           setCategoryCreateState({ isOpen: true, isSubmitting: false, error: "" })
         }

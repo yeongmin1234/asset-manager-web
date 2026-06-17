@@ -31,6 +31,8 @@ class Asset(Base):
         index=True,
     )
     department_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    location_group: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    location_detail: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     model_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     serial_number: Mapped[Optional[str]] = mapped_column(

@@ -7,6 +7,14 @@ const STATUS_OPTIONS = [
   { label: "폐기", value: "폐기" },
 ];
 
+const LOCATION_OPTIONS = [
+  { label: "전체", value: "" },
+  { label: "본사", value: "본사" },
+  { label: "백화점", value: "백화점" },
+  { label: "파주창고", value: "파주창고" },
+  { label: "기타", value: "기타" },
+];
+
 function FilterBar({
   filters,
   categories,
@@ -70,6 +78,17 @@ function FilterBar({
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>위치</span>
+          <select name="location_group" value={filters.location_group} onChange={handleChange}>
+            {LOCATION_OPTIONS.map((option) => (
+              <option key={option.label} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>

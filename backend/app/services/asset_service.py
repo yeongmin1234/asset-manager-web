@@ -67,6 +67,7 @@ def get_assets(
     category_id: Optional[int] = None,
     department_id: Optional[int] = None,
     department_name: Optional[str] = None,
+    location_group: Optional[str] = None,
     keyword: Optional[str] = None,
 ) -> List[Asset]:
     statement = (
@@ -92,6 +93,8 @@ def get_assets(
                     Department.name.ilike(department_pattern),
                 )
             )
+    if location_group:
+        statement = statement.where(Asset.location_group == location_group.strip())
 
     if keyword:
         keyword_pattern = f"%{keyword.strip()}%"
@@ -102,6 +105,8 @@ def get_assets(
                     Asset.model_name.ilike(keyword_pattern),
                     Asset.serial_number.ilike(keyword_pattern),
                     Asset.department_name.ilike(keyword_pattern),
+                    Asset.location_group.ilike(keyword_pattern),
+                    Asset.location_detail.ilike(keyword_pattern),
                     Asset.user_name.ilike(keyword_pattern),
                     Department.name.ilike(keyword_pattern),
                 )

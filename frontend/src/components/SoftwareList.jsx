@@ -92,12 +92,16 @@ function SoftwareList({
                   </div>
                 </td>
                 <td>{item.owner_name || "-"}</td>
-                <td><span className="software-type-badge">{item.license_type}</span></td>
+                <td>
+                  <span className={`software-license-badge ${getLicenseTypeClass(item.license_type)}`}>
+                    {item.license_type}
+                  </span>
+                </td>
                 <td>{Number(item.quantity || 0).toLocaleString("ko-KR")}</td>
                 <td className="software-price-cell">{formatPrice(item.price_amount)}</td>
                 <td>
                   <div className="software-expire-cell">
-                    <span>{item.expire_date || "-"}</span>
+                    <span className="software-expiry-date">{formatCompactDate(item.expire_date)}</span>
                     <ExpirationBadge expireDate={item.expire_date} />
                   </div>
                 </td>
@@ -155,7 +159,11 @@ function SoftwareList({
             <button
               type="button"
               key={tab.label}
-              className={activeTab === tab.value ? "software-tab active" : "software-tab"}
+              className={
+                activeTab === tab.value
+                  ? `software-tab ${getSoftwareTabClass(tab.value)} active`
+                  : `software-tab ${getSoftwareTabClass(tab.value)}`
+              }
               onClick={() => onTabChange(tab.value)}
             >
               {tab.label}
@@ -242,10 +250,48 @@ function SoftwareList({
 function ExpirationBadge({ expireDate }) {
   const status = getExpirationStatus(expireDate);
   return (
-    <span className={`software-expiration-badge software-expiration-${status.tone}`}>
+    <span className={`software-expiration-badge software-expiry-status software-expiration-${status.tone}`}>
       {status.label}
     </span>
   );
+}
+
+function getLicenseTypeClass(licenseType) {
+  if (licenseType === "영구") {
+    return "permanent";
+  }
+  if (licenseType === "구독") {
+    return "subscription";
+  }
+  if (licenseType === "사용중지") {
+    return "inactive";
+  }
+  return "unknown";
+}
+
+function getSoftwareTabClass(value) {
+  if (value === "영구") {
+    return "software-tab-permanent";
+  }
+  if (value === "구독") {
+    return "software-tab-subscription";
+  }
+  if (value === "사용중지") {
+    return "software-tab-inactive";
+  }
+  return "software-tab-all";
+}
+
+function formatCompactDate(value) {
+  if (!value) {
+    return "-";
+  }
+  const text = String(value);
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return text;
+  }
+  return `${match[1].slice(2)}-${match[2]}-${match[3]}`;
 }
 
 function getExpirationStatus(expireDate) {

@@ -4,6 +4,8 @@ const INITIAL_FORM = {
   category_id: "",
   department_id: "",
   department_name: "",
+  location_group: "",
+  location_detail: "",
   name: "",
   model_name: "",
   serial_number: "",
@@ -13,6 +15,8 @@ const INITIAL_FORM = {
   status: "미사용",
   note: "",
 };
+
+const LOCATION_OPTIONS = ["본사", "백화점", "파주창고", "기타"];
 
 function AssetForm({
   categories,
@@ -77,6 +81,8 @@ function AssetForm({
       category_id: form.category_id ? Number(form.category_id) : undefined,
       department_id: matchedDepartment ? matchedDepartment.id : null,
       department_name: form.department_name.trim() || null,
+      location_group: form.location_group || null,
+      location_detail: form.location_detail.trim() || null,
       purchase_date: form.purchase_date || null,
       purchase_price: form.purchase_price ? Number(form.purchase_price) : null,
       model_name: form.model_name || null,
@@ -158,6 +164,28 @@ function AssetForm({
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="field">
+            <span>위치</span>
+            <select name="location_group" value={form.location_group} onChange={handleChange}>
+              <option value="">위치 선택</option>
+              {LOCATION_OPTIONS.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>세부 위치</span>
+            <input
+              name="location_detail"
+              value={form.location_detail}
+              onChange={handleChange}
+              placeholder="예: 롯데 본점, 본사 전산실, 파주창고 1층"
+            />
           </label>
 
           <label className="field">
@@ -262,6 +290,8 @@ function normalizeAssetToForm(asset, departments = []) {
     category_id: asset.category_id ? String(asset.category_id) : "",
     department_id: asset.department_id ? String(asset.department_id) : "",
     department_name: departmentName,
+    location_group: asset.location_group || "",
+    location_detail: asset.location_detail || "",
     name: asset.name || "",
     model_name: asset.model_name || "",
     serial_number: asset.serial_number || "",

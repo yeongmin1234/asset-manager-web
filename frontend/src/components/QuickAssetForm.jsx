@@ -3,12 +3,15 @@ import React, { useMemo, useState } from "react";
 const INITIAL_FORM = {
   name: "",
   category_id: "",
+  location_group: "",
+  location_detail: "",
   department_name: "",
   status: "미사용",
   serial_number: "",
   note: "",
 };
 
+const LOCATION_OPTIONS = ["본사", "백화점", "파주창고", "기타"];
 const SERIAL_PATTERN = /^[A-Za-z0-9]+$/;
 
 function QuickAssetForm({
@@ -71,6 +74,8 @@ function QuickAssetForm({
       category_id: Number(form.category_id),
       department_id: matchedDepartment ? matchedDepartment.id : null,
       department_name: form.department_name.trim() || null,
+      location_group: form.location_group || null,
+      location_detail: form.location_detail.trim() || null,
       name: form.name.trim(),
       model_name: null,
       serial_number: serialNumber || null,
@@ -139,6 +144,28 @@ function QuickAssetForm({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="field">
+          <span>위치</span>
+          <select name="location_group" value={form.location_group} onChange={handleChange}>
+            <option value="">위치 선택</option>
+            {LOCATION_OPTIONS.map((location) => (
+              <option key={location} value={location}>
+                {location}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>세부 위치</span>
+          <input
+            name="location_detail"
+            value={form.location_detail}
+            onChange={handleChange}
+            placeholder="예: 롯데 본점, 본사 전산실, 파주창고 1층"
+          />
         </label>
 
         <label className="field">

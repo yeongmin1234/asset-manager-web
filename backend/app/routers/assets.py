@@ -39,6 +39,7 @@ def list_assets(
     category_id: Optional[int] = None,
     department_id: Optional[int] = None,
     department_name: Optional[str] = None,
+    location_group: Optional[str] = None,
     keyword: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> List[AssetRead]:
@@ -49,6 +50,7 @@ def list_assets(
             category_id=category_id,
             department_id=department_id,
             department_name=department_name,
+            location_group=location_group,
             keyword=keyword,
         )
     except SQLAlchemyError as exc:
@@ -64,6 +66,7 @@ def export_assets_excel(
     category_id: Optional[int] = None,
     department_id: Optional[int] = None,
     department_name: Optional[str] = None,
+    location_group: Optional[str] = None,
     keyword: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
@@ -74,6 +77,7 @@ def export_assets_excel(
             category_id=category_id,
             department_id=department_id,
             department_name=department_name,
+            location_group=location_group,
             keyword=keyword,
         )
         excel_file = build_assets_excel(assets)
