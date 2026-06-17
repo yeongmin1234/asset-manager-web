@@ -31,6 +31,7 @@ class SoftwareItem(Base):
         default=SoftwareLicenseType.PERPETUAL,
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    price_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     expire_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     license_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

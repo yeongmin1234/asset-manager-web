@@ -47,6 +47,7 @@ function SoftwareList({
               <th>소유</th>
               <th>라이선스 구분</th>
               <th>수량</th>
+              <th>가격</th>
               <th>만료일</th>
               <th>라이선스키/CDKEY</th>
               <th>관리</th>
@@ -67,6 +68,7 @@ function SoftwareList({
                 <td>{item.owner_name || "-"}</td>
                 <td><span className="software-type-badge">{item.license_type}</span></td>
                 <td>{Number(item.quantity || 0).toLocaleString("ko-KR")}</td>
+                <td className="software-price-cell">{formatPrice(item.price_amount)}</td>
                 <td>
                   <div className="software-expire-cell">
                     <span>{item.expire_date || "-"}</span>
@@ -191,6 +193,17 @@ function getDaysUntilExpire(expireDate) {
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const expireStart = new Date(year, month - 1, day);
   return Math.ceil((expireStart.getTime() - todayStart.getTime()) / 86400000);
+}
+
+function formatPrice(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "-";
+  }
+  return `₩${numericValue.toLocaleString("ko-KR")}`;
 }
 
 export default SoftwareList;

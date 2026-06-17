@@ -17,6 +17,7 @@ SOFTWARE_LOG_FIELDS = (
     "owner_name",
     "license_type",
     "quantity",
+    "price_amount",
     "expire_date",
 )
 

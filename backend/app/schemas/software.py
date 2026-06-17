@@ -11,6 +11,7 @@ class SoftwareItemBase(BaseModel):
     owner_name: Optional[str] = Field(default=None, max_length=100)
     license_type: SoftwareLicenseType = SoftwareLicenseType.PERPETUAL
     quantity: int = Field(default=1, ge=0)
+    price_amount: Optional[int] = Field(default=None, ge=0)
     expire_date: Optional[date] = None
     license_key: Optional[str] = None
 

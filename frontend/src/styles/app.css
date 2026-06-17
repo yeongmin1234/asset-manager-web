@@ -2102,42 +2102,53 @@ p {
 }
 
 .software-table {
-  min-width: 1040px;
+  min-width: 1120px;
 }
 
 .software-table th:nth-child(1),
 .software-table td:nth-child(1) {
-  width: 28%;
+  width: 24%;
 }
 
 .software-table th:nth-child(2),
 .software-table td:nth-child(2) {
-  width: 16%;
+  width: 14%;
 }
 
 .software-table th:nth-child(3),
 .software-table td:nth-child(3) {
-  width: 12%;
+  width: 11%;
 }
 
 .software-table th:nth-child(4),
 .software-table td:nth-child(4) {
-  width: 10%;
+  width: 8%;
 }
 
 .software-table th:nth-child(5),
 .software-table td:nth-child(5) {
-  width: 14%;
+  width: 12%;
 }
 
 .software-table th:nth-child(6),
 .software-table td:nth-child(6) {
-  width: 18%;
+  width: 13%;
 }
 
 .software-table th:nth-child(7),
 .software-table td:nth-child(7) {
+  width: 16%;
+}
+
+.software-table th:nth-child(8),
+.software-table td:nth-child(8) {
   width: 12%;
+}
+
+.software-price-cell {
+  color: #0f172a;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .software-row.editing {

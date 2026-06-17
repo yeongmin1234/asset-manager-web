@@ -5,6 +5,7 @@ const INITIAL_FORM = {
   owner_name: "",
   license_type: "영구",
   quantity: "1",
+  price_amount: "",
   expire_date: "",
   license_key: "",
 };
@@ -29,6 +30,9 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
       owner_name: editingItem.owner_name || "",
       license_type: editingItem.license_type || "영구",
       quantity: String(editingItem.quantity ?? 1),
+      price_amount: editingItem.price_amount === null || editingItem.price_amount === undefined
+        ? ""
+        : String(editingItem.price_amount),
       expire_date: editingItem.expire_date || "",
       license_key: editingItem.license_key || "",
     });
@@ -37,8 +41,12 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
   }, [editingItem]);
 
   const canSubmit = useMemo(
-    () => !isSubmitting && Boolean(form.name.trim()) && Number(form.quantity || 0) >= 0,
-    [form.name, form.quantity, isSubmitting],
+    () =>
+      !isSubmitting &&
+      Boolean(form.name.trim()) &&
+      Number(form.quantity || 0) >= 0 &&
+      (form.price_amount === "" || Number(form.price_amount) >= 0),
+    [form.name, form.price_amount, form.quantity, isSubmitting],
   );
 
   const handleChange = (event) => {
@@ -59,6 +67,7 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
       owner_name: form.owner_name.trim() || null,
       license_type: form.license_type,
       quantity: Number(form.quantity || 0),
+      price_amount: form.price_amount === "" ? null : Number(form.price_amount),
       expire_date: form.expire_date || null,
       license_key: form.license_key.trim() || null,
     };
@@ -115,6 +124,19 @@ function SoftwareQuickForm({ editingItem, onCancelEdit, onSubmit }) {
             min="0"
             value={form.quantity}
             onChange={handleChange}
+          />
+        </label>
+        <label className="field">
+          <span>가격</span>
+          <input
+            name="price_amount"
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            value={form.price_amount}
+            onChange={handleChange}
+            placeholder="예: 6187500"
           />
         </label>
         <label className="field">
