@@ -157,6 +157,13 @@ function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit, showHeading = t
               </select>
             </label>
             <Field name="insurance_company" label="보험사" value={form.insurance_company} onChange={handleChange} />
+            <Field
+              name="insurance_type"
+              label="자동차보험 유형"
+              value={form.insurance_type}
+              onChange={handleChange}
+              placeholder="임직원, 누구나, 임직원(만 30세 이상)"
+            />
             <Field name="insurance_start_date" label="보험 시작일" type="date" value={form.insurance_start_date} onChange={handleChange} />
             <Field name="insurance_end_date" label="보험 종료일" type="date" value={form.insurance_end_date} onChange={handleChange} />
           </div>
