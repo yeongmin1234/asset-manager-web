@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/activity-logs", tags=["activity-logs"])
 @router.get("", response_model=List[ActivityLogRead])
 def list_activity_logs(
     limit: int = Query(default=100, ge=1, le=200),
-    target_type: str | None = Query(default=None),
+    target_type: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ) -> List[ActivityLogRead]:
     try:

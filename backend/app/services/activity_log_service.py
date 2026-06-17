@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -72,7 +72,7 @@ def serialize_vehicle_insurance_history_activity_data(
     return serialize_model_fields(item, VEHICLE_INSURANCE_HISTORY_LOG_FIELDS)
 
 
-def serialize_model_fields(item: object, field_names: tuple[str, ...]) -> Dict[str, object]:
+def serialize_model_fields(item: object, field_names: Tuple[str, ...]) -> Dict[str, object]:
     data: Dict[str, object] = {}
     for field_name in field_names:
         value = getattr(item, field_name)
