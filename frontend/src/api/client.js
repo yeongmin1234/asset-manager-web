@@ -13,7 +13,8 @@ export class ApiError extends Error {
 async function request(path, options = {}) {
   const url = new URL(`${API_BASE_URL}${path}`);
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutMs = Number(options.timeoutMs || REQUEST_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   if (options.query) {
     Object.entries(options.query).forEach(([key, value]) => {
@@ -199,7 +200,7 @@ export async function getDatabaseHealth() {
 }
 
 export async function getNetworkStatus() {
-  return request("/network/status");
+  return request("/network/status", { timeoutMs: 30000 });
 }
 
 export async function pingVisitor() {

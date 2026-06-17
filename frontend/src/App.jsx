@@ -20,13 +20,13 @@ import AssetForm from "./components/AssetForm.jsx";
 import AssetList from "./components/AssetList.jsx";
 import CategoryCreateModal from "./components/CategoryCreateModal.jsx";
 import CategoryStats from "./components/CategoryStats.jsx";
+import DashboardPage from "./components/DashboardPage.jsx";
 import DepartmentStats from "./components/DepartmentStats.jsx";
 import AssetExcelTools from "./components/AssetExcelTools.jsx";
 import FilterBar from "./components/FilterBar.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
-import PortalHero from "./components/PortalHero.jsx";
 import PortalSidebar from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
@@ -647,15 +647,7 @@ function App() {
     }
 
     return (
-      <>
-        <PortalHero onNavigate={handleNavigate} />
-        <StatsSummary
-          summary={statsSummary}
-          isLoading={statsState.isLoading}
-          error={statsState.error}
-        />
-        {renderStatsReports("portal-report-grid portal-dashboard-reports")}
-      </>
+      <DashboardPage onNavigate={handleNavigate} />
     );
   };
 
@@ -714,6 +706,7 @@ function App() {
         <div
           className={
             activeSection === "excel"
+              || activeSection === "dashboard"
               || activeSection === "software"
               || activeSection === "vehicles"
               || activeSection === "network"
@@ -723,7 +716,7 @@ function App() {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "network" && (
+          {activeSection !== "dashboard" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "network" && (
             <aside className="portal-aside">
               <ShortcutPanel onNavigate={handleNavigate} />
               <RecentActivityPanel onNavigate={handleNavigate} />
