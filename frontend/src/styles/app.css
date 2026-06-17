@@ -3234,25 +3234,40 @@ input:disabled {
   color: #334155;
 }
 
-.history-page {
-  gap: 10px;
+.content-panel.history-page {
+  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
   overflow: hidden;
-  padding-top: 14px;
+  padding: 14px 16px 16px;
 }
 
-.history-page-heading {
+.history-header {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.history-header h2,
+.history-header p {
   margin: 0;
   padding: 0;
 }
 
-.history-page-heading h2,
-.history-page-heading p {
-  margin: 0;
+.history-header h2 {
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1.25;
 }
 
-.history-page-heading > div {
-  display: grid;
-  gap: 4px;
+.history-header p {
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .history-filter-tabs {
@@ -3264,7 +3279,7 @@ input:disabled {
   padding: 0;
 }
 
-.history-filter-tabs .history-filter-tab {
+.history-filter-tabs .history-filter-button {
   align-items: center;
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -3277,30 +3292,38 @@ input:disabled {
   height: 36px;
   justify-content: center;
   line-height: 1;
-  min-width: auto;
+  min-height: 0;
+  min-width: 42px;
   padding: 8px 14px;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   white-space: nowrap;
 }
 
-.history-filter-tabs .history-filter-tab:hover {
+.history-filter-tabs .history-filter-button:hover {
   background: #eff6ff;
   border-color: #93c5fd;
   color: #1d4ed8;
   transform: none;
 }
 
-.history-filter-tabs .history-filter-tab.active,
-.history-filter-tabs .history-filter-tab.active:hover {
+.history-filter-tabs .history-filter-button.active,
+.history-filter-tabs .history-filter-button.active:hover {
   background: var(--primary);
   border-color: var(--primary);
   color: #ffffff;
   transform: none;
 }
 
+.history-list-panel {
+  display: grid;
+  gap: 0;
+  margin-top: 0;
+  min-height: 0;
+}
+
 .history-page .history-table-wrap,
 .history-page .history-state {
-  margin-top: 0;
+  margin: 0;
 }
 
 .activity-history-table th:nth-child(1),

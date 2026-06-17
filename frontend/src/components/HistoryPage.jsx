@@ -42,19 +42,17 @@ function HistoryPage() {
 
   return (
     <section className="content-panel history-page" aria-labelledby="history-page-title">
-      <div className="section-heading history-page-heading">
-        <div>
-          <h2 id="history-page-title">변경 이력</h2>
-          <p>자산, SW, 법인차량, 차량 보험 이력의 주요 작업 이력을 확인합니다.</p>
-        </div>
-      </div>
+      <header className="history-header">
+        <h2 id="history-page-title">변경 이력</h2>
+        <p>자산, SW, 법인차량, 차량 보험 이력의 주요 작업 이력을 확인합니다.</p>
+      </header>
 
       <div className="history-filter-tabs" aria-label="변경 이력 필터">
         {HISTORY_FILTERS.map((filter) => (
           <button
             key={filter.label}
             type="button"
-            className={activeFilter === filter.targetType ? "history-filter-tab active" : "history-filter-tab"}
+            className={activeFilter === filter.targetType ? "history-filter-button active" : "history-filter-button"}
             onClick={() => setActiveFilter(filter.targetType)}
           >
             {filter.label}
@@ -62,50 +60,52 @@ function HistoryPage() {
         ))}
       </div>
 
-      {state.isLoading && <div className="history-state">변경 이력을 불러오는 중입니다.</div>}
+      <div className="history-list-panel">
+        {state.isLoading && <div className="history-state">변경 이력을 불러오는 중입니다.</div>}
 
-      {state.error && (
-        <div className="history-state history-error">
-          <span>{state.error}</span>
-        </div>
-      )}
+        {state.error && (
+          <div className="history-state history-error">
+            <span>{state.error}</span>
+          </div>
+        )}
 
-      {!state.isLoading && !state.error && logs.length === 0 && (
-        <div className="history-state">변경 이력이 없습니다.</div>
-      )}
+        {!state.isLoading && !state.error && logs.length === 0 && (
+          <div className="history-state">변경 이력이 없습니다.</div>
+        )}
 
-      {!state.isLoading && !state.error && logs.length > 0 && (
-        <div className="history-table-wrap">
-          <table className="history-table activity-history-table">
-            <thead>
-              <tr>
-                <th>일시</th>
-                <th>메뉴</th>
-                <th>작업</th>
-                <th>대상</th>
-                <th>요약</th>
-                <th>작업자/IP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td>{formatDateTime(log.created_at)}</td>
-                  <td>{formatText(log.menu_name)}</td>
-                  <td>
-                    <span className={`history-action ${getActionClassName(log.action_type)}`}>
-                      {getActionLabel(log.action_type)}
-                    </span>
-                  </td>
-                  <td>{formatText(log.target_name || log.target_id)}</td>
-                  <td>{formatText(log.summary)}</td>
-                  <td>{formatText(log.actor_name || log.actor_ip)}</td>
+        {!state.isLoading && !state.error && logs.length > 0 && (
+          <div className="history-table-wrap">
+            <table className="history-table activity-history-table">
+              <thead>
+                <tr>
+                  <th>일시</th>
+                  <th>메뉴</th>
+                  <th>작업</th>
+                  <th>대상</th>
+                  <th>요약</th>
+                  <th>작업자/IP</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <tr key={log.id}>
+                    <td>{formatDateTime(log.created_at)}</td>
+                    <td>{formatText(log.menu_name)}</td>
+                    <td>
+                      <span className={`history-action ${getActionClassName(log.action_type)}`}>
+                        {getActionLabel(log.action_type)}
+                      </span>
+                    </td>
+                    <td>{formatText(log.target_name || log.target_id)}</td>
+                    <td>{formatText(log.summary)}</td>
+                    <td>{formatText(log.actor_name || log.actor_ip)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
