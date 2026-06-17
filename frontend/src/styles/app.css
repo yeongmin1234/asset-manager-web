@@ -2132,7 +2132,7 @@ p {
 .vehicle-table {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1040px;
+  min-width: 1060px;
   table-layout: fixed;
 }
 
@@ -2143,59 +2143,63 @@ p {
 
 .vehicle-table th:nth-child(1),
 .vehicle-table td:nth-child(1) {
-  width: 110px;
+  width: 96px;
 }
 
 .vehicle-table th:nth-child(2),
 .vehicle-table td:nth-child(2) {
-  width: 118px;
+  width: 108px;
 }
 
 .vehicle-table th:nth-child(3),
 .vehicle-table td:nth-child(3) {
-  width: 180px;
+  width: 190px;
 }
 
 .vehicle-table th:nth-child(4),
 .vehicle-table td:nth-child(4) {
-  width: 92px;
+  width: 82px;
 }
 
 .vehicle-table th:nth-child(5),
 .vehicle-table td:nth-child(5) {
-  width: 84px;
+  width: 76px;
 }
 
 .vehicle-table th:nth-child(6),
 .vehicle-table td:nth-child(6) {
-  width: 112px;
+  width: 96px;
 }
 
 .vehicle-table th:nth-child(7),
 .vehicle-table td:nth-child(7) {
-  width: 112px;
+  width: 108px;
 }
 
 .vehicle-table th:nth-child(8),
 .vehicle-table td:nth-child(8) {
-  width: 96px;
+  width: 108px;
 }
 
 .vehicle-table th:nth-child(9),
 .vehicle-table td:nth-child(9) {
-  width: 104px;
+  width: 88px;
 }
 
 .vehicle-table th:nth-child(10),
 .vehicle-table td:nth-child(10) {
+  width: 100px;
+}
+
+.vehicle-table th:nth-child(11),
+.vehicle-table td:nth-child(11) {
   width: 112px;
 }
 
 .vehicle-name-cell {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
 }
 
 .vehicle-row.editing {

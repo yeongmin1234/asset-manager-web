@@ -47,6 +47,7 @@ function VehicleList({
               <th>사용자</th>
               <th>소유권</th>
               <th>보험사</th>
+              <th>보험 시작일</th>
               <th>보험 종료일</th>
               <th>보험 D-Day</th>
               <th>리스 상세</th>
@@ -61,10 +62,13 @@ function VehicleList({
                   <tr className={editingItemId === item.id ? "vehicle-row editing" : "vehicle-row"}>
                     <td>{formatText(item.company_name)}</td>
                     <td><strong>{item.vehicle_number}</strong></td>
-                    <td className="vehicle-name-cell">{formatText(item.vehicle_name)}</td>
+                    <td className="vehicle-name-cell" title={formatText(item.vehicle_name)}>
+                      {formatText(item.vehicle_name)}
+                    </td>
                     <td>{formatText(item.driver_name)}</td>
                     <td><span className="software-type-badge">{formatText(item.ownership_type)}</span></td>
                     <td>{formatText(item.insurance_company)}</td>
+                    <td>{formatText(item.insurance_start_date)}</td>
                     <td>{formatText(item.insurance_end_date)}</td>
                     <td><DDayBadge dateValue={item.insurance_end_date} soonDays={30} /></td>
                     <td className="vehicle-detail-toggle-cell">
@@ -97,7 +101,7 @@ function VehicleList({
                   </tr>
                   {isExpanded && (
                     <tr className="vehicle-detail-row">
-                      <td colSpan="10">
+                      <td colSpan="11">
                         <VehicleLeaseDetail item={item} onClose={() => setExpandedItemId(null)} />
                       </td>
                     </tr>
