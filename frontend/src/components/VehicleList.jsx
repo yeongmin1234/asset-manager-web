@@ -54,7 +54,7 @@ function VehicleList({
               <th>월 리스금액</th>
               <th>리스 납부일</th>
               <th>자동차세 및 기타</th>
-              <th>관리</th>
+              <th className="vehicle-actions-cell">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -77,7 +77,7 @@ function VehicleList({
                 <td>{formatCurrency(item.monthly_lease_amount)}</td>
                 <td>{formatText(item.lease_payment_day)}</td>
                 <td className="vehicle-note-cell">{formatText(item.tax_note)}</td>
-                <td>
+                <td className="vehicle-actions-cell">
                   <div className="software-row-actions">
                     <button
                       type="button"

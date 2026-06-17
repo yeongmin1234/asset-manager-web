@@ -847,37 +847,48 @@ p {
 }
 
 .vehicle-page-tabs {
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  padding-bottom: 8px;
 }
 
 .vehicle-page-tab {
   align-items: center;
   background: #ffffff;
   border: 1px solid #dbe3ef;
-  border-radius: 999px;
-  color: #475569;
+  border-radius: 12px;
+  box-shadow: none;
+  color: #334155;
   cursor: pointer;
   display: inline-flex;
   font-size: 0.88rem;
   font-weight: 800;
+  height: 38px;
   justify-content: center;
   min-height: 36px;
+  min-width: auto;
   padding: 8px 16px;
+  transform: none;
 }
 
 .vehicle-page-tab:hover {
-  background: #eaf2ff;
+  background: #f1f7ff;
   border-color: #93c5fd;
+  box-shadow: none;
   color: #1d4ed8;
+  transform: none;
 }
 
 .vehicle-page-tab.active,
 .vehicle-page-tab.active:hover {
   background: #2563eb;
   border-color: #2563eb;
+  box-shadow: none;
   color: #ffffff;
+  transform: none;
 }
 
 .portal-report-grid .category-stats,
@@ -2058,12 +2069,73 @@ p {
 }
 
 .vehicle-table {
-  min-width: 1760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1580px;
+  table-layout: fixed;
 }
 
 .vehicle-table th,
 .vehicle-table td {
   white-space: nowrap;
+}
+
+.vehicle-table th:nth-child(1),
+.vehicle-table td:nth-child(1) {
+  width: 100px;
+}
+
+.vehicle-table th:nth-child(2),
+.vehicle-table td:nth-child(2) {
+  width: 104px;
+}
+
+.vehicle-table th:nth-child(3),
+.vehicle-table td:nth-child(3) {
+  width: 150px;
+}
+
+.vehicle-table th:nth-child(4),
+.vehicle-table td:nth-child(4) {
+  width: 84px;
+}
+
+.vehicle-table th:nth-child(5),
+.vehicle-table td:nth-child(5) {
+  width: 78px;
+}
+
+.vehicle-table th:nth-child(6),
+.vehicle-table td:nth-child(6),
+.vehicle-table th:nth-child(7),
+.vehicle-table td:nth-child(7),
+.vehicle-table th:nth-child(9),
+.vehicle-table td:nth-child(9),
+.vehicle-table th:nth-child(10),
+.vehicle-table td:nth-child(10) {
+  width: 96px;
+}
+
+.vehicle-table th:nth-child(8),
+.vehicle-table td:nth-child(8),
+.vehicle-table th:nth-child(11),
+.vehicle-table td:nth-child(11) {
+  width: 84px;
+}
+
+.vehicle-table th:nth-child(12),
+.vehicle-table td:nth-child(12) {
+  width: 102px;
+}
+
+.vehicle-table th:nth-child(13),
+.vehicle-table td:nth-child(13) {
+  width: 80px;
+}
+
+.vehicle-table th:nth-child(14),
+.vehicle-table td:nth-child(14) {
+  width: 210px;
 }
 
 .vehicle-row.editing {
@@ -2072,8 +2144,37 @@ p {
 }
 
 .vehicle-note-cell {
-  max-width: 220px;
+  max-width: 210px;
+  min-width: 190px;
+  overflow-wrap: anywhere;
   white-space: normal;
+  word-break: break-word;
+}
+
+.vehicle-actions-cell {
+  background: #ffffff;
+  position: sticky;
+  right: 0;
+  width: 104px;
+  z-index: 2;
+}
+
+.vehicle-table th.vehicle-actions-cell {
+  background: #f8fafc;
+  box-shadow: -1px 0 0 #e2e8f0;
+  z-index: 3;
+}
+
+.vehicle-table td.vehicle-actions-cell {
+  box-shadow: -1px 0 0 #e2e8f0;
+}
+
+.vehicle-row.editing .vehicle-actions-cell {
+  background: #f1f7ff;
+}
+
+.vehicle-actions-cell .software-row-actions {
+  flex-wrap: nowrap;
 }
 
 .software-license-key-cell {
@@ -2419,6 +2520,56 @@ input:disabled {
   background: #eaf2ff;
   border-color: #93c5fd;
   color: #1d4ed8;
+}
+
+.vehicle-page-tab,
+.software-tab,
+.vehicle-form-tab,
+.category-tab {
+  box-shadow: none;
+  min-width: auto;
+  opacity: 1;
+  transform: none;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.vehicle-page-tab:not(:disabled):hover,
+.software-tab:not(:disabled):hover,
+.vehicle-form-tab:not(:disabled):hover,
+.category-tab:not(:disabled):hover {
+  background: #f1f7ff;
+  border-color: #93c5fd;
+  box-shadow: none;
+  color: #1d4ed8;
+  opacity: 1;
+  transform: none;
+}
+
+.vehicle-page-tab.active,
+.software-tab.active,
+.vehicle-form-tab.active,
+.category-tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: none;
+  color: #ffffff;
+  opacity: 1;
+  transform: none;
+}
+
+.vehicle-page-tab.active:not(:disabled):hover,
+.software-tab.active:not(:disabled):hover,
+.vehicle-form-tab.active:not(:disabled):hover,
+.category-tab.active:not(:disabled):hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: none;
+  color: #ffffff;
+  opacity: 1;
+  transform: none;
 }
 
 .category-tab-add {
