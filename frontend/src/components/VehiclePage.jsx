@@ -150,26 +150,28 @@ function VehiclePage() {
 
         {renderPageTabs()}
 
-        {activePageTab === "list" ? (
-          <VehicleList
-            items={displayedItems}
-            isLoading={listState.isLoading}
-            error={listState.error}
-            activeTab={activeTab}
-            editingItemId={editingItem?.id || null}
-            onDelete={handleDelete}
-            onEdit={handleEdit}
-            onTabChange={setActiveTab}
-            tabs={VEHICLE_TABS}
-          />
-        ) : (
-          <VehicleQuickForm
-            editingItem={editingItem}
-            onCancelEdit={handleCancelEdit}
-            onSubmit={handleSubmit}
-            showHeading={false}
-          />
-        )}
+        <div className="vehicle-tab-content">
+          {activePageTab === "list" ? (
+            <VehicleList
+              items={displayedItems}
+              isLoading={listState.isLoading}
+              error={listState.error}
+              activeTab={activeTab}
+              editingItemId={editingItem?.id || null}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onTabChange={setActiveTab}
+              tabs={VEHICLE_TABS}
+            />
+          ) : (
+            <VehicleQuickForm
+              editingItem={editingItem}
+              onCancelEdit={handleCancelEdit}
+              onSubmit={handleSubmit}
+              showHeading={false}
+            />
+          )}
+        </div>
       </section>
     </>
   );
