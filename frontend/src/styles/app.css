@@ -850,16 +850,16 @@ p {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  flex: 0 0 auto;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  margin-top: -2px;
 }
 
 .vehicle-page-tab {
   align-items: center;
   background: #ffffff;
   border: 1px solid #dbe3ef;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: none;
   color: #334155;
   cursor: pointer;
@@ -893,13 +893,13 @@ p {
 
 .vehicle-main-panel {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   padding: 14px 16px 16px;
 }
 
 .vehicle-main-heading {
-  align-items: center;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 6px;
   padding: 0;
 }
 

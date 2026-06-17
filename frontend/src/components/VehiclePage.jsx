@@ -146,8 +146,9 @@ function VehiclePage() {
                 : "법인차량과 보험/리스 정보를 등록합니다."}
             </p>
           </div>
-          {renderPageTabs()}
         </div>
+
+        {renderPageTabs()}
 
         {activePageTab === "list" ? (
           <VehicleList
