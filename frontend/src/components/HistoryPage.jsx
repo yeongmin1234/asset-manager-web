@@ -54,7 +54,7 @@ function HistoryPage() {
           <button
             key={filter.label}
             type="button"
-            className={activeFilter === filter.targetType ? "vehicle-filter-tab active" : "vehicle-filter-tab"}
+            className={activeFilter === filter.targetType ? "history-filter-tab active" : "history-filter-tab"}
             onClick={() => setActiveFilter(filter.targetType)}
           >
             {filter.label}

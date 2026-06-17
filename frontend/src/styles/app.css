@@ -3239,9 +3239,46 @@ input:disabled {
 }
 
 .history-filter-tabs {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.history-filter-tab {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.86rem;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  min-width: auto;
+  padding: 8px 14px;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  white-space: nowrap;
+}
+
+.history-filter-tab:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  transform: none;
+}
+
+.history-filter-tab.active,
+.history-filter-tab.active:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  transform: none;
 }
 
 .activity-history-table th:nth-child(1),

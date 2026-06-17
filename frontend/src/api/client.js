@@ -395,6 +395,12 @@ function normalizeCollection(data) {
   if (Array.isArray(data?.items)) {
     return data.items;
   }
+  if (Array.isArray(data?.logs)) {
+    return data.logs;
+  }
+  if (Array.isArray(data?.results)) {
+    return data.results;
+  }
   if (Array.isArray(data?.data)) {
     return data.data;
   }
