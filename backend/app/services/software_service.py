@@ -59,7 +59,7 @@ def create_software_item(
     db.flush()
     record_software_activity(
         db,
-        action_type="등록",
+        action_type="create",
         target_id=software_item.id,
         target_name=software_item.name,
         actor_ip=actor_ip,
@@ -97,7 +97,7 @@ def update_software_item(
     db.flush()
     record_software_activity(
         db,
-        action_type="수정",
+        action_type="update",
         target_id=software_item.id,
         target_name=software_item.name,
         actor_ip=actor_ip,
@@ -123,7 +123,7 @@ def delete_software_item(
     deleted_item = SoftwareItemRead.model_validate(software_item)
     record_software_activity(
         db,
-        action_type="삭제",
+        action_type="delete",
         target_id=software_item.id,
         target_name=software_item.name,
         actor_ip=actor_ip,

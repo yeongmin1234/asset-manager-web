@@ -83,8 +83,8 @@ function HistoryPage() {
                 <th>메뉴</th>
                 <th>작업</th>
                 <th>대상</th>
-                <th>작업자/IP</th>
                 <th>요약</th>
+                <th>작업자/IP</th>
               </tr>
             </thead>
             <tbody>
@@ -94,12 +94,12 @@ function HistoryPage() {
                   <td>{formatText(log.menu_name)}</td>
                   <td>
                     <span className={`history-action ${getActionClassName(log.action_type)}`}>
-                      {formatText(log.action_type)}
+                      {getActionLabel(log.action_type)}
                     </span>
                   </td>
                   <td>{formatText(log.target_name || log.target_id)}</td>
-                  <td>{formatText(log.actor_name || log.actor_ip)}</td>
                   <td>{formatText(log.summary)}</td>
+                  <td>{formatText(log.actor_name || log.actor_ip)}</td>
                 </tr>
               ))}
             </tbody>
@@ -112,12 +112,26 @@ function HistoryPage() {
 
 function getActionClassName(actionType) {
   const classMap = {
+    create: "history-action-create",
+    update: "history-action-update",
+    delete: "history-action-delete",
+    dispose: "history-action-delete",
     등록: "history-action-create",
     수정: "history-action-update",
     삭제: "history-action-delete",
     폐기: "history-action-delete",
   };
   return classMap[actionType] || "history-action-unknown";
+}
+
+function getActionLabel(actionType) {
+  const labelMap = {
+    create: "등록",
+    update: "수정",
+    delete: "삭제",
+    dispose: "폐기",
+  };
+  return labelMap[actionType] || formatText(actionType);
 }
 
 function formatText(value) {

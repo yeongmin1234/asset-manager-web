@@ -61,7 +61,7 @@ function RecentActivityPanel({ onNavigate }) {
             <div className="recent-activity-item" key={log.id}>
               <span className="activity-dot" />
               <div>
-                <strong>[{formatText(log.menu_name)}] {formatText(log.action_type)}</strong>
+                <strong>[{formatText(log.menu_name)}] {getActionLabel(log.action_type)}</strong>
                 <p>{formatText(log.summary || log.target_name)} · {formatDateTime(log.created_at)}</p>
               </div>
             </div>
@@ -70,6 +70,16 @@ function RecentActivityPanel({ onNavigate }) {
       )}
     </section>
   );
+}
+
+function getActionLabel(actionType) {
+  const labelMap = {
+    create: "등록",
+    update: "수정",
+    delete: "삭제",
+    dispose: "폐기",
+  };
+  return labelMap[actionType] || formatText(actionType);
 }
 
 function formatText(value) {

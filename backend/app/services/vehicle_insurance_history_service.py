@@ -62,7 +62,7 @@ def create_vehicle_insurance_history(
     db.flush()
     record_vehicle_insurance_history_activity(
         db,
-        action_type="등록",
+        action_type="create",
         target_id=history.id,
         target_name=format_history_target_name(vehicle, history),
         actor_ip=actor_ip,
@@ -103,7 +103,7 @@ def update_vehicle_insurance_history(
     db.flush()
     record_vehicle_insurance_history_activity(
         db,
-        action_type="수정",
+        action_type="update",
         target_id=history.id,
         target_name=format_history_target_name(vehicle, history),
         actor_ip=actor_ip,
@@ -131,7 +131,7 @@ def delete_vehicle_insurance_history(
     deleted_history = VehicleInsuranceHistoryRead.model_validate(history)
     record_vehicle_insurance_history_activity(
         db,
-        action_type="삭제",
+        action_type="delete",
         target_id=history.id,
         target_name=target_name,
         actor_ip=actor_ip,

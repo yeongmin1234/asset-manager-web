@@ -509,7 +509,7 @@ def create_asset(
         record_asset_created(db, asset.id)
         record_asset_activity(
             db,
-            action_type="등록",
+            action_type="create",
             target_id=asset.id,
             target_name=asset.name,
             actor_ip=actor_ip,
@@ -573,7 +573,7 @@ def update_asset(
         db.flush()
         record_asset_activity(
             db,
-            action_type="수정",
+            action_type="update",
             target_id=asset.id,
             target_name=asset.name,
             actor_ip=actor_ip,
@@ -615,7 +615,7 @@ def dispose_asset(
         db.flush()
         record_asset_activity(
             db,
-            action_type="폐기",
+            action_type="dispose",
             target_id=asset.id,
             target_name=asset.name,
             actor_ip=actor_ip,
@@ -649,7 +649,7 @@ def soft_delete_asset(
         record_asset_deleted(db, asset.id, new_value=deleted_at)
         record_asset_activity(
             db,
-            action_type="삭제",
+            action_type="delete",
             target_id=asset.id,
             target_name=asset.name,
             actor_ip=actor_ip,

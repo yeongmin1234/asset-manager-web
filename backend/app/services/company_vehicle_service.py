@@ -45,7 +45,7 @@ def create_company_vehicle(
     db.flush()
     record_vehicle_activity(
         db,
-        action_type="등록",
+        action_type="create",
         target_id=vehicle.id,
         target_name=format_vehicle_target_name(vehicle),
         actor_ip=actor_ip,
@@ -81,7 +81,7 @@ def update_company_vehicle(
     db.flush()
     record_vehicle_activity(
         db,
-        action_type="수정",
+        action_type="update",
         target_id=vehicle.id,
         target_name=format_vehicle_target_name(vehicle),
         actor_ip=actor_ip,
@@ -108,7 +108,7 @@ def delete_company_vehicle(
     deleted_vehicle = CompanyVehicleRead.model_validate(vehicle)
     record_vehicle_activity(
         db,
-        action_type="삭제",
+        action_type="delete",
         target_id=vehicle.id,
         target_name=target_name,
         actor_ip=actor_ip,
