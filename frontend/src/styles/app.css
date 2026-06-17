@@ -854,7 +854,7 @@ p {
   gap: 4px;
   justify-content: flex-start;
   margin: 0 0 -1px;
-  padding-top: 2px;
+  padding-top: 0;
 }
 
 .vehicle-page-tab {
@@ -900,12 +900,13 @@ p {
 .vehicle-main-panel {
   display: grid;
   gap: 0;
-  padding: 14px 16px 16px;
+  padding: 10px 14px 14px;
 }
 
 .vehicle-main-heading {
   align-items: flex-start;
   gap: 6px;
+  margin-bottom: 8px;
   padding: 0;
 }
 
@@ -932,8 +933,8 @@ p {
   border: 1px solid var(--line-soft);
   border-radius: 0 8px 8px 8px;
   display: grid;
-  gap: 14px;
-  padding: 12px;
+  gap: 10px;
+  padding: 10px;
 }
 
 .vehicle-list-panel {
