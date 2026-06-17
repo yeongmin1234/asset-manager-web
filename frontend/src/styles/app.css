@@ -2457,6 +2457,76 @@ p {
   user-select: none;
 }
 
+.asset-resizable-table,
+.software-resizable-table {
+  table-layout: fixed;
+}
+
+.asset-resizable-table th,
+.software-resizable-table th {
+  position: relative;
+}
+
+.asset-resizable-table th,
+.asset-resizable-table td,
+.software-resizable-table th,
+.software-resizable-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asset-resizable-table .table-sort,
+.software-resizable-table .resizable-table-heading,
+.asset-resizable-table .resizable-table-heading {
+  max-width: calc(100% - 8px);
+}
+
+.resizable-table-heading {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-column-resize-handle {
+  bottom: 0;
+  cursor: col-resize;
+  position: absolute;
+  right: -3px;
+  top: 0;
+  width: 8px;
+  z-index: 2;
+}
+
+.table-column-resize-handle::after {
+  background: #cbd5e1;
+  content: "";
+  height: 58%;
+  opacity: 0;
+  position: absolute;
+  right: 3px;
+  top: 21%;
+  transition: opacity 0.14s ease;
+  width: 2px;
+}
+
+.table-column-resize-handle:hover::after,
+.asset-column-resizing .table-column-resize-handle::after,
+.software-column-resizing .table-column-resize-handle::after {
+  opacity: 1;
+}
+
+.asset-column-resizing,
+.software-column-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.asset-table-empty-state {
+  margin: 0;
+}
+
 .vehicle-row.editing {
   background: #f1f7ff;
   box-shadow: inset 4px 0 0 var(--brand);

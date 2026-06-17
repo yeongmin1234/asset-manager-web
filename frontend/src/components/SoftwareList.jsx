@@ -1,4 +1,16 @@
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
+
+const SOFTWARE_COLUMN_WIDTH_STORAGE_KEY = "assetManager.softwareTable.columnWidths";
+const SOFTWARE_COLUMNS = [
+  { key: "name", label: "소프트웨어명", initialWidth: 220, minWidth: 180 },
+  { key: "owner", label: "소유", initialWidth: 140, minWidth: 130 },
+  { key: "licenseType", label: "라이선스 구분", initialWidth: 130, minWidth: 110 },
+  { key: "quantity", label: "수량", initialWidth: 90, minWidth: 80 },
+  { key: "price", label: "가격", initialWidth: 120, minWidth: 110 },
+  { key: "expireDate", label: "만료일", initialWidth: 140, minWidth: 100 },
+  { key: "licenseKey", label: "라이선스키/CDKEY", initialWidth: 150, minWidth: 130 },
+  { key: "actions", label: "관리", initialWidth: 120, minWidth: 100 },
+];
 
 function SoftwareList({
   items,
@@ -15,9 +27,56 @@ function SoftwareList({
 }) {
   const [licenseModalItem, setLicenseModalItem] = useState(null);
   const [copyMessage, setCopyMessage] = useState("");
+  const [columnWidths, setColumnWidths] = useState(() =>
+    getInitialColumnWidths(SOFTWARE_COLUMNS, SOFTWARE_COLUMN_WIDTH_STORAGE_KEY),
+  );
+  const resizeStateRef = useRef(null);
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
   const hasActiveFilters = Boolean(activeTab || filters.expiration_status);
+
+  const tableWidth = useMemo(
+    () => SOFTWARE_COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
+    [columnWidths],
+  );
+
+  const handleColumnResizeStart = (event, column) => {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeStateRef.current = {
+      key: column.key,
+      minWidth: column.minWidth,
+      startX: event.clientX,
+      startWidth: columnWidths[column.key],
+    };
+    document.body.classList.add("software-column-resizing");
+
+    const handleMouseMove = (moveEvent) => {
+      const resizeState = resizeStateRef.current;
+      if (!resizeState) {
+        return;
+      }
+      const nextWidth = Math.max(
+        resizeState.minWidth,
+        resizeState.startWidth + moveEvent.clientX - resizeState.startX,
+      );
+      setColumnWidths((currentWidths) => {
+        const nextWidths = { ...currentWidths, [resizeState.key]: nextWidth };
+        saveColumnWidths(SOFTWARE_COLUMN_WIDTH_STORAGE_KEY, nextWidths);
+        return nextWidths;
+      });
+    };
+
+    const handleMouseUp = () => {
+      resizeStateRef.current = null;
+      document.body.classList.remove("software-column-resizing");
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
 
   const openLicenseModal = (item) => {
     setLicenseModalItem(item);
@@ -55,32 +114,39 @@ function SoftwareList({
         </div>
       );
     }
-    if (safeItems.length === 0) {
-      return (
-        <div className="state-panel">
-          <strong>{hasActiveFilters ? "현재 조건에 맞는 SW가 없습니다." : "등록된 SW가 없습니다."}</strong>
-          <span>빠른 등록 폼으로 소프트웨어를 추가해주세요.</span>
-        </div>
-      );
-    }
-
     return (
       <div className="asset-table-wrap">
-        <table className="asset-table software-table">
+        <table className="asset-table software-table software-resizable-table" style={{ minWidth: `${tableWidth}px` }}>
+          <colgroup>
+            {SOFTWARE_COLUMNS.map((column) => (
+              <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <th>소프트웨어명</th>
-              <th>소유</th>
-              <th>라이선스 구분</th>
-              <th>수량</th>
-              <th>가격</th>
-              <th>만료일</th>
-              <th>라이선스키/CDKEY</th>
-              <th>관리</th>
+              {SOFTWARE_COLUMNS.map((column) => (
+                <th key={column.key}>
+                  <span className="resizable-table-heading">{column.label}</span>
+                  <span
+                    aria-hidden="true"
+                    className="table-column-resize-handle"
+                    onMouseDown={(event) => handleColumnResizeStart(event, column)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {safeItems.map((item) => (
+            {safeItems.length === 0 ? (
+              <tr>
+                <td colSpan={SOFTWARE_COLUMNS.length}>
+                  <div className="state-panel asset-table-empty-state">
+                    <strong>{hasActiveFilters ? "현재 조건에 맞는 SW가 없습니다." : "등록된 SW가 없습니다."}</strong>
+                    <span>빠른 등록 폼으로 소프트웨어를 추가해주세요.</span>
+                  </div>
+                </td>
+              </tr>
+            ) : safeItems.map((item) => (
               <tr
                 key={item.id}
                 className={editingItemId === item.id ? "software-row editing" : "software-row"}
@@ -339,6 +405,44 @@ function formatPrice(value) {
     return "-";
   }
   return `₩${numericValue.toLocaleString("ko-KR")}`;
+}
+
+function getInitialColumnWidths(columns, storageKey) {
+  const defaultWidths = columns.reduce(
+    (widths, column) => ({ ...widths, [column.key]: column.initialWidth }),
+    {},
+  );
+
+  if (typeof window === "undefined") {
+    return defaultWidths;
+  }
+
+  try {
+    const savedWidths = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+    return columns.reduce((widths, column) => {
+      const savedWidth = Number(savedWidths[column.key]);
+      return {
+        ...widths,
+        [column.key]: Number.isFinite(savedWidth)
+          ? Math.max(column.minWidth, savedWidth)
+          : column.initialWidth,
+      };
+    }, {});
+  } catch {
+    return defaultWidths;
+  }
+}
+
+function saveColumnWidths(storageKey, widths) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(widths));
+  } catch {
+    // Ignore storage failures; resizing still works for the current page state.
+  }
 }
 
 export default SoftwareList;

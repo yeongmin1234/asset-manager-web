@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useRef, useState } from "react";
 import AssetCategoryTabs from "./AssetCategoryTabs.jsx";
 import StatusBadge from "./StatusBadge.jsx";
 
@@ -10,6 +10,15 @@ const SORTABLE_COLUMNS = {
 };
 
 const LOCATION_TABS = ["", "본사", "백화점", "파주창고", "기타"];
+const ASSET_COLUMN_WIDTH_STORAGE_KEY = "assetManager.assetTable.columnWidths";
+const ASSET_COLUMNS = [
+  { key: "name", label: "제품명", initialWidth: 220, minWidth: 160, sortable: true },
+  { key: "status", label: "상태", initialWidth: 100, minWidth: 90, sortable: true },
+  { key: "serial", label: "시리얼번호", initialWidth: 150, minWidth: 140, sortable: true, sortKey: "serial_number" },
+  { key: "department", label: "부서(사용자명)", initialWidth: 170, minWidth: 150, sortable: true, sortKey: "department_name" },
+  { key: "location", label: "위치", initialWidth: 160, minWidth: 90 },
+  { key: "purchaseDate", label: "구매일", initialWidth: 120, minWidth: 100 },
+];
 
 function AssetList({
   assets,
@@ -29,6 +38,53 @@ function AssetList({
 }) {
   const safeAssets = Array.isArray(assets) ? assets : [];
   const isSpecificCategorySelected = Boolean(activeCategoryId);
+  const [columnWidths, setColumnWidths] = useState(() =>
+    getInitialColumnWidths(ASSET_COLUMNS, ASSET_COLUMN_WIDTH_STORAGE_KEY),
+  );
+  const resizeStateRef = useRef(null);
+
+  const tableWidth = useMemo(
+    () => ASSET_COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
+    [columnWidths],
+  );
+
+  const handleColumnResizeStart = (event, column) => {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeStateRef.current = {
+      key: column.key,
+      minWidth: column.minWidth,
+      startX: event.clientX,
+      startWidth: columnWidths[column.key],
+    };
+    document.body.classList.add("asset-column-resizing");
+
+    const handleMouseMove = (moveEvent) => {
+      const resizeState = resizeStateRef.current;
+      if (!resizeState) {
+        return;
+      }
+      const nextWidth = Math.max(
+        resizeState.minWidth,
+        resizeState.startWidth + moveEvent.clientX - resizeState.startX,
+      );
+      setColumnWidths((currentWidths) => {
+        const nextWidths = { ...currentWidths, [resizeState.key]: nextWidth };
+        saveColumnWidths(ASSET_COLUMN_WIDTH_STORAGE_KEY, nextWidths);
+        return nextWidths;
+      });
+    };
+
+    const handleMouseUp = () => {
+      resizeStateRef.current = null;
+      document.body.classList.remove("asset-column-resizing");
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -45,59 +101,49 @@ function AssetList({
       );
     }
 
-    if (safeAssets.length === 0) {
-      return (
-        <div className="state-panel">
-          <strong>
-            {isSpecificCategorySelected
-              ? "이 분류에 등록된 자산이 없습니다."
-              : hasActiveFilters
-                ? "현재 조건에 맞는 자산이 없습니다."
-                : "등록된 자산이 없습니다."}
-          </strong>
-          <span>
-            {isSpecificCategorySelected
-              ? "빠른 등록 또는 상세 등록으로 자산을 추가해보세요."
-              : hasActiveFilters
-                ? "검색어나 필터 조건을 조정하거나 필터 초기화를 눌러 전체 목록을 확인하세요."
-                : "먼저 자산을 등록해주세요. Backend 또는 DB가 준비되지 않은 경우 상태를 확인하세요."}
-          </span>
-        </div>
-      );
-    }
-
     return (
       <>
       <div className="asset-table-wrap">
-        <table className="asset-table">
+        <table className="asset-table asset-resizable-table" style={{ minWidth: `${tableWidth}px` }}>
+          <colgroup>
+            {ASSET_COLUMNS.map((column) => (
+              <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <SortableHeader column="name" sortConfig={sortConfig} onSortChange={onSortChange}>
-                제품명
-              </SortableHeader>
-              <SortableHeader column="status" sortConfig={sortConfig} onSortChange={onSortChange}>
-                상태
-              </SortableHeader>
-              <SortableHeader
-                column="serial_number"
-                sortConfig={sortConfig}
-                onSortChange={onSortChange}
-              >
-                시리얼번호
-              </SortableHeader>
-              <SortableHeader
-                column="department_name"
-                sortConfig={sortConfig}
-                onSortChange={onSortChange}
-              >
-                부서(사용자명)
-              </SortableHeader>
-              <th>위치</th>
-              <th>구매일</th>
+              {ASSET_COLUMNS.map((column) => (
+                <ResizableHeader
+                  key={column.key}
+                  column={column}
+                  sortConfig={sortConfig}
+                  onSortChange={onSortChange}
+                  onResizeStart={handleColumnResizeStart}
+                />
+              ))}
             </tr>
           </thead>
           <tbody>
-            {safeAssets.map((asset) => (
+            {safeAssets.length === 0 ? (
+              <tr>
+                <td colSpan={ASSET_COLUMNS.length}>
+                  <div className="state-panel asset-table-empty-state">
+                    <strong>
+                      {isSpecificCategorySelected
+                        ? "이 분류에 등록된 자산이 없습니다."
+                        : hasActiveFilters
+                          ? "현재 조건에 맞는 자산이 없습니다."
+                          : "등록된 자산이 없습니다."}
+                    </strong>
+                    <span>
+                      {hasActiveFilters
+                        ? "검색어나 필터 조건을 조정하거나 필터 초기화를 눌러 전체 목록을 확인하세요."
+                        : "빠른 등록 또는 상세 등록으로 자산을 추가해보세요."}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ) : safeAssets.map((asset) => (
               <tr
                 key={asset.id}
                 className={asset.id === selectedAssetId ? "asset-row selected" : "asset-row"}
@@ -207,24 +253,72 @@ function getLocationLabel(asset) {
   return group || detail || "-";
 }
 
-function SortableHeader({ column, sortConfig, onSortChange, children }) {
-  const isActive = sortConfig?.key === column;
+function ResizableHeader({ column, sortConfig, onSortChange, onResizeStart }) {
+  const sortKey = column.sortKey || column.key;
+  const isActive = sortConfig?.key === sortKey;
   const directionText = sortConfig?.direction === "desc" ? "내림차순" : "오름차순";
   const marker = isActive ? (sortConfig.direction === "desc" ? "↓" : "↑") : "";
 
   return (
     <th>
-      <button
-        type="button"
-        className={isActive ? "table-sort active" : "table-sort"}
-        onClick={() => onSortChange(column)}
-        aria-label={`${SORTABLE_COLUMNS[column]} 정렬${isActive ? `, 현재 ${directionText}` : ""}`}
-      >
-        <span>{children}</span>
-        <span aria-hidden="true">{marker}</span>
-      </button>
+      {column.sortable ? (
+        <button
+          type="button"
+          className={isActive ? "table-sort active" : "table-sort"}
+          onClick={() => onSortChange(sortKey)}
+          aria-label={`${SORTABLE_COLUMNS[sortKey]} 정렬${isActive ? `, 현재 ${directionText}` : ""}`}
+        >
+          <span>{column.label}</span>
+          <span aria-hidden="true">{marker}</span>
+        </button>
+      ) : (
+        <span className="resizable-table-heading">{column.label}</span>
+      )}
+      <span
+        aria-hidden="true"
+        className="table-column-resize-handle"
+        onMouseDown={(event) => onResizeStart(event, column)}
+      />
     </th>
   );
+}
+
+function getInitialColumnWidths(columns, storageKey) {
+  const defaultWidths = columns.reduce(
+    (widths, column) => ({ ...widths, [column.key]: column.initialWidth }),
+    {},
+  );
+
+  if (typeof window === "undefined") {
+    return defaultWidths;
+  }
+
+  try {
+    const savedWidths = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+    return columns.reduce((widths, column) => {
+      const savedWidth = Number(savedWidths[column.key]);
+      return {
+        ...widths,
+        [column.key]: Number.isFinite(savedWidth)
+          ? Math.max(column.minWidth, savedWidth)
+          : column.initialWidth,
+      };
+    }, {});
+  } catch {
+    return defaultWidths;
+  }
+}
+
+function saveColumnWidths(storageKey, widths) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(widths));
+  } catch {
+    // Ignore storage failures; resizing still works for the current page state.
+  }
 }
 
 export default AssetList;
