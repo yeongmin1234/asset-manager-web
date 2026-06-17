@@ -8,6 +8,7 @@ const VEHICLE_COLUMNS = [
   { key: "driver", label: "사용자", initialWidth: 100, minWidth: 80 },
   { key: "ownership", label: "소유권", initialWidth: 80, minWidth: 70 },
   { key: "insuranceCompany", label: "보험사", initialWidth: 110, minWidth: 90 },
+  { key: "insuranceType", label: "자동차보험 유형", initialWidth: 120, minWidth: 90 },
   { key: "insuranceStart", label: "보험 시작일", initialWidth: 120, minWidth: 100 },
   { key: "insuranceEnd", label: "보험 종료일", initialWidth: 120, minWidth: 100 },
   { key: "insuranceDDay", label: "보험 D-Day", initialWidth: 90, minWidth: 80 },
@@ -134,6 +135,9 @@ function VehicleList({
                     <td>{formatText(item.driver_name)}</td>
                     <td><span className="software-type-badge">{formatText(item.ownership_type)}</span></td>
                     <td>{formatText(item.insurance_company)}</td>
+                    <td className="vehicle-insurance-type-cell" title={formatText(item.insurance_type)}>
+                      {formatText(item.insurance_type)}
+                    </td>
                     <td>{formatText(item.insurance_start_date)}</td>
                     <td>{formatText(item.insurance_end_date)}</td>
                     <td><DDayBadge dateValue={item.insurance_end_date} soonDays={30} /></td>
@@ -167,7 +171,7 @@ function VehicleList({
                   </tr>
                   {isExpanded && (
                     <tr className="vehicle-detail-row">
-                      <td colSpan="11">
+                      <td colSpan="12">
                         <VehicleLeaseDetail item={item} onClose={() => setExpandedItemId(null)} />
                       </td>
                     </tr>

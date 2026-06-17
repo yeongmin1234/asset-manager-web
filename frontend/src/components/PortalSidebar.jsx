@@ -11,9 +11,9 @@ const MENU_ITEMS = [
   { id: "settings", label: "설정", icon: "⚙" },
 ];
 
-function PortalSidebar({ activeSection = "dashboard", onNavigate }) {
+function PortalSidebar({ activeSection = "dashboard", onNavigate, collapsed = false }) {
   return (
-    <aside className="portal-sidebar" aria-label="포털 메뉴">
+    <aside className="portal-sidebar" aria-label="포털 메뉴" aria-hidden={collapsed}>
       <div className="portal-brand">
         <button
           type="button"

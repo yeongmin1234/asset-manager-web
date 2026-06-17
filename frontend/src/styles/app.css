@@ -113,6 +113,11 @@ p {
   display: grid;
   grid-template-columns: 268px minmax(0, 1fr);
   min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+
+.portal-shell-sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .portal-sidebar {
@@ -125,6 +130,10 @@ p {
   padding: 22px 16px;
   position: sticky;
   top: 0;
+}
+
+.portal-shell-sidebar-collapsed .portal-sidebar {
+  display: none;
 }
 
 .portal-brand {
@@ -2143,6 +2152,12 @@ p {
 }
 
 .vehicle-name-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-insurance-type-cell {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

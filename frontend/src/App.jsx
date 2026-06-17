@@ -57,6 +57,8 @@ const INITIAL_STATS_SUMMARY = {
   total_purchase_amount: 0,
 };
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "assetManager.sidebarCollapsed";
+
 function App() {
   const [backendStatus, setBackendStatus] = useState({
     backendOk: null,
@@ -71,6 +73,12 @@ function App() {
     active_window_seconds: 180,
     visitors: [],
     error: "",
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
   const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
@@ -646,16 +654,28 @@ function App() {
     );
   };
 
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((current) => {
+      const nextValue = !current;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(nextValue));
+      }
+      return nextValue;
+    });
+  };
+
   return (
-    <div className="portal-shell">
-      <PortalSidebar activeSection={activeSection} onNavigate={handleNavigate} />
+    <div className={isSidebarCollapsed ? "portal-shell portal-shell-sidebar-collapsed" : "portal-shell"}>
+      <PortalSidebar activeSection={activeSection} onNavigate={handleNavigate} collapsed={isSidebarCollapsed} />
 
       <div className="portal-workspace">
         <header className="portal-topbar">
           <button
             type="button"
             className="icon-button portal-menu-button"
-            aria-label="메뉴"
+            aria-label={isSidebarCollapsed ? "사이드바 표시" : "사이드바 숨김"}
+            aria-expanded={!isSidebarCollapsed}
+            onClick={handleToggleSidebar}
           >
             ☰
           </button>
