@@ -3235,7 +3235,24 @@ input:disabled {
 }
 
 .history-page {
+  gap: 10px;
   overflow: hidden;
+  padding-top: 14px;
+}
+
+.history-page-heading {
+  margin: 0;
+  padding: 0;
+}
+
+.history-page-heading h2,
+.history-page-heading p {
+  margin: 0;
+}
+
+.history-page-heading > div {
+  display: grid;
+  gap: 4px;
 }
 
 .history-filter-tabs {
@@ -3247,7 +3264,7 @@ input:disabled {
   padding: 0;
 }
 
-.history-filter-tab {
+.history-filter-tabs .history-filter-tab {
   align-items: center;
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -3266,19 +3283,24 @@ input:disabled {
   white-space: nowrap;
 }
 
-.history-filter-tab:hover {
+.history-filter-tabs .history-filter-tab:hover {
   background: #eff6ff;
   border-color: #93c5fd;
   color: #1d4ed8;
   transform: none;
 }
 
-.history-filter-tab.active,
-.history-filter-tab.active:hover {
+.history-filter-tabs .history-filter-tab.active,
+.history-filter-tabs .history-filter-tab.active:hover {
   background: var(--primary);
   border-color: var(--primary);
   color: #ffffff;
   transform: none;
+}
+
+.history-page .history-table-wrap,
+.history-page .history-state {
+  margin-top: 0;
 }
 
 .activity-history-table th:nth-child(1),

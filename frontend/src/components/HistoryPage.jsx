@@ -42,7 +42,7 @@ function HistoryPage() {
 
   return (
     <section className="content-panel history-page" aria-labelledby="history-page-title">
-      <div className="section-heading">
+      <div className="section-heading history-page-heading">
         <div>
           <h2 id="history-page-title">변경 이력</h2>
           <p>자산, SW, 법인차량, 차량 보험 이력의 주요 작업 이력을 확인합니다.</p>
