@@ -10,8 +10,14 @@ from fastapi import APIRouter
 
 ROUTER_IP = "192.168.222.1"
 NAS_IP = "192.168.222.210"
+SCM_IP = "192.168.222.110"
 CHECK_TIMEOUT_SECONDS = 2.0
 SLOW_RESPONSE_MS = 1500
+RECENT_CHECK_LIMIT = 10
+PUBLIC_IP_URL = "https://api.ipify.org"
+
+LAST_STATUS_BY_TARGET = {}
+RECENT_CHECKS = []
 
 CHECK_TARGETS = [
     {
@@ -30,6 +36,20 @@ CHECK_TARGETS = [
     },
     {
         "name": "NAS",
+        "target": "{}:8010".format(NAS_IP),
+        "type": "tcp",
+        "host": NAS_IP,
+        "port": 8010,
+    },
+    {
+        "name": "NAS Frontend TCP",
+        "target": "{}:3010".format(NAS_IP),
+        "type": "tcp",
+        "host": NAS_IP,
+        "port": 3010,
+    },
+    {
+        "name": "NAS Backend TCP",
         "target": "{}:8010".format(NAS_IP),
         "type": "tcp",
         "host": NAS_IP,
@@ -60,6 +80,27 @@ CHECK_TARGETS = [
         "host": "127.0.0.1",
         "port": 15432,
     },
+    {
+        "name": "DNS Check",
+        "target": "1.1.1.1:53",
+        "type": "tcp",
+        "host": "1.1.1.1",
+        "port": 53,
+    },
+    {
+        "name": "Gateway Check",
+        "target": "{}:53".format(ROUTER_IP),
+        "type": "tcp",
+        "host": ROUTER_IP,
+        "port": 53,
+    },
+    {
+        "name": "SCM 서버",
+        "target": "{}:80".format(SCM_IP),
+        "type": "tcp",
+        "host": SCM_IP,
+        "port": 80,
+    },
 ]
 
 
@@ -69,9 +110,13 @@ router = APIRouter(prefix="/network", tags=["network"])
 @router.get("/status")
 def get_network_status() -> Dict[str, Any]:
     items = [check_target(target) for target in CHECK_TARGETS]
+    summary = build_summary(items)
+    remember_recent_check(summary)
     return {
+        "public_ip": get_public_ip(),
         "items": items,
-        "summary": build_summary(items),
+        "summary": summary,
+        "recent_checks": RECENT_CHECKS,
     }
 
 
@@ -91,7 +136,7 @@ def check_target(target: Dict[str, Any]) -> Dict[str, Any]:
     if status == "ok" and latency_ms >= SLOW_RESPONSE_MS:
         status = "warning"
 
-    return {
+    item = {
         "name": target["name"],
         "target": target["target"],
         "type": target["type"],
@@ -99,6 +144,8 @@ def check_target(target: Dict[str, Any]) -> Dict[str, Any]:
         "latency_ms": latency_ms,
         "checked_at": checked_at,
     }
+    apply_last_status(item)
+    return item
 
 
 def check_tcp_target(host: str, port: int) -> str:
@@ -119,6 +166,37 @@ def check_http_target(url: str) -> str:
     return "ok" if status_code < 400 else "warning"
 
 
+def get_public_ip() -> Any:
+    http_request = request.Request(
+        PUBLIC_IP_URL,
+        headers={"User-Agent": "asset-manager-network-status"},
+    )
+    try:
+        with request.urlopen(http_request, timeout=CHECK_TIMEOUT_SECONDS) as response:
+            status_code = int(getattr(response, "status", response.getcode()))
+            if status_code >= 400:
+                return None
+            value = response.read(64).decode("utf-8").strip()
+            return value or None
+    except Exception:
+        return None
+
+
+def apply_last_status(item: Dict[str, Any]) -> None:
+    key = "{}|{}".format(item["name"], item["target"])
+    current = LAST_STATUS_BY_TARGET.get(key, {})
+    status = str(item.get("status") or "down")
+
+    if status == "ok":
+        current["last_ok_at"] = item["checked_at"]
+    else:
+        current["last_problem_at"] = item["checked_at"]
+
+    LAST_STATUS_BY_TARGET[key] = current
+    item["last_ok_at"] = current.get("last_ok_at")
+    item["last_problem_at"] = current.get("last_problem_at")
+
+
 def build_summary(items: List[Dict[str, Any]]) -> Dict[str, int]:
     summary = {
         "total": len(items),
@@ -135,3 +213,17 @@ def build_summary(items: List[Dict[str, Any]]) -> Dict[str, int]:
             summary["down"] += 1
 
     return summary
+
+
+def remember_recent_check(summary: Dict[str, int]) -> None:
+    RECENT_CHECKS.insert(
+        0,
+        {
+            "checked_at": datetime.utcnow().isoformat(),
+            "total": summary["total"],
+            "ok": summary["ok"],
+            "warning": summary["warning"],
+            "down": summary["down"],
+        },
+    )
+    del RECENT_CHECKS[RECENT_CHECK_LIMIT:]

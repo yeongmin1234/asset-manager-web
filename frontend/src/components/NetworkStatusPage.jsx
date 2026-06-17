@@ -22,7 +22,10 @@ const TYPE_LABELS = {
 function NetworkStatusPage() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [publicIp, setPublicIp] = useState(null);
+  const [recentChecks, setRecentChecks] = useState([]);
   const [statusState, setStatusState] = useState({ isLoading: false, error: "" });
+  const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
 
   const loadStatus = useCallback(async () => {
     setStatusState({ isLoading: true, error: "" });
@@ -30,10 +33,14 @@ function NetworkStatusPage() {
       const data = await getNetworkStatus();
       setItems(Array.isArray(data?.items) ? data.items : []);
       setSummary({ ...EMPTY_SUMMARY, ...(data?.summary || {}) });
+      setPublicIp(data?.public_ip || null);
+      setRecentChecks(Array.isArray(data?.recent_checks) ? data.recent_checks : []);
       setStatusState({ isLoading: false, error: "" });
     } catch (error) {
       setItems([]);
       setSummary(EMPTY_SUMMARY);
+      setPublicIp(null);
+      setRecentChecks([]);
       setStatusState({ isLoading: false, error: error.message });
     }
   }, []);
@@ -41,6 +48,15 @@ function NetworkStatusPage() {
   useEffect(() => {
     loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (!isAutoRefreshEnabled) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(loadStatus, 60000);
+    return () => window.clearInterval(intervalId);
+  }, [isAutoRefreshEnabled, loadStatus]);
 
   const summaryCards = useMemo(
     () => [
@@ -69,13 +85,25 @@ function NetworkStatusPage() {
         </button>
       </div>
 
-      <section className="network-summary-grid" aria-label="네트워크 상태 요약">
+      <section className="network-summary-compact" aria-label="네트워크 상태 요약">
+        <article className="network-summary-chip network-summary-chip-public-ip">
+          <span>공인 IP</span>
+          <strong>{publicIp || "확인 실패"}</strong>
+        </article>
         {summaryCards.map((card) => (
-          <article className={`network-summary-card network-summary-card-${card.tone}`} key={card.label}>
+          <article className={`network-summary-chip network-summary-chip-${card.tone}`} key={card.label}>
             <span>{card.label}</span>
             <strong>{card.value}</strong>
           </article>
         ))}
+        <label className="network-auto-refresh-toggle">
+          <input
+            type="checkbox"
+            checked={isAutoRefreshEnabled}
+            onChange={(event) => setIsAutoRefreshEnabled(event.target.checked)}
+          />
+          <span>자동 새로고침 60초</span>
+        </label>
       </section>
 
       <section className="content-panel network-status-panel">
@@ -108,7 +136,7 @@ function NetworkStatusPage() {
                   <th>유형</th>
                   <th>상태</th>
                   <th>응답시간</th>
-                  <th>마지막 확인 시간</th>
+                  <th>마지막 확인</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,6 +151,11 @@ function NetworkStatusPage() {
                       <span className={`network-status-badge network-status-badge-${normalizeStatus(item.status)}`}>
                         {STATUS_LABELS[normalizeStatus(item.status)] || displayValue(item.status)}
                       </span>
+                      {item.last_problem_at ? (
+                        <small className="network-status-note">
+                          최근 문제 {formatCompactTime(item.last_problem_at)}
+                        </small>
+                      ) : null}
                     </td>
                     <td>{formatLatency(item.latency_ms)}</td>
                     <td>{formatCheckedAt(item.checked_at)}</td>
@@ -130,6 +163,22 @@ function NetworkStatusPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : null}
+
+        {recentChecks.length > 0 ? (
+          <div className="network-recent-checks">
+            <strong>최근 상태 이력</strong>
+            <ul>
+              {recentChecks.slice(0, 10).map((check, index) => (
+                <li key={`${check.checked_at}-${index}`}>
+                  <span>{formatCompactTime(check.checked_at)}</span>
+                  <span>정상 {displayValue(check.ok)}</span>
+                  <span>주의 {displayValue(check.warning)}</span>
+                  <span>장애 {displayValue(check.down)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
       </section>
@@ -174,6 +223,20 @@ function formatCheckedAt(value) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+  });
+}
+
+function formatCompactTime(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
