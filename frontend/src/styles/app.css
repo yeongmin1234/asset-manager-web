@@ -939,11 +939,12 @@ p {
 
 .vehicle-list-panel {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .vehicle-main-panel .vehicle-list-controls {
   margin-bottom: 0;
+  padding: 7px 8px;
 }
 
 .vehicle-main-panel .vehicle-quick-form {
@@ -2143,7 +2144,7 @@ p {
 
 .vehicle-table th:nth-child(1),
 .vehicle-table td:nth-child(1) {
-  width: 90px;
+  width: 80px;
 }
 
 .vehicle-table th:nth-child(2),
@@ -2153,7 +2154,7 @@ p {
 
 .vehicle-table th:nth-child(3),
 .vehicle-table td:nth-child(3) {
-  width: 320px;
+  width: 340px;
 }
 
 .vehicle-table th:nth-child(4),
