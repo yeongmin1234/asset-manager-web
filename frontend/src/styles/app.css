@@ -2151,6 +2151,97 @@ p {
   white-space: nowrap;
 }
 
+.software-license-view-button {
+  min-height: 30px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.software-license-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 80;
+}
+
+.software-license-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  max-width: 520px;
+  padding: 18px;
+  width: min(100%, 520px);
+}
+
+.software-license-modal-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.software-license-modal-heading h3 {
+  color: #0f172a;
+  font-size: 1.05rem;
+  margin: 0 0 4px;
+}
+
+.software-license-modal-heading p {
+  color: #64748b;
+  font-size: 0.86rem;
+  margin: 0;
+}
+
+.software-license-info {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.software-license-info div {
+  display: grid;
+  gap: 4px;
+}
+
+.software-license-info dt {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.software-license-info dd {
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.software-license-key-detail dd {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-family: Consolas, "Courier New", monospace;
+  line-height: 1.5;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.software-license-modal-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
 .software-row.editing {
   background: #f1f7ff;
   box-shadow: inset 4px 0 0 var(--brand);
