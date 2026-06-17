@@ -53,7 +53,11 @@ function HistoryPage() {
             key={filter.label}
             type="button"
             aria-label={`${filter.label} 변경 이력 필터`}
-            className={activeFilter === filter.targetType ? "history-filter-button active" : "history-filter-button"}
+            className={
+              activeFilter === filter.targetType
+                ? "history-filter-button history-filter-button-active"
+                : "history-filter-button"
+            }
             onClick={() => setActiveFilter(filter.targetType)}
           >
             <span className="history-filter-label">{filter.label}</span>

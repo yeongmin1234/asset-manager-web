@@ -2799,8 +2799,7 @@ input:disabled {
 
 .software-tab,
 .vehicle-form-tab,
-.category-tab,
-.history-filter-tabs .history-filter-button {
+.category-tab {
   align-items: center;
   border-radius: 999px;
   display: inline-flex;
@@ -2817,8 +2816,7 @@ input:disabled {
 
 .software-tab,
 .vehicle-form-tab,
-.category-tab,
-.history-filter-tabs .history-filter-button {
+.category-tab {
   background: #ffffff;
   border: 1px solid #cbd5e1;
   color: #334155;
@@ -2826,8 +2824,7 @@ input:disabled {
 
 .software-tab:not(:disabled):hover,
 .vehicle-form-tab:not(:disabled):hover,
-.category-tab:not(:disabled):hover,
-.history-filter-tabs .history-filter-button:hover {
+.category-tab:not(:disabled):hover {
   background: #eff6ff;
   border-color: #93c5fd;
   box-shadow: none;
@@ -2839,11 +2836,9 @@ input:disabled {
 .software-tab.active,
 .vehicle-form-tab.active,
 .category-tab.active,
-.history-filter-tabs .history-filter-button.active,
 .software-tab.active:not(:disabled):hover,
 .vehicle-form-tab.active:not(:disabled):hover,
-.category-tab.active:not(:disabled):hover,
-.history-filter-tabs .history-filter-button.active:hover {
+.category-tab.active:not(:disabled):hover {
   background: #2563eb;
   border-color: #2563eb;
   box-shadow: none;
@@ -3437,10 +3432,12 @@ input:disabled {
 
 .history-filter-tabs .history-filter-button {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  appearance: none;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
   border-radius: 999px;
-  color: #334155;
+  box-shadow: none !important;
+  color: #0f172a !important;
   cursor: pointer;
   display: inline-flex;
   font-size: 0.86rem;
@@ -3451,43 +3448,50 @@ input:disabled {
   min-height: 0;
   min-width: 42px;
   padding: 8px 14px;
+  text-indent: 0;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  visibility: visible;
   white-space: nowrap;
+  -webkit-text-fill-color: #0f172a;
 }
 
 .history-filter-tabs .history-filter-label {
-  color: currentColor;
-  display: inline-block;
+  color: inherit !important;
+  display: inline !important;
+  font-size: inherit;
   line-height: 1;
-  opacity: 1;
-  visibility: visible;
-  -webkit-text-fill-color: currentColor;
+  opacity: 1 !important;
+  text-indent: 0;
+  visibility: visible !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 
 .history-filter-tabs .history-filter-button:hover {
-  background: #eff6ff;
-  border-color: #93c5fd;
-  color: #1d4ed8;
-  transform: none;
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #2563eb !important;
+  transform: none !important;
+  -webkit-text-fill-color: #2563eb;
 }
 
-.history-filter-tabs .history-filter-button.active,
-.history-filter-tabs .history-filter-button.active:hover {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #ffffff;
-  transform: none;
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  transform: none !important;
+  -webkit-text-fill-color: #ffffff;
 }
 
 .history-filter-tabs .history-filter-button:hover .history-filter-label {
-  color: #1d4ed8;
-  -webkit-text-fill-color: #1d4ed8;
+  color: #2563eb !important;
+  -webkit-text-fill-color: #2563eb !important;
 }
 
-.history-filter-tabs .history-filter-button.active .history-filter-label,
-.history-filter-tabs .history-filter-button.active:hover .history-filter-label {
-  color: #ffffff;
-  -webkit-text-fill-color: #ffffff;
+.history-filter-tabs .history-filter-button.history-filter-button-active .history-filter-label,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover .history-filter-label {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 .history-list-panel {
