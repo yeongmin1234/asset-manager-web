@@ -2206,6 +2206,49 @@ p {
   white-space: nowrap;
 }
 
+.software-license-inline {
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.software-license-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.software-license-copy-button {
+  min-height: 30px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.software-license-copy-message {
+  color: #16a34a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.software-license-key-text {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #0f172a;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-height: 82px;
+  max-width: 100%;
+  overflow: auto;
+  padding: 7px 8px;
+  white-space: normal;
+  word-break: break-all;
+}
+
 .software-license-modal-backdrop {
   align-items: center;
   background: rgba(15, 23, 42, 0.42);

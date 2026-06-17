@@ -25,8 +25,8 @@ function SoftwareList({
   onTabChange,
   tabs,
 }) {
-  const [licenseModalItem, setLicenseModalItem] = useState(null);
-  const [copyMessage, setCopyMessage] = useState("");
+  const [expandedLicenseId, setExpandedLicenseId] = useState(null);
+  const [copiedLicenseId, setCopiedLicenseId] = useState(null);
   const [columnWidths, setColumnWidths] = useState(() =>
     getInitialColumnWidths(SOFTWARE_COLUMNS, SOFTWARE_COLUMN_WIDTH_STORAGE_KEY),
   );
@@ -78,27 +78,22 @@ function SoftwareList({
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  const openLicenseModal = (item) => {
-    setLicenseModalItem(item);
-    setCopyMessage("");
+  const toggleLicense = (itemId) => {
+    setExpandedLicenseId((currentId) => (currentId === itemId ? null : itemId));
+    setCopiedLicenseId(null);
   };
 
-  const closeLicenseModal = () => {
-    setLicenseModalItem(null);
-    setCopyMessage("");
-  };
-
-  const handleCopyLicense = async () => {
-    const licenseKey = licenseModalItem?.license_key || "";
+  const handleCopyLicense = async (item) => {
+    const licenseKey = item?.license_key || "";
     if (!licenseKey) {
       return;
     }
 
     try {
       await navigator.clipboard.writeText(licenseKey);
-      setCopyMessage("복사되었습니다.");
+      setCopiedLicenseId(item.id);
     } catch {
-      setCopyMessage("복사하지 못했습니다.");
+      setCopiedLicenseId(null);
     }
   };
 
@@ -173,13 +168,32 @@ function SoftwareList({
                 </td>
                 <td className="software-license-key-cell">
                   {item.license_key ? (
-                    <button
-                      type="button"
-                      className="secondary-button software-license-view-button"
-                      onClick={() => openLicenseModal(item)}
-                    >
-                      라이선스 보기
-                    </button>
+                    <div className="software-license-inline">
+                      <div className="software-license-actions">
+                        <button
+                          type="button"
+                          className="secondary-button software-license-view-button"
+                          onClick={() => toggleLicense(item.id)}
+                        >
+                          {expandedLicenseId === item.id ? "숨기기" : "라이선스 보기"}
+                        </button>
+                        {expandedLicenseId === item.id ? (
+                          <button
+                            type="button"
+                            className="secondary-button software-license-copy-button"
+                            onClick={() => handleCopyLicense(item)}
+                          >
+                            복사
+                          </button>
+                        ) : null}
+                        {copiedLicenseId === item.id ? (
+                          <span className="software-license-copy-message">복사됨</span>
+                        ) : null}
+                      </div>
+                      {expandedLicenseId === item.id ? (
+                        <div className="software-license-key-text">{item.license_key}</div>
+                      ) : null}
+                    </div>
                   ) : (
                     "-"
                   )}
@@ -258,57 +272,6 @@ function SoftwareList({
       </div>
 
       {renderContent()}
-
-      {licenseModalItem ? (
-        <div className="software-license-modal-backdrop" role="presentation">
-          <section
-            className="software-license-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="software-license-modal-title"
-          >
-            <div className="software-license-modal-heading">
-              <div>
-                <h3 id="software-license-modal-title">라이선스키 / CDKEY</h3>
-                <p>{licenseModalItem.name || "-"}</p>
-              </div>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="라이선스 보기 닫기"
-                onClick={closeLicenseModal}
-              >
-                ×
-              </button>
-            </div>
-
-            <dl className="software-license-info">
-              <div>
-                <dt>소프트웨어명</dt>
-                <dd>{licenseModalItem.name || "-"}</dd>
-              </div>
-              <div>
-                <dt>소유</dt>
-                <dd>{licenseModalItem.owner_name || "-"}</dd>
-              </div>
-              <div className="software-license-key-detail">
-                <dt>라이선스키/CDKEY</dt>
-                <dd>{licenseModalItem.license_key || "-"}</dd>
-              </div>
-            </dl>
-
-            <div className="software-license-modal-actions">
-              {copyMessage ? <span className="inline-success">{copyMessage}</span> : null}
-              <button type="button" className="secondary-button" onClick={handleCopyLicense}>
-                복사
-              </button>
-              <button type="button" className="primary-action" onClick={closeLicenseModal}>
-                닫기
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
     </section>
   );
 }
