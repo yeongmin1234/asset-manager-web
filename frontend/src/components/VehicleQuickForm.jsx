@@ -18,7 +18,7 @@ const INITIAL_FORM = {
   tax_note: "",
 };
 
-function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit }) {
+function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit, showHeading = true }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [activeTab, setActiveTab] = useState("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,13 +111,19 @@ function VehicleQuickForm({ editingItem, onCancelEdit, onSubmit }) {
   };
 
   return (
-    <section className="quick-create vehicle-quick-form" aria-labelledby="vehicle-form-title">
-      <div className="quick-create-heading">
-        <div>
-          <h3 id="vehicle-form-title">{isEditMode ? "차량 수정" : "빠른 등록"}</h3>
-          <p>{isEditMode ? "선택한 차량 정보를 수정합니다." : "법인차량과 보험/리스 정보를 등록합니다."}</p>
+    <section
+      className="quick-create vehicle-quick-form"
+      aria-label={showHeading ? undefined : isEditMode ? "차량 수정" : "빠른 등록"}
+      aria-labelledby={showHeading ? "vehicle-form-title" : undefined}
+    >
+      {showHeading && (
+        <div className="quick-create-heading">
+          <div>
+            <h3 id="vehicle-form-title">{isEditMode ? "차량 수정" : "빠른 등록"}</h3>
+            <p>{isEditMode ? "선택한 차량 정보를 수정합니다." : "법인차량과 보험/리스 정보를 등록합니다."}</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="vehicle-form-tabs" aria-label="차량 등록 정보 탭">

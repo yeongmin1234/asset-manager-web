@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Fragment, useState } from "react";
 
 function VehicleList({
   items,
@@ -13,6 +13,7 @@ function VehicleList({
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
+  const [expandedItemId, setExpandedItemId] = useState(null);
 
   const renderContent = () => {
     if (isLoading) {
@@ -48,55 +49,62 @@ function VehicleList({
               <th>보험사</th>
               <th>보험 종료일</th>
               <th>보험 D-Day</th>
-              <th>리스사</th>
-              <th>리스 종료일</th>
-              <th>리스 D-Day</th>
-              <th>월 리스금액</th>
-              <th>리스 납부일</th>
-              <th>자동차세 및 기타</th>
+              <th>리스 상세</th>
               <th className="vehicle-actions-cell">관리</th>
             </tr>
           </thead>
           <tbody>
-            {safeItems.map((item) => (
-              <tr
-                key={item.id}
-                className={editingItemId === item.id ? "vehicle-row editing" : "vehicle-row"}
-              >
-                <td>{formatText(item.company_name)}</td>
-                <td><strong>{item.vehicle_number}</strong></td>
-                <td>{item.vehicle_name}</td>
-                <td>{formatText(item.driver_name)}</td>
-                <td><span className="software-type-badge">{item.ownership_type}</span></td>
-                <td>{formatText(item.insurance_company)}</td>
-                <td>{formatText(item.insurance_end_date)}</td>
-                <td><DDayBadge dateValue={item.insurance_end_date} soonDays={30} /></td>
-                <td>{formatText(item.lease_company)}</td>
-                <td>{formatText(item.lease_end_date)}</td>
-                <td><DDayBadge dateValue={item.lease_end_date} soonDays={60} /></td>
-                <td>{formatCurrency(item.monthly_lease_amount)}</td>
-                <td>{formatText(item.lease_payment_day)}</td>
-                <td className="vehicle-note-cell">{formatText(item.tax_note)}</td>
-                <td className="vehicle-actions-cell">
-                  <div className="software-row-actions">
-                    <button
-                      type="button"
-                      className="secondary-button software-action-button"
-                      onClick={() => onEdit(item)}
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      className="danger-button software-action-button"
-                      onClick={() => onDelete(item)}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {safeItems.map((item) => {
+              const isExpanded = expandedItemId === item.id;
+              return (
+                <Fragment key={item.id}>
+                  <tr className={editingItemId === item.id ? "vehicle-row editing" : "vehicle-row"}>
+                    <td>{formatText(item.company_name)}</td>
+                    <td><strong>{item.vehicle_number}</strong></td>
+                    <td className="vehicle-name-cell">{formatText(item.vehicle_name)}</td>
+                    <td>{formatText(item.driver_name)}</td>
+                    <td><span className="software-type-badge">{formatText(item.ownership_type)}</span></td>
+                    <td>{formatText(item.insurance_company)}</td>
+                    <td>{formatText(item.insurance_end_date)}</td>
+                    <td><DDayBadge dateValue={item.insurance_end_date} soonDays={30} /></td>
+                    <td className="vehicle-detail-toggle-cell">
+                      <button
+                        type="button"
+                        className="secondary-button software-action-button"
+                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                      >
+                        {isExpanded ? "리스 닫기" : "리스 상세"}
+                      </button>
+                    </td>
+                    <td className="vehicle-actions-cell">
+                      <div className="software-row-actions">
+                        <button
+                          type="button"
+                          className="secondary-button software-action-button"
+                          onClick={() => onEdit(item)}
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          className="danger-button software-action-button"
+                          onClick={() => onDelete(item)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr className="vehicle-detail-row">
+                      <td colSpan="10">
+                        <VehicleLeaseDetail item={item} onClose={() => setExpandedItemId(null)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -104,14 +112,7 @@ function VehicleList({
   };
 
   return (
-    <section className="content-panel vehicle-list-panel">
-      <div className="section-heading">
-        <div>
-          <h2>차량 목록</h2>
-          <p>소유권과 만기 임박 기준으로 최신 등록순으로 표시됩니다.</p>
-        </div>
-      </div>
-
+    <div className="vehicle-list-panel">
       <div className="software-list-controls vehicle-list-controls">
         <div className="software-tabs" aria-label="법인차량 탭">
           {safeTabs.map((tab) => (
@@ -128,7 +129,41 @@ function VehicleList({
       </div>
 
       {renderContent()}
-    </section>
+    </div>
+  );
+}
+
+function VehicleLeaseDetail({ item, onClose }) {
+  const details = [
+    { label: "리스사", value: formatText(item.lease_company) },
+    { label: "리스 시작일", value: formatText(item.lease_start_date) },
+    { label: "리스 종료일", value: formatText(item.lease_end_date) },
+    { label: "리스 D-Day", value: <DDayBadge dateValue={item.lease_end_date} soonDays={60} /> },
+    { label: "월 리스금액", value: formatCurrency(item.monthly_lease_amount) },
+    { label: "리스 납부일", value: formatText(item.lease_payment_day) },
+    { label: "자동차세 및 기타", value: formatText(item.tax_note), wide: true },
+  ];
+
+  return (
+    <div className="vehicle-detail-card">
+      <div className="vehicle-detail-heading">
+        <strong>{formatText(item.vehicle_number)} 리스 상세</strong>
+        <button type="button" className="secondary-button software-action-button" onClick={onClose}>
+          리스 닫기
+        </button>
+      </div>
+      <dl className="vehicle-detail-grid">
+        {details.map((detail) => (
+          <div
+            className={detail.wide ? "vehicle-detail-item vehicle-detail-item-wide" : "vehicle-detail-item"}
+            key={detail.label}
+          >
+            <dt>{detail.label}</dt>
+            <dd>{detail.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

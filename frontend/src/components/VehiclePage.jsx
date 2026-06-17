@@ -102,6 +102,25 @@ function VehiclePage() {
     setActivePageTab("list");
   };
 
+  const renderPageTabs = () => (
+    <div className="vehicle-page-tabs" aria-label="법인차량 화면 탭">
+      <button
+        type="button"
+        className={activePageTab === "list" ? "vehicle-page-tab active" : "vehicle-page-tab"}
+        onClick={() => setActivePageTab("list")}
+      >
+        차량 목록
+      </button>
+      <button
+        type="button"
+        className={activePageTab === "form" ? "vehicle-page-tab active" : "vehicle-page-tab"}
+        onClick={() => setActivePageTab("form")}
+      >
+        빠른 등록
+      </button>
+    </div>
+  );
+
   return (
     <>
       <div className="portal-screen-heading vehicle-page-heading">
@@ -117,42 +136,40 @@ function VehiclePage() {
         />
       </div>
 
-      <div className="vehicle-page-tabs" aria-label="법인차량 화면 탭">
-        <button
-          type="button"
-          className={activePageTab === "list" ? "vehicle-page-tab active" : "vehicle-page-tab"}
-          onClick={() => setActivePageTab("list")}
-        >
-          차량 목록
-        </button>
-        <button
-          type="button"
-          className={activePageTab === "form" ? "vehicle-page-tab active" : "vehicle-page-tab"}
-          onClick={() => setActivePageTab("form")}
-        >
-          빠른 등록
-        </button>
-      </div>
+      <section className="content-panel vehicle-main-panel">
+        <div className="section-heading vehicle-main-heading">
+          <div>
+            <h2>{activePageTab === "list" ? "차량 목록" : editingItem ? "차량 수정" : "빠른 등록"}</h2>
+            <p>
+              {activePageTab === "list"
+                ? "보험 중심 목록으로 확인하고, 리스 정보는 리스 상세에서 확인합니다."
+                : "법인차량과 보험/리스 정보를 등록합니다."}
+            </p>
+          </div>
+          {renderPageTabs()}
+        </div>
 
-      {activePageTab === "list" ? (
-        <VehicleList
-          items={displayedItems}
-          isLoading={listState.isLoading}
-          error={listState.error}
-          activeTab={activeTab}
-          editingItemId={editingItem?.id || null}
-          onDelete={handleDelete}
-          onEdit={handleEdit}
-          onTabChange={setActiveTab}
-          tabs={VEHICLE_TABS}
-        />
-      ) : (
-        <VehicleQuickForm
-          editingItem={editingItem}
-          onCancelEdit={handleCancelEdit}
-          onSubmit={handleSubmit}
-        />
-      )}
+        {activePageTab === "list" ? (
+          <VehicleList
+            items={displayedItems}
+            isLoading={listState.isLoading}
+            error={listState.error}
+            activeTab={activeTab}
+            editingItemId={editingItem?.id || null}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+            onTabChange={setActiveTab}
+            tabs={VEHICLE_TABS}
+          />
+        ) : (
+          <VehicleQuickForm
+            editingItem={editingItem}
+            onCancelEdit={handleCancelEdit}
+            onSubmit={handleSubmit}
+            showHeading={false}
+          />
+        )}
+      </section>
     </>
   );
 }

@@ -848,11 +848,10 @@ p {
 
 .vehicle-page-tabs {
   align-items: center;
-  border-bottom: 1px solid var(--line-soft);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding-bottom: 8px;
+  justify-content: flex-end;
 }
 
 .vehicle-page-tab {
@@ -889,6 +888,32 @@ p {
   box-shadow: none;
   color: #ffffff;
   transform: none;
+}
+
+.vehicle-main-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.vehicle-main-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 12px;
+}
+
+.vehicle-list-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.vehicle-main-panel .vehicle-list-controls {
+  margin-bottom: 0;
+}
+
+.vehicle-main-panel .vehicle-quick-form {
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 
 .portal-report-grid .category-stats,
@@ -2071,7 +2096,7 @@ p {
 .vehicle-table {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1580px;
+  min-width: 1040px;
   table-layout: fixed;
 }
 
@@ -2082,60 +2107,59 @@ p {
 
 .vehicle-table th:nth-child(1),
 .vehicle-table td:nth-child(1) {
-  width: 100px;
+  width: 110px;
 }
 
 .vehicle-table th:nth-child(2),
 .vehicle-table td:nth-child(2) {
-  width: 104px;
+  width: 118px;
 }
 
 .vehicle-table th:nth-child(3),
 .vehicle-table td:nth-child(3) {
-  width: 150px;
+  width: 180px;
 }
 
 .vehicle-table th:nth-child(4),
 .vehicle-table td:nth-child(4) {
-  width: 84px;
+  width: 92px;
 }
 
 .vehicle-table th:nth-child(5),
 .vehicle-table td:nth-child(5) {
-  width: 78px;
-}
-
-.vehicle-table th:nth-child(6),
-.vehicle-table td:nth-child(6),
-.vehicle-table th:nth-child(7),
-.vehicle-table td:nth-child(7),
-.vehicle-table th:nth-child(9),
-.vehicle-table td:nth-child(9),
-.vehicle-table th:nth-child(10),
-.vehicle-table td:nth-child(10) {
-  width: 96px;
-}
-
-.vehicle-table th:nth-child(8),
-.vehicle-table td:nth-child(8),
-.vehicle-table th:nth-child(11),
-.vehicle-table td:nth-child(11) {
   width: 84px;
 }
 
-.vehicle-table th:nth-child(12),
-.vehicle-table td:nth-child(12) {
-  width: 102px;
+.vehicle-table th:nth-child(6),
+.vehicle-table td:nth-child(6) {
+  width: 112px;
 }
 
-.vehicle-table th:nth-child(13),
-.vehicle-table td:nth-child(13) {
-  width: 80px;
+.vehicle-table th:nth-child(7),
+.vehicle-table td:nth-child(7) {
+  width: 112px;
 }
 
-.vehicle-table th:nth-child(14),
-.vehicle-table td:nth-child(14) {
-  width: 210px;
+.vehicle-table th:nth-child(8),
+.vehicle-table td:nth-child(8) {
+  width: 96px;
+}
+
+.vehicle-table th:nth-child(9),
+.vehicle-table td:nth-child(9) {
+  width: 104px;
+}
+
+.vehicle-table th:nth-child(10),
+.vehicle-table td:nth-child(10) {
+  width: 112px;
+}
+
+.vehicle-name-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .vehicle-row.editing {
@@ -2151,11 +2175,15 @@ p {
   word-break: break-word;
 }
 
+.vehicle-detail-toggle-cell {
+  text-align: center;
+}
+
 .vehicle-actions-cell {
   background: #ffffff;
   position: sticky;
   right: 0;
-  width: 104px;
+  width: 112px;
   z-index: 2;
 }
 
@@ -2175,6 +2203,64 @@ p {
 
 .vehicle-actions-cell .software-row-actions {
   flex-wrap: nowrap;
+}
+
+.vehicle-detail-row td {
+  background: #f8fbff;
+  white-space: normal;
+}
+
+.vehicle-detail-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.vehicle-detail-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.vehicle-detail-heading strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.vehicle-detail-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.vehicle-detail-item {
+  background: #ffffff;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.vehicle-detail-item-wide {
+  grid-column: 1 / -1;
+}
+
+.vehicle-detail-item dt {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.vehicle-detail-item dd {
+  color: #172033;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .software-license-key-cell {
@@ -3105,6 +3191,10 @@ input:disabled {
     grid-template-columns: 1fr;
   }
 
+  .vehicle-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .settings-layout {
     grid-template-columns: 1fr;
   }
@@ -3154,6 +3244,10 @@ input:disabled {
   .detail-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .vehicle-page-tabs {
+    justify-content: flex-start;
   }
 
   .toolbar-actions,
@@ -3354,12 +3448,20 @@ input:disabled {
     display: none;
   }
 
+  .vehicle-list-panel .asset-table-wrap {
+    display: block;
+  }
+
   .asset-cards {
     display: grid;
     gap: 12px;
   }
 
   .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-detail-grid {
     grid-template-columns: 1fr;
   }
 
