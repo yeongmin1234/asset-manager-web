@@ -25,6 +25,12 @@ const VEHICLE_TABS = [
   { label: "리스 만기 임박", value: "lease_expiring" },
 ];
 
+const VEHICLE_COMPANY_TABS = [
+  { label: "전체", value: "" },
+  { label: "더리모", value: "더리모" },
+  { label: "한국리모텍", value: "한국리모텍" },
+];
+
 function VehiclePage() {
   const [items, setItems] = useState([]);
   const [listState, setListState] = useState({ isLoading: false, error: "" });
@@ -32,11 +38,12 @@ function VehiclePage() {
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [editingItem, setEditingItem] = useState(null);
   const [activeTab, setActiveTab] = useState("");
+  const [activeCompanyTab, setActiveCompanyTab] = useState("");
   const [activePageTab, setActivePageTab] = useState("list");
 
   const displayedItems = useMemo(
-    () => filterVehicles(items, activeTab),
-    [activeTab, items],
+    () => filterVehicles(items, activeTab, activeCompanyTab),
+    [activeCompanyTab, activeTab, items],
   );
 
   const loadItems = useCallback(async () => {
@@ -157,9 +164,12 @@ function VehiclePage() {
               isLoading={listState.isLoading}
               error={listState.error}
               activeTab={activeTab}
+              activeCompanyTab={activeCompanyTab}
+              companyTabs={VEHICLE_COMPANY_TABS}
               editingItemId={editingItem?.id || null}
               onDelete={handleDelete}
               onEdit={handleEdit}
+              onCompanyTabChange={setActiveCompanyTab}
               onTabChange={setActiveTab}
               tabs={VEHICLE_TABS}
             />
@@ -177,12 +187,15 @@ function VehiclePage() {
   );
 }
 
-function filterVehicles(items, activeTab) {
+function filterVehicles(items, activeTab, activeCompanyTab) {
   const safeItems = Array.isArray(items) ? items : [];
-  if (!activeTab) {
-    return safeItems;
-  }
   return safeItems.filter((item) => {
+    if (activeCompanyTab && item.company_name !== activeCompanyTab) {
+      return false;
+    }
+    if (!activeTab) {
+      return true;
+    }
     if (activeTab === "회사" || activeTab === "리스") {
       return item.ownership_type === activeTab;
     }

@@ -21,14 +21,18 @@ function VehicleList({
   isLoading,
   error,
   activeTab,
+  activeCompanyTab,
+  companyTabs,
   editingItemId,
   onDelete,
   onEdit,
+  onCompanyTabChange,
   onTabChange,
   tabs,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
+  const safeCompanyTabs = Array.isArray(companyTabs) ? companyTabs : [];
   const [expandedItemId, setExpandedItemId] = useState(null);
   const [columnWidths, setColumnWidths] = useState(getInitialColumnWidths);
   const resizeStateRef = useRef(null);
@@ -134,7 +138,7 @@ function VehicleList({
                     </td>
                     <td>{formatText(item.driver_name)}</td>
                     <td><span className="software-type-badge">{formatText(item.ownership_type)}</span></td>
-                    <td>{formatText(item.insurance_company)}</td>
+                    <td><InsuranceCompanyBadge company={item.insurance_company} /></td>
                     <td className="vehicle-insurance-type-cell" title={formatText(item.insurance_type)}>
                       {formatText(item.insurance_type)}
                     </td>
@@ -188,23 +192,62 @@ function VehicleList({
   return (
     <div className="vehicle-list-panel">
       <div className="software-list-controls vehicle-list-controls">
-        <div className="software-tabs" aria-label="법인차량 탭">
-          {safeTabs.map((tab) => (
-            <button
-              type="button"
-              key={tab.label}
-              className={activeTab === tab.value ? "software-tab active" : "software-tab"}
-              onClick={() => onTabChange(tab.value)}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="vehicle-filter-group">
+          <div className="software-tabs" aria-label="법인차량 회사 필터">
+            {safeCompanyTabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.label}
+                className={activeCompanyTab === tab.value ? "software-tab active" : "software-tab"}
+                onClick={() => onCompanyTabChange(tab.value)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="software-tabs" aria-label="법인차량 상태 필터">
+            {safeTabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.label}
+                className={activeTab === tab.value ? "software-tab active" : "software-tab"}
+                onClick={() => onTabChange(tab.value)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {renderContent()}
     </div>
   );
+}
+
+function InsuranceCompanyBadge({ company }) {
+  const text = formatText(company);
+  if (text === "-") {
+    return text;
+  }
+  return (
+    <span className={`vehicle-insurance-badge vehicle-insurance-${getInsuranceBadgeTone(text)}`}>
+      {text}
+    </span>
+  );
+}
+
+function getInsuranceBadgeTone(company) {
+  if (company.includes("삼성화재")) {
+    return "samsung";
+  }
+  if (company.includes("KB손해보험")) {
+    return "kb";
+  }
+  if (company.includes("DB손해보험")) {
+    return "db";
+  }
+  return "default";
 }
 
 function VehicleLeaseDetail({ item, onClose }) {
