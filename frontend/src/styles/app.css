@@ -1289,6 +1289,53 @@ p {
   gap: 12px;
 }
 
+.settings-access-panel,
+.settings-access-content,
+.settings-tab-card-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-access-tabs {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+}
+
+.settings-access-tab {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.settings-access-tab:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1d4ed8;
+}
+
+.settings-access-tab.active {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+  color: #ffffff;
+}
+
 .settings-menu-visibility-list {
   display: grid;
   gap: 8px;
