@@ -1,7 +1,9 @@
 from typing import List
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.api.routers import (
@@ -36,6 +38,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+Path(settings.upload_dir).resolve().mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/uploads",
+    StaticFiles(directory=str(Path(settings.upload_dir).resolve())),
+    name="uploads",
 )
 
 app.include_router(health.router)

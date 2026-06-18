@@ -85,6 +85,8 @@ BEVERAGE_ORDER_LOG_FIELDS = (
     "requester",
     "payment_method",
     "order_url",
+    "image_path",
+    "image_original_name",
     "memo",
 )
 

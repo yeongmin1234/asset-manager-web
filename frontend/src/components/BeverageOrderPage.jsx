@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  API_BASE_URL,
   createBeverageOrder,
   deleteBeverageOrder,
   getBeverageOrder,
@@ -8,43 +9,30 @@ import {
   updateBeverageOrder,
 } from "../api/client.js";
 
-const INITIAL_FORM = {
-  order_date: "",
-  order_month: "",
-  vendor: "쿠팡",
-  title: "",
-  items_summary: "",
-  total_amount: "",
-  quantity_summary: "",
-  requester: "",
-  payment_method: "법인카드",
-  order_url: "",
-  memo: "",
-};
-
 const INITIAL_FILTERS = {
   order_month: "",
-  vendor: "",
   keyword: "",
 };
 
 const INITIAL_SUMMARY = {
   total: 0,
   this_month: 0,
-  total_amount: 0,
-  this_month_amount: 0,
 };
 
-const VENDOR_OPTIONS = ["쿠팡", "이마트", "기타"];
-const PAYMENT_OPTIONS = ["법인카드", "개인카드", "기타"];
+const INITIAL_FORM = {
+  memo: "",
+  image: null,
+};
 
 function BeverageOrderPage() {
   const [orders, setOrders] = useState([]);
   const [summary, setSummary] = useState(INITIAL_SUMMARY);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
-  const [form, setForm] = useState(INITIAL_FORM);
-  const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [listState, setListState] = useState({ isLoading: false, error: "" });
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [detailState, setDetailState] = useState({ isLoading: false, error: "" });
@@ -81,72 +69,112 @@ function BeverageOrderPage() {
   }, [loadSummary]);
 
   useEffect(() => {
-    if (!editingOrder) {
-      setForm(INITIAL_FORM);
-      setSubmitState({ isSubmitting: false, message: "", error: "" });
-      return;
-    }
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
-    setForm({
-      order_date: editingOrder.order_date || "",
-      order_month: editingOrder.order_month || "",
-      vendor: editingOrder.vendor || "쿠팡",
-      title: editingOrder.title || "",
-      items_summary: editingOrder.items_summary || "",
-      total_amount: String(editingOrder.total_amount ?? ""),
-      quantity_summary: editingOrder.quantity_summary || "",
-      requester: editingOrder.requester || "",
-      payment_method: editingOrder.payment_method || "법인카드",
-      order_url: editingOrder.order_url || "",
-      memo: editingOrder.memo || "",
-    });
-    setSubmitState({ isSubmitting: false, message: "", error: "" });
-  }, [editingOrder]);
-
-  const orderMonthOptions = useMemo(() => {
+  const monthOptions = useMemo(() => {
     const values = new Set();
     orders.forEach((order) => {
       if (order.order_month) {
         values.add(order.order_month);
       }
     });
-    if (form.order_month) {
-      values.add(form.order_month);
-    }
     return Array.from(values).sort().reverse();
-  }, [form.order_month, orders]);
+  }, [orders]);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-      ...(name === "order_date" && value ? { order_month: value.slice(0, 7) } : {}),
-    }));
+  const expectedTitle = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day} 음료 주문`;
+  }, []);
+
+  const expectedMonth = expectedTitle.slice(0, 7);
+
+  const resetForm = () => {
+    setForm(INITIAL_FORM);
+    setEditingOrder(null);
+    setIsFormOpen(false);
+    setSubmitState({ isSubmitting: false, message: "", error: "" });
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl("");
+    }
+  };
+
+  const openCreateForm = () => {
+    resetForm();
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (order) => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setEditingOrder(order);
+    setSelectedOrder(order);
+    setForm({ memo: order.memo || "", image: null });
+    setPreviewUrl("");
+    setIsFormOpen(true);
+    setSubmitState({ isSubmitting: false, message: "", error: "" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const setImageFile = (file) => {
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setSubmitState({ isSubmitting: false, message: "", error: "이미지 파일만 첨부할 수 있습니다." });
+      return;
+    }
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setForm((current) => ({ ...current, image: file }));
+    setPreviewUrl(URL.createObjectURL(file));
     setSubmitState((current) => ({ ...current, message: "", error: "" }));
+  };
+
+  const handlePaste = (event) => {
+    const files = Array.from(event.clipboardData?.files || []);
+    const imageFile = files.find((file) => file.type.startsWith("image/"));
+    if (imageFile) {
+      event.preventDefault();
+      setImageFile(imageFile);
+    }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.title.trim()) {
-      setSubmitState({ isSubmitting: false, message: "", error: "제목을 입력해주세요." });
+    if (!editingOrder && !form.image) {
+      setSubmitState({ isSubmitting: false, message: "", error: "쿠팡 주문 캡처 이미지를 첨부해주세요." });
       return;
+    }
+
+    const formData = new FormData();
+    formData.append("memo", form.memo);
+    if (form.image) {
+      formData.append("image", form.image);
     }
 
     setSubmitState({ isSubmitting: true, message: "", error: "" });
     try {
-      const payload = buildPayload(form);
-      if (editingOrder) {
-        const updated = await updateBeverageOrder(editingOrder.id, payload);
-        setEditingOrder(null);
-        setSelectedOrder(updated);
-        setSubmitState({ isSubmitting: false, message: "음료 주문 기록을 수정했습니다.", error: "" });
-      } else {
-        const created = await createBeverageOrder(payload);
-        setForm(INITIAL_FORM);
-        setSelectedOrder(created);
-        setSubmitState({ isSubmitting: false, message: "음료 주문 기록을 등록했습니다.", error: "" });
-      }
+      const savedOrder = editingOrder
+        ? await updateBeverageOrder(editingOrder.id, formData)
+        : await createBeverageOrder(formData);
+      setSelectedOrder(savedOrder);
+      resetForm();
+      setSubmitState({
+        isSubmitting: false,
+        message: editingOrder ? "게시글을 수정했습니다." : "게시글을 등록했습니다.",
+        error: "",
+      });
       await Promise.all([loadOrders(), loadSummary()]);
     } catch (error) {
       setSubmitState({ isSubmitting: false, message: "", error: error.message });
@@ -164,24 +192,18 @@ function BeverageOrderPage() {
   };
 
   const handleDelete = async (order) => {
-    const confirmed = window.confirm(`${order.title || "선택한 음료 주문 기록"}을 삭제할까요?`);
+    const confirmed = window.confirm(`${order.title || "선택한 게시글"}을 삭제할까요?`);
     if (!confirmed) {
       return;
     }
     await deleteBeverageOrder(order.id);
-    if (editingOrder?.id === order.id) {
-      setEditingOrder(null);
-    }
     if (selectedOrder?.id === order.id) {
       setSelectedOrder(null);
     }
+    if (editingOrder?.id === order.id) {
+      resetForm();
+    }
     await Promise.all([loadOrders(), loadSummary()]);
-  };
-
-  const handleEdit = (order) => {
-    setEditingOrder(order);
-    setSelectedOrder(order);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -189,8 +211,11 @@ function BeverageOrderPage() {
       <div className="portal-screen-heading beverage-heading">
         <div>
           <h2>음료주문기록</h2>
-          <p>쿠팡 등에서 주문한 사내 음료 구매 내역을 게시글 형식으로 관리합니다.</p>
+          <p>쿠팡 등에서 주문한 음료 주문 캡처를 게시글로 관리합니다.</p>
         </div>
+        <button type="button" className="primary-action" onClick={openCreateForm}>
+          글쓰기
+        </button>
       </div>
 
       <BeverageOrderStats
@@ -199,56 +224,25 @@ function BeverageOrderPage() {
         summary={summary}
       />
 
-      <section className="quick-create beverage-form-panel">
-        <div className="quick-create-heading">
-          <div>
-            <h3>{editingOrder ? "음료 주문 기록 수정" : "게시글 등록"}</h3>
-            <p>주문 내역은 직접 입력하며, 쿠팡 로그인이나 외부 연동은 하지 않습니다.</p>
-          </div>
-        </div>
-        <form className="beverage-form" onSubmit={handleSubmit}>
-          <Field name="order_date" label="주문일" type="date" value={form.order_date} onChange={handleChange} />
-          <Field name="order_month" label="주문월" type="month" value={form.order_month} onChange={handleChange} />
-          <label className="field">
-            <span>구매처</span>
-            <select name="vendor" value={form.vendor} onChange={handleChange}>
-              {VENDOR_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </label>
-          <Field name="title" label="제목" required value={form.title} onChange={handleChange} />
-          <Field name="items_summary" label="주문 품목" value={form.items_summary} onChange={handleChange} />
-          <Field name="quantity_summary" label="수량" value={form.quantity_summary} onChange={handleChange} />
-          <Field name="total_amount" label="총 금액" type="number" min="0" value={form.total_amount} onChange={handleChange} />
-          <Field name="requester" label="요청자/등록자" value={form.requester} onChange={handleChange} />
-          <label className="field">
-            <span>결제수단</span>
-            <select name="payment_method" value={form.payment_method} onChange={handleChange}>
-              {PAYMENT_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </label>
-          <Field name="order_url" label="주문 링크" type="url" value={form.order_url} onChange={handleChange} />
-          <label className="field beverage-memo-field">
-            <span>메모</span>
-            <textarea name="memo" rows="3" value={form.memo} onChange={handleChange} />
-          </label>
-          <div className="quick-create-actions">
-            {submitState.message && <span className="inline-success">{submitState.message}</span>}
-            {submitState.error && <span className="inline-alert">{submitState.error}</span>}
-            {editingOrder && (
-              <button type="button" className="secondary-button" onClick={() => setEditingOrder(null)}>
-                수정 취소
-              </button>
-            )}
-            <button type="submit" className="primary-action" disabled={submitState.isSubmitting}>
-              {submitState.isSubmitting ? "저장 중..." : editingOrder ? "수정 저장" : "저장"}
-            </button>
-          </div>
-        </form>
-      </section>
+      {isFormOpen && (
+        <BeverageOrderForm
+          editingOrder={editingOrder}
+          expectedMonth={expectedMonth}
+          expectedTitle={expectedTitle}
+          form={form}
+          previewUrl={previewUrl}
+          submitState={submitState}
+          onCancel={resetForm}
+          onChangeMemo={(value) => setForm((current) => ({ ...current, memo: value }))}
+          onFileChange={setImageFile}
+          onPaste={handlePaste}
+          onSubmit={handleSubmit}
+        />
+      )}
+
+      {submitState.message && !isFormOpen && (
+        <span className="inline-success beverage-submit-message">{submitState.message}</span>
+      )}
 
       <section className="beverage-content-grid">
         <BeverageOrderList
@@ -256,10 +250,10 @@ function BeverageOrderPage() {
           error={listState.error}
           filters={filters}
           isLoading={listState.isLoading}
-          monthOptions={orderMonthOptions}
+          monthOptions={monthOptions}
           orders={orders}
           onDelete={handleDelete}
-          onEdit={handleEdit}
+          onEdit={openEditForm}
           onFilterChange={setFilters}
           onSelect={handleSelectOrder}
           selectedOrderId={selectedOrder?.id || null}
@@ -268,7 +262,7 @@ function BeverageOrderPage() {
           detailState={detailState}
           order={selectedOrder}
           onDelete={handleDelete}
-          onEdit={handleEdit}
+          onEdit={openEditForm}
         />
       </section>
     </div>
@@ -278,12 +272,10 @@ function BeverageOrderPage() {
 function BeverageOrderStats({ summary, isLoading, error }) {
   const cards = [
     { label: "전체 기록", value: Number(summary.total || 0).toLocaleString("ko-KR") },
-    { label: "이번 달 주문", value: Number(summary.this_month || 0).toLocaleString("ko-KR") },
-    { label: "전체 금액", value: formatCurrency(summary.total_amount) },
-    { label: "이번 달 금액", value: formatCurrency(summary.this_month_amount) },
+    { label: "이번 달 기록", value: Number(summary.this_month || 0).toLocaleString("ko-KR") },
   ];
   return (
-    <section className="beverage-stats">
+    <section className="beverage-stats beverage-stats-compact">
       {cards.map((card) => (
         <article className="beverage-stat-card" key={card.label}>
           <span>{card.label}</span>
@@ -292,6 +284,74 @@ function BeverageOrderStats({ summary, isLoading, error }) {
       ))}
       {isLoading && <span className="status-pill">집계 중</span>}
       {error && <span className="lookup-warning">{error}</span>}
+    </section>
+  );
+}
+
+function BeverageOrderForm({
+  editingOrder,
+  expectedTitle,
+  expectedMonth,
+  form,
+  previewUrl,
+  submitState,
+  onCancel,
+  onChangeMemo,
+  onFileChange,
+  onPaste,
+  onSubmit,
+}) {
+  const currentImageUrl = editingOrder?.image_url ? getImageUrl(editingOrder.image_url) : "";
+  return (
+    <section className="quick-create beverage-image-form-panel" onPaste={onPaste}>
+      <div className="quick-create-heading">
+        <div>
+          <h3>{editingOrder ? "게시글 수정" : "글쓰기"}</h3>
+          <p>쿠팡 주문 캡처 이미지 1장만 첨부하거나 붙여넣습니다.</p>
+        </div>
+      </div>
+      <form className="beverage-image-form" onSubmit={onSubmit}>
+        <div className="beverage-auto-preview">
+          <span>자동 제목</span>
+          <strong>{editingOrder?.title || expectedTitle}</strong>
+          <small>주문월: {editingOrder?.order_month || expectedMonth}</small>
+        </div>
+        <label className="field beverage-file-field">
+          <span>{editingOrder ? "이미지 교체" : "이미지 첨부"}</span>
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            type="file"
+            onChange={(event) => onFileChange(event.target.files?.[0])}
+          />
+        </label>
+        <label className="field beverage-image-memo-field">
+          <span>메모</span>
+          <textarea
+            rows="3"
+            value={form.memo}
+            onChange={(event) => onChangeMemo(event.target.value)}
+            placeholder="필요한 경우에만 입력합니다."
+          />
+        </label>
+        <div className="beverage-image-preview">
+          {previewUrl ? (
+            <img src={previewUrl} alt="선택한 이미지 미리보기" />
+          ) : currentImageUrl ? (
+            <img src={currentImageUrl} alt="현재 등록된 이미지" />
+          ) : (
+            <span>이미지를 선택하거나 Ctrl+V로 붙여넣어주세요.</span>
+          )}
+        </div>
+        <div className="quick-create-actions">
+          {submitState.error && <span className="inline-alert">{submitState.error}</span>}
+          <button type="button" className="secondary-button" onClick={onCancel}>
+            취소
+          </button>
+          <button type="submit" className="primary-action" disabled={submitState.isSubmitting}>
+            {submitState.isSubmitting ? "저장 중..." : editingOrder ? "수정 저장" : "저장"}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }
@@ -314,12 +374,12 @@ function BeverageOrderList({
     <section className="content-panel beverage-list-panel">
       <div className="section-heading">
         <div>
-          <h2>주문 목록</h2>
-          <p>주문월, 구매처, 검색어로 음료 주문 기록을 찾습니다.</p>
+          <h2>게시글 목록</h2>
+          <p>주문월과 검색어로 캡처 게시글을 찾습니다.</p>
         </div>
       </div>
 
-      <div className="beverage-list-controls">
+      <div className="beverage-list-controls beverage-board-controls">
         <label className="field">
           <span>주문월</span>
           <select
@@ -332,24 +392,12 @@ function BeverageOrderList({
             ))}
           </select>
         </label>
-        <label className="field">
-          <span>구매처</span>
-          <select
-            value={filters.vendor}
-            onChange={(event) => onFilterChange({ ...filters, vendor: event.target.value })}
-          >
-            <option value="">전체</option>
-            {VENDOR_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </label>
         <label className="field beverage-search-field">
           <span>검색</span>
           <input
             value={filters.keyword}
             onChange={(event) => onFilterChange({ ...filters, keyword: event.target.value })}
-            placeholder="제목, 품목, 요청자, 메모"
+            placeholder="제목, 메모, 파일명"
           />
         </label>
       </div>
@@ -363,8 +411,8 @@ function BeverageOrderList({
         </div>
       ) : safeOrders.length === 0 ? (
         <div className="state-panel">
-          <strong>등록된 음료 주문 기록이 없습니다.</strong>
-          <span>게시글 등록 폼으로 첫 기록을 추가해주세요.</span>
+          <strong>등록된 음료 주문 캡처가 없습니다.</strong>
+          <span>글쓰기 버튼으로 첫 캡처 이미지를 추가해주세요.</span>
         </div>
       ) : (
         <div className="beverage-post-list">
@@ -372,22 +420,25 @@ function BeverageOrderList({
             <article
               className={[
                 "beverage-post-item",
+                "beverage-board-item",
                 selectedOrderId === order.id ? "selected" : "",
                 editingOrderId === order.id ? "editing" : "",
               ].filter(Boolean).join(" ")}
               key={order.id}
             >
-              <button type="button" className="beverage-post-main" onClick={() => onSelect(order)}>
-                <span className="beverage-post-date">{formatDate(order.order_date)}</span>
-                <strong>{order.title}</strong>
-                <span>{formatText(order.items_summary)}</span>
-                {order.memo && <small>{truncateText(order.memo, 80)}</small>}
+              <button type="button" className="beverage-thumbnail-button" onClick={() => onSelect(order)}>
+                {order.image_url ? (
+                  <img src={getImageUrl(order.image_url)} alt={`${order.title} 미리보기`} />
+                ) : (
+                  <span>이미지 없음</span>
+                )}
               </button>
-              <div className="beverage-post-meta">
-                <span>{formatText(order.vendor)}</span>
-                <span>{formatCurrency(order.total_amount)}</span>
-                <span>{formatText(order.requester)}</span>
-              </div>
+              <button type="button" className="beverage-post-main" onClick={() => onSelect(order)}>
+                <span className="beverage-post-date">{formatText(order.order_month)}</span>
+                <strong>{order.title}</strong>
+                <span>{formatDateTime(order.created_at)}</span>
+                {order.memo && <small>{truncateText(order.memo, 70)}</small>}
+              </button>
               <div className="software-row-actions beverage-actions">
                 <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(order)}>
                   수정
@@ -410,7 +461,7 @@ function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
       <div className="section-heading">
         <div>
           <h2>상세 보기</h2>
-          <p>선택한 주문 기록의 전체 내용을 확인합니다.</p>
+          <p>선택한 캡처 이미지를 크게 확인합니다.</p>
         </div>
       </div>
       {detailState.isLoading ? (
@@ -421,28 +472,22 @@ function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
           <span className="state-detail">{detailState.error}</span>
         </div>
       ) : !order ? (
-        <div className="state-panel">목록에서 주문 기록을 선택해주세요.</div>
+        <div className="state-panel">목록에서 게시글을 선택해주세요.</div>
       ) : (
         <div className="beverage-detail-body">
           <div className="beverage-detail-title">
             <span>{formatText(order.order_month)}</span>
             <h3>{order.title}</h3>
           </div>
-          <InfoRow label="주문일" value={formatDate(order.order_date)} />
-          <InfoRow label="구매처" value={formatText(order.vendor)} />
-          <InfoRow label="주문 품목" value={formatText(order.items_summary)} />
-          <InfoRow label="수량" value={formatText(order.quantity_summary)} />
-          <InfoRow label="총 금액" value={formatCurrency(order.total_amount)} />
-          <InfoRow label="요청자/등록자" value={formatText(order.requester)} />
-          <InfoRow label="결제수단" value={formatText(order.payment_method)} />
+          {order.image_url && (
+            <a href={getImageUrl(order.image_url)} target="_blank" rel="noreferrer" className="beverage-detail-image-link">
+              <img className="beverage-detail-image" src={getImageUrl(order.image_url)} alt={order.title} />
+            </a>
+          )}
+          <InfoRow label="원본 파일명" value={formatText(order.image_original_name)} />
           <InfoRow label="메모" value={formatText(order.memo)} />
           <InfoRow label="등록일" value={formatDateTime(order.created_at)} />
           <InfoRow label="수정일" value={formatDateTime(order.updated_at)} />
-          {order.order_url && (
-            <a className="primary-action beverage-link-button" href={order.order_url} target="_blank" rel="noreferrer">
-              주문 링크 열기
-            </a>
-          )}
           <div className="software-row-actions beverage-detail-actions">
             <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(order)}>
               수정
@@ -457,15 +502,6 @@ function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
   );
 }
 
-function Field({ label, ...props }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input {...props} />
-    </label>
-  );
-}
-
 function InfoRow({ label, value }) {
   return (
     <div className="beverage-info-row">
@@ -475,33 +511,14 @@ function InfoRow({ label, value }) {
   );
 }
 
-function buildPayload(form) {
-  return {
-    order_date: form.order_date || null,
-    order_month: textOrNull(form.order_month || (form.order_date ? form.order_date.slice(0, 7) : "")),
-    vendor: textOrNull(form.vendor),
-    title: form.title.trim(),
-    items_summary: textOrNull(form.items_summary),
-    total_amount: numberOrNull(form.total_amount),
-    quantity_summary: textOrNull(form.quantity_summary),
-    requester: textOrNull(form.requester),
-    payment_method: textOrNull(form.payment_method),
-    order_url: textOrNull(form.order_url),
-    memo: textOrNull(form.memo),
-  };
-}
-
-function textOrNull(value) {
-  const trimmedValue = String(value || "").trim();
-  return trimmedValue || null;
-}
-
-function numberOrNull(value) {
-  if (value === "" || value === null || value === undefined) {
-    return null;
+function getImageUrl(value) {
+  if (!value) {
+    return "";
   }
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue : null;
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+  return `${API_BASE_URL}${value}`;
 }
 
 function formatText(value) {
@@ -509,10 +526,6 @@ function formatText(value) {
     return "-";
   }
   return String(value);
-}
-
-function formatDate(value) {
-  return value || "-";
 }
 
 function formatDateTime(value) {
@@ -524,17 +537,6 @@ function formatDateTime(value) {
     return "-";
   }
   return dateValue.toLocaleString("ko-KR");
-}
-
-function formatCurrency(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return "-";
-  }
-  return `₩${numericValue.toLocaleString("ko-KR")}`;
 }
 
 function truncateText(value, maxLength) {

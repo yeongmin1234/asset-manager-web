@@ -1,23 +1,20 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.beverage_order_record import (
-    BeverageOrderRecordCreate,
-    BeverageOrderRecordRead,
-    BeverageOrderRecordUpdate,
-    BeverageOrderSummary,
-)
+from app.schemas.beverage_order_record import BeverageOrderRecordRead, BeverageOrderSummary
 from app.services.beverage_order_service import (
+    BeverageOrderImageError,
     BeverageOrderRecordNotFoundError,
     create_beverage_order_record,
     delete_beverage_order_record,
     get_beverage_order_record,
     get_beverage_order_records,
     get_beverage_order_summary,
+    save_beverage_image_file,
     update_beverage_order_record,
 )
 
@@ -28,7 +25,6 @@ router = APIRouter(prefix="/beverage-orders", tags=["beverage-orders"])
 @router.get("", response_model=List[BeverageOrderRecordRead])
 def list_beverage_order_records(
     order_month: Optional[str] = Query(default=None),
-    vendor: Optional[str] = Query(default=None),
     keyword: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ) -> List[BeverageOrderRecordRead]:
@@ -36,7 +32,6 @@ def list_beverage_order_records(
         return get_beverage_order_records(
             db,
             order_month=order_month,
-            vendor=vendor,
             keyword=keyword,
         )
     except SQLAlchemyError as exc:
@@ -60,18 +55,27 @@ def read_beverage_order_summary(
 
 
 @router.post("", response_model=BeverageOrderRecordRead, status_code=status.HTTP_201_CREATED)
-def create_new_beverage_order_record(
+async def create_new_beverage_order_record(
     request: Request,
-    payload: BeverageOrderRecordCreate,
+    memo: Optional[str] = Form(default=None),
+    image: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> BeverageOrderRecordRead:
     try:
+        image_path, original_name = save_beverage_image_file(
+            original_filename=image.filename,
+            content=await image.read(),
+        )
         return create_beverage_order_record(
             db,
-            payload,
+            image_path=image_path,
+            image_original_name=original_name,
+            memo=memo,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+    except BeverageOrderImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -100,17 +104,27 @@ def read_beverage_order_record(
 
 
 @router.put("/{order_id}", response_model=BeverageOrderRecordRead)
-def update_existing_beverage_order_record(
+async def update_existing_beverage_order_record(
     request: Request,
     order_id: int,
-    payload: BeverageOrderRecordUpdate,
+    memo: Optional[str] = Form(default=None),
+    image: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
 ) -> BeverageOrderRecordRead:
+    image_path = None
+    original_name = None
     try:
+        if image is not None and image.filename:
+            image_path, original_name = save_beverage_image_file(
+                original_filename=image.filename,
+                content=await image.read(),
+            )
         return update_beverage_order_record(
             db,
             order_id,
-            payload,
+            memo=memo,
+            image_path=image_path,
+            image_original_name=original_name,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
@@ -119,6 +133,8 @@ def update_existing_beverage_order_record(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Beverage order record not found.",
         ) from exc
+    except BeverageOrderImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(

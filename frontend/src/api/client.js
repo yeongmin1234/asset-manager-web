@@ -406,16 +406,12 @@ export async function getBeverageOrderSummary() {
 }
 
 export async function createBeverageOrder(order) {
-  return request("/beverage-orders", {
-    method: "POST",
-    body: order,
-  });
+  return requestFormData("/beverage-orders", order);
 }
 
 export async function updateBeverageOrder(orderId, order) {
-  return request(`/beverage-orders/${orderId}`, {
+  return requestFormData(`/beverage-orders/${orderId}`, order, {
     method: "PUT",
-    body: order,
   });
 }
 

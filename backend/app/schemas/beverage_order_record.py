@@ -15,6 +15,8 @@ class BeverageOrderRecordBase(BaseModel):
     requester: Optional[str] = Field(default=None, max_length=100)
     payment_method: Optional[str] = Field(default=None, max_length=100)
     order_url: Optional[str] = None
+    image_path: Optional[str] = None
+    image_original_name: Optional[str] = Field(default=None, max_length=255)
     memo: Optional[str] = None
 
     @field_validator(
@@ -25,6 +27,8 @@ class BeverageOrderRecordBase(BaseModel):
         "requester",
         "payment_method",
         "order_url",
+        "image_path",
+        "image_original_name",
         "memo",
     )
     @classmethod
@@ -53,6 +57,7 @@ class BeverageOrderRecordUpdate(BeverageOrderRecordBase):
 
 class BeverageOrderRecordRead(BeverageOrderRecordBase):
     id: int
+    image_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -62,5 +67,3 @@ class BeverageOrderRecordRead(BeverageOrderRecordBase):
 class BeverageOrderSummary(BaseModel):
     total: int = 0
     this_month: int = 0
-    total_amount: int = 0
-    this_month_amount: int = 0
