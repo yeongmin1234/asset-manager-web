@@ -58,6 +58,7 @@ def read_beverage_order_summary(
 async def create_new_beverage_order_record(
     request: Request,
     memo: Optional[str] = Form(default=None),
+    total_amount: Optional[str] = Form(default=None),
     image: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> BeverageOrderRecordRead:
@@ -71,6 +72,7 @@ async def create_new_beverage_order_record(
             image_path=image_path,
             image_original_name=original_name,
             memo=memo,
+            total_amount=parse_total_amount(total_amount),
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
@@ -108,6 +110,7 @@ async def update_existing_beverage_order_record(
     request: Request,
     order_id: int,
     memo: Optional[str] = Form(default=None),
+    total_amount: Optional[str] = Form(default=None),
     image: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
 ) -> BeverageOrderRecordRead:
@@ -123,6 +126,7 @@ async def update_existing_beverage_order_record(
             db,
             order_id,
             memo=memo,
+            total_amount=parse_total_amount(total_amount),
             image_path=image_path,
             image_original_name=original_name,
             actor_ip=request.client.host if request.client else None,
@@ -167,3 +171,21 @@ def delete_existing_beverage_order_record(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed while deleting beverage order record.",
         ) from exc
+
+
+def parse_total_amount(value: Optional[str]) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        amount = int(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="total_amount must be a number.",
+        ) from exc
+    if amount < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="total_amount must be greater than or equal to 0.",
+        )
+    return amount

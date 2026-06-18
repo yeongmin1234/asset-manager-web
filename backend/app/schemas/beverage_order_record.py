@@ -67,3 +67,5 @@ class BeverageOrderRecordRead(BeverageOrderRecordBase):
 class BeverageOrderSummary(BaseModel):
     total: int = 0
     this_month: int = 0
+    total_amount_total: int = 0
+    this_month_amount: int = 0

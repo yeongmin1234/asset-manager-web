@@ -17,10 +17,13 @@ const INITIAL_FILTERS = {
 const INITIAL_SUMMARY = {
   total: 0,
   this_month: 0,
+  total_amount_total: 0,
+  this_month_amount: 0,
 };
 
 const INITIAL_FORM = {
   memo: "",
+  total_amount: "",
   image: null,
 };
 
@@ -118,7 +121,11 @@ function BeverageOrderPage() {
     }
     setEditingOrder(order);
     setSelectedOrder(order);
-    setForm({ memo: order.memo || "", image: null });
+    setForm({
+      memo: order.memo || "",
+      total_amount: String(order.total_amount ?? ""),
+      image: null,
+    });
     setPreviewUrl("");
     setIsFormOpen(true);
     setSubmitState({ isSubmitting: false, message: "", error: "" });
@@ -159,6 +166,7 @@ function BeverageOrderPage() {
 
     const formData = new FormData();
     formData.append("memo", form.memo);
+    formData.append("total_amount", form.total_amount);
     if (form.image) {
       formData.append("image", form.image);
     }
@@ -233,6 +241,7 @@ function BeverageOrderPage() {
           previewUrl={previewUrl}
           submitState={submitState}
           onCancel={resetForm}
+          onChangeAmount={(value) => setForm((current) => ({ ...current, total_amount: value }))}
           onChangeMemo={(value) => setForm((current) => ({ ...current, memo: value }))}
           onFileChange={setImageFile}
           onPaste={handlePaste}
@@ -273,6 +282,8 @@ function BeverageOrderStats({ summary, isLoading, error }) {
   const cards = [
     { label: "전체 기록", value: Number(summary.total || 0).toLocaleString("ko-KR") },
     { label: "이번 달 기록", value: Number(summary.this_month || 0).toLocaleString("ko-KR") },
+    { label: "전체 금액", value: formatCurrency(summary.total_amount_total) },
+    { label: "이번 달 금액", value: formatCurrency(summary.this_month_amount) },
   ];
   return (
     <section className="beverage-stats beverage-stats-compact">
@@ -296,6 +307,7 @@ function BeverageOrderForm({
   previewUrl,
   submitState,
   onCancel,
+  onChangeAmount,
   onChangeMemo,
   onFileChange,
   onPaste,
@@ -322,6 +334,16 @@ function BeverageOrderForm({
             accept="image/jpeg,image/png,image/webp"
             type="file"
             onChange={(event) => onFileChange(event.target.files?.[0])}
+          />
+        </label>
+        <label className="field beverage-amount-field">
+          <span>총 결제금액</span>
+          <input
+            min="0"
+            placeholder="예: 58300"
+            type="number"
+            value={form.total_amount}
+            onChange={(event) => onChangeAmount(event.target.value)}
           />
         </label>
         <label className="field beverage-image-memo-field">
@@ -439,6 +461,10 @@ function BeverageOrderList({
                 <span>{formatDateTime(order.created_at)}</span>
                 {order.memo && <small>{truncateText(order.memo, 70)}</small>}
               </button>
+              <div className="beverage-post-amount">
+                <span>총 결제금액</span>
+                <strong>{formatCurrency(order.total_amount)}</strong>
+              </div>
               <div className="software-row-actions beverage-actions">
                 <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(order)}>
                   수정
@@ -484,6 +510,7 @@ function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
               <img className="beverage-detail-image" src={getImageUrl(order.image_url)} alt={order.title} />
             </a>
           )}
+          <InfoRow label="총 결제금액" value={formatCurrency(order.total_amount)} />
           <InfoRow label="원본 파일명" value={formatText(order.image_original_name)} />
           <InfoRow label="메모" value={formatText(order.memo)} />
           <InfoRow label="등록일" value={formatDateTime(order.created_at)} />
@@ -537,6 +564,17 @@ function formatDateTime(value) {
     return "-";
   }
   return dateValue.toLocaleString("ko-KR");
+}
+
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === "" || Number(value) === 0) {
+    return "-";
+  }
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "-";
+  }
+  return `₩${numericValue.toLocaleString("ko-KR")}`;
 }
 
 function truncateText(value, maxLength) {

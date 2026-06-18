@@ -59,6 +59,7 @@ def create_beverage_order_record(
     image_path: str,
     image_original_name: str,
     memo: Optional[str] = None,
+    total_amount: Optional[int] = None,
     actor_ip: Optional[str] = None,
     user_agent: Optional[str] = None,
 ) -> BeverageOrderRecord:
@@ -70,6 +71,7 @@ def create_beverage_order_record(
         image_path=image_path,
         image_original_name=image_original_name,
         memo=normalize_optional_text(memo),
+        total_amount=total_amount,
     )
     db.add(record)
     db.flush()
@@ -103,6 +105,7 @@ def update_beverage_order_record(
     order_id: int,
     *,
     memo: Optional[str] = None,
+    total_amount: Optional[int] = None,
     image_path: Optional[str] = None,
     image_original_name: Optional[str] = None,
     actor_ip: Optional[str] = None,
@@ -112,6 +115,7 @@ def update_beverage_order_record(
     before_data = serialize_beverage_order_activity_data(record)
     old_image_path = record.image_path
     record.memo = normalize_optional_text(memo)
+    record.total_amount = total_amount
     if image_path:
         record.image_path = image_path
         record.image_original_name = image_original_name
@@ -173,11 +177,20 @@ def get_beverage_order_summary(db: Session) -> BeverageOrderSummary:
             func.coalesce(func.sum(case((this_month_condition, 1), else_=0)), 0).label(
                 "this_month"
             ),
+            func.coalesce(func.sum(BeverageOrderRecord.total_amount), 0).label(
+                "total_amount_total"
+            ),
+            func.coalesce(
+                func.sum(case((this_month_condition, BeverageOrderRecord.total_amount), else_=0)),
+                0,
+            ).label("this_month_amount"),
         )
     ).one()
     return BeverageOrderSummary(
         total=int(row.total or 0),
         this_month=int(row.this_month or 0),
+        total_amount_total=int(row.total_amount_total or 0),
+        this_month_amount=int(row.this_month_amount or 0),
     )
 
 

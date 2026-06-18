@@ -3659,7 +3659,7 @@ input:disabled {
 }
 
 .beverage-stats-compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .beverage-stat-card {
@@ -3740,6 +3740,10 @@ input:disabled {
   grid-row: span 2;
 }
 
+.beverage-amount-field {
+  align-self: start;
+}
+
 .beverage-image-memo-field textarea {
   min-height: 96px;
 }
@@ -3818,7 +3822,7 @@ input:disabled {
 }
 
 .beverage-board-item {
-  grid-template-columns: 96px minmax(0, 1fr) auto;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(104px, auto) auto;
 }
 
 .beverage-post-item:hover,
@@ -3887,6 +3891,27 @@ input:disabled {
   gap: 4px;
   justify-items: center;
   text-align: center;
+}
+
+.beverage-post-amount {
+  color: #475569;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-width: 104px;
+  text-align: center;
+}
+
+.beverage-post-amount span {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.beverage-post-amount strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .beverage-actions,
