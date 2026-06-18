@@ -40,6 +40,12 @@ const INITIAL_SUMMARY = {
 
 const LOCATION_OPTIONS = ["송촌동", "신촌동", "기타"];
 const CONTRACTOR_OPTIONS = ["한국리모텍", "더리모"];
+const LOCATION_TABS = [
+  { label: "전체", value: "" },
+  { label: "송촌동", value: "송촌동" },
+  { label: "신촌동", value: "신촌동" },
+  { label: "기타", value: "기타" },
+];
 
 function PajuFireInsurancePage() {
   const [items, setItems] = useState([]);
@@ -269,18 +275,19 @@ function PajuFireInsuranceList({
       </div>
 
       <div className="paju-fire-list-controls">
-        <label className="field">
-          <span>구역</span>
-          <select
-            value={filters.location_group}
-            onChange={(event) => onFilterChange({ ...filters, location_group: event.target.value })}
-          >
-            <option value="">전체</option>
-            {LOCATION_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </label>
+        <div className="paju-fire-location-tabs" aria-label="파주화재보험 구역 필터">
+          {LOCATION_TABS.map((tab) => (
+            <button
+              type="button"
+              key={tab.label}
+              className={filters.location_group === tab.value ? "paju-fire-location-tab active" : "paju-fire-location-tab"}
+              onClick={() => onFilterChange({ ...filters, location_group: tab.value })}
+            >
+              <strong>{tab.label}</strong>
+              <span>{getLocationTabCount(items, tab.value)}</span>
+            </button>
+          ))}
+        </div>
         <label className="field">
           <span>계약자</span>
           <select
@@ -315,8 +322,6 @@ function PajuFireInsuranceList({
           <table className="asset-table paju-fire-table">
             <thead>
               <tr>
-                <th>구역</th>
-                <th>창고</th>
                 <th>보험사/담보</th>
                 <th>계약자</th>
                 <th>건물</th>
@@ -326,7 +331,6 @@ function PajuFireInsuranceList({
                 <th>월보험료</th>
                 <th>연보험료</th>
                 <th>계약시작일</th>
-                <th>계약종료일</th>
                 <th>비고</th>
                 <th>관리</th>
               </tr>
@@ -334,7 +338,7 @@ function PajuFireInsuranceList({
             <tbody>
               {safeItems.length === 0 ? (
                 <tr>
-                  <td colSpan="14">
+                  <td colSpan="11">
                     <div className="state-panel asset-table-empty-state">
                       <strong>등록된 계약이 없습니다.</strong>
                       <span>빠른 등록 폼으로 파주화재보험 계약을 추가해주세요.</span>
@@ -343,8 +347,6 @@ function PajuFireInsuranceList({
                 </tr>
               ) : safeItems.map((item) => (
                 <tr key={item.id} className={editingItemId === item.id ? "editing" : undefined}>
-                  <td>{formatText(item.location_group)}</td>
-                  <td>{formatText(item.warehouse_name)}</td>
                   <td>{formatText(item.insurer_name)}</td>
                   <td>{formatText(item.contractor)}</td>
                   <td>{formatText(item.building_coverage)}</td>
@@ -354,7 +356,6 @@ function PajuFireInsuranceList({
                   <td>{formatCurrency(item.monthly_premium)}</td>
                   <td>{formatCurrency(item.annual_premium)}</td>
                   <td>{formatDate(item.contract_start_date)}</td>
-                  <td>{formatDate(item.contract_end_date)}</td>
                   <td className="paju-fire-note-cell" title={formatText(item.note)}>{formatText(item.note)}</td>
                   <td>
                     <div className="software-row-actions paju-fire-actions">
@@ -406,7 +407,7 @@ function buildPayload(form) {
 function filterContracts(items, filters) {
   const keyword = String(filters.keyword || "").trim().toLowerCase();
   return (Array.isArray(items) ? items : []).filter((item) => {
-    if (filters.location_group && item.location_group !== filters.location_group) {
+    if (filters.location_group && getContractLocationGroup(item) !== filters.location_group) {
       return false;
     }
     if (filters.contractor && item.contractor !== filters.contractor) {
@@ -422,6 +423,26 @@ function filterContracts(items, filters) {
       item.note,
     ].some((value) => String(value || "").toLowerCase().includes(keyword));
   });
+}
+
+function getLocationTabCount(items, locationGroup) {
+  const safeItems = Array.isArray(items) ? items : [];
+  if (!locationGroup) {
+    return safeItems.length;
+  }
+  return safeItems.filter((item) => getContractLocationGroup(item) === locationGroup).length;
+}
+
+function getContractLocationGroup(item) {
+  const locationText = String(item.location_group || "").trim();
+  const warehouseText = String(item.warehouse_name || "").trim();
+  if (locationText === "송촌동" || warehouseText === "송촌동") {
+    return "송촌동";
+  }
+  if (locationText === "신촌동" || warehouseText === "신촌동") {
+    return "신촌동";
+  }
+  return "기타";
 }
 
 function formatText(value) {

@@ -3560,12 +3560,67 @@ input:disabled {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(260px, 1.5fr);
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.35fr) minmax(260px, 0.65fr);
   padding: 8px;
 }
 
+.paju-fire-location-tabs {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(96px, 1fr));
+}
+
+.paju-fire-location-tab {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.paju-fire-location-tab strong {
+  color: inherit;
+  font-size: 0.86rem;
+}
+
+.paju-fire-location-tab span {
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.paju-fire-location-tab:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.paju-fire-location-tab.active,
+.paju-fire-location-tab.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.paju-fire-location-tab.active span,
+.paju-fire-location-tab.active:hover span {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
 .paju-fire-table {
-  min-width: 1580px;
+  min-width: 1260px;
 }
 
 .paju-fire-table th,
@@ -5040,6 +5095,14 @@ input:disabled {
 
   .paju-fire-list-panel .asset-table-wrap {
     display: block;
+  }
+
+  .paju-fire-list-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .paju-fire-location-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .asset-cards {
