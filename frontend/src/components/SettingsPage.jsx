@@ -151,7 +151,9 @@ function SettingsPage({ menuVisibility = {}, onMenuVisibilityChange }) {
                 </button>
               ))}
             </div>
-            <div className="settings-access-content">{renderAccessTab()}</div>
+            <div className="settings-access-content">
+              <div className="settings-tab-content">{renderAccessTab()}</div>
+            </div>
           </div>
         );
       case "handover":

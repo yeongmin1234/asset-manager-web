@@ -1074,8 +1074,10 @@ p {
 }
 
 .settings-page {
+  align-content: start;
   display: grid;
   gap: 14px;
+  grid-template-rows: max-content max-content;
 }
 
 .settings-hero {
@@ -1110,6 +1112,7 @@ p {
 
 .settings-layout {
   align-items: start;
+  align-content: start;
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
@@ -1199,8 +1202,10 @@ p {
 }
 
 .settings-detail-panel {
+  align-content: start;
   display: grid;
   gap: 14px;
+  grid-template-rows: max-content max-content;
   min-width: 0;
 }
 
@@ -1229,8 +1234,10 @@ p {
 }
 
 .settings-detail-content {
+  align-content: start;
   display: grid;
   gap: 14px;
+  grid-template-rows: max-content;
   min-width: 0;
 }
 
@@ -1291,9 +1298,20 @@ p {
 
 .settings-access-panel,
 .settings-access-content,
+.settings-tab-content,
 .settings-tab-card-stack {
+  align-content: start;
   display: grid;
   gap: 14px;
+  grid-template-rows: max-content;
+}
+
+.settings-access-panel {
+  grid-template-rows: max-content max-content;
+}
+
+.settings-tab-content {
+  gap: 0;
 }
 
 .settings-access-tabs {
