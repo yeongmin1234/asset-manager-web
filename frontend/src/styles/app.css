@@ -907,6 +907,7 @@ p {
 }
 
 .vehicle-main-panel {
+  align-content: start;
   display: grid;
   gap: 0;
   padding: 10px 14px 14px;
@@ -939,10 +940,14 @@ p {
 }
 
 .vehicle-tab-content {
+  align-content: start;
+  align-items: start;
   border: 1px solid var(--line-soft);
   border-radius: 0 8px 8px 8px;
   display: grid;
   gap: 10px;
+  margin-top: 0;
+  min-height: 0;
   padding: 10px;
 }
 
@@ -965,7 +970,33 @@ p {
 .vehicle-main-panel .vehicle-quick-form {
   background: transparent;
   border: 0;
+  margin: 0;
   padding: 0;
+}
+
+.vehicle-tab-content-form,
+.vehicle-tab-content-history {
+  gap: 8px;
+}
+
+.vehicle-tab-content-form > .vehicle-quick-form,
+.vehicle-tab-content-history > .vehicle-history-panel {
+  align-self: start;
+  margin-top: 0;
+  min-height: 0;
+}
+
+.vehicle-tab-content-form .vehicle-quick-form form {
+  display: grid;
+  gap: 8px;
+}
+
+.vehicle-tab-content-form .vehicle-form-tabs {
+  margin: 0 0 8px;
+}
+
+.vehicle-tab-content-history .vehicle-history-panel {
+  gap: 8px;
 }
 
 .portal-report-grid .category-stats,

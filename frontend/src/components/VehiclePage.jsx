@@ -173,7 +173,7 @@ function VehiclePage() {
 
         {renderPageTabs()}
 
-        <div className="vehicle-tab-content">
+        <div className={`vehicle-tab-content vehicle-tab-content-${activePageTab}`}>
           {activePageTab === "list" ? (
             <VehicleList
               items={displayedItems}
