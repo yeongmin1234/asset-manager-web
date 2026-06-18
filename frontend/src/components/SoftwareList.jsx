@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const SOFTWARE_COLUMN_WIDTH_STORAGE_KEY = "assetManager.softwareTable.columnWidths";
 const SOFTWARE_COLUMNS = [
@@ -31,6 +31,7 @@ function SoftwareList({
     getInitialColumnWidths(SOFTWARE_COLUMNS, SOFTWARE_COLUMN_WIDTH_STORAGE_KEY),
   );
   const resizeStateRef = useRef(null);
+  const autoHideTimerRef = useRef(null);
   const copyResetTimerRef = useRef(null);
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
@@ -39,6 +40,14 @@ function SoftwareList({
   const tableWidth = useMemo(
     () => SOFTWARE_COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
     [columnWidths],
+  );
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(autoHideTimerRef.current);
+      window.clearTimeout(copyResetTimerRef.current);
+    },
+    [],
   );
 
   const handleColumnResizeStart = (event, column) => {
@@ -79,9 +88,14 @@ function SoftwareList({
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  const toggleLicense = (itemId) => {
-    setExpandedLicenseId((currentId) => (currentId === itemId ? null : itemId));
+  const showLicense = (itemId) => {
+    window.clearTimeout(autoHideTimerRef.current);
     setCopiedLicenseId(null);
+    setExpandedLicenseId(itemId);
+    autoHideTimerRef.current = window.setTimeout(() => {
+      setExpandedLicenseId((currentId) => (currentId === itemId ? null : currentId));
+      setCopiedLicenseId((currentId) => (currentId === itemId ? null : currentId));
+    }, 15000);
   };
 
   const handleCopyLicense = async (item) => {
@@ -175,29 +189,23 @@ function SoftwareList({
                   {item.license_key ? (
                     expandedLicenseId === item.id ? (
                       <div className="software-license-inline">
-                        <span className="software-license-key-text" title={item.license_key}>
-                          {item.license_key}
-                        </span>
                         <button
                           type="button"
-                          className="secondary-button software-license-copy-button"
+                          className="software-license-key-text"
+                          title={`${item.license_key} - 클릭하면 복사됩니다.`}
                           onClick={() => handleCopyLicense(item)}
                         >
-                          {copiedLicenseId === item.id ? "복사됨" : "복사"}
+                          {item.license_key}
                         </button>
-                        <button
-                          type="button"
-                          className="secondary-button software-license-view-button"
-                          onClick={() => toggleLicense(item.id)}
-                        >
-                          숨기기
-                        </button>
+                        {copiedLicenseId === item.id ? (
+                          <span className="software-license-copied">복사됨</span>
+                        ) : null}
                       </div>
                     ) : (
                       <button
                         type="button"
                         className="secondary-button software-license-view-button"
-                        onClick={() => toggleLicense(item.id)}
+                        onClick={() => showLicense(item.id)}
                       >
                         라이선스 보기
                       </button>

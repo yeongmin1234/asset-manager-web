@@ -2288,36 +2288,19 @@ p {
 .software-license-inline {
   align-items: center;
   display: inline-flex;
-  gap: 6px;
+  gap: 5px;
   justify-content: center;
   max-width: 100%;
   min-width: 0;
   width: 100%;
 }
 
-.software-license-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.software-license-copy-button {
-  font-size: 0.78rem;
-  min-height: 28px;
-  padding: 5px 8px;
-  white-space: nowrap;
-}
-
-.software-license-copy-message {
-  color: #16a34a;
-  font-size: 0.78rem;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
 .software-license-key-text {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   color: #0f172a;
+  cursor: pointer;
   display: block;
   flex: 1 1 auto;
   font-family: Consolas, "Courier New", monospace;
@@ -2325,11 +2308,29 @@ p {
   line-height: 1.2;
   max-height: none;
   max-width: 100%;
+  min-height: auto;
   min-width: 0;
   overflow: hidden;
   padding: 0;
   text-align: left;
   text-overflow: ellipsis;
+  transform: none;
+  white-space: nowrap;
+}
+
+.software-license-key-text:hover {
+  background: transparent;
+  box-shadow: none;
+  color: #1d4ed8;
+  transform: none;
+}
+
+.software-license-copied {
+  color: #16a34a;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -3422,6 +3423,36 @@ input:disabled {
 
 .asset-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.software-table th,
+.software-table td {
+  text-align: center;
+}
+
+.software-table th:first-child,
+.software-table td:first-child {
+  text-align: left;
+}
+
+.software-table th:not(:first-child) .resizable-table-heading {
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.software-table th:first-child .resizable-table-heading {
+  justify-content: flex-start;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.software-table .software-license-badge,
+.software-table .software-expire-cell,
+.software-table .software-license-inline,
+.software-table .software-row-actions {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .asset-table tbody tr {
