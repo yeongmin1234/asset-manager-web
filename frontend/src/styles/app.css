@@ -3635,6 +3635,16 @@ input:disabled {
   text-overflow: ellipsis;
 }
 
+.paju-fire-subtotal-row td {
+  background: #fef3c7;
+  border-top: 2px solid #111827;
+  font-weight: 900;
+}
+
+.paju-fire-subtotal-row td:first-child {
+  color: #111827;
+}
+
 .paju-fire-actions {
   justify-content: center;
 }
@@ -4748,6 +4758,50 @@ input:disabled {
 .activity-history-table th:nth-child(5),
 .activity-history-table td:nth-child(5) {
   min-width: 130px;
+}
+
+.asset-table th,
+.asset-table td,
+.history-table th,
+.history-table td,
+.data-table th,
+.data-table td {
+  text-align: center;
+}
+
+.asset-table th:first-child,
+.asset-table td:first-child,
+.history-table th:first-child,
+.history-table td:first-child,
+.data-table th:first-child,
+.data-table td:first-child {
+  text-align: left;
+}
+
+.asset-table th:not(:first-child) .resizable-table-heading,
+.asset-table th:not(:first-child) .table-sort,
+.history-table th:not(:first-child) .resizable-table-heading,
+.data-table th:not(:first-child) .resizable-table-heading {
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.asset-table th:first-child .resizable-table-heading,
+.asset-table th:first-child .table-sort,
+.history-table th:first-child .resizable-table-heading,
+.data-table th:first-child .resizable-table-heading {
+  justify-content: flex-start;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.asset-table td:not(:first-child) .software-row-actions,
+.asset-table td:not(:first-child) .vehicle-detail-toggle-cell,
+.asset-table td:not(:first-child) .vehicle-actions-cell,
+.data-table td:not(:first-child) .network-status-badge {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .modal-backdrop {

@@ -264,6 +264,7 @@ function PajuFireInsuranceList({
   onFilterChange,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
+  const subtotal = useMemo(() => getContractSubtotal(safeItems), [safeItems]);
 
   return (
     <section className="content-panel paju-fire-list-panel">
@@ -345,30 +346,47 @@ function PajuFireInsuranceList({
                     </div>
                   </td>
                 </tr>
-              ) : safeItems.map((item) => (
-                <tr key={item.id} className={editingItemId === item.id ? "editing" : undefined}>
-                  <td>{formatText(item.insurer_name)}</td>
-                  <td>{formatText(item.contractor)}</td>
-                  <td>{formatText(item.building_coverage)}</td>
-                  <td>{formatText(item.inventory_coverage)}</td>
-                  <td>{formatText(item.facility_coverage)}</td>
-                  <td>{formatText(item.liability_coverage)}</td>
-                  <td>{formatCurrency(item.monthly_premium)}</td>
-                  <td>{formatCurrency(item.annual_premium)}</td>
-                  <td>{formatDate(item.contract_start_date)}</td>
-                  <td className="paju-fire-note-cell" title={formatText(item.note)}>{formatText(item.note)}</td>
-                  <td>
-                    <div className="software-row-actions paju-fire-actions">
-                      <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(item)}>
-                        수정
-                      </button>
-                      <button type="button" className="danger-button software-action-button" onClick={() => onDelete(item)}>
-                        삭제
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              ) : (
+                <>
+                  {safeItems.map((item) => (
+                    <tr key={item.id} className={editingItemId === item.id ? "editing" : undefined}>
+                      <td>{formatText(item.insurer_name)}</td>
+                      <td>{formatText(item.contractor)}</td>
+                      <td>{formatText(item.building_coverage)}</td>
+                      <td>{formatText(item.inventory_coverage)}</td>
+                      <td>{formatText(item.facility_coverage)}</td>
+                      <td>{formatText(item.liability_coverage)}</td>
+                      <td>{formatCurrency(item.monthly_premium)}</td>
+                      <td>{formatCurrency(item.annual_premium)}</td>
+                      <td>{formatDate(item.contract_start_date)}</td>
+                      <td className="paju-fire-note-cell" title={formatText(item.note)}>{formatText(item.note)}</td>
+                      <td>
+                        <div className="software-row-actions paju-fire-actions">
+                          <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(item)}>
+                            수정
+                          </button>
+                          <button type="button" className="danger-button software-action-button" onClick={() => onDelete(item)}>
+                            삭제
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="paju-fire-subtotal-row">
+                    <td>SUB TTL</td>
+                    <td />
+                    <td>{formatCoverageSubtotal(subtotal.buildingCoverage)}</td>
+                    <td>{formatCoverageSubtotal(subtotal.inventoryCoverage)}</td>
+                    <td>{formatCoverageSubtotal(subtotal.facilityCoverage)}</td>
+                    <td>{formatCoverageSubtotal(subtotal.liabilityCoverage)}</td>
+                    <td>{formatCurrency(subtotal.monthlyPremium)}</td>
+                    <td>{formatCurrency(subtotal.annualPremium)}</td>
+                    <td />
+                    <td />
+                    <td />
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
@@ -445,6 +463,40 @@ function getContractLocationGroup(item) {
   return "기타";
 }
 
+function getContractSubtotal(items) {
+  return (Array.isArray(items) ? items : []).reduce(
+    (subtotal, item) => ({
+      buildingCoverage: subtotal.buildingCoverage + parseSimpleEokCoverage(item.building_coverage),
+      inventoryCoverage: subtotal.inventoryCoverage + parseSimpleEokCoverage(item.inventory_coverage),
+      facilityCoverage: subtotal.facilityCoverage + parseSimpleEokCoverage(item.facility_coverage),
+      liabilityCoverage: subtotal.liabilityCoverage + parseSimpleEokCoverage(item.liability_coverage),
+      monthlyPremium: subtotal.monthlyPremium + numberValue(item.monthly_premium),
+      annualPremium: subtotal.annualPremium + numberValue(item.annual_premium),
+    }),
+    {
+      buildingCoverage: 0,
+      inventoryCoverage: 0,
+      facilityCoverage: 0,
+      liabilityCoverage: 0,
+      monthlyPremium: 0,
+      annualPremium: 0,
+    },
+  );
+}
+
+function parseSimpleEokCoverage(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d+(?:\.\d+)?)억$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function formatCoverageSubtotal(value) {
+  if (!value) {
+    return "-";
+  }
+  return `${Number(value.toFixed(2)).toLocaleString("ko-KR")}억`;
+}
+
 function formatText(value) {
   if (value === null || value === undefined || value === "") {
     return "-";
@@ -461,6 +513,14 @@ function formatCurrency(value) {
     return "-";
   }
   return `₩${numberValue.toLocaleString("ko-KR")}`;
+}
+
+function numberValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
 function formatDate(value) {
