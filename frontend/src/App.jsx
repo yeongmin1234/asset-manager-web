@@ -60,6 +60,14 @@ const INITIAL_STATS_SUMMARY = {
 };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "assetManager.sidebarCollapsed";
+const MENU_VISIBILITY_STORAGE_KEY = "assetManager.menuVisibility";
+const DEFAULT_MENU_VISIBILITY = {
+  excel: true,
+  stats: true,
+  history: true,
+  network: true,
+  "paju-fire-insurance": true,
+};
 
 function App() {
   const [backendStatus, setBackendStatus] = useState({
@@ -82,6 +90,7 @@ function App() {
     }
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
+  const [menuVisibility, setMenuVisibility] = useState(() => getStoredMenuVisibility());
   const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [assets, setAssets] = useState([]);
@@ -482,6 +491,28 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleMenuVisibilityChange = (menuId, isVisible) => {
+    const nextVisibility = {
+      ...DEFAULT_MENU_VISIBILITY,
+      ...menuVisibility,
+      [menuId]: isVisible,
+    };
+
+    setMenuVisibility(nextVisibility);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        MENU_VISIBILITY_STORAGE_KEY,
+        JSON.stringify(nextVisibility),
+      );
+    }
+
+    if (!isVisible && activeSection === menuId) {
+      setActiveSection("dashboard");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const renderStatsReports = (className = "portal-report-grid") => (
     <section className={className}>
       <CategoryStats
@@ -655,7 +686,9 @@ function App() {
       return (
         <SettingsPage
           backendStatus={backendStatus}
+          menuVisibility={menuVisibility}
           onCheckBackend={checkBackend}
+          onMenuVisibilityChange={handleMenuVisibilityChange}
           onNavigate={handleNavigate}
         />
       );
@@ -678,7 +711,12 @@ function App() {
 
   return (
     <div className={isSidebarCollapsed ? "portal-shell portal-shell-sidebar-collapsed" : "portal-shell"}>
-      <PortalSidebar activeSection={activeSection} onNavigate={handleNavigate} collapsed={isSidebarCollapsed} />
+      <PortalSidebar
+        activeSection={activeSection}
+        collapsed={isSidebarCollapsed}
+        menuVisibility={menuVisibility}
+        onNavigate={handleNavigate}
+      />
 
       <div className="portal-workspace">
         <header className="portal-topbar">
@@ -790,6 +828,33 @@ function downloadBlob(blob, filename) {
 function getFallbackExcelFilename() {
   const today = new Date().toISOString().slice(0, 10);
   return `asset_list_${today}.xlsx`;
+}
+
+function getStoredMenuVisibility() {
+  if (typeof window === "undefined") {
+    return DEFAULT_MENU_VISIBILITY;
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(MENU_VISIBILITY_STORAGE_KEY);
+    if (!storedValue) {
+      return DEFAULT_MENU_VISIBILITY;
+    }
+
+    const parsedValue = JSON.parse(storedValue);
+    return Object.keys(DEFAULT_MENU_VISIBILITY).reduce(
+      (visibility, menuId) => ({
+        ...visibility,
+        [menuId]:
+          typeof parsedValue?.[menuId] === "boolean"
+            ? parsedValue[menuId]
+            : DEFAULT_MENU_VISIBILITY[menuId],
+      }),
+      {},
+    );
+  } catch {
+    return DEFAULT_MENU_VISIBILITY;
+  }
 }
 
 function sortAssets(items, sortConfig) {

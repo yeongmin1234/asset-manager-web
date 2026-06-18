@@ -13,7 +13,16 @@ const MENU_ITEMS = [
   { id: "settings", label: "설정", icon: "⚙" },
 ];
 
-function PortalSidebar({ activeSection = "dashboard", onNavigate, collapsed = false }) {
+function PortalSidebar({
+  activeSection = "dashboard",
+  collapsed = false,
+  menuVisibility = {},
+  onNavigate,
+}) {
+  const visibleMenuItems = MENU_ITEMS.filter(
+    (item) => menuVisibility[item.id] !== false,
+  );
+
   return (
     <aside className="portal-sidebar" aria-label="포털 메뉴" aria-hidden={collapsed}>
       <div className="portal-brand">
@@ -28,7 +37,7 @@ function PortalSidebar({ activeSection = "dashboard", onNavigate, collapsed = fa
       </div>
 
       <nav className="portal-nav">
-        {MENU_ITEMS.map((item) => (
+        {visibleMenuItems.map((item) => (
           <button
             type="button"
             key={item.id}

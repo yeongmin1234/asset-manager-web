@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 
 const SETTINGS_SECTIONS = [
   { id: "basic", label: "기본 정보", description: "시스템 운영 기준", icon: "i" },
+  { id: "menu-visibility", label: "메뉴 표시 설정", description: "사이드바 표시 메뉴", icon: "M" },
   { id: "access", label: "접속 정보", description: "Frontend, Backend, Health", icon: "A" },
   { id: "ports", label: "서버/포트", description: "운영 포트 기준", icon: "P" },
   { id: "database", label: "DB 정보", description: "PostgreSQL 위치", icon: "D" },
@@ -11,6 +12,34 @@ const SETTINGS_SECTIONS = [
   { id: "backup", label: "백업/운영", description: "스크립트와 보관 기준", icon: "B" },
   { id: "handover", label: "인수인계", description: "담당자 변경 시 확인", icon: "H" },
   { id: "caution", label: "주의사항", description: "절대 금지 항목", icon: "X" },
+];
+
+const MENU_VISIBILITY_ITEMS = [
+  {
+    id: "excel",
+    label: "엑셀 관리",
+    description: "엑셀 양식 다운로드와 일괄 등록 메뉴",
+  },
+  {
+    id: "stats",
+    label: "통계 / 리포트",
+    description: "자산 통계와 리포트 메뉴",
+  },
+  {
+    id: "history",
+    label: "변경 이력",
+    description: "자산 변경 이력 조회 메뉴",
+  },
+  {
+    id: "network",
+    label: "네트워크 현황",
+    description: "네트워크 장비 상태 메뉴",
+  },
+  {
+    id: "paju-fire-insurance",
+    label: "파주화재보험",
+    description: "파주 화재보험 계약 관리 메뉴",
+  },
 ];
 
 function SettingsCard({ title, description, children, important = false }) {
@@ -50,7 +79,7 @@ function RuleList({ rules }) {
   );
 }
 
-function SettingsPage() {
+function SettingsPage({ menuVisibility = {}, onMenuVisibilityChange }) {
   const [activeSettingsSection, setActiveSettingsSection] = useState("basic");
 
   const activeSection = useMemo(
@@ -62,6 +91,41 @@ function SettingsPage() {
 
   const renderDetail = () => {
     switch (activeSettingsSection) {
+      case "menu-visibility":
+        return (
+          <SettingsCard
+            title="메뉴 표시 설정"
+            description="사이드바에 표시할 메뉴를 선택합니다. 숨김 처리해도 기능은 삭제되지 않습니다."
+          >
+            <div className="settings-menu-visibility-list">
+              {MENU_VISIBILITY_ITEMS.map((item) => {
+                const isVisible = menuVisibility[item.id] !== false;
+
+                return (
+                  <label className="settings-menu-toggle" key={item.id}>
+                    <span className="settings-menu-toggle-text">
+                      <strong>{item.label}</strong>
+                      <small>{item.description}</small>
+                    </span>
+                    <span className="settings-menu-toggle-control">
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={(event) =>
+                          onMenuVisibilityChange?.(item.id, event.target.checked)
+                        }
+                      />
+                      <span className="settings-menu-toggle-switch" aria-hidden="true" />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="settings-muted">
+              대시보드, 자산 관리, 설정 메뉴는 항상 표시됩니다.
+            </p>
+          </SettingsCard>
+        );
       case "access":
         return (
           <SettingsCard title="접속 정보" description="운영 화면과 상태 점검 URL입니다.">
