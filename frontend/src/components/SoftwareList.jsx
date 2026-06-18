@@ -182,7 +182,6 @@ function SoftwareList({
                 <td>
                   <div className="asset-name">
                     <strong>{item.name}</strong>
-                    <span>ID {item.id}</span>
                   </div>
                 </td>
                 <td>{item.owner_name || "-"}</td>

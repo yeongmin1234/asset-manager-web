@@ -159,7 +159,6 @@ function AssetList({
                 <td>
                   <div className="asset-name">
                     <strong>{asset.name}</strong>
-                    <span>ID {asset.id}</span>
                   </div>
                 </td>
                 <td>
@@ -191,10 +190,7 @@ function AssetList({
           >
             <div>
               <strong>{asset.name}</strong>
-              <span>
-                ID {asset.id}
-                {asset.id === selectedAssetId ? " · 선택됨" : ""}
-              </span>
+              {asset.id === selectedAssetId && <span>선택됨</span>}
             </div>
             <StatusBadge status={asset.status} />
             <dl>

@@ -33,7 +33,6 @@ import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
 import ServerStatusPopover from "./components/ServerStatusPopover.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
-import ShortcutPanel from "./components/ShortcutPanel.jsx";
 import SoftwarePage from "./components/SoftwarePage.jsx";
 import StatsSummary from "./components/StatsSummary.jsx";
 import VehiclePage from "./components/VehiclePage.jsx";
@@ -735,7 +734,6 @@ function App() {
 
           {activeSection !== "dashboard" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && (
             <aside className="portal-aside">
-              <ShortcutPanel onNavigate={handleNavigate} />
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
           )}
