@@ -826,25 +826,51 @@ p {
   margin: 0;
 }
 
+.vehicle-page {
+  display: grid;
+  gap: 12px;
+  margin-top: -6px;
+  min-width: 0;
+}
+
 .vehicle-page-heading {
   align-items: center;
   display: grid;
-  gap: 18px;
+  gap: 12px;
   grid-template-columns: minmax(260px, 1fr) minmax(420px, 1.35fr);
+  padding: 12px 14px;
+}
+
+.vehicle-page-heading h2 {
+  font-size: 1.08rem;
+  margin-bottom: 3px;
+}
+
+.vehicle-page-heading p {
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 
 .vehicle-stats-compact {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .vehicle-stats-compact .stats-grid {
-  gap: 8px;
+  gap: 6px;
 }
 
 .vehicle-stats-compact .stats-card {
-  min-height: 76px;
-  padding: 12px;
+  min-height: 54px;
+  padding: 8px 10px;
+}
+
+.vehicle-stats-compact .stats-card span {
+  font-size: 0.76rem;
+}
+
+.vehicle-stats-compact .stats-card strong {
+  font-size: 1.04rem;
 }
 
 .vehicle-stats-note {
@@ -910,7 +936,7 @@ p {
   align-content: start;
   display: grid;
   gap: 0;
-  padding: 10px 14px 14px;
+  padding: 10px 12px 12px;
 }
 
 .vehicle-main-heading {
@@ -2136,6 +2162,26 @@ p {
   min-width: 1120px;
 }
 
+.software-table th,
+.software-table td {
+  text-align: center;
+}
+
+.software-table th:first-child,
+.software-table td:first-child {
+  text-align: left;
+}
+
+.software-table th:not(:first-child) .resizable-table-heading {
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.software-table th:first-child .resizable-table-heading {
+  justify-content: flex-start;
+  margin: 0;
+}
+
 .software-table th:nth-child(1),
 .software-table td:nth-child(1) {
   width: 24%;
@@ -2222,6 +2268,7 @@ p {
   display: inline-flex;
   flex-wrap: nowrap;
   gap: 6px;
+  justify-content: center;
   white-space: nowrap;
 }
 
@@ -2232,16 +2279,20 @@ p {
 }
 
 .software-license-view-button {
-  min-height: 30px;
-  padding: 6px 10px;
+  font-size: 0.78rem;
+  min-height: 28px;
+  padding: 5px 8px;
   white-space: nowrap;
 }
 
 .software-license-inline {
-  display: grid;
+  align-items: center;
+  display: inline-flex;
   gap: 6px;
+  justify-content: center;
   max-width: 100%;
   min-width: 0;
+  width: 100%;
 }
 
 .software-license-actions {
@@ -2252,8 +2303,9 @@ p {
 }
 
 .software-license-copy-button {
-  min-height: 30px;
-  padding: 6px 9px;
+  font-size: 0.78rem;
+  min-height: 28px;
+  padding: 5px 8px;
   white-space: nowrap;
 }
 
@@ -2265,19 +2317,20 @@ p {
 }
 
 .software-license-key-text {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
   color: #0f172a;
+  display: block;
+  flex: 1 1 auto;
   font-family: Consolas, "Courier New", monospace;
   font-size: 0.78rem;
-  line-height: 1.45;
-  max-height: 82px;
+  line-height: 1.2;
+  max-height: none;
   max-width: 100%;
-  overflow: auto;
-  padding: 7px 8px;
-  white-space: normal;
-  word-break: break-all;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .software-license-modal-backdrop {
@@ -2704,6 +2757,15 @@ p {
 .software-license-key-cell {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.software-table .software-license-key-cell {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.software-table .software-row-actions {
+  justify-content: center;
 }
 
 .software-row-actions {

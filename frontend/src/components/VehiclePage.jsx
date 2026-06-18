@@ -137,7 +137,7 @@ function VehiclePage() {
   );
 
   return (
-    <>
+    <div className="vehicle-page">
       <div className="portal-screen-heading vehicle-page-heading">
         <div>
           <h2>법인차량 관리</h2>
@@ -152,25 +152,6 @@ function VehiclePage() {
       </div>
 
       <section className="content-panel vehicle-main-panel">
-        <div className="section-heading vehicle-main-heading">
-          <div>
-            <h2>
-              {activePageTab === "list"
-                ? "차량 목록"
-                : activePageTab === "history"
-                  ? "보험 이력"
-                  : editingItem ? "차량 수정" : "빠른 등록"}
-            </h2>
-            <p>
-              {activePageTab === "list"
-                ? "보험 중심 목록으로 확인하고, 리스 정보는 리스 상세에서 확인합니다."
-                : activePageTab === "history"
-                  ? "차량을 선택해 단기보험 이력을 관리합니다."
-                : "법인차량과 보험/리스 정보를 등록합니다."}
-            </p>
-          </div>
-        </div>
-
         {renderPageTabs()}
 
         <div className={`vehicle-tab-content vehicle-tab-content-${activePageTab}`}>
@@ -201,7 +182,7 @@ function VehiclePage() {
           )}
         </div>
       </section>
-    </>
+    </div>
   );
 }
 

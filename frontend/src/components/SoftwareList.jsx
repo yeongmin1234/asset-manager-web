@@ -31,6 +31,7 @@ function SoftwareList({
     getInitialColumnWidths(SOFTWARE_COLUMNS, SOFTWARE_COLUMN_WIDTH_STORAGE_KEY),
   );
   const resizeStateRef = useRef(null);
+  const copyResetTimerRef = useRef(null);
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
   const hasActiveFilters = Boolean(activeTab || filters.expiration_status);
@@ -92,6 +93,10 @@ function SoftwareList({
     try {
       await navigator.clipboard.writeText(licenseKey);
       setCopiedLicenseId(item.id);
+      window.clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = window.setTimeout(() => {
+        setCopiedLicenseId(null);
+      }, 1400);
     } catch {
       setCopiedLicenseId(null);
     }
@@ -168,32 +173,35 @@ function SoftwareList({
                 </td>
                 <td className="software-license-key-cell">
                   {item.license_key ? (
-                    <div className="software-license-inline">
-                      <div className="software-license-actions">
+                    expandedLicenseId === item.id ? (
+                      <div className="software-license-inline">
+                        <span className="software-license-key-text" title={item.license_key}>
+                          {item.license_key}
+                        </span>
+                        <button
+                          type="button"
+                          className="secondary-button software-license-copy-button"
+                          onClick={() => handleCopyLicense(item)}
+                        >
+                          {copiedLicenseId === item.id ? "복사됨" : "복사"}
+                        </button>
                         <button
                           type="button"
                           className="secondary-button software-license-view-button"
                           onClick={() => toggleLicense(item.id)}
                         >
-                          {expandedLicenseId === item.id ? "숨기기" : "라이선스 보기"}
+                          숨기기
                         </button>
-                        {expandedLicenseId === item.id ? (
-                          <button
-                            type="button"
-                            className="secondary-button software-license-copy-button"
-                            onClick={() => handleCopyLicense(item)}
-                          >
-                            복사
-                          </button>
-                        ) : null}
-                        {copiedLicenseId === item.id ? (
-                          <span className="software-license-copy-message">복사됨</span>
-                        ) : null}
                       </div>
-                      {expandedLicenseId === item.id ? (
-                        <div className="software-license-key-text">{item.license_key}</div>
-                      ) : null}
-                    </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="secondary-button software-license-view-button"
+                        onClick={() => toggleLicense(item.id)}
+                      >
+                        라이선스 보기
+                      </button>
+                    )
                   ) : (
                     "-"
                   )}
