@@ -20,6 +20,7 @@ import AssetForm from "./components/AssetForm.jsx";
 import AssetList from "./components/AssetList.jsx";
 import CategoryCreateModal from "./components/CategoryCreateModal.jsx";
 import CategoryStats from "./components/CategoryStats.jsx";
+import BeverageOrderPage from "./components/BeverageOrderPage.jsx";
 import DashboardPage from "./components/DashboardPage.jsx";
 import DepartmentStats from "./components/DepartmentStats.jsx";
 import AssetExcelTools from "./components/AssetExcelTools.jsx";
@@ -641,6 +642,10 @@ function App() {
       return renderAssetManagement();
     }
 
+    if (activeSection === "beverage-orders") {
+      return <BeverageOrderPage />;
+    }
+
     if (activeSection === "excel") {
       return renderExcelManagement();
     }
@@ -760,6 +765,7 @@ function App() {
           className={
             activeSection === "excel"
               || activeSection === "dashboard"
+              || activeSection === "beverage-orders"
               || activeSection === "software"
               || activeSection === "vehicles"
               || activeSection === "paju-fire-insurance"
@@ -770,7 +776,7 @@ function App() {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "dashboard" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && (
+          {activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>

@@ -1,5 +1,6 @@
 from app.models.activity_log import SystemActivityLog
 from app.models.asset import Asset, AssetStatus
+from app.models.beverage_order_record import BeverageOrderRecord
 from app.models.category import Category
 from app.models.company_vehicle import CompanyVehicle, VehicleOwnershipType
 from app.models.department import Department
@@ -13,6 +14,7 @@ __all__ = [
     "AssetActionType",
     "AssetHistory",
     "AssetStatus",
+    "BeverageOrderRecord",
     "Category",
     "CompanyVehicle",
     "Department",

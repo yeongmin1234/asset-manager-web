@@ -2,6 +2,7 @@ import React from "react";
 
 const MENU_ITEMS = [
   { id: "dashboard", label: "대시보드", icon: "⌂" },
+  { id: "beverage-orders", label: "음료주문기록", icon: "▥" },
   { id: "assets", label: "자산 관리", icon: "▣" },
   { id: "software", label: "SW 현황", icon: "▧" },
   { id: "vehicles", label: "법인차량 관리", icon: "▦" },

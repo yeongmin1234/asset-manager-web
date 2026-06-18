@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.activity_log import SystemActivityLog
 from app.models.asset import Asset
+from app.models.beverage_order_record import BeverageOrderRecord
 from app.models.company_vehicle import CompanyVehicle
 from app.models.paju_fire_insurance import PajuFireInsuranceContract
 from app.models.software_item import SoftwareItem
@@ -73,6 +74,20 @@ PAJU_FIRE_INSURANCE_LOG_FIELDS = (
     "note",
 )
 
+BEVERAGE_ORDER_LOG_FIELDS = (
+    "order_date",
+    "order_month",
+    "vendor",
+    "title",
+    "items_summary",
+    "total_amount",
+    "quantity_summary",
+    "requester",
+    "payment_method",
+    "order_url",
+    "memo",
+)
+
 
 def serialize_software_activity_data(item: SoftwareItem) -> Dict[str, object]:
     return serialize_model_fields(item, SOFTWARE_LOG_FIELDS)
@@ -96,6 +111,12 @@ def serialize_paju_fire_insurance_activity_data(
     item: PajuFireInsuranceContract,
 ) -> Dict[str, object]:
     return serialize_model_fields(item, PAJU_FIRE_INSURANCE_LOG_FIELDS)
+
+
+def serialize_beverage_order_activity_data(
+    item: BeverageOrderRecord,
+) -> Dict[str, object]:
+    return serialize_model_fields(item, BEVERAGE_ORDER_LOG_FIELDS)
 
 
 def serialize_model_fields(item: object, field_names: Tuple[str, ...]) -> Dict[str, object]:
@@ -238,6 +259,33 @@ def record_paju_fire_insurance_activity(
         menu_name="파주화재보험",
         action_type=action_type,
         target_type="paju_fire_insurance",
+        target_id=target_id,
+        target_name=target_name,
+        actor_ip=actor_ip,
+        user_agent=user_agent,
+        summary=summary,
+        before_data=before_data,
+        after_data=after_data,
+    )
+
+
+def record_beverage_order_activity(
+    db: Session,
+    *,
+    action_type: str,
+    target_id: Optional[int],
+    target_name: Optional[str],
+    actor_ip: Optional[str],
+    user_agent: Optional[str],
+    summary: Optional[str] = None,
+    before_data: Optional[Dict[str, object]] = None,
+    after_data: Optional[Dict[str, object]] = None,
+) -> SystemActivityLog:
+    return record_activity_log(
+        db,
+        menu_name="음료주문기록",
+        action_type=action_type,
+        target_type="beverage_order",
         target_id=target_id,
         target_name=target_name,
         actor_ip=actor_ip,

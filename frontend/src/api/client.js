@@ -393,6 +393,38 @@ export async function deletePajuFireInsuranceContract(contractId) {
   });
 }
 
+export async function getBeverageOrders(filters = {}) {
+  return normalizeCollection(await request("/beverage-orders", { query: filters }));
+}
+
+export async function getBeverageOrder(orderId) {
+  return request(`/beverage-orders/${orderId}`);
+}
+
+export async function getBeverageOrderSummary() {
+  return request("/beverage-orders/summary");
+}
+
+export async function createBeverageOrder(order) {
+  return request("/beverage-orders", {
+    method: "POST",
+    body: order,
+  });
+}
+
+export async function updateBeverageOrder(orderId, order) {
+  return request(`/beverage-orders/${orderId}`, {
+    method: "PUT",
+    body: order,
+  });
+}
+
+export async function deleteBeverageOrder(orderId) {
+  return request(`/beverage-orders/${orderId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createAsset(asset) {
   return request("/assets", {
     method: "POST",
