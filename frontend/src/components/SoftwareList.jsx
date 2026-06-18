@@ -25,13 +25,13 @@ function SoftwareList({
   onTabChange,
   tabs,
 }) {
-  const [expandedLicenseId, setExpandedLicenseId] = useState(null);
+  const [expandedLicenseIds, setExpandedLicenseIds] = useState(() => new Set());
   const [copiedLicenseId, setCopiedLicenseId] = useState(null);
   const [columnWidths, setColumnWidths] = useState(() =>
     getInitialColumnWidths(SOFTWARE_COLUMNS, SOFTWARE_COLUMN_WIDTH_STORAGE_KEY),
   );
   const resizeStateRef = useRef(null);
-  const autoHideTimerRef = useRef(null);
+  const autoHideTimersRef = useRef(new Map());
   const copyResetTimerRef = useRef(null);
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
@@ -44,7 +44,8 @@ function SoftwareList({
 
   useEffect(
     () => () => {
-      window.clearTimeout(autoHideTimerRef.current);
+      autoHideTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      autoHideTimersRef.current.clear();
       window.clearTimeout(copyResetTimerRef.current);
     },
     [],
@@ -89,13 +90,26 @@ function SoftwareList({
   };
 
   const showLicense = (itemId) => {
-    window.clearTimeout(autoHideTimerRef.current);
+    const currentTimerId = autoHideTimersRef.current.get(itemId);
+    if (currentTimerId) {
+      window.clearTimeout(currentTimerId);
+    }
     setCopiedLicenseId(null);
-    setExpandedLicenseId(itemId);
-    autoHideTimerRef.current = window.setTimeout(() => {
-      setExpandedLicenseId((currentId) => (currentId === itemId ? null : currentId));
+    setExpandedLicenseIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(itemId);
+      return nextIds;
+    });
+    const nextTimerId = window.setTimeout(() => {
+      autoHideTimersRef.current.delete(itemId);
+      setExpandedLicenseIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(itemId);
+        return nextIds;
+      });
       setCopiedLicenseId((currentId) => (currentId === itemId ? null : currentId));
     }, 15000);
+    autoHideTimersRef.current.set(itemId, nextTimerId);
   };
 
   const handleCopyLicense = async (item) => {
@@ -187,7 +201,7 @@ function SoftwareList({
                 </td>
                 <td className="software-license-key-cell">
                   {item.license_key ? (
-                    expandedLicenseId === item.id ? (
+                    expandedLicenseIds.has(item.id) ? (
                       <div className="software-license-inline">
                         <button
                           type="button"

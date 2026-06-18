@@ -827,18 +827,29 @@ p {
 }
 
 .vehicle-page {
+  align-content: start;
+  align-items: start;
+  align-self: start;
   display: grid;
   gap: 12px;
+  grid-template-rows: max-content max-content;
+  height: auto;
   margin-top: -6px;
+  min-height: 0;
   min-width: 0;
+  width: 100%;
 }
 
 .vehicle-page-heading {
   align-items: center;
+  align-self: start;
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(260px, 1fr) minmax(420px, 1.35fr);
+  height: auto;
+  min-height: 0;
   padding: 12px 14px;
+  width: 100%;
 }
 
 .vehicle-page-heading h2 {
@@ -934,9 +945,14 @@ p {
 
 .vehicle-main-panel {
   align-content: start;
+  align-items: start;
+  align-self: start;
   display: grid;
   gap: 0;
+  height: auto;
+  min-height: 0;
   padding: 10px 12px 12px;
+  width: 100%;
 }
 
 .vehicle-main-heading {
@@ -968,13 +984,16 @@ p {
 .vehicle-tab-content {
   align-content: start;
   align-items: start;
+  align-self: start;
   border: 1px solid var(--line-soft);
   border-radius: 0 8px 8px 8px;
   display: grid;
   gap: 10px;
+  height: auto;
   margin-top: 0;
   min-height: 0;
   padding: 10px;
+  width: 100%;
 }
 
 .vehicle-list-panel {
@@ -994,10 +1013,15 @@ p {
 }
 
 .vehicle-main-panel .vehicle-quick-form {
+  align-content: start;
+  align-self: start;
   background: transparent;
   border: 0;
+  height: auto;
   margin: 0;
+  min-height: 0;
   padding: 0;
+  width: 100%;
 }
 
 .vehicle-tab-content-form,
@@ -1013,8 +1037,12 @@ p {
 }
 
 .vehicle-tab-content-form .vehicle-quick-form form {
+  align-content: start;
+  align-items: start;
   display: grid;
   gap: 8px;
+  height: auto;
+  min-height: 0;
 }
 
 .vehicle-tab-content-form .vehicle-form-tabs {
@@ -2296,22 +2324,24 @@ p {
 }
 
 .software-license-key-text {
-  background: transparent;
-  border: 0;
+  appearance: none;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   box-shadow: none;
   color: #0f172a;
   cursor: pointer;
   display: block;
   flex: 1 1 auto;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   line-height: 1.2;
   max-height: none;
   max-width: 100%;
   min-height: auto;
   min-width: 0;
   overflow: hidden;
-  padding: 0;
+  padding: 4px 8px;
   text-align: left;
   text-overflow: ellipsis;
   transform: none;
@@ -2319,9 +2349,10 @@ p {
 }
 
 .software-license-key-text:hover {
-  background: transparent;
+  background: #f1f5f9;
+  border-color: #94a3b8;
   box-shadow: none;
-  color: #1d4ed8;
+  color: #0f172a;
   transform: none;
 }
 
@@ -3423,6 +3454,43 @@ input:disabled {
 
 .asset-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.vehicle-page,
+.vehicle-page-heading,
+.vehicle-main-panel,
+.vehicle-tab-content,
+.vehicle-main-panel .vehicle-quick-form,
+.vehicle-tab-content-form .vehicle-quick-form form {
+  align-content: start;
+  align-self: start;
+  height: auto;
+  min-height: 0;
+}
+
+.vehicle-page {
+  grid-template-rows: max-content max-content;
+}
+
+.vehicle-page-heading {
+  padding: 12px 14px;
+}
+
+.vehicle-stats-compact .stats-card {
+  min-height: 54px;
+  padding: 8px 10px;
+}
+
+.vehicle-tab-content {
+  padding: 8px;
+}
+
+.vehicle-tab-content-form .vehicle-form-tabs {
+  margin: 0 0 8px;
+}
+
+.vehicle-tab-content-form .quick-create-actions {
+  margin: 0;
 }
 
 .software-table th,
