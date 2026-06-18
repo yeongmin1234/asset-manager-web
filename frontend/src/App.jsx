@@ -27,6 +27,7 @@ import FilterBar from "./components/FilterBar.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
+import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
 import PortalSidebar from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
@@ -622,6 +623,10 @@ function App() {
       return <VehiclePage />;
     }
 
+    if (activeSection === "paju-fire-insurance") {
+      return <PajuFireInsurancePage />;
+    }
+
     if (activeSection === "network") {
       return <NetworkStatusPage />;
     }
@@ -720,6 +725,7 @@ function App() {
               || activeSection === "dashboard"
               || activeSection === "software"
               || activeSection === "vehicles"
+              || activeSection === "paju-fire-insurance"
               || activeSection === "network"
               ? "portal-content portal-content-wide"
               : "portal-content"
@@ -727,7 +733,7 @@ function App() {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "dashboard" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "network" && (
+          {activeSection !== "dashboard" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && (
             <aside className="portal-aside">
               <ShortcutPanel onNavigate={handleNavigate} />
               <RecentActivityPanel onNavigate={handleNavigate} />

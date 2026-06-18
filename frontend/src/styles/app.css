@@ -3493,6 +3493,97 @@ input:disabled {
   margin: 0;
 }
 
+.paju-fire-page {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+}
+
+.paju-fire-heading {
+  padding: 16px 18px;
+}
+
+.paju-fire-stats {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.paju-fire-stat-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+.paju-fire-stat-card span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.paju-fire-stat-card strong {
+  color: #0f172a;
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.paju-fire-form-panel {
+  padding: 12px;
+}
+
+.paju-fire-form {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
+}
+
+.paju-fire-note-field,
+.paju-fire-form .quick-create-actions {
+  grid-column: 1 / -1;
+}
+
+.paju-fire-list-panel {
+  gap: 10px;
+  padding: 12px;
+}
+
+.paju-fire-list-controls {
+  align-items: end;
+  background: #f8fafc;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(260px, 1.5fr);
+  padding: 8px;
+}
+
+.paju-fire-table {
+  min-width: 1580px;
+}
+
+.paju-fire-table th,
+.paju-fire-table td {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.paju-fire-note-cell {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.paju-fire-actions {
+  justify-content: center;
+}
+
 .software-table th,
 .software-table td {
   text-align: center;
@@ -4944,6 +5035,10 @@ input:disabled {
   }
 
   .vehicle-list-panel .asset-table-wrap {
+    display: block;
+  }
+
+  .paju-fire-list-panel .asset-table-wrap {
     display: block;
   }
 

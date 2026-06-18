@@ -365,6 +365,34 @@ export async function deleteVehicleInsuranceHistory(historyId) {
   });
 }
 
+export async function getPajuFireInsuranceContracts(filters = {}) {
+  return normalizeCollection(await request("/paju-fire-insurance", { query: filters }));
+}
+
+export async function getPajuFireInsuranceSummary() {
+  return request("/paju-fire-insurance/summary");
+}
+
+export async function createPajuFireInsuranceContract(contract) {
+  return request("/paju-fire-insurance", {
+    method: "POST",
+    body: contract,
+  });
+}
+
+export async function updatePajuFireInsuranceContract(contractId, contract) {
+  return request(`/paju-fire-insurance/${contractId}`, {
+    method: "PUT",
+    body: contract,
+  });
+}
+
+export async function deletePajuFireInsuranceContract(contractId) {
+  return request(`/paju-fire-insurance/${contractId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createAsset(asset) {
   return request("/assets", {
     method: "POST",

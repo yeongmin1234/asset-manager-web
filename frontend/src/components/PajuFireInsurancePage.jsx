@@ -1,0 +1,462 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createPajuFireInsuranceContract,
+  deletePajuFireInsuranceContract,
+  getPajuFireInsuranceContracts,
+  getPajuFireInsuranceSummary,
+  updatePajuFireInsuranceContract,
+} from "../api/client.js";
+
+const INITIAL_FORM = {
+  location_group: "송촌동",
+  warehouse_name: "",
+  insurer_name: "",
+  contractor: "",
+  building_coverage: "",
+  inventory_coverage: "",
+  facility_coverage: "",
+  liability_coverage: "",
+  monthly_premium: "",
+  annual_premium: "",
+  contract_start_date: "",
+  contract_end_date: "",
+  note: "",
+};
+
+const INITIAL_FILTERS = {
+  location_group: "",
+  contractor: "",
+  keyword: "",
+};
+
+const INITIAL_SUMMARY = {
+  total: 0,
+  songchon: 0,
+  sinchon: 0,
+  monthly_premium_total: 0,
+  annual_premium_total: 0,
+  ending_soon: 0,
+};
+
+const LOCATION_OPTIONS = ["송촌동", "신촌동", "기타"];
+const CONTRACTOR_OPTIONS = ["한국리모텍", "더리모"];
+
+function PajuFireInsurancePage() {
+  const [items, setItems] = useState([]);
+  const [summary, setSummary] = useState(INITIAL_SUMMARY);
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [editingItem, setEditingItem] = useState(null);
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [listState, setListState] = useState({ isLoading: false, error: "" });
+  const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
+  const [submitState, setSubmitState] = useState({ isSubmitting: false, message: "", error: "" });
+
+  const displayedItems = useMemo(
+    () => filterContracts(items, filters),
+    [filters, items],
+  );
+
+  const loadItems = useCallback(async () => {
+    setListState({ isLoading: true, error: "" });
+    try {
+      setItems(await getPajuFireInsuranceContracts());
+      setListState({ isLoading: false, error: "" });
+    } catch (error) {
+      setItems([]);
+      setListState({ isLoading: false, error: error.message });
+    }
+  }, []);
+
+  const loadSummary = useCallback(async () => {
+    setSummaryState({ isLoading: true, error: "" });
+    try {
+      setSummary({ ...INITIAL_SUMMARY, ...(await getPajuFireInsuranceSummary()) });
+      setSummaryState({ isLoading: false, error: "" });
+    } catch (error) {
+      setSummary(INITIAL_SUMMARY);
+      setSummaryState({ isLoading: false, error: error.message });
+    }
+  }, []);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    if (!editingItem) {
+      setForm(INITIAL_FORM);
+      setSubmitState({ isSubmitting: false, message: "", error: "" });
+      return;
+    }
+
+    setForm({
+      location_group: editingItem.location_group || "송촌동",
+      warehouse_name: editingItem.warehouse_name || "",
+      insurer_name: editingItem.insurer_name || "",
+      contractor: editingItem.contractor || "",
+      building_coverage: editingItem.building_coverage || "",
+      inventory_coverage: editingItem.inventory_coverage || "",
+      facility_coverage: editingItem.facility_coverage || "",
+      liability_coverage: editingItem.liability_coverage || "",
+      monthly_premium: String(editingItem.monthly_premium ?? ""),
+      annual_premium: String(editingItem.annual_premium ?? ""),
+      contract_start_date: editingItem.contract_start_date || "",
+      contract_end_date: editingItem.contract_end_date || "",
+      note: editingItem.note || "",
+    });
+    setSubmitState({ isSubmitting: false, message: "", error: "" });
+  }, [editingItem]);
+
+  const handleChange = (event) => {
+    setForm({ ...form, [event.target.name]: event.target.value });
+    setSubmitState((currentState) => ({ ...currentState, message: "", error: "" }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const payload = buildPayload(form);
+    setSubmitState({ isSubmitting: true, message: "", error: "" });
+    try {
+      if (editingItem) {
+        await updatePajuFireInsuranceContract(editingItem.id, payload);
+        setEditingItem(null);
+        setSubmitState({ isSubmitting: false, message: "계약 수정이 완료되었습니다.", error: "" });
+      } else {
+        await createPajuFireInsuranceContract(payload);
+        setForm(INITIAL_FORM);
+        setSubmitState({ isSubmitting: false, message: "계약 등록이 완료되었습니다.", error: "" });
+      }
+      await Promise.all([loadItems(), loadSummary()]);
+    } catch (error) {
+      setSubmitState({ isSubmitting: false, message: "", error: error.message });
+    }
+  };
+
+  const handleDelete = async (item) => {
+    const targetName = [item.location_group, item.insurer_name, item.contractor].filter(Boolean).join(" / ");
+    const confirmed = window.confirm(`${targetName || "선택한 계약"} 항목을 삭제할까요?`);
+    if (!confirmed) {
+      return;
+    }
+    await deletePajuFireInsuranceContract(item.id);
+    if (editingItem?.id === item.id) {
+      setEditingItem(null);
+    }
+    await Promise.all([loadItems(), loadSummary()]);
+  };
+
+  return (
+    <div className="paju-fire-page">
+      <div className="portal-screen-heading paju-fire-heading">
+        <div>
+          <h2>파주화재보험</h2>
+          <p>파주 창고/건물 화재보험 계약 정보를 관리합니다.</p>
+        </div>
+      </div>
+
+      <PajuFireInsuranceStats
+        summary={summary}
+        isLoading={summaryState.isLoading}
+        error={summaryState.error}
+      />
+
+      <section className="quick-create paju-fire-form-panel">
+        <div className="quick-create-heading">
+          <div>
+            <h3>{editingItem ? "계약 수정" : "빠른 등록"}</h3>
+            <p>보장금액은 입력 표현 그대로 저장하고, 보험료만 합계로 계산합니다.</p>
+          </div>
+        </div>
+        <form className="paju-fire-form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>구역</span>
+            <select name="location_group" value={form.location_group} onChange={handleChange}>
+              {LOCATION_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <Field name="warehouse_name" label="창고" value={form.warehouse_name} onChange={handleChange} />
+          <Field name="insurer_name" label="보험사/담보" value={form.insurer_name} onChange={handleChange} />
+          <Field name="contractor" label="계약자" value={form.contractor} onChange={handleChange} />
+          <Field name="building_coverage" label="건물 보장금액" value={form.building_coverage} onChange={handleChange} />
+          <Field name="inventory_coverage" label="재고자산 보장금액" value={form.inventory_coverage} onChange={handleChange} />
+          <Field name="facility_coverage" label="시설/집기 보장금액" value={form.facility_coverage} onChange={handleChange} />
+          <Field name="liability_coverage" label="화재배상 보장금액" value={form.liability_coverage} onChange={handleChange} />
+          <Field name="monthly_premium" label="월보험료" type="number" min="0" value={form.monthly_premium} onChange={handleChange} />
+          <Field name="annual_premium" label="연보험료" type="number" min="0" value={form.annual_premium} onChange={handleChange} />
+          <Field name="contract_start_date" label="계약시작일" type="date" value={form.contract_start_date} onChange={handleChange} />
+          <Field name="contract_end_date" label="계약종료일" type="date" value={form.contract_end_date} onChange={handleChange} />
+          <label className="field paju-fire-note-field">
+            <span>비고</span>
+            <textarea name="note" rows="2" value={form.note} onChange={handleChange} />
+          </label>
+          <div className="quick-create-actions">
+            {submitState.message && <span className="inline-success">{submitState.message}</span>}
+            {submitState.error && <span className="inline-alert">{submitState.error}</span>}
+            {editingItem && (
+              <button type="button" className="secondary-button" onClick={() => setEditingItem(null)}>
+                수정 취소
+              </button>
+            )}
+            <button type="submit" className="primary-action" disabled={submitState.isSubmitting}>
+              {submitState.isSubmitting ? "저장 중..." : editingItem ? "수정 저장" : "저장"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <PajuFireInsuranceList
+        items={displayedItems}
+        isLoading={listState.isLoading}
+        error={listState.error}
+        filters={filters}
+        editingItemId={editingItem?.id || null}
+        onDelete={handleDelete}
+        onEdit={setEditingItem}
+        onFilterChange={setFilters}
+      />
+    </div>
+  );
+}
+
+function PajuFireInsuranceStats({ summary, isLoading, error }) {
+  const cards = [
+    { label: "전체 계약", value: Number(summary.total || 0).toLocaleString("ko-KR") },
+    { label: "송촌동", value: Number(summary.songchon || 0).toLocaleString("ko-KR") },
+    { label: "신촌동", value: Number(summary.sinchon || 0).toLocaleString("ko-KR") },
+    { label: "월보험료 합계", value: formatCurrency(summary.monthly_premium_total) },
+    { label: "연보험료 합계", value: formatCurrency(summary.annual_premium_total) },
+    { label: "만기 임박", value: Number(summary.ending_soon || 0).toLocaleString("ko-KR") },
+  ];
+  return (
+    <section className="paju-fire-stats">
+      {cards.map((card) => (
+        <article className="paju-fire-stat-card" key={card.label}>
+          <span>{card.label}</span>
+          <strong>{card.value}</strong>
+        </article>
+      ))}
+      {isLoading && <span className="status-pill">집계 중</span>}
+      {error && <span className="lookup-warning">{error}</span>}
+    </section>
+  );
+}
+
+function PajuFireInsuranceList({
+  items,
+  isLoading,
+  error,
+  filters,
+  editingItemId,
+  onDelete,
+  onEdit,
+  onFilterChange,
+}) {
+  const safeItems = Array.isArray(items) ? items : [];
+
+  return (
+    <section className="content-panel paju-fire-list-panel">
+      <div className="section-heading">
+        <div>
+          <h2>계약 목록</h2>
+          <p>구역, 계약자, 검색어 기준으로 계약 정보를 확인합니다.</p>
+        </div>
+      </div>
+
+      <div className="paju-fire-list-controls">
+        <label className="field">
+          <span>구역</span>
+          <select
+            value={filters.location_group}
+            onChange={(event) => onFilterChange({ ...filters, location_group: event.target.value })}
+          >
+            <option value="">전체</option>
+            {LOCATION_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>계약자</span>
+          <select
+            value={filters.contractor}
+            onChange={(event) => onFilterChange({ ...filters, contractor: event.target.value })}
+          >
+            <option value="">전체</option>
+            {CONTRACTOR_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field paju-fire-search-field">
+          <span>검색</span>
+          <input
+            value={filters.keyword}
+            onChange={(event) => onFilterChange({ ...filters, keyword: event.target.value })}
+            placeholder="창고, 보험사, 계약자, 비고"
+          />
+        </label>
+      </div>
+
+      {isLoading ? (
+        <div className="state-panel">파주화재보험 계약을 불러오는 중입니다.</div>
+      ) : error ? (
+        <div className="state-panel state-error">
+          <strong>계약 목록을 불러오지 못했습니다.</strong>
+          <span className="state-detail">{error}</span>
+        </div>
+      ) : (
+        <div className="asset-table-wrap">
+          <table className="asset-table paju-fire-table">
+            <thead>
+              <tr>
+                <th>구역</th>
+                <th>창고</th>
+                <th>보험사/담보</th>
+                <th>계약자</th>
+                <th>건물</th>
+                <th>재고자산</th>
+                <th>시설/집기</th>
+                <th>화재배상</th>
+                <th>월보험료</th>
+                <th>연보험료</th>
+                <th>계약시작일</th>
+                <th>계약종료일</th>
+                <th>비고</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {safeItems.length === 0 ? (
+                <tr>
+                  <td colSpan="14">
+                    <div className="state-panel asset-table-empty-state">
+                      <strong>등록된 계약이 없습니다.</strong>
+                      <span>빠른 등록 폼으로 파주화재보험 계약을 추가해주세요.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : safeItems.map((item) => (
+                <tr key={item.id} className={editingItemId === item.id ? "editing" : undefined}>
+                  <td>{formatText(item.location_group)}</td>
+                  <td>{formatText(item.warehouse_name)}</td>
+                  <td>{formatText(item.insurer_name)}</td>
+                  <td>{formatText(item.contractor)}</td>
+                  <td>{formatText(item.building_coverage)}</td>
+                  <td>{formatText(item.inventory_coverage)}</td>
+                  <td>{formatText(item.facility_coverage)}</td>
+                  <td>{formatText(item.liability_coverage)}</td>
+                  <td>{formatCurrency(item.monthly_premium)}</td>
+                  <td>{formatCurrency(item.annual_premium)}</td>
+                  <td>{formatDate(item.contract_start_date)}</td>
+                  <td>{formatDate(item.contract_end_date)}</td>
+                  <td className="paju-fire-note-cell" title={formatText(item.note)}>{formatText(item.note)}</td>
+                  <td>
+                    <div className="software-row-actions paju-fire-actions">
+                      <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(item)}>
+                        수정
+                      </button>
+                      <button type="button" className="danger-button software-action-button" onClick={() => onDelete(item)}>
+                        삭제
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Field({ label, ...props }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input {...props} />
+    </label>
+  );
+}
+
+function buildPayload(form) {
+  return {
+    location_group: textOrNull(form.location_group),
+    warehouse_name: textOrNull(form.warehouse_name),
+    insurer_name: textOrNull(form.insurer_name),
+    contractor: textOrNull(form.contractor),
+    building_coverage: textOrNull(form.building_coverage),
+    inventory_coverage: textOrNull(form.inventory_coverage),
+    facility_coverage: textOrNull(form.facility_coverage),
+    liability_coverage: textOrNull(form.liability_coverage),
+    monthly_premium: numberOrNull(form.monthly_premium),
+    annual_premium: numberOrNull(form.annual_premium),
+    contract_start_date: form.contract_start_date || null,
+    contract_end_date: form.contract_end_date || null,
+    note: textOrNull(form.note),
+  };
+}
+
+function filterContracts(items, filters) {
+  const keyword = String(filters.keyword || "").trim().toLowerCase();
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    if (filters.location_group && item.location_group !== filters.location_group) {
+      return false;
+    }
+    if (filters.contractor && item.contractor !== filters.contractor) {
+      return false;
+    }
+    if (!keyword) {
+      return true;
+    }
+    return [
+      item.warehouse_name,
+      item.insurer_name,
+      item.contractor,
+      item.note,
+    ].some((value) => String(value || "").toLowerCase().includes(keyword));
+  });
+}
+
+function formatText(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  return String(value);
+}
+
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return "-";
+  }
+  return `₩${numberValue.toLocaleString("ko-KR")}`;
+}
+
+function formatDate(value) {
+  return value || "-";
+}
+
+function textOrNull(value) {
+  const trimmedValue = String(value || "").trim();
+  return trimmedValue || null;
+}
+
+function numberOrNull(value) {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+export default PajuFireInsurancePage;
