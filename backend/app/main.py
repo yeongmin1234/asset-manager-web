@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.routers import (
     activity_logs,
+    admin,
     beverage_orders,
     company_vehicles,
     network_status,
@@ -53,6 +54,7 @@ app.include_router(departments.router)
 app.include_router(assets.router)
 app.include_router(stats.router)
 app.include_router(software.router)
+app.include_router(admin.router)
 app.include_router(beverage_orders.router)
 app.include_router(company_vehicles.router)
 app.include_router(vehicle_insurance_histories.router)

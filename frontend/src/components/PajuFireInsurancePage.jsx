@@ -282,7 +282,10 @@ function PajuFireInsuranceList({
   const [columnWidths, setColumnWidths] = useState(() =>
     getInitialColumnWidths(PAJU_FIRE_COLUMNS, PAJU_FIRE_COLUMN_WIDTH_STORAGE_KEY),
   );
+  const [selectedNoteContract, setSelectedNoteContract] = useState(null);
+  const [noteCopyMessage, setNoteCopyMessage] = useState("");
   const resizeStateRef = useRef(null);
+  const noteCopyTimerRef = useRef(null);
 
   const tableWidth = useMemo(
     () => PAJU_FIRE_COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
@@ -325,6 +328,38 @@ function PajuFireInsuranceList({
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(noteCopyTimerRef.current);
+    },
+    [],
+  );
+
+  useEffect(
+    () => {
+      setNoteCopyMessage("");
+    },
+    [selectedNoteContract],
+  );
+
+  const handleNoteCopy = async () => {
+    if (!selectedNoteContract?.note) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(selectedNoteContract.note);
+      setNoteCopyMessage("복사되었습니다.");
+    } catch {
+      setNoteCopyMessage("복사하지 못했습니다.");
+    }
+
+    window.clearTimeout(noteCopyTimerRef.current);
+    noteCopyTimerRef.current = window.setTimeout(() => {
+      setNoteCopyMessage("");
+    }, 1800);
   };
 
   return (
@@ -424,7 +459,19 @@ function PajuFireInsuranceList({
                       <td>{formatCurrency(item.monthly_premium)}</td>
                       <td>{formatCurrency(item.annual_premium)}</td>
                       <td>{formatDate(item.contract_start_date)}</td>
-                      <td className="paju-fire-note-cell" title={formatText(item.note)}>{formatText(item.note)}</td>
+                      <td className="paju-fire-note-cell" title={formatText(item.note)}>
+                        {hasText(item.note) ? (
+                          <button
+                            type="button"
+                            className="paju-note-text"
+                            onClick={() => setSelectedNoteContract(item)}
+                          >
+                            {formatText(item.note)}
+                          </button>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
                       <td>
                         <div className="software-row-actions paju-fire-actions">
                           <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(item)}>
@@ -454,6 +501,61 @@ function PajuFireInsuranceList({
               )}
             </tbody>
           </table>
+        </div>
+      )}
+      {selectedNoteContract && (
+        <div
+          className="paju-note-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setSelectedNoteContract(null)}
+        >
+          <section
+            className="paju-note-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paju-note-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="paju-note-modal-heading">
+              <div>
+                <h3 id="paju-note-modal-title">비고 상세</h3>
+                <p>{formatText(selectedNoteContract.insurer_name)}</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setSelectedNoteContract(null)}
+              >
+                닫기
+              </button>
+            </div>
+            <dl className="paju-note-modal-meta">
+              <div>
+                <dt>보험사/담보</dt>
+                <dd>{formatText(selectedNoteContract.insurer_name)}</dd>
+              </div>
+              <div>
+                <dt>계약자</dt>
+                <dd>{formatText(selectedNoteContract.contractor)}</dd>
+              </div>
+              <div>
+                <dt>계약시작일</dt>
+                <dd>{formatDate(selectedNoteContract.contract_start_date)}</dd>
+              </div>
+            </dl>
+            <div className="paju-note-modal-content">
+              {formatText(selectedNoteContract.note)}
+            </div>
+            <div className="paju-note-modal-actions">
+              {noteCopyMessage && <span>{noteCopyMessage}</span>}
+              <button type="button" className="secondary-button" onClick={handleNoteCopy}>
+                복사
+              </button>
+              <button type="button" className="primary-button" onClick={() => setSelectedNoteContract(null)}>
+                닫기
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </section>
@@ -567,6 +669,10 @@ function formatText(value) {
     return "-";
   }
   return String(value);
+}
+
+function hasText(value) {
+  return String(value || "").trim().length > 0;
 }
 
 function formatCurrency(value) {

@@ -1438,6 +1438,75 @@ p {
   transform: translateX(20px);
 }
 
+.settings-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.admin-auth-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.46);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 20px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 70;
+}
+
+.admin-auth-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  max-width: 420px;
+  padding: 22px;
+  width: min(100%, 420px);
+}
+
+.admin-auth-modal form {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-auth-modal-heading h3 {
+  color: #0f172a;
+  font-size: 1.08rem;
+  margin: 0;
+}
+
+.admin-auth-modal-heading p {
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.admin-auth-password-field {
+  margin: 0;
+}
+
+.admin-auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.admin-auth-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .settings-two-column {
   display: grid;
   gap: 12px;
@@ -4137,6 +4206,133 @@ input:disabled {
   text-overflow: ellipsis;
 }
 
+.paju-note-text {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  font: inherit;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-align: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paju-note-text:hover {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.paju-note-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 24px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 60;
+}
+
+.paju-note-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  max-height: min(720px, calc(100vh - 48px));
+  max-width: 620px;
+  overflow: auto;
+  padding: 22px;
+  width: min(100%, 620px);
+}
+
+.paju-note-modal-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.paju-note-modal-heading h3 {
+  color: #0f172a;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.paju-note-modal-heading p {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+.paju-note-modal-meta {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 16px;
+}
+
+.paju-note-modal-meta div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.paju-note-modal-meta dt {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.paju-note-modal-meta dd {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.paju-note-modal-content {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #111827;
+  line-height: 1.7;
+  max-height: 320px;
+  min-height: 140px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 14px;
+  white-space: pre-wrap;
+}
+
+.paju-note-modal-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.paju-note-modal-actions span {
+  color: #15803d;
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-right: auto;
+}
+
 .paju-fire-subtotal-row td {
   background: #fef3c7;
   border-top: 2px solid #111827;
@@ -5669,6 +5865,28 @@ input:disabled {
 
   .paju-fire-location-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paju-note-modal-backdrop {
+    padding: 14px;
+  }
+
+  .paju-note-modal {
+    padding: 18px;
+  }
+
+  .paju-note-modal-heading,
+  .paju-note-modal-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paju-note-modal-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .paju-note-modal-actions span {
+    margin-right: 0;
   }
 
   .asset-cards {

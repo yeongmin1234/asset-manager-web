@@ -14,7 +14,9 @@ import {
   getStatsSummary,
   getVisitorsSummary,
   pingVisitor,
+  verifyAdminPassword,
 } from "./api/client.js";
+import AdminAuthModal from "./components/AdminAuthModal.jsx";
 import AssetDetail from "./components/AssetDetail.jsx";
 import AssetForm from "./components/AssetForm.jsx";
 import AssetList from "./components/AssetList.jsx";
@@ -62,12 +64,36 @@ const INITIAL_STATS_SUMMARY = {
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "assetManager.sidebarCollapsed";
 const MENU_VISIBILITY_STORAGE_KEY = "assetManager.menuVisibility";
+const PROTECTED_MENU_STORAGE_KEY = "assetManager.protectedMenus";
+const ADMIN_AUTH_STORAGE_KEY = "assetManager.adminAuth";
 const DEFAULT_MENU_VISIBILITY = {
   excel: true,
   stats: true,
   history: true,
   network: true,
   "paju-fire-insurance": true,
+};
+const DEFAULT_PROTECTED_MENUS = {
+  software: false,
+  vehicles: false,
+  "paju-fire-insurance": false,
+  "beverage-orders": false,
+  network: false,
+  history: false,
+  settings: false,
+};
+const MENU_LABELS = {
+  dashboard: "대시보드",
+  assets: "자산 관리",
+  software: "SW 현황",
+  vehicles: "법인차량 관리",
+  "paju-fire-insurance": "파주화재보험",
+  "beverage-orders": "음료주문기록",
+  network: "네트워크 현황",
+  excel: "엑셀 관리",
+  stats: "통계 / 리포트",
+  history: "변경 이력",
+  settings: "설정",
 };
 
 function App() {
@@ -92,6 +118,14 @@ function App() {
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
   const [menuVisibility, setMenuVisibility] = useState(() => getStoredMenuVisibility());
+  const [protectedMenus, setProtectedMenus] = useState(() => getStoredProtectedMenus());
+  const [adminAuthModal, setAdminAuthModal] = useState({
+    error: "",
+    isOpen: false,
+    isSubmitting: false,
+    targetSection: "",
+  });
+  const [adminAuthClearedAt, setAdminAuthClearedAt] = useState(null);
   const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [assets, setAssets] = useState([]);
@@ -488,8 +522,80 @@ function App() {
       activity: "history",
     };
     const nextSection = sectionMap[sectionId] || sectionId;
+    if (protectedMenus[nextSection] && !hasValidAdminAuth()) {
+      setAdminAuthModal({
+        error: "",
+        isOpen: true,
+        isSubmitting: false,
+        targetSection: nextSection,
+      });
+      return;
+    }
+
+    navigateToSection(nextSection);
+  };
+
+  const navigateToSection = (nextSection) => {
     setActiveSection(nextSection);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleProtectedMenuChange = (menuId, isProtected) => {
+    const nextProtectedMenus = {
+      ...DEFAULT_PROTECTED_MENUS,
+      ...protectedMenus,
+      [menuId]: isProtected,
+    };
+
+    setProtectedMenus(nextProtectedMenus);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        PROTECTED_MENU_STORAGE_KEY,
+        JSON.stringify(nextProtectedMenus),
+      );
+    }
+  };
+
+  const handleAdminAuthSubmit = async (password) => {
+    setAdminAuthModal((current) => ({
+      ...current,
+      error: "",
+      isSubmitting: true,
+    }));
+
+    try {
+      const result = await verifyAdminPassword(password);
+      saveAdminAuth(result);
+      const targetSection = adminAuthModal.targetSection;
+      setAdminAuthModal({
+        error: "",
+        isOpen: false,
+        isSubmitting: false,
+        targetSection: "",
+      });
+      navigateToSection(targetSection);
+    } catch (error) {
+      setAdminAuthModal((current) => ({
+        ...current,
+        error: error.message,
+        isSubmitting: false,
+      }));
+    }
+  };
+
+  const handleAdminAuthCancel = () => {
+    setAdminAuthModal({
+      error: "",
+      isOpen: false,
+      isSubmitting: false,
+      targetSection: "",
+    });
+  };
+
+  const handleClearAdminAuth = () => {
+    clearAdminAuth();
+    setAdminAuthClearedAt(new Date().toISOString());
   };
 
   const handleMenuVisibilityChange = (menuId, isVisible) => {
@@ -693,8 +799,12 @@ function App() {
           backendStatus={backendStatus}
           menuVisibility={menuVisibility}
           onCheckBackend={checkBackend}
+          onClearAdminAuth={handleClearAdminAuth}
           onMenuVisibilityChange={handleMenuVisibilityChange}
           onNavigate={handleNavigate}
+          onProtectedMenuChange={handleProtectedMenuChange}
+          adminAuthClearedAt={adminAuthClearedAt}
+          protectedMenus={protectedMenus}
         />
       );
     }
@@ -816,6 +926,14 @@ function App() {
         }
         onSubmit={handleCreateCategory}
       />
+      <AdminAuthModal
+        error={adminAuthModal.error}
+        isOpen={adminAuthModal.isOpen}
+        isSubmitting={adminAuthModal.isSubmitting}
+        menuLabel={MENU_LABELS[adminAuthModal.targetSection] || "보호 메뉴"}
+        onCancel={handleAdminAuthCancel}
+        onSubmit={handleAdminAuthSubmit}
+      />
     </div>
   );
 }
@@ -861,6 +979,80 @@ function getStoredMenuVisibility() {
   } catch {
     return DEFAULT_MENU_VISIBILITY;
   }
+}
+
+function getStoredProtectedMenus() {
+  if (typeof window === "undefined") {
+    return DEFAULT_PROTECTED_MENUS;
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(PROTECTED_MENU_STORAGE_KEY);
+    if (!storedValue) {
+      return DEFAULT_PROTECTED_MENUS;
+    }
+
+    const parsedValue = JSON.parse(storedValue);
+    return Object.keys(DEFAULT_PROTECTED_MENUS).reduce(
+      (protectedMenuMap, menuId) => ({
+        ...protectedMenuMap,
+        [menuId]:
+          typeof parsedValue?.[menuId] === "boolean"
+            ? parsedValue[menuId]
+            : DEFAULT_PROTECTED_MENUS[menuId],
+      }),
+      {},
+    );
+  } catch {
+    return DEFAULT_PROTECTED_MENUS;
+  }
+}
+
+function hasValidAdminAuth() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
+    if (!storedValue) {
+      return false;
+    }
+
+    const parsedValue = JSON.parse(storedValue);
+    const expiresAt = Date.parse(parsedValue?.expires_at || "");
+    if (!parsedValue?.token || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      clearAdminAuth();
+      return false;
+    }
+
+    return true;
+  } catch {
+    clearAdminAuth();
+    return false;
+  }
+}
+
+function saveAdminAuth(authResult) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(
+    ADMIN_AUTH_STORAGE_KEY,
+    JSON.stringify({
+      token: authResult.token,
+      expires_at: authResult.expires_at,
+    }),
+  );
+}
+
+function clearAdminAuth() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
 }
 
 function sortAssets(items, sortConfig) {

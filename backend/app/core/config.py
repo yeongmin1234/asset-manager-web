@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3010"]
     upload_dir: str = "../uploads"
     export_dir: str = "../exports"
+    admin_password: str = ""
+    admin_password_hash: str = ""
+    admin_auth_minutes: int = 60
 
     model_config = SettingsConfigDict(
         env_file=".env",

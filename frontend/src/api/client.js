@@ -321,6 +321,14 @@ export async function getVehicleSummary() {
   return request("/vehicles/summary");
 }
 
+export async function verifyAdminPassword(password) {
+  return request("/admin/verify", {
+    method: "POST",
+    body: { password },
+    timeoutMs: 8000,
+  });
+}
+
 export async function createVehicle(vehicle) {
   return request("/vehicles", {
     method: "POST",

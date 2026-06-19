@@ -8,6 +8,7 @@ const SETTINGS_SECTIONS = [
     icon: "A",
   },
   { id: "menu-visibility", label: "메뉴 표시 설정", description: "사이드바 표시 메뉴", icon: "M" },
+  { id: "admin", label: "관리자 설정", description: "보호 메뉴와 인증 상태", icon: "P" },
   { id: "handover", label: "인수인계", description: "담당자 변경 시 확인", icon: "H" },
   { id: "caution", label: "주의사항", description: "절대 금지 항목", icon: "X" },
 ];
@@ -37,6 +38,44 @@ const MENU_VISIBILITY_ITEMS = [
     id: "paju-fire-insurance",
     label: "파주화재보험",
     description: "파주 화재보험 계약 관리 메뉴",
+  },
+];
+
+const PROTECTED_MENU_ITEMS = [
+  {
+    id: "software",
+    label: "SW 현황",
+    description: "소프트웨어 라이선스 현황 메뉴",
+  },
+  {
+    id: "vehicles",
+    label: "법인차량 관리",
+    description: "법인차량과 보험 이력 관리 메뉴",
+  },
+  {
+    id: "paju-fire-insurance",
+    label: "파주화재보험",
+    description: "파주 화재보험 계약 관리 메뉴",
+  },
+  {
+    id: "beverage-orders",
+    label: "음료주문기록",
+    description: "음료 주문 기록 조회/관리 메뉴",
+  },
+  {
+    id: "network",
+    label: "네트워크 현황",
+    description: "네트워크 장비 상태 메뉴",
+  },
+  {
+    id: "history",
+    label: "변경 이력",
+    description: "자산 변경 이력 조회 메뉴",
+  },
+  {
+    id: "settings",
+    label: "설정",
+    description: "운영 설정 화면. 기본값은 보호 OFF 권장",
   },
 ];
 
@@ -86,7 +125,14 @@ function RuleList({ rules }) {
   );
 }
 
-function SettingsPage({ menuVisibility = {}, onMenuVisibilityChange }) {
+function SettingsPage({
+  adminAuthClearedAt = null,
+  menuVisibility = {},
+  onClearAdminAuth,
+  onMenuVisibilityChange,
+  onProtectedMenuChange,
+  protectedMenus = {},
+}) {
   const [activeSettingsSection, setActiveSettingsSection] = useState("access");
   const [activeAccessTab, setActiveAccessTab] = useState("basic");
 
@@ -133,6 +179,66 @@ function SettingsPage({ menuVisibility = {}, onMenuVisibilityChange }) {
               대시보드, 자산 관리, 설정 메뉴는 항상 표시됩니다.
             </p>
           </SettingsCard>
+        );
+      case "admin":
+        return (
+          <div className="settings-tab-card-stack">
+            <SettingsCard
+              title="보호 메뉴 설정"
+              description="선택한 메뉴는 진입 시 관리자 비밀번호 확인이 필요합니다."
+            >
+              <div className="settings-menu-visibility-list">
+                {PROTECTED_MENU_ITEMS.map((item) => {
+                  const isProtected = protectedMenus[item.id] === true;
+
+                  return (
+                    <label className="settings-menu-toggle" key={item.id}>
+                      <span className="settings-menu-toggle-text">
+                        <strong>{item.label}</strong>
+                        <small>{item.description}</small>
+                      </span>
+                      <span className="settings-menu-toggle-control">
+                        <input
+                          type="checkbox"
+                          checked={isProtected}
+                          onChange={(event) =>
+                            onProtectedMenuChange?.(item.id, event.target.checked)
+                          }
+                        />
+                        <span className="settings-menu-toggle-switch" aria-hidden="true" />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="settings-muted">
+                대시보드와 자산 관리는 보호 대상에서 제외했습니다. 설정 메뉴 보호는 접근 차단 위험이 있어 기본 OFF를 권장합니다.
+              </p>
+            </SettingsCard>
+
+            <SettingsCard
+              title="관리자 인증"
+              description="관리자 비밀번호는 backend/.env에서만 관리합니다."
+              important
+            >
+              <RuleList
+                rules={[
+                  "보호 메뉴 ON/OFF 설정은 브라우저 localStorage에 저장됩니다.",
+                  "관리자 인증 성공 시 token과 만료 시간만 sessionStorage에 저장됩니다.",
+                  "비밀번호는 프론트엔드 코드, localStorage, sessionStorage에 저장하지 않습니다.",
+                  "기본 인증 유지 시간은 backend 설정 기준이며 기본값은 60분입니다.",
+                ]}
+              />
+              <div className="settings-admin-actions">
+                <button type="button" className="secondary-button" onClick={onClearAdminAuth}>
+                  관리자 인증 해제
+                </button>
+              </div>
+              {adminAuthClearedAt && (
+                <p className="settings-muted">현재 브라우저 탭의 관리자 인증을 해제했습니다.</p>
+              )}
+            </SettingsCard>
+          </div>
         );
       case "access":
         return (
@@ -322,11 +428,11 @@ function SettingsPage({ menuVisibility = {}, onMenuVisibilityChange }) {
     <section className="settings-page" aria-labelledby="settings-title">
       <div className="settings-hero">
         <div>
-          <span className="section-kicker">Read Only Operations</span>
+          <span className="section-kicker">Operations Settings</span>
           <h2 id="settings-title">설정</h2>
-          <p>운영 정보, DB 위치, 백업/인수인계 기준을 확인합니다.</p>
+          <p>운영 정보와 메뉴 표시, 보호 메뉴 기준을 관리합니다.</p>
         </div>
-        <span className="settings-version-badge">읽기 전용</span>
+        <span className="settings-version-badge">운영 설정</span>
       </div>
 
       <div className="settings-layout">
