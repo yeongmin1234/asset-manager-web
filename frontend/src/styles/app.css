@@ -2766,26 +2766,31 @@ p {
 }
 
 .asset-resizable-table,
-.software-resizable-table {
+.software-resizable-table,
+.paju-fire-resizable-table {
   table-layout: fixed;
 }
 
 .asset-resizable-table th,
-.software-resizable-table th {
+.software-resizable-table th,
+.paju-fire-resizable-table th {
   position: relative;
 }
 
 .asset-resizable-table th,
 .asset-resizable-table td,
 .software-resizable-table th,
-.software-resizable-table td {
+.software-resizable-table td,
+.paju-fire-resizable-table th,
+.paju-fire-resizable-table td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .asset-resizable-table .table-sort,
 .software-resizable-table .resizable-table-heading,
-.asset-resizable-table .resizable-table-heading {
+.asset-resizable-table .resizable-table-heading,
+.paju-fire-resizable-table .resizable-table-heading {
   max-width: calc(100% - 8px);
 }
 
@@ -2821,12 +2826,14 @@ p {
 
 .table-column-resize-handle:hover::after,
 .asset-column-resizing .table-column-resize-handle::after,
-.software-column-resizing .table-column-resize-handle::after {
+.software-column-resizing .table-column-resize-handle::after,
+.paju-fire-column-resizing .table-column-resize-handle::after {
   opacity: 1;
 }
 
 .asset-column-resizing,
-.software-column-resizing {
+.software-column-resizing,
+.paju-fire-column-resizing {
   cursor: col-resize;
   user-select: none;
 }
@@ -4114,18 +4121,18 @@ input:disabled {
   color: #ffffff;
 }
 
-.paju-fire-table {
-  min-width: 1260px;
-}
-
 .paju-fire-table th,
 .paju-fire-table td {
   text-align: center;
   white-space: nowrap;
 }
 
+.paju-fire-table th:first-child,
+.paju-fire-table td:first-child {
+  text-align: left;
+}
+
 .paju-fire-note-cell {
-  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -4141,7 +4148,17 @@ input:disabled {
 }
 
 .paju-fire-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
   justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.paju-fire-actions .software-action-button {
+  flex: 0 0 auto;
+  min-width: 48px;
 }
 
 .software-table th,
