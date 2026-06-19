@@ -11,6 +11,7 @@ import {
 
 const INITIAL_FILTERS = {
   order_month: "",
+  order_type: "",
   keyword: "",
 };
 
@@ -19,13 +20,21 @@ const INITIAL_SUMMARY = {
   this_month: 0,
   total_amount_total: 0,
   this_month_amount: 0,
+  beverage: 0,
+  supplies: 0,
 };
 
 const INITIAL_FORM = {
+  order_type: "beverage",
   memo: "",
   total_amount: "",
   image: null,
 };
+
+const BEVERAGE_ORDER_TYPES = [
+  { value: "beverage", label: "음료" },
+  { value: "supplies", label: "소모품" },
+];
 
 function BeverageOrderPage() {
   const [orders, setOrders] = useState([]);
@@ -122,6 +131,7 @@ function BeverageOrderPage() {
     setEditingOrder(order);
     setSelectedOrder(order);
     setForm({
+      order_type: normalizeOrderType(order.order_type),
       memo: order.memo || "",
       total_amount: String(order.total_amount ?? ""),
       image: null,
@@ -165,6 +175,7 @@ function BeverageOrderPage() {
     }
 
     const formData = new FormData();
+    formData.append("order_type", normalizeOrderType(form.order_type));
     formData.append("memo", form.memo);
     formData.append("total_amount", form.total_amount);
     if (form.image) {
@@ -243,6 +254,7 @@ function BeverageOrderPage() {
           onCancel={resetForm}
           onChangeAmount={(value) => setForm((current) => ({ ...current, total_amount: value }))}
           onChangeMemo={(value) => setForm((current) => ({ ...current, memo: value }))}
+          onChangeOrderType={(value) => setForm((current) => ({ ...current, order_type: normalizeOrderType(value) }))}
           onFileChange={setImageFile}
           onPaste={handlePaste}
           onSubmit={handleSubmit}
@@ -282,6 +294,8 @@ function BeverageOrderStats({ summary, isLoading, error }) {
   const cards = [
     { label: "전체 기록", value: Number(summary.total || 0).toLocaleString("ko-KR") },
     { label: "이번 달 기록", value: Number(summary.this_month || 0).toLocaleString("ko-KR") },
+    { label: "음료", value: Number(summary.beverage || 0).toLocaleString("ko-KR") },
+    { label: "소모품", value: Number(summary.supplies || 0).toLocaleString("ko-KR") },
     { label: "전체 금액", value: formatCurrency(summary.total_amount_total) },
     { label: "이번 달 금액", value: formatCurrency(summary.this_month_amount) },
   ];
@@ -309,6 +323,7 @@ function BeverageOrderForm({
   onCancel,
   onChangeAmount,
   onChangeMemo,
+  onChangeOrderType,
   onFileChange,
   onPaste,
   onSubmit,
@@ -335,6 +350,17 @@ function BeverageOrderForm({
             type="file"
             onChange={(event) => onFileChange(event.target.files?.[0])}
           />
+        </label>
+        <label className="field beverage-type-field">
+          <span>구분</span>
+          <select
+            value={normalizeOrderType(form.order_type)}
+            onChange={(event) => onChangeOrderType(event.target.value)}
+          >
+            {BEVERAGE_ORDER_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </label>
         <label className="field beverage-amount-field">
           <span>총 결제금액</span>
@@ -403,6 +429,18 @@ function BeverageOrderList({
 
       <div className="beverage-list-controls beverage-board-controls">
         <label className="field">
+          <span>구분</span>
+          <select
+            value={filters.order_type}
+            onChange={(event) => onFilterChange({ ...filters, order_type: event.target.value })}
+          >
+            <option value="">전체</option>
+            {BEVERAGE_ORDER_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
           <span>주문월</span>
           <select
             value={filters.order_month}
@@ -456,7 +494,10 @@ function BeverageOrderList({
                 )}
               </button>
               <button type="button" className="beverage-post-main" onClick={() => onSelect(order)}>
-                <span className="beverage-post-date">{formatText(order.order_month)}</span>
+                <span className="beverage-post-meta-line">
+                  <OrderTypeBadge orderType={order.order_type} />
+                  <span className="beverage-post-date">{formatText(order.order_month)}</span>
+                </span>
                 <strong>{order.title}</strong>
                 <span>{formatDateTime(order.created_at)}</span>
                 {order.memo && <small>{truncateText(order.memo, 70)}</small>}
@@ -502,7 +543,10 @@ function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
       ) : (
         <div className="beverage-detail-body">
           <div className="beverage-detail-title">
-            <span>{formatText(order.order_month)}</span>
+            <span className="beverage-detail-meta">
+              <OrderTypeBadge orderType={order.order_type} />
+              <span>{formatText(order.order_month)}</span>
+            </span>
             <h3>{order.title}</h3>
           </div>
           {order.image_url && (
@@ -538,6 +582,15 @@ function InfoRow({ label, value }) {
   );
 }
 
+function OrderTypeBadge({ orderType }) {
+  const normalizedType = normalizeOrderType(orderType);
+  return (
+    <span className={`beverage-type-badge beverage-type-${normalizedType}`}>
+      {getOrderTypeLabel(normalizedType)}
+    </span>
+  );
+}
+
 function getImageUrl(value) {
   if (!value) {
     return "";
@@ -553,6 +606,14 @@ function formatText(value) {
     return "-";
   }
   return String(value);
+}
+
+function normalizeOrderType(value) {
+  return value === "supplies" ? "supplies" : "beverage";
+}
+
+function getOrderTypeLabel(value) {
+  return normalizeOrderType(value) === "supplies" ? "소모품" : "음료";
 }
 
 function formatDateTime(value) {

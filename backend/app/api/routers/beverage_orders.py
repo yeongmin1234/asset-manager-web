@@ -25,6 +25,7 @@ router = APIRouter(prefix="/beverage-orders", tags=["beverage-orders"])
 @router.get("", response_model=List[BeverageOrderRecordRead])
 def list_beverage_order_records(
     order_month: Optional[str] = Query(default=None),
+    order_type: Optional[str] = Query(default=None),
     keyword: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ) -> List[BeverageOrderRecordRead]:
@@ -32,6 +33,7 @@ def list_beverage_order_records(
         return get_beverage_order_records(
             db,
             order_month=order_month,
+            order_type=order_type,
             keyword=keyword,
         )
     except SQLAlchemyError as exc:
@@ -57,6 +59,7 @@ def read_beverage_order_summary(
 @router.post("", response_model=BeverageOrderRecordRead, status_code=status.HTTP_201_CREATED)
 async def create_new_beverage_order_record(
     request: Request,
+    order_type: str = Form(default="beverage"),
     memo: Optional[str] = Form(default=None),
     total_amount: Optional[str] = Form(default=None),
     image: UploadFile = File(...),
@@ -71,6 +74,7 @@ async def create_new_beverage_order_record(
             db,
             image_path=image_path,
             image_original_name=original_name,
+            order_type=normalize_order_type(order_type),
             memo=memo,
             total_amount=parse_total_amount(total_amount),
             actor_ip=request.client.host if request.client else None,
@@ -109,6 +113,7 @@ def read_beverage_order_record(
 async def update_existing_beverage_order_record(
     request: Request,
     order_id: int,
+    order_type: str = Form(default="beverage"),
     memo: Optional[str] = Form(default=None),
     total_amount: Optional[str] = Form(default=None),
     image: Optional[UploadFile] = File(default=None),
@@ -125,6 +130,7 @@ async def update_existing_beverage_order_record(
         return update_beverage_order_record(
             db,
             order_id,
+            order_type=normalize_order_type(order_type),
             memo=memo,
             total_amount=parse_total_amount(total_amount),
             image_path=image_path,
@@ -189,3 +195,13 @@ def parse_total_amount(value: Optional[str]) -> Optional[int]:
             detail="total_amount must be greater than or equal to 0.",
         )
     return amount
+
+
+def normalize_order_type(value: Optional[str]) -> str:
+    normalized_value = (value or "beverage").strip() or "beverage"
+    if normalized_value not in {"beverage", "supplies"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="order_type must be beverage or supplies.",
+        )
+    return normalized_value

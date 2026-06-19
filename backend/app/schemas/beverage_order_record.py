@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class BeverageOrderRecordBase(BaseModel):
+    order_type: str = Field(default="beverage", max_length=20)
     order_date: Optional[date] = None
     order_month: Optional[str] = Field(default=None, max_length=7)
     vendor: Optional[str] = Field(default=None, max_length=100)
@@ -20,6 +21,7 @@ class BeverageOrderRecordBase(BaseModel):
     memo: Optional[str] = None
 
     @field_validator(
+        "order_type",
         "order_month",
         "vendor",
         "items_summary",
@@ -37,6 +39,14 @@ class BeverageOrderRecordBase(BaseModel):
             return None
         normalized_value = value.strip()
         return normalized_value or None
+
+    @field_validator("order_type")
+    @classmethod
+    def validate_order_type(cls, value: str) -> str:
+        normalized_value = (value or "beverage").strip() or "beverage"
+        if normalized_value not in {"beverage", "supplies"}:
+            raise ValueError("order_type must be beverage or supplies")
+        return normalized_value
 
     @field_validator("title")
     @classmethod
@@ -69,3 +79,5 @@ class BeverageOrderSummary(BaseModel):
     this_month: int = 0
     total_amount_total: int = 0
     this_month_amount: int = 0
+    beverage: int = 0
+    supplies: int = 0

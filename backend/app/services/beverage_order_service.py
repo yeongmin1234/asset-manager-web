@@ -32,11 +32,14 @@ def get_beverage_order_records(
     db: Session,
     *,
     order_month: Optional[str] = None,
+    order_type: Optional[str] = None,
     keyword: Optional[str] = None,
 ) -> List[BeverageOrderRecord]:
     statement = select(BeverageOrderRecord)
     if order_month:
         statement = statement.where(BeverageOrderRecord.order_month == order_month)
+    if order_type:
+        statement = statement.where(BeverageOrderRecord.order_type == normalize_order_type(order_type))
     if keyword:
         keyword_pattern = f"%{keyword}%"
         statement = statement.where(
@@ -58,6 +61,7 @@ def create_beverage_order_record(
     *,
     image_path: str,
     image_original_name: str,
+    order_type: str = "beverage",
     memo: Optional[str] = None,
     total_amount: Optional[int] = None,
     actor_ip: Optional[str] = None,
@@ -68,6 +72,7 @@ def create_beverage_order_record(
         order_date=today,
         order_month=today.strftime("%Y-%m"),
         title=f"{today.isoformat()} 음료 주문",
+        order_type=normalize_order_type(order_type),
         image_path=image_path,
         image_original_name=image_original_name,
         memo=normalize_optional_text(memo),
@@ -105,6 +110,7 @@ def update_beverage_order_record(
     order_id: int,
     *,
     memo: Optional[str] = None,
+    order_type: str = "beverage",
     total_amount: Optional[int] = None,
     image_path: Optional[str] = None,
     image_original_name: Optional[str] = None,
@@ -114,6 +120,7 @@ def update_beverage_order_record(
     record = get_beverage_order_record(db, order_id)
     before_data = serialize_beverage_order_activity_data(record)
     old_image_path = record.image_path
+    record.order_type = normalize_order_type(order_type)
     record.memo = normalize_optional_text(memo)
     record.total_amount = total_amount
     if image_path:
@@ -184,6 +191,14 @@ def get_beverage_order_summary(db: Session) -> BeverageOrderSummary:
                 func.sum(case((this_month_condition, BeverageOrderRecord.total_amount), else_=0)),
                 0,
             ).label("this_month_amount"),
+            func.coalesce(
+                func.sum(case((BeverageOrderRecord.order_type == "beverage", 1), else_=0)),
+                0,
+            ).label("beverage"),
+            func.coalesce(
+                func.sum(case((BeverageOrderRecord.order_type == "supplies", 1), else_=0)),
+                0,
+            ).label("supplies"),
         )
     ).one()
     return BeverageOrderSummary(
@@ -191,6 +206,8 @@ def get_beverage_order_summary(db: Session) -> BeverageOrderSummary:
         this_month=int(row.this_month or 0),
         total_amount_total=int(row.total_amount_total or 0),
         this_month_amount=int(row.this_month_amount or 0),
+        beverage=int(row.beverage or 0),
+        supplies=int(row.supplies or 0),
     )
 
 
@@ -241,6 +258,13 @@ def normalize_optional_text(value: Optional[str]) -> Optional[str]:
         return None
     normalized_value = value.strip()
     return normalized_value or None
+
+
+def normalize_order_type(value: Optional[str]) -> str:
+    normalized_value = (value or "beverage").strip() or "beverage"
+    if normalized_value not in {"beverage", "supplies"}:
+        return "beverage"
+    return normalized_value
 
 
 def format_beverage_order_target_name(record: BeverageOrderRecord) -> str:

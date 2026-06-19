@@ -75,6 +75,7 @@ PAJU_FIRE_INSURANCE_LOG_FIELDS = (
 )
 
 BEVERAGE_ORDER_LOG_FIELDS = (
+    "order_type",
     "order_date",
     "order_month",
     "vendor",

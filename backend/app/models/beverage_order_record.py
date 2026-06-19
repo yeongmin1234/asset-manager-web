@@ -11,6 +11,7 @@ class BeverageOrderRecord(Base):
     __tablename__ = "beverage_order_records"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    order_type: Mapped[str] = mapped_column(String(20), nullable=False, default="beverage", index=True)
     order_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
     order_month: Mapped[Optional[str]] = mapped_column(String(7), nullable=True, index=True)
     vendor: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)

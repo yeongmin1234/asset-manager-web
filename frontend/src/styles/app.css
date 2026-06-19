@@ -3902,6 +3902,10 @@ input:disabled {
   font-size: 0.95rem;
 }
 
+.beverage-type-field {
+  align-self: start;
+}
+
 .beverage-image-memo-field {
   grid-row: span 2;
 }
@@ -3968,7 +3972,7 @@ input:disabled {
 }
 
 .beverage-board-controls {
-  grid-template-columns: minmax(160px, 0.45fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(120px, 0.35fr) minmax(160px, 0.45fr) minmax(260px, 1fr);
 }
 
 .beverage-post-list {
@@ -4038,6 +4042,48 @@ input:disabled {
 .beverage-post-main strong {
   color: #0f172a;
   font-size: 0.95rem;
+}
+
+.beverage-post-meta-line,
+.beverage-detail-meta {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.beverage-type-badge {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.beverage-type-beverage {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.beverage-type-supplies {
+  background: #ecfccb;
+  border-color: #bef264;
+  color: #3f6212;
+}
+
+.beverage-post-main .beverage-type-beverage,
+.beverage-detail-title .beverage-type-beverage {
+  color: #1d4ed8;
+}
+
+.beverage-post-main .beverage-type-supplies,
+.beverage-detail-title .beverage-type-supplies {
+  color: #3f6212;
 }
 
 .beverage-post-main span,
@@ -4118,6 +4164,10 @@ input:disabled {
   color: #2563eb;
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.beverage-detail-title .beverage-detail-meta {
+  color: #64748b;
 }
 
 .beverage-detail-title h3 {
