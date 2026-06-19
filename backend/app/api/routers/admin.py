@@ -5,10 +5,15 @@ import secrets
 from fastapi import APIRouter, HTTPException, status
 
 from app.core.config import settings
-from app.schemas.admin import AdminVerifyRequest, AdminVerifyResponse
+from app.schemas.admin import AdminStatusResponse, AdminVerifyRequest, AdminVerifyResponse
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/status", response_model=AdminStatusResponse)
+def get_admin_status() -> AdminStatusResponse:
+    return AdminStatusResponse(configured=_is_admin_password_configured())
 
 
 @router.post("/verify", response_model=AdminVerifyResponse)

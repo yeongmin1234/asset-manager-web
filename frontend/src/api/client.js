@@ -321,6 +321,12 @@ export async function getVehicleSummary() {
   return request("/vehicles/summary");
 }
 
+export async function getAdminStatus() {
+  return request("/admin/status", {
+    timeoutMs: 8000,
+  });
+}
+
 export async function verifyAdminPassword(password) {
   return request("/admin/verify", {
     method: "POST",

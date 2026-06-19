@@ -3,6 +3,7 @@ import {
   createCategory,
   createAsset,
   downloadAssetsExcel,
+  getAdminStatus,
   getAssets,
   getCategories,
   getDatabaseHealth,
@@ -119,6 +120,11 @@ function App() {
   });
   const [menuVisibility, setMenuVisibility] = useState(() => getStoredMenuVisibility());
   const [protectedMenus, setProtectedMenus] = useState(() => getStoredProtectedMenus());
+  const [adminStatus, setAdminStatus] = useState({
+    configured: false,
+    error: "",
+    isLoading: true,
+  });
   const [adminAuthModal, setAdminAuthModal] = useState({
     error: "",
     isOpen: false,
@@ -189,6 +195,23 @@ function App() {
   );
 
   const sortLabel = useMemo(() => getSortLabel(sortConfig), [sortConfig]);
+
+  const loadAdminStatus = useCallback(async () => {
+    try {
+      const status = await getAdminStatus();
+      setAdminStatus({
+        configured: status?.configured === true,
+        error: "",
+        isLoading: false,
+      });
+    } catch (error) {
+      setAdminStatus({
+        configured: false,
+        error: error.message,
+        isLoading: false,
+      });
+    }
+  }, []);
 
   const checkBackend = useCallback(async () => {
     setBackendStatus((current) => ({
@@ -376,9 +399,10 @@ function App() {
 
   useEffect(() => {
     checkBackend();
+    loadAdminStatus();
     loadLookups();
     refreshVisitors();
-  }, [checkBackend, loadLookups, refreshVisitors]);
+  }, [checkBackend, loadAdminStatus, loadLookups, refreshVisitors]);
 
   useEffect(() => {
     const intervalId = window.setInterval(refreshVisitors, 30000);
@@ -522,7 +546,7 @@ function App() {
       activity: "history",
     };
     const nextSection = sectionMap[sectionId] || sectionId;
-    if (protectedMenus[nextSection] && !hasValidAdminAuth()) {
+    if (adminStatus.configured && protectedMenus[nextSection] && !hasValidAdminAuth()) {
       setAdminAuthModal({
         error: "",
         isOpen: true,
@@ -803,6 +827,7 @@ function App() {
           onMenuVisibilityChange={handleMenuVisibilityChange}
           onNavigate={handleNavigate}
           onProtectedMenuChange={handleProtectedMenuChange}
+          adminStatus={adminStatus}
           adminAuthClearedAt={adminAuthClearedAt}
           protectedMenus={protectedMenus}
         />

@@ -127,6 +127,7 @@ function RuleList({ rules }) {
 
 function SettingsPage({
   adminAuthClearedAt = null,
+  adminStatus = { configured: false, error: "", isLoading: true },
   menuVisibility = {},
   onClearAdminAuth,
   onMenuVisibilityChange,
@@ -142,6 +143,7 @@ function SettingsPage({
       SETTINGS_SECTIONS[0],
     [activeSettingsSection],
   );
+  const isAdminConfigured = adminStatus.configured === true;
 
   const renderDetail = () => {
     switch (activeSettingsSection) {
@@ -185,14 +187,32 @@ function SettingsPage({
           <div className="settings-tab-card-stack">
             <SettingsCard
               title="보호 메뉴 설정"
-              description="선택한 메뉴는 진입 시 관리자 비밀번호 확인이 필요합니다."
+              description={
+                isAdminConfigured
+                  ? "선택한 메뉴는 진입 시 관리자 비밀번호 확인이 필요합니다."
+                  : "관리자 비밀번호 설정 전에는 보호 메뉴 기능이 비활성화됩니다."
+              }
             >
+              {!isAdminConfigured && (
+                <div className="settings-admin-disabled-notice">
+                  <strong>관리자 비밀번호가 설정되지 않아 보호 메뉴 기능이 비활성화되어 있습니다.</strong>
+                  <span>NAS backend/.env에 ADMIN_PASSWORD 또는 ADMIN_PASSWORD_HASH를 추가한 뒤 배포/재시작하세요.</span>
+                  {adminStatus.error && <small>상태 확인 실패: {adminStatus.error}</small>}
+                </div>
+              )}
               <div className="settings-menu-visibility-list">
                 {PROTECTED_MENU_ITEMS.map((item) => {
                   const isProtected = protectedMenus[item.id] === true;
 
                   return (
-                    <label className="settings-menu-toggle" key={item.id}>
+                    <label
+                      className={
+                        isAdminConfigured
+                          ? "settings-menu-toggle"
+                          : "settings-menu-toggle settings-menu-toggle-disabled"
+                      }
+                      key={item.id}
+                    >
                       <span className="settings-menu-toggle-text">
                         <strong>{item.label}</strong>
                         <small>{item.description}</small>
@@ -201,6 +221,7 @@ function SettingsPage({
                         <input
                           type="checkbox"
                           checked={isProtected}
+                          disabled={!isAdminConfigured}
                           onChange={(event) =>
                             onProtectedMenuChange?.(item.id, event.target.checked)
                           }
@@ -212,7 +233,9 @@ function SettingsPage({
                 })}
               </div>
               <p className="settings-muted">
-                대시보드와 자산 관리는 보호 대상에서 제외했습니다. 설정 메뉴 보호는 접근 차단 위험이 있어 기본 OFF를 권장합니다.
+                {isAdminConfigured
+                  ? "대시보드와 자산 관리는 보호 대상에서 제외했습니다. 설정 메뉴 보호는 접근 차단 위험이 있어 기본 OFF를 권장합니다."
+                  : "저장된 보호 ON 값이 있어도 관리자 비밀번호가 설정되기 전에는 실제 보호가 적용되지 않습니다."}
               </p>
             </SettingsCard>
 

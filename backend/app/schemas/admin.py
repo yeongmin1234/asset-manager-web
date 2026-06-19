@@ -7,6 +7,10 @@ class AdminVerifyRequest(BaseModel):
     password: str
 
 
+class AdminStatusResponse(BaseModel):
+    configured: bool
+
+
 class AdminVerifyResponse(BaseModel):
     ok: bool
     token: str
