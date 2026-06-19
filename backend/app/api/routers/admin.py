@@ -1,30 +1,78 @@
 from datetime import datetime, timedelta
-import hashlib
 import secrets
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.schemas.admin import AdminStatusResponse, AdminVerifyRequest, AdminVerifyResponse
+from app.db.database import get_db
+from app.schemas.admin import (
+    AdminPasswordRequest,
+    AdminPasswordResponse,
+    AdminStatusResponse,
+    AdminVerifyRequest,
+    AdminVerifyResponse,
+)
+from app.services.admin_service import (
+    AdminPasswordInvalidError,
+    AdminPasswordRequiredError,
+    AdminPasswordTooShortError,
+    is_admin_password_configured,
+    set_admin_password,
+    verify_admin_password as verify_stored_admin_password,
+)
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/status", response_model=AdminStatusResponse)
-def get_admin_status() -> AdminStatusResponse:
-    return AdminStatusResponse(configured=_is_admin_password_configured())
+def get_admin_status(db: Session = Depends(get_db)) -> AdminStatusResponse:
+    return AdminStatusResponse(configured=is_admin_password_configured(db))
+
+
+@router.post("/password", response_model=AdminPasswordResponse)
+def update_admin_password(
+    payload: AdminPasswordRequest,
+    db: Session = Depends(get_db),
+) -> AdminPasswordResponse:
+    try:
+        set_admin_password(
+            db,
+            payload.new_password,
+            current_password=payload.current_password or None,
+        )
+    except AdminPasswordTooShortError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="관리자 비밀번호는 6자 이상이어야 합니다.",
+        ) from exc
+    except AdminPasswordRequiredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="현재 비밀번호를 입력해주세요.",
+        ) from exc
+    except AdminPasswordInvalidError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="현재 비밀번호가 올바르지 않습니다.",
+        ) from exc
+
+    return AdminPasswordResponse(ok=True, configured=True)
 
 
 @router.post("/verify", response_model=AdminVerifyResponse)
-def verify_admin_password(payload: AdminVerifyRequest) -> AdminVerifyResponse:
-    if not _is_admin_password_configured():
+def verify_admin_password(
+    payload: AdminVerifyRequest,
+    db: Session = Depends(get_db),
+) -> AdminVerifyResponse:
+    if not is_admin_password_configured(db):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="관리자 비밀번호가 설정되지 않았습니다.",
         )
 
-    if not _is_valid_admin_password(payload.password):
+    if not verify_stored_admin_password(db, payload.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="비밀번호가 올바르지 않습니다.",
@@ -36,21 +84,6 @@ def verify_admin_password(payload: AdminVerifyRequest) -> AdminVerifyResponse:
         token=secrets.token_urlsafe(32),
         expires_at=expires_at,
     )
-
-
-def _is_admin_password_configured() -> bool:
-    return bool(settings.admin_password or settings.admin_password_hash)
-
-
-def _is_valid_admin_password(password: str) -> bool:
-    if settings.admin_password_hash:
-        password_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
-        return secrets.compare_digest(password_hash, settings.admin_password_hash)
-
-    if settings.admin_password:
-        return secrets.compare_digest(password, settings.admin_password)
-
-    return False
 
 
 def _get_auth_minutes() -> int:

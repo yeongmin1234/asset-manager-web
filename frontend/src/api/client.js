@@ -327,6 +327,14 @@ export async function getAdminStatus() {
   });
 }
 
+export async function updateAdminPassword(payload) {
+  return request("/admin/password", {
+    method: "POST",
+    body: payload,
+    timeoutMs: 8000,
+  });
+}
+
 export async function verifyAdminPassword(password) {
   return request("/admin/verify", {
     method: "POST",

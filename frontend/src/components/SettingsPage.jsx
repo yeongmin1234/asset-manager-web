@@ -129,6 +129,7 @@ function SettingsPage({
   adminAuthClearedAt = null,
   adminStatus = { configured: false, error: "", isLoading: true },
   menuVisibility = {},
+  onAdminPasswordSave,
   onClearAdminAuth,
   onMenuVisibilityChange,
   onProtectedMenuChange,
@@ -136,6 +137,16 @@ function SettingsPage({
 }) {
   const [activeSettingsSection, setActiveSettingsSection] = useState("access");
   const [activeAccessTab, setActiveAccessTab] = useState("basic");
+  const [adminPasswordForm, setAdminPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [adminPasswordState, setAdminPasswordState] = useState({
+    error: "",
+    isSubmitting: false,
+    message: "",
+  });
 
   const activeSection = useMemo(
     () =>
@@ -144,6 +155,61 @@ function SettingsPage({
     [activeSettingsSection],
   );
   const isAdminConfigured = adminStatus.configured === true;
+
+  const handleAdminPasswordFieldChange = (field, value) => {
+    setAdminPasswordForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setAdminPasswordState((current) => ({
+      ...current,
+      error: "",
+      message: "",
+    }));
+  };
+
+  const handleAdminPasswordSubmit = async (event) => {
+    event.preventDefault();
+    const newPassword = adminPasswordForm.newPassword;
+    if (newPassword.length < 6) {
+      setAdminPasswordState({ error: "관리자 비밀번호는 6자 이상이어야 합니다.", isSubmitting: false, message: "" });
+      return;
+    }
+    if (newPassword !== adminPasswordForm.confirmPassword) {
+      setAdminPasswordState({ error: "새 비밀번호와 확인값이 일치하지 않습니다.", isSubmitting: false, message: "" });
+      return;
+    }
+    if (isAdminConfigured && !adminPasswordForm.currentPassword) {
+      setAdminPasswordState({ error: "현재 비밀번호를 입력해주세요.", isSubmitting: false, message: "" });
+      return;
+    }
+
+    setAdminPasswordState({ error: "", isSubmitting: true, message: "" });
+    try {
+      await onAdminPasswordSave?.({
+        current_password: isAdminConfigured ? adminPasswordForm.currentPassword : "",
+        new_password: newPassword,
+      });
+      setAdminPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setAdminPasswordState({
+        error: "",
+        isSubmitting: false,
+        message: isAdminConfigured
+          ? "관리자 비밀번호가 변경되었습니다."
+          : "관리자 비밀번호가 설정되었습니다.",
+      });
+    } catch (error) {
+      setAdminPasswordState({
+        error: error.message,
+        isSubmitting: false,
+        message: "",
+      });
+    }
+  };
 
   const renderDetail = () => {
     switch (activeSettingsSection) {
@@ -196,7 +262,7 @@ function SettingsPage({
               {!isAdminConfigured && (
                 <div className="settings-admin-disabled-notice">
                   <strong>관리자 비밀번호가 설정되지 않아 보호 메뉴 기능이 비활성화되어 있습니다.</strong>
-                  <span>NAS backend/.env에 ADMIN_PASSWORD 또는 ADMIN_PASSWORD_HASH를 추가한 뒤 배포/재시작하세요.</span>
+                  <span>아래 관리자 비밀번호를 설정하면 보호 메뉴 기능을 사용할 수 있습니다.</span>
                   {adminStatus.error && <small>상태 확인 실패: {adminStatus.error}</small>}
                 </div>
               )}
@@ -240,16 +306,69 @@ function SettingsPage({
             </SettingsCard>
 
             <SettingsCard
-              title="관리자 인증"
-              description="관리자 비밀번호는 backend/.env에서만 관리합니다."
+              title="관리자 비밀번호"
+              description="비밀번호 원문은 저장하지 않고 백엔드에서 해시로 저장합니다."
               important
             >
+              <div className={isAdminConfigured ? "settings-admin-status configured" : "settings-admin-status"}>
+                <strong>{isAdminConfigured ? "설정됨" : "미설정"}</strong>
+                <span>
+                  {isAdminConfigured
+                    ? "보호 메뉴 기능을 사용할 수 있습니다."
+                    : "관리자 비밀번호가 아직 설정되지 않았습니다. 비밀번호를 설정하면 보호 메뉴 기능을 사용할 수 있습니다."}
+                </span>
+              </div>
+              <form className="settings-admin-password-form" onSubmit={handleAdminPasswordSubmit}>
+                {isAdminConfigured && (
+                  <label className="field">
+                    <span>현재 비밀번호</span>
+                    <input
+                      type="password"
+                      value={adminPasswordForm.currentPassword}
+                      autoComplete="current-password"
+                      disabled={adminPasswordState.isSubmitting}
+                      onChange={(event) => handleAdminPasswordFieldChange("currentPassword", event.target.value)}
+                    />
+                  </label>
+                )}
+                <label className="field">
+                  <span>새 비밀번호</span>
+                  <input
+                    type="password"
+                    value={adminPasswordForm.newPassword}
+                    autoComplete="new-password"
+                    disabled={adminPasswordState.isSubmitting}
+                    onChange={(event) => handleAdminPasswordFieldChange("newPassword", event.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>새 비밀번호 확인</span>
+                  <input
+                    type="password"
+                    value={adminPasswordForm.confirmPassword}
+                    autoComplete="new-password"
+                    disabled={adminPasswordState.isSubmitting}
+                    onChange={(event) => handleAdminPasswordFieldChange("confirmPassword", event.target.value)}
+                  />
+                </label>
+                {adminPasswordState.error && (
+                  <p className="settings-admin-form-error">{adminPasswordState.error}</p>
+                )}
+                {adminPasswordState.message && (
+                  <p className="settings-admin-form-message">{adminPasswordState.message}</p>
+                )}
+                <div className="settings-admin-actions">
+                  <button type="submit" disabled={adminPasswordState.isSubmitting}>
+                    {isAdminConfigured ? "변경" : "저장"}
+                  </button>
+                </div>
+              </form>
               <RuleList
                 rules={[
                   "보호 메뉴 ON/OFF 설정은 브라우저 localStorage에 저장됩니다.",
                   "관리자 인증 성공 시 token과 만료 시간만 sessionStorage에 저장됩니다.",
                   "비밀번호는 프론트엔드 코드, localStorage, sessionStorage에 저장하지 않습니다.",
-                  "기본 인증 유지 시간은 backend 설정 기준이며 기본값은 60분입니다.",
+                  "DB에는 PBKDF2 해시만 저장하며 비밀번호 원문은 저장하지 않습니다.",
                 ]}
               />
               <div className="settings-admin-actions">

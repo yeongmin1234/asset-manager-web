@@ -15,6 +15,7 @@ import {
   getStatsSummary,
   getVisitorsSummary,
   pingVisitor,
+  updateAdminPassword,
   verifyAdminPassword,
 } from "./api/client.js";
 import AdminAuthModal from "./components/AdminAuthModal.jsx";
@@ -622,6 +623,14 @@ function App() {
     setAdminAuthClearedAt(new Date().toISOString());
   };
 
+  const handleAdminPasswordSave = async (payload) => {
+    const result = await updateAdminPassword(payload);
+    await loadAdminStatus();
+    clearAdminAuth();
+    setAdminAuthClearedAt(new Date().toISOString());
+    return result;
+  };
+
   const handleMenuVisibilityChange = (menuId, isVisible) => {
     const nextVisibility = {
       ...DEFAULT_MENU_VISIBILITY,
@@ -824,6 +833,7 @@ function App() {
           menuVisibility={menuVisibility}
           onCheckBackend={checkBackend}
           onClearAdminAuth={handleClearAdminAuth}
+          onAdminPasswordSave={handleAdminPasswordSave}
           onMenuVisibilityChange={handleMenuVisibilityChange}
           onNavigate={handleNavigate}
           onProtectedMenuChange={handleProtectedMenuChange}
