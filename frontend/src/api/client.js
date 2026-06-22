@@ -436,6 +436,14 @@ export async function getBeverageOrderSummary() {
   return request("/beverage-orders/summary");
 }
 
+export async function analyzeBeverageOrderAmount(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestFormData("/beverage-orders/ocr/analyze-amount", formData, {
+    timeoutMs: 30000,
+  });
+}
+
 export async function createBeverageOrder(order) {
   return requestFormData("/beverage-orders", order);
 }

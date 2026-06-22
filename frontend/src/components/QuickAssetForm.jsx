@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { analyzeAssetImage } from "../api/client.js";
 import SpecImageInput from "./SpecImageInput.jsx";
 
@@ -15,6 +15,15 @@ const INITIAL_FORM = {
 
 const LOCATION_OPTIONS = ["본사", "백화점", "파주창고", "기타"];
 const SERIAL_PATTERN = /^[A-Za-z0-9]+$/;
+const CATEGORY_NAME_SUGGESTIONS = {
+  본체: "데스크탑",
+  모니터: "모니터",
+  노트북: "노트북",
+  마우스: "마우스",
+  키보드: "키보드",
+  파워케이블: "파워케이블",
+  태블릿: "태블릿",
+};
 const ANALYSIS_FAILURE_MESSAGE =
   "이미지에서 시리얼번호를 찾지 못했습니다. 라벨이 선명하게 보이도록 다시 촬영하거나 다시 업로드해 주세요.";
 
@@ -48,6 +57,24 @@ function QuickAssetForm({
       Boolean(form.status),
     [form.category_id, form.name, form.status, isCategoryDisabled, isSubmitting],
   );
+
+  useEffect(() => {
+    const selectedCategory = findCategoryById(safeCategories, form.category_id);
+    const suggestedName = CATEGORY_NAME_SUGGESTIONS[selectedCategory?.name];
+    if (!suggestedName || form.name.trim()) {
+      return;
+    }
+
+    setForm((currentForm) => {
+      if (currentForm.name.trim()) {
+        return currentForm;
+      }
+      return {
+        ...currentForm,
+        name: suggestedName,
+      };
+    });
+  }, [form.category_id, form.name, safeCategories]);
 
   const handleChange = (event) => {
     setForm({
@@ -138,7 +165,7 @@ function QuickAssetForm({
       setForm((currentForm) => ({
         ...currentForm,
         name: result?.product_name || currentForm.name,
-        serial_number: result?.serial_number || currentForm.serial_number,
+        serial_number: currentForm.serial_number || result?.serial_number || "",
         note: mergeAnalysisNote(currentForm.note, buildAnalysisNote(result)),
       }));
     } catch (analysisError) {
@@ -372,6 +399,13 @@ function findDepartmentByName(items, name) {
   return (
     items.find((item) => normalizeDepartmentName(item.name) === normalizedName) || null
   );
+}
+
+function findCategoryById(items, id) {
+  if (!id || !Array.isArray(items)) {
+    return null;
+  }
+  return items.find((item) => String(item.id) === String(id)) || null;
 }
 
 function normalizeDepartmentName(value) {

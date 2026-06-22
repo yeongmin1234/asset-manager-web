@@ -14,6 +14,21 @@ const MENU_ITEMS = [
   { id: "settings", label: "설정", icon: "⚙" },
 ];
 
+const MENU_GROUPS = [
+  {
+    title: "업무",
+    itemIds: ["dashboard", "beverage-orders"],
+  },
+  {
+    title: "자산",
+    itemIds: ["assets", "software", "vehicles", "paju-fire-insurance", "network"],
+  },
+  {
+    title: "관리",
+    itemIds: ["excel", "stats", "history", "settings"],
+  },
+];
+
 function PortalSidebar({
   activeSection = "dashboard",
   collapsed = false,
@@ -22,6 +37,10 @@ function PortalSidebar({
 }) {
   const visibleMenuItems = MENU_ITEMS.filter(
     (item) => menuVisibility[item.id] !== false,
+  );
+  const visibleMenuItemsById = visibleMenuItems.reduce(
+    (itemsById, item) => ({ ...itemsById, [item.id]: item }),
+    {},
   );
 
   return (
@@ -38,17 +57,34 @@ function PortalSidebar({
       </div>
 
       <nav className="portal-nav">
-        {visibleMenuItems.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={activeSection === item.id ? "portal-nav-item active" : "portal-nav-item"}
-            onClick={() => onNavigate?.(item.id)}
-          >
-            <span aria-hidden="true">{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+        {MENU_GROUPS.map((group) => {
+          const groupItems = group.itemIds
+            .map((itemId) => visibleMenuItemsById[itemId])
+            .filter(Boolean);
+
+          if (groupItems.length === 0) {
+            return null;
+          }
+
+          return (
+            <div className="portal-nav-group" key={group.title}>
+              <span className="portal-nav-group-title">{group.title}</span>
+              <div className="portal-nav-group-items">
+                {groupItems.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={activeSection === item.id ? "portal-nav-item active" : "portal-nav-item"}
+                    onClick={() => onNavigate?.(item.id)}
+                  >
+                    <span aria-hidden="true">{item.icon}</span>
+                    <strong>{item.label}</strong>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </nav>
 
       <div className="portal-help-card">

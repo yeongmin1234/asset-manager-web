@@ -19,6 +19,15 @@ const INITIAL_FORM = {
 };
 
 const LOCATION_OPTIONS = ["본사", "백화점", "파주창고", "기타"];
+const CATEGORY_NAME_SUGGESTIONS = {
+  본체: "데스크탑",
+  모니터: "모니터",
+  노트북: "노트북",
+  마우스: "마우스",
+  키보드: "키보드",
+  파워케이블: "파워케이블",
+  태블릿: "태블릿",
+};
 const ANALYSIS_FAILURE_MESSAGE =
   "이미지에서 시리얼번호를 찾지 못했습니다. 라벨이 선명하게 보이도록 다시 촬영하거나 다시 업로드해 주세요.";
 
@@ -72,6 +81,28 @@ function AssetForm({
       setAnalysisState({ status: "idle", result: null, message: "" });
     }
   }, [isOpen, normalizedInitialForm]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const selectedCategory = findCategoryById(safeCategories, form.category_id);
+    const suggestedName = CATEGORY_NAME_SUGGESTIONS[selectedCategory?.name];
+    if (!suggestedName || form.name.trim()) {
+      return;
+    }
+
+    setForm((currentForm) => {
+      if (currentForm.name.trim()) {
+        return currentForm;
+      }
+      return {
+        ...currentForm,
+        name: suggestedName,
+      };
+    });
+  }, [form.category_id, form.name, isOpen, safeCategories]);
 
   if (!isOpen) {
     return null;
@@ -157,7 +188,7 @@ function AssetForm({
         nextForm.name = result.product_name;
       }
       if (result?.serial_number) {
-        nextForm.serial_number = result.serial_number;
+        nextForm.serial_number = nextForm.serial_number || result.serial_number;
       }
       if (result?.model_name) {
         nextForm.model_name = result.model_name;
@@ -469,6 +500,13 @@ function findDepartmentById(items, id) {
     return null;
   }
   return items.find((item) => item.id === id) || null;
+}
+
+function findCategoryById(items, id) {
+  if (!id || !Array.isArray(items)) {
+    return null;
+  }
+  return items.find((item) => String(item.id) === String(id)) || null;
 }
 
 function normalizeDepartmentName(value) {

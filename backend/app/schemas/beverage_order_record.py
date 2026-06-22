@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -81,3 +81,10 @@ class BeverageOrderSummary(BaseModel):
     this_month_amount: int = 0
     beverage: int = 0
     supplies: int = 0
+
+
+class BeverageOrderAmountOcrResponse(BaseModel):
+    amount: Optional[int] = None
+    amount_text: Optional[str] = None
+    candidates: List[int] = Field(default_factory=list)
+    message: str

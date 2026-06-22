@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   API_BASE_URL,
+  analyzeBeverageOrderAmount,
   createBeverageOrder,
   deleteBeverageOrder,
   getBeverageOrder,
@@ -43,12 +44,18 @@ function BeverageOrderPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
+  const formRef = useRef(form);
+  const amountOcrRequestRef = useRef(0);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [listState, setListState] = useState({ isLoading: false, error: "" });
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [detailState, setDetailState] = useState({ isLoading: false, error: "" });
   const [submitState, setSubmitState] = useState({ isSubmitting: false, message: "", error: "" });
+  const [amountOcrState, setAmountOcrState] = useState({
+    status: "idle",
+    message: "",
+  });
 
   const loadOrders = useCallback(async () => {
     setListState({ isLoading: true, error: "" });
@@ -88,6 +95,10 @@ function BeverageOrderPage() {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
+
   const monthOptions = useMemo(() => {
     const values = new Set();
     orders.forEach((order) => {
@@ -109,10 +120,12 @@ function BeverageOrderPage() {
   const expectedMonth = expectedTitle.slice(0, 7);
 
   const resetForm = () => {
+    amountOcrRequestRef.current += 1;
     setForm(INITIAL_FORM);
     setEditingOrder(null);
     setIsFormOpen(false);
     setSubmitState({ isSubmitting: false, message: "", error: "" });
+    setAmountOcrState({ status: "idle", message: "" });
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl("");
@@ -139,6 +152,7 @@ function BeverageOrderPage() {
     setPreviewUrl("");
     setIsFormOpen(true);
     setSubmitState({ isSubmitting: false, message: "", error: "" });
+    setAmountOcrState({ status: "idle", message: "" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -156,6 +170,50 @@ function BeverageOrderPage() {
     setForm((current) => ({ ...current, image: file }));
     setPreviewUrl(URL.createObjectURL(file));
     setSubmitState((current) => ({ ...current, message: "", error: "" }));
+    analyzeAmountFromImage(file);
+  };
+
+  const analyzeAmountFromImage = async (file) => {
+    const requestId = amountOcrRequestRef.current + 1;
+    amountOcrRequestRef.current = requestId;
+    setAmountOcrState({ status: "loading", message: "이미지에서 결제금액을 분석 중입니다." });
+    try {
+      const result = await analyzeBeverageOrderAmount(file);
+      if (requestId !== amountOcrRequestRef.current) {
+        return;
+      }
+      if (result?.amount) {
+        const hasExistingAmount = Boolean(String(formRef.current.total_amount || "").trim());
+        setForm((current) => {
+          if (String(current.total_amount || "").trim()) {
+            return current;
+          }
+          return {
+            ...current,
+            total_amount: String(result.amount),
+          };
+        });
+        setAmountOcrState({
+          status: "done",
+          message: !hasExistingAmount
+            ? "이미지에서 결제금액을 자동 인식했습니다. 저장 전 금액을 확인해 주세요."
+            : "이미지에서 결제금액을 인식했지만 기존 입력값은 유지했습니다.",
+        });
+        return;
+      }
+      setAmountOcrState({
+        status: "error",
+        message: "이미지에서 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
+      });
+    } catch {
+      if (requestId !== amountOcrRequestRef.current) {
+        return;
+      }
+      setAmountOcrState({
+        status: "error",
+        message: "이미지에서 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
+      });
+    }
   };
 
   const handlePaste = (event) => {
@@ -251,6 +309,7 @@ function BeverageOrderPage() {
           expectedTitle={expectedTitle}
           form={form}
           previewUrl={previewUrl}
+          amountOcrState={amountOcrState}
           submitState={submitState}
           onCancel={resetForm}
           onChangeAmount={(value) => setForm((current) => ({ ...current, total_amount: value }))}
@@ -320,6 +379,7 @@ function BeverageOrderForm({
   expectedMonth,
   form,
   previewUrl,
+  amountOcrState,
   submitState,
   onCancel,
   onChangeAmount,
@@ -376,6 +436,14 @@ function BeverageOrderForm({
             <span>이미지 붙여넣기(Ctrl+V) 또는 드래그 앤 드롭</span>
           )}
         </div>
+        <label className="field beverage-image-file-field">
+          <span>이미지 파일 선택</span>
+          <input
+            accept="image/*"
+            type="file"
+            onChange={(event) => onFileChange(event.target.files?.[0])}
+          />
+        </label>
         <label className="field beverage-type-field">
           <span>구분</span>
           <select
@@ -397,6 +465,17 @@ function BeverageOrderForm({
             onChange={(event) => onChangeAmount(event.target.value)}
           />
         </label>
+        {amountOcrState?.status !== "idle" && (
+          <div
+            className={
+              amountOcrState.status === "error"
+                ? "inline-alert beverage-ocr-message"
+                : "inline-info beverage-ocr-message"
+            }
+          >
+            {amountOcrState.message}
+          </div>
+        )}
         <label className="field beverage-image-memo-field">
           <span>메모</span>
           <textarea

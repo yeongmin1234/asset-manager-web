@@ -5,7 +5,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.beverage_order_record import BeverageOrderRecordRead, BeverageOrderSummary
+from app.schemas.beverage_order_record import (
+    BeverageOrderAmountOcrResponse,
+    BeverageOrderRecordRead,
+    BeverageOrderSummary,
+)
+from app.services.beverage_order_ocr_service import analyze_beverage_order_amount
 from app.services.beverage_order_service import (
     BeverageOrderImageError,
     BeverageOrderRecordNotFoundError,
@@ -54,6 +59,32 @@ def read_beverage_order_summary(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed while loading beverage order summary.",
         ) from exc
+
+
+@router.post("/ocr/analyze-amount", response_model=BeverageOrderAmountOcrResponse)
+async def analyze_beverage_order_amount_image(
+    file: UploadFile = File(...),
+) -> BeverageOrderAmountOcrResponse:
+    content_type = (file.content_type or "").lower()
+    if content_type and not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일만 분석할 수 있습니다.",
+        )
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일을 읽을 수 없습니다.",
+        )
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일은 10MB 이하만 분석할 수 있습니다.",
+        )
+
+    return analyze_beverage_order_amount(image_bytes)
 
 
 @router.post("", response_model=BeverageOrderRecordRead, status_code=status.HTTP_201_CREATED)
