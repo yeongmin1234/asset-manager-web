@@ -274,6 +274,26 @@ function AssetDetail({
         <DetailItem label="메모" value={asset.note} wide />
       </dl>
 
+      <div className="detail-section-heading">
+        <h3>사양 이미지</h3>
+      </div>
+
+      <div className="asset-spec-image-section">
+        {asset.spec_image_url ? (
+          <a
+            className="asset-spec-image-link"
+            href={getUploadUrl(asset.spec_image_url)}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="사양 이미지 확대 보기"
+          >
+            <img src={getUploadUrl(asset.spec_image_url)} alt="사양 이미지" />
+          </a>
+        ) : (
+          <span>첨부된 사양 이미지가 없습니다.</span>
+        )}
+      </div>
+
       <AssetHistory assetId={assetId} refreshKey={historyRefreshKey} />
 
       <AssetForm
@@ -366,6 +386,16 @@ function formatDateTime(value) {
     return value;
   }
   return date.toLocaleString("ko-KR");
+}
+
+function getUploadUrl(value) {
+  if (!value) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+  return `${import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001"}${value}`;
 }
 
 export default AssetDetail;

@@ -33,6 +33,7 @@ ASSET_LOG_FIELDS = (
     "status",
     "model_name",
     "purchase_date",
+    "spec_image_path",
 )
 
 VEHICLE_LOG_FIELDS = (

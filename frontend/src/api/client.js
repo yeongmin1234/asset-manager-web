@@ -444,6 +444,9 @@ export async function deleteBeverageOrder(orderId) {
 }
 
 export async function createAsset(asset) {
+  if (asset?.spec_image_file) {
+    return requestFormData("/assets/with-image", buildAssetFormData(asset));
+  }
   return request("/assets", {
     method: "POST",
     body: asset,
@@ -451,6 +454,11 @@ export async function createAsset(asset) {
 }
 
 export async function updateAsset(assetId, asset) {
+  if (asset?.spec_image_file || asset?.delete_spec_image) {
+    return requestFormData(`/assets/${assetId}/with-image`, buildAssetFormData(asset), {
+      method: "PUT",
+    });
+  }
   return request(`/assets/${assetId}`, {
     method: "PUT",
     body: asset,
@@ -502,4 +510,26 @@ function getDownloadFilename(contentDisposition) {
 
   const asciiFilename = contentDisposition.match(/filename="?([^";]+)"?/i);
   return asciiFilename?.[1] || "";
+}
+
+function buildAssetFormData(asset) {
+  const formData = new FormData();
+  Object.entries(asset || {}).forEach(([key, value]) => {
+    if (key === "spec_image_file") {
+      if (value) {
+        formData.append("spec_image", value);
+      }
+      return;
+    }
+    if (key === "delete_spec_image") {
+      if (value) {
+        formData.append("delete_spec_image", "true");
+      }
+      return;
+    }
+    if (value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  });
+  return formData;
 }

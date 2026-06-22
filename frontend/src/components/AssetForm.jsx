@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import SpecImageInput from "./SpecImageInput.jsx";
 
 const INITIAL_FORM = {
   category_id: "",
@@ -40,6 +41,8 @@ function AssetForm({
     [initialAsset, safeDepartments],
   );
   const [form, setForm] = useState(normalizedInitialForm);
+  const [specImageFile, setSpecImageFile] = useState(null);
+  const [deleteSpecImage, setDeleteSpecImage] = useState(false);
   const lookupStatus = lookupState || {
     isLoading: false,
     categoryError: lookupError,
@@ -56,6 +59,8 @@ function AssetForm({
   useEffect(() => {
     if (isOpen) {
       setForm(normalizedInitialForm);
+      setSpecImageFile(null);
+      setDeleteSpecImage(false);
     }
   }, [isOpen, normalizedInitialForm]);
 
@@ -89,16 +94,22 @@ function AssetForm({
       serial_number: form.serial_number || null,
       user_name: form.user_name || null,
       note: form.note || null,
+      spec_image_file: specImageFile,
+      delete_spec_image: deleteSpecImage,
     };
 
     const isCreated = await onSubmit(payload);
     if (isCreated) {
       setForm(INITIAL_FORM);
+      setSpecImageFile(null);
+      setDeleteSpecImage(false);
     }
   };
 
   const handleClose = () => {
     setForm(normalizedInitialForm);
+    setSpecImageFile(null);
+    setDeleteSpecImage(false);
     onClose();
   };
 
@@ -261,6 +272,14 @@ function AssetForm({
             <span>메모</span>
             <textarea name="note" value={form.note} onChange={handleChange} rows="3" />
           </label>
+
+          <SpecImageInput
+            initialUrl={initialAsset?.spec_image_url || ""}
+            onChange={(file, shouldDelete) => {
+              setSpecImageFile(file);
+              setDeleteSpecImage(shouldDelete);
+            }}
+          />
 
           {error && <div className="inline-alert">{error}</div>}
 

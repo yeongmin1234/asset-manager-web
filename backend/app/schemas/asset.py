@@ -22,6 +22,7 @@ class AssetBase(BaseModel):
     user_name: Optional[str] = None
     status: AssetStatus = AssetStatus.UNUSED
     note: Optional[str] = None
+    spec_image_path: Optional[str] = None
 
     @field_validator("department_name", "location_group", "location_detail")
     @classmethod
@@ -64,6 +65,7 @@ class AssetUpdate(BaseModel):
     user_name: Optional[str] = None
     status: Optional[AssetStatus] = None
     note: Optional[str] = None
+    spec_image_path: Optional[str] = None
 
     @field_validator("department_name", "location_group", "location_detail")
     @classmethod
@@ -93,6 +95,7 @@ class AssetRead(AssetBase):
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None
+    spec_image_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

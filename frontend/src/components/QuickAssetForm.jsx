@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import SpecImageInput from "./SpecImageInput.jsx";
 
 const INITIAL_FORM = {
   name: "",
@@ -27,6 +28,8 @@ function QuickAssetForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [specImageFile, setSpecImageFile] = useState(null);
+  const [specImageResetKey, setSpecImageResetKey] = useState(0);
 
   const canSubmit = useMemo(
     () =>
@@ -49,6 +52,8 @@ function QuickAssetForm({
 
   const handleReset = () => {
     setForm(INITIAL_FORM);
+    setSpecImageFile(null);
+    setSpecImageResetKey((current) => current + 1);
     setMessage("");
     setError("");
   };
@@ -84,6 +89,7 @@ function QuickAssetForm({
       user_name: null,
       status: form.status,
       note: form.note.trim() || null,
+      spec_image_file: specImageFile,
     };
 
     setIsSubmitting(true);
@@ -92,6 +98,8 @@ function QuickAssetForm({
     try {
       await onSubmit(payload);
       setForm(INITIAL_FORM);
+      setSpecImageFile(null);
+      setSpecImageResetKey((current) => current + 1);
       setMessage("빠른 등록이 완료되었습니다.");
     } catch (submitError) {
       setError(submitError.message);
@@ -214,6 +222,16 @@ function QuickAssetForm({
             placeholder="간단한 메모를 입력하세요."
           />
         </label>
+
+        <SpecImageInput
+          key={specImageResetKey}
+          compact
+          onChange={(file) => {
+            setSpecImageFile(file);
+            setMessage("");
+            setError("");
+          }}
+        />
 
         <div className="quick-create-actions">
           {message && <span className="inline-success">{message}</span>}

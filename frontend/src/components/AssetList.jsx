@@ -158,7 +158,10 @@ function AssetList({
               >
                 <td>
                   <div className="asset-name">
-                    <strong>{asset.name}</strong>
+                    <strong>
+                      {asset.name}
+                      {asset.spec_image_url && <span className="asset-name-camera"> 📷</span>}
+                    </strong>
                   </div>
                 </td>
                 <td>
@@ -189,7 +192,10 @@ function AssetList({
             }}
           >
             <div>
-              <strong>{asset.name}</strong>
+              <strong>
+                {asset.name}
+                {asset.spec_image_url && <span className="asset-name-camera"> 📷</span>}
+              </strong>
               {asset.id === selectedAssetId && <span>선택됨</span>}
             </div>
             <StatusBadge status={asset.status} />

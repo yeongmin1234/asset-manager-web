@@ -1,7 +1,9 @@
 from datetime import date, datetime, timezone
 from io import BytesIO
+from pathlib import Path
 import re
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
+from uuid import uuid4
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -13,6 +15,7 @@ from openpyxl.utils import get_column_letter
 from app.models.asset import Asset, AssetStatus
 from app.models.category import Category
 from app.models.department import Department
+from app.core.config import settings
 from app.models.history import AssetActionType
 from app.schemas.asset import (
     AssetCreate,
@@ -46,6 +49,10 @@ class AssetValidationError(Exception):
     pass
 
 
+class AssetImageError(Exception):
+    pass
+
+
 IMPORT_HEADERS = [
     "제품명",
     "분류",
@@ -58,6 +65,9 @@ IMPORT_HEADERS = [
 ]
 
 ALLOWED_IMPORT_STATUSES = {status.value for status in AssetStatus}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+ASSET_UPLOAD_SUBDIR = "assets"
 
 
 def get_assets(
@@ -542,6 +552,7 @@ def update_asset(
     asset = get_asset(db, asset_id)
     update_data = asset_update.model_dump(exclude_unset=True)
     before_data = serialize_asset_activity_data(asset)
+    old_spec_image_path = asset.spec_image_path
 
     if "category_id" in update_data:
         validate_category(db, update_data["category_id"])
@@ -592,6 +603,13 @@ def update_asset(
     except Exception:
         db.rollback()
         raise
+
+    if (
+        "spec_image_path" in update_data
+        and old_spec_image_path
+        and old_spec_image_path != asset.spec_image_path
+    ):
+        delete_asset_image_file(old_spec_image_path)
 
     return asset
 
@@ -699,3 +717,45 @@ def ensure_serial_number_is_available(
     existing_asset = db.scalar(statement)
     if existing_asset is not None:
         raise AssetConflictError(f"serial_number already exists: {serial_number}")
+
+
+def save_asset_image_file(
+    *,
+    original_filename: Optional[str],
+    content: bytes,
+) -> Tuple[str, str]:
+    if not content:
+        raise AssetImageError("이미지 파일을 첨부해주세요.")
+    if len(content) > MAX_IMAGE_SIZE_BYTES:
+        raise AssetImageError("이미지 파일은 10MB 이하만 업로드할 수 있습니다.")
+
+    original_name = Path(original_filename or "asset-spec.png").name
+    extension = Path(original_name).suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise AssetImageError("jpg, jpeg, png, webp 이미지만 업로드할 수 있습니다.")
+
+    upload_dir = get_asset_upload_dir()
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{datetime.now().strftime('%Y%m%d')}_{uuid4().hex}{extension}"
+    stored_path = upload_dir / stored_name
+    try:
+        stored_path.write_bytes(content)
+    except OSError as exc:
+        raise AssetImageError("이미지 저장에 실패했습니다.") from exc
+    return f"{ASSET_UPLOAD_SUBDIR}/{stored_name}", original_name
+
+
+def delete_asset_image_file(image_path: str) -> None:
+    try:
+        upload_root = Path(settings.upload_dir).resolve()
+        target = upload_root / image_path
+        if upload_root not in target.resolve().parents:
+            return
+        if target.exists():
+            target.unlink()
+    except OSError:
+        return
+
+
+def get_asset_upload_dir() -> Path:
+    return Path(settings.upload_dir).resolve() / ASSET_UPLOAD_SUBDIR

@@ -56,6 +56,7 @@ class Asset(Base):
         default=AssetStatus.UNUSED,
     )
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    spec_image_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -76,3 +77,9 @@ class Asset(Base):
     category = relationship("Category", back_populates="assets")
     department = relationship("Department", back_populates="assets")
     history = relationship("AssetHistory", back_populates="asset")
+
+    @property
+    def spec_image_url(self) -> Optional[str]:
+        if not self.spec_image_path:
+            return None
+        return f"/uploads/{self.spec_image_path}"

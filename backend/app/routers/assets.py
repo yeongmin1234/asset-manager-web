@@ -1,7 +1,7 @@
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -14,16 +14,19 @@ from app.schemas.asset import AssetImportPreviewResponse
 from app.schemas.history import AssetHistoryRead
 from app.services.asset_service import (
     AssetConflictError,
+    AssetImageError,
     AssetNotFoundError,
     AssetValidationError,
     build_asset_import_template,
     build_assets_excel,
     commit_assets_import,
     create_asset,
+    delete_asset_image_file,
     dispose_asset,
     get_asset,
     get_assets,
     preview_assets_import,
+    save_asset_image_file,
     soft_delete_asset,
     update_asset,
 )
@@ -216,6 +219,80 @@ def create_new_asset(
         ) from exc
 
 
+@router.post("/with-image", response_model=AssetRead, status_code=status.HTTP_201_CREATED)
+async def create_new_asset_with_image(
+    request: Request,
+    category_id: str = Form(...),
+    name: str = Form(...),
+    status_value: str = Form(..., alias="status"),
+    department_id: Optional[str] = Form(default=None),
+    department_name: Optional[str] = Form(default=None),
+    location_group: Optional[str] = Form(default=None),
+    location_detail: Optional[str] = Form(default=None),
+    model_name: Optional[str] = Form(default=None),
+    serial_number: Optional[str] = Form(default=None),
+    purchase_date: Optional[str] = Form(default=None),
+    purchase_price: Optional[str] = Form(default=None),
+    user_name: Optional[str] = Form(default=None),
+    note: Optional[str] = Form(default=None),
+    spec_image: Optional[UploadFile] = File(default=None),
+    db: Session = Depends(get_db),
+) -> AssetRead:
+    spec_image_path = None
+    try:
+        if spec_image is not None and spec_image.filename:
+            spec_image_path, _original_name = save_asset_image_file(
+                original_filename=spec_image.filename,
+                content=await spec_image.read(),
+            )
+        payload = build_asset_create_from_form(
+            category_id=category_id,
+            department_id=department_id,
+            department_name=department_name,
+            location_group=location_group,
+            location_detail=location_detail,
+            name=name,
+            model_name=model_name,
+            serial_number=serial_number,
+            purchase_date=purchase_date,
+            purchase_price=purchase_price,
+            user_name=user_name,
+            status_value=status_value,
+            note=note,
+            spec_image_path=spec_image_path,
+        )
+        return create_asset(
+            db,
+            payload,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except AssetImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except AssetConflictError as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="serial_number already exists.",
+        ) from exc
+    except (AssetValidationError, ValueError) as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except SQLAlchemyError as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while creating asset.",
+        ) from exc
+
+
 @router.put("/{asset_id}", response_model=AssetRead)
 def update_existing_asset(
     request: Request,
@@ -247,6 +324,93 @@ def update_existing_asset(
             detail=str(exc),
         ) from exc
     except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while updating asset.",
+        ) from exc
+
+
+@router.put("/{asset_id}/with-image", response_model=AssetRead)
+async def update_existing_asset_with_image(
+    request: Request,
+    asset_id: int,
+    category_id: Optional[str] = Form(default=None),
+    department_id: Optional[str] = Form(default=None),
+    department_name: Optional[str] = Form(default=None),
+    location_group: Optional[str] = Form(default=None),
+    location_detail: Optional[str] = Form(default=None),
+    name: Optional[str] = Form(default=None),
+    model_name: Optional[str] = Form(default=None),
+    serial_number: Optional[str] = Form(default=None),
+    purchase_date: Optional[str] = Form(default=None),
+    purchase_price: Optional[str] = Form(default=None),
+    user_name: Optional[str] = Form(default=None),
+    status_value: Optional[str] = Form(default=None, alias="status"),
+    note: Optional[str] = Form(default=None),
+    delete_spec_image: Optional[str] = Form(default=None),
+    spec_image: Optional[UploadFile] = File(default=None),
+    db: Session = Depends(get_db),
+) -> AssetRead:
+    spec_image_path = None
+    try:
+        update_fields = build_asset_update_fields_from_form(
+            category_id=category_id,
+            department_id=department_id,
+            department_name=department_name,
+            location_group=location_group,
+            location_detail=location_detail,
+            name=name,
+            model_name=model_name,
+            serial_number=serial_number,
+            purchase_date=purchase_date,
+            purchase_price=purchase_price,
+            user_name=user_name,
+            status_value=status_value,
+            note=note,
+        )
+        if spec_image is not None and spec_image.filename:
+            spec_image_path, _original_name = save_asset_image_file(
+                original_filename=spec_image.filename,
+                content=await spec_image.read(),
+            )
+            update_fields["spec_image_path"] = spec_image_path
+        elif is_truthy_form_value(delete_spec_image):
+            update_fields["spec_image_path"] = None
+
+        return update_asset(
+            db,
+            asset_id,
+            AssetUpdate(**update_fields),
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except AssetImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except AssetNotFoundError as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found.",
+        ) from exc
+    except AssetConflictError as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="serial_number already exists.",
+        ) from exc
+    except (AssetValidationError, ValueError) as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except SQLAlchemyError as exc:
+        if spec_image_path:
+            delete_asset_image_file(spec_image_path)
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed while updating asset.",
@@ -301,3 +465,102 @@ def delete_existing_asset(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed while deleting asset.",
         ) from exc
+
+
+def build_asset_create_from_form(
+    *,
+    category_id: str,
+    department_id: Optional[str],
+    department_name: Optional[str],
+    location_group: Optional[str],
+    location_detail: Optional[str],
+    name: str,
+    model_name: Optional[str],
+    serial_number: Optional[str],
+    purchase_date: Optional[str],
+    purchase_price: Optional[str],
+    user_name: Optional[str],
+    status_value: str,
+    note: Optional[str],
+    spec_image_path: Optional[str],
+) -> AssetCreate:
+    return AssetCreate(
+        category_id=parse_required_int(category_id, "category_id"),
+        department_id=parse_optional_int(department_id, "department_id"),
+        department_name=empty_to_none(department_name),
+        location_group=empty_to_none(location_group),
+        location_detail=empty_to_none(location_detail),
+        name=name,
+        model_name=empty_to_none(model_name),
+        serial_number=empty_to_none(serial_number),
+        purchase_date=empty_to_none(purchase_date),
+        purchase_price=empty_to_none(purchase_price),
+        user_name=empty_to_none(user_name),
+        status=AssetStatus(status_value),
+        note=empty_to_none(note),
+        spec_image_path=spec_image_path,
+    )
+
+
+def build_asset_update_fields_from_form(
+    *,
+    category_id: Optional[str],
+    department_id: Optional[str],
+    department_name: Optional[str],
+    location_group: Optional[str],
+    location_detail: Optional[str],
+    name: Optional[str],
+    model_name: Optional[str],
+    serial_number: Optional[str],
+    purchase_date: Optional[str],
+    purchase_price: Optional[str],
+    user_name: Optional[str],
+    status_value: Optional[str],
+    note: Optional[str],
+) -> Dict[str, object]:
+    fields: Dict[str, object] = {}
+    if category_id is not None:
+        fields["category_id"] = parse_required_int(category_id, "category_id")
+    if department_id is not None:
+        fields["department_id"] = parse_optional_int(department_id, "department_id")
+    for field_name, value in (
+        ("department_name", department_name),
+        ("location_group", location_group),
+        ("location_detail", location_detail),
+        ("name", name),
+        ("model_name", model_name),
+        ("serial_number", serial_number),
+        ("purchase_date", purchase_date),
+        ("purchase_price", purchase_price),
+        ("user_name", user_name),
+        ("note", note),
+    ):
+        if value is not None:
+            fields[field_name] = empty_to_none(value)
+    if status_value is not None:
+        fields["status"] = AssetStatus(status_value)
+    return fields
+
+
+def empty_to_none(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized_value = value.strip()
+    return normalized_value or None
+
+
+def parse_required_int(value: str, field_name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be a number.") from exc
+
+
+def parse_optional_int(value: Optional[str], field_name: str) -> Optional[int]:
+    if value is None or value.strip() == "":
+        return None
+    return parse_required_int(value, field_name)
+
+
+def is_truthy_form_value(value: Optional[str]) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
