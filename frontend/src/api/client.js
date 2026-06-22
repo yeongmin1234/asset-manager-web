@@ -130,7 +130,8 @@ async function requestBlob(path, options = {}) {
 async function requestFormData(path, formData, options = {}) {
   const url = new URL(`${API_BASE_URL}${path}`);
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutMs = Number(options.timeoutMs || REQUEST_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
   try {
@@ -250,6 +251,14 @@ export async function commitAssetExcelImport(rows) {
   return request("/assets/import/commit", {
     method: "POST",
     body: { rows },
+  });
+}
+
+export async function analyzeAssetImage(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestFormData("/assets/ocr/analyze", formData, {
+    timeoutMs: 30000,
   });
 }
 

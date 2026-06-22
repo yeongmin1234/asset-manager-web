@@ -2443,6 +2443,65 @@ p {
   color: #b91c1c;
 }
 
+.asset-analysis-panel {
+  background: #f8fbff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  padding: 12px;
+}
+
+.asset-analysis-panel h3 {
+  color: var(--text);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.asset-analysis-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.asset-analysis-grid div {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.asset-analysis-grid dt {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.asset-analysis-grid dd {
+  color: #172033;
+  font-weight: 800;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.asset-analysis-loading {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.asset-analysis-error {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+  font-weight: 800;
+}
+
 .spec-image-preview {
   align-items: center;
   display: flex;
@@ -6153,6 +6212,10 @@ input:disabled {
   }
 
   .vehicle-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-analysis-grid {
     grid-template-columns: 1fr;
   }
 

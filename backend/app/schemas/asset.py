@@ -133,3 +133,14 @@ class AssetImportCommitResponse(BaseModel):
     created_count: int
     skipped_count: int
     errors: List[AssetImportPreviewRow] = Field(default_factory=list)
+
+
+class AssetOcrAnalysisResponse(BaseModel):
+    product_name: Optional[str] = None
+    manufacturer: Optional[str] = None
+    model_name: Optional[str] = None
+    product_number: Optional[str] = None
+    serial_number: Optional[str] = None
+    source: Optional[str] = None
+    message: str
+    raw_text: Optional[str] = None

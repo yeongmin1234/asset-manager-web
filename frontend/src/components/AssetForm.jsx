@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { analyzeAssetImage } from "../api/client.js";
 import SpecImageInput from "./SpecImageInput.jsx";
 
 const INITIAL_FORM = {
@@ -18,6 +19,8 @@ const INITIAL_FORM = {
 };
 
 const LOCATION_OPTIONS = ["본사", "백화점", "파주창고", "기타"];
+const ANALYSIS_FAILURE_MESSAGE =
+  "이미지에서 시리얼번호를 찾지 못했습니다. 라벨이 선명하게 보이도록 다시 촬영하거나 다시 업로드해 주세요.";
 
 function AssetForm({
   categories,
@@ -43,6 +46,11 @@ function AssetForm({
   const [form, setForm] = useState(normalizedInitialForm);
   const [specImageFile, setSpecImageFile] = useState(null);
   const [deleteSpecImage, setDeleteSpecImage] = useState(false);
+  const [analysisState, setAnalysisState] = useState({
+    status: "idle",
+    result: null,
+    message: "",
+  });
   const lookupStatus = lookupState || {
     isLoading: false,
     categoryError: lookupError,
@@ -61,6 +69,7 @@ function AssetForm({
       setForm(normalizedInitialForm);
       setSpecImageFile(null);
       setDeleteSpecImage(false);
+      setAnalysisState({ status: "idle", result: null, message: "" });
     }
   }, [isOpen, normalizedInitialForm]);
 
@@ -103,6 +112,7 @@ function AssetForm({
       setForm(INITIAL_FORM);
       setSpecImageFile(null);
       setDeleteSpecImage(false);
+      setAnalysisState({ status: "idle", result: null, message: "" });
     }
   };
 
@@ -110,7 +120,54 @@ function AssetForm({
     setForm(normalizedInitialForm);
     setSpecImageFile(null);
     setDeleteSpecImage(false);
+    setAnalysisState({ status: "idle", result: null, message: "" });
     onClose();
+  };
+
+  const handleSpecImageChange = async (file, shouldDelete) => {
+    setSpecImageFile(file);
+    setDeleteSpecImage(shouldDelete);
+    if (!file) {
+      setAnalysisState({ status: "idle", result: null, message: "" });
+      return;
+    }
+
+    setAnalysisState({ status: "loading", result: null, message: "이미지 분석 중..." });
+    try {
+      const result = await analyzeAssetImage(file);
+      setAnalysisState({
+        status: result?.serial_number ? "done" : "error",
+        result,
+        message: result?.message || ANALYSIS_FAILURE_MESSAGE,
+      });
+      applyAnalysisResult(result);
+    } catch (analysisError) {
+      setAnalysisState({
+        status: "error",
+        result: null,
+        message: getFriendlyAnalysisError(analysisError),
+      });
+    }
+  };
+
+  const applyAnalysisResult = (result) => {
+    setForm((currentForm) => {
+      const nextForm = { ...currentForm };
+      if (result?.product_name) {
+        nextForm.name = result.product_name;
+      }
+      if (result?.serial_number) {
+        nextForm.serial_number = result.serial_number;
+      }
+      if (result?.model_name) {
+        nextForm.model_name = result.model_name;
+      }
+      const noteText = buildAnalysisNote(result);
+      if (noteText) {
+        nextForm.note = mergeAnalysisNote(nextForm.note, noteText);
+      }
+      return nextForm;
+    });
   };
 
   const canSubmit =
@@ -275,11 +332,10 @@ function AssetForm({
 
           <SpecImageInput
             initialUrl={initialAsset?.spec_image_url || ""}
-            onChange={(file, shouldDelete) => {
-              setSpecImageFile(file);
-              setDeleteSpecImage(shouldDelete);
-            }}
+            onChange={handleSpecImageChange}
           />
+
+          <AssetAnalysisResult state={analysisState} />
 
           {error && <div className="inline-alert">{error}</div>}
 
@@ -295,6 +351,78 @@ function AssetForm({
       </section>
     </div>
   );
+}
+
+function AssetAnalysisResult({ state }) {
+  if (!state || state.status === "idle") {
+    return null;
+  }
+
+  if (state.status === "loading") {
+    return <div className="asset-analysis-panel asset-analysis-loading">이미지 분석 중...</div>;
+  }
+
+  if (state.status === "error") {
+    return (
+      <div className="asset-analysis-panel asset-analysis-error">
+        {state.message || ANALYSIS_FAILURE_MESSAGE}
+      </div>
+    );
+  }
+
+  const result = state.result || {};
+  return (
+    <section className="asset-analysis-panel" aria-label="자동 분석 결과">
+      <h3>자동 분석 결과</h3>
+      <dl className="asset-analysis-grid">
+        <AnalysisItem label="제품명" value={result.product_name} />
+        <AnalysisItem label="제조사" value={result.manufacturer} />
+        <AnalysisItem label="모델명" value={result.model_name} />
+        <AnalysisItem label="제품번호(Type)" value={result.product_number} />
+        <AnalysisItem label="시리얼번호" value={result.serial_number} />
+      </dl>
+    </section>
+  );
+}
+
+function AnalysisItem({ label, value }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value || "-"}</dd>
+    </div>
+  );
+}
+
+function buildAnalysisNote(result) {
+  if (!result?.model_name && !result?.product_number) {
+    return "";
+  }
+  return [
+    result.product_name,
+    result.model_name ? `Model: ${result.model_name}` : "",
+    result.product_number ? `Type: ${result.product_number}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function mergeAnalysisNote(currentNote, noteText) {
+  const existingNote = String(currentNote || "").trim();
+  if (!existingNote) {
+    return noteText;
+  }
+  if (existingNote.includes(noteText)) {
+    return existingNote;
+  }
+  return `${existingNote}\n${noteText}`;
+}
+
+function getFriendlyAnalysisError(error) {
+  if (error?.status === 400 && error.message) {
+    return error.message;
+  }
+  return ANALYSIS_FAILURE_MESSAGE;
 }
 
 function normalizeAssetToForm(asset, departments = []) {

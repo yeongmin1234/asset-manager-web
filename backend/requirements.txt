@@ -7,3 +7,5 @@ python-dotenv
 alembic
 openpyxl
 python-multipart
+Pillow
+pytesseract

@@ -1,4 +1,5 @@
 from datetime import date
+import logging
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.asset import AssetStatus
-from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate
+from app.schemas.asset import AssetCreate, AssetOcrAnalysisResponse, AssetRead, AssetUpdate
 from app.schemas.asset import AssetImportCommitRequest, AssetImportCommitResponse
 from app.schemas.asset import AssetImportPreviewResponse
 from app.schemas.history import AssetHistoryRead
@@ -30,10 +31,12 @@ from app.services.asset_service import (
     soft_delete_asset,
     update_asset,
 )
+from app.services.asset_ocr_service import analyze_asset_image
 from app.services.history_service import get_asset_history
 
 
 router = APIRouter(prefix="/assets", tags=["assets"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=List[AssetRead])
@@ -150,6 +153,42 @@ def commit_asset_import(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed while importing assets.",
+        ) from exc
+
+
+@router.post("/ocr/analyze", response_model=AssetOcrAnalysisResponse)
+async def analyze_asset_spec_image(
+    file: UploadFile = File(...),
+) -> AssetOcrAnalysisResponse:
+    content_type = (file.content_type or "").lower()
+    if content_type and not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일만 분석할 수 있습니다.",
+        )
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일을 읽을 수 없습니다.",
+        )
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일은 10MB 이하만 분석할 수 있습니다.",
+        )
+
+    try:
+        return analyze_asset_image(image_bytes)
+    except Exception as exc:
+        logger.exception("Asset OCR analysis failed unexpectedly.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "이미지 분석을 완료하지 못했습니다. "
+                "라벨이 선명하게 보이도록 다시 촬영하거나 다시 업로드해 주세요."
+            ),
         ) from exc
 
 
