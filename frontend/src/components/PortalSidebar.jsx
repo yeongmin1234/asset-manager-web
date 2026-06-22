@@ -74,7 +74,11 @@ function PortalSidebar({
                   <button
                     type="button"
                     key={item.id}
-                    className={activeSection === item.id ? "portal-nav-item active" : "portal-nav-item"}
+                    className={
+                      activeSection === item.id
+                        ? "portal-nav-item sidebar-menu-item active"
+                        : "portal-nav-item sidebar-menu-item"
+                    }
                     onClick={() => onNavigate?.(item.id)}
                   >
                     <span aria-hidden="true">{item.icon}</span>
