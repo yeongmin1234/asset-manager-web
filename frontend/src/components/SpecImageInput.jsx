@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { API_BASE_URL } from "../api/client.js";
 
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
@@ -9,7 +9,6 @@ function SpecImageInput({
   onChange,
   compact = false,
 }) {
-  const inputRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState(resolveUploadUrl(initialUrl));
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState("");
@@ -86,9 +85,7 @@ function SpecImageInput({
       <span>사양 이미지 첨부</span>
       <div
         className="spec-image-dropzone"
-        role="button"
         tabIndex="0"
-        onClick={() => inputRef.current?.click()}
         onDragEnter={(event) => {
           event.preventDefault();
           setIsDragging(true);
@@ -97,12 +94,6 @@ function SpecImageInput({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onPaste={handlePaste}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
       >
         {previewUrl ? (
           <div className="spec-image-preview">
@@ -120,22 +111,10 @@ function SpecImageInput({
           </div>
         ) : (
           <div className="spec-image-placeholder">
-            <strong>Ctrl+V / 드래그앤드롭 / 파일 선택</strong>
+            <strong>이미지 붙여넣기(Ctrl+V) 또는 드래그 앤 드롭</strong>
             <small>jpg, jpeg, png, webp · 최대 10MB</small>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              handleFile(file);
-            }
-            event.target.value = "";
-          }}
-        />
       </div>
       {error && <small className="spec-image-error">{error}</small>}
     </div>

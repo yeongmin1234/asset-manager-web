@@ -159,8 +159,9 @@ function BeverageOrderPage() {
   };
 
   const handlePaste = (event) => {
-    const files = Array.from(event.clipboardData?.files || []);
-    const imageFile = files.find((file) => file.type.startsWith("image/"));
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find((item) => item.type.startsWith("image/"));
+    const imageFile = imageItem?.getAsFile();
     if (imageFile) {
       event.preventDefault();
       setImageFile(imageFile);
@@ -329,6 +330,18 @@ function BeverageOrderForm({
   onSubmit,
 }) {
   const currentImageUrl = editingOrder?.image_url ? getImageUrl(editingOrder.image_url) : "";
+  const [isDragging, setIsDragging] = useState(false);
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const imageFile = Array.from(event.dataTransfer?.files || []).find((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (imageFile) {
+      onFileChange(imageFile);
+    }
+  };
+
   return (
     <section className="quick-create beverage-image-form-panel" onPaste={onPaste}>
       <div className="quick-create-heading">
@@ -343,14 +356,26 @@ function BeverageOrderForm({
           <strong>{editingOrder?.title || expectedTitle}</strong>
           <small>주문월: {editingOrder?.order_month || expectedMonth}</small>
         </div>
-        <label className="field beverage-file-field">
-          <span>{editingOrder ? "이미지 교체" : "이미지 첨부"}</span>
-          <input
-            accept="image/jpeg,image/png,image/webp"
-            type="file"
-            onChange={(event) => onFileChange(event.target.files?.[0])}
-          />
-        </label>
+        <div
+          className={isDragging ? "beverage-image-preview dragging" : "beverage-image-preview"}
+          tabIndex="0"
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onPaste={onPaste}
+        >
+          {previewUrl ? (
+            <img src={previewUrl} alt="선택한 이미지 미리보기" />
+          ) : currentImageUrl ? (
+            <img src={currentImageUrl} alt="현재 등록된 이미지" />
+          ) : (
+            <span>이미지 붙여넣기(Ctrl+V) 또는 드래그 앤 드롭</span>
+          )}
+        </div>
         <label className="field beverage-type-field">
           <span>구분</span>
           <select
@@ -381,15 +406,6 @@ function BeverageOrderForm({
             placeholder="필요한 경우에만 입력합니다."
           />
         </label>
-        <div className="beverage-image-preview">
-          {previewUrl ? (
-            <img src={previewUrl} alt="선택한 이미지 미리보기" />
-          ) : currentImageUrl ? (
-            <img src={currentImageUrl} alt="현재 등록된 이미지" />
-          ) : (
-            <span>이미지를 선택하거나 Ctrl+V로 붙여넣어주세요.</span>
-          )}
-        </div>
         <div className="quick-create-actions">
           {submitState.error && <span className="inline-alert">{submitState.error}</span>}
           <button type="button" className="secondary-button" onClick={onCancel}>
