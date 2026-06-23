@@ -194,7 +194,7 @@ function NetworkCredentialPage() {
       <div className="network-credential-toolbar">
         <div>
           <h3>접속정보 관리</h3>
-          <p>내부 IP, 외부 URL, 계정 정보를 암호화된 비밀번호와 함께 관리합니다.</p>
+          <p>내부 주소, 외부 URL, 계정과 비밀번호를 안전하게 관리합니다.</p>
         </div>
         <button
           type="button"
@@ -203,6 +203,10 @@ function NetworkCredentialPage() {
         >
           등록
         </button>
+      </div>
+
+      <div className="network-credential-security-note" role="note">
+        비밀번호는 암호화되어 저장되며, 보기/복사 후 15초 뒤 자동으로 숨겨집니다.
       </div>
 
       <section className="network-credential-summary" aria-label="접속정보 요약">
