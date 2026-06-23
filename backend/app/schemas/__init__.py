@@ -9,6 +9,11 @@ from app.schemas.company_vehicle import (
 )
 from app.schemas.department import DepartmentCreate, DepartmentRead, DepartmentUpdate
 from app.schemas.history import AssetHistoryCreate, AssetHistoryRead
+from app.schemas.network_credential import (
+    NetworkCredentialCreate,
+    NetworkCredentialRead,
+    NetworkCredentialUpdate,
+)
 from app.schemas.vehicle_insurance_history import (
     VehicleInsuranceHistoryCreate,
     VehicleInsuranceHistoryRead,
@@ -32,6 +37,9 @@ __all__ = [
     "DepartmentCreate",
     "DepartmentRead",
     "DepartmentUpdate",
+    "NetworkCredentialCreate",
+    "NetworkCredentialRead",
+    "NetworkCredentialUpdate",
     "VehicleInsuranceHistoryCreate",
     "VehicleInsuranceHistoryRead",
     "VehicleInsuranceHistoryUpdate",

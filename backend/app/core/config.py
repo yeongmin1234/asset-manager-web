@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     upload_dir: str = "../uploads"
     export_dir: str = "../exports"
     admin_auth_minutes: int = 60
+    network_credential_secret_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

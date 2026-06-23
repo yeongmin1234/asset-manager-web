@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   API_BASE_URL,
   analyzeBeverageOrderAmount,
+  analyzeExistingBeverageOrderAmount,
   createBeverageOrder,
   deleteBeverageOrder,
   getBeverageOrder,
@@ -176,44 +177,72 @@ function BeverageOrderPage() {
   const analyzeAmountFromImage = async (file) => {
     const requestId = amountOcrRequestRef.current + 1;
     amountOcrRequestRef.current = requestId;
-    setAmountOcrState({ status: "loading", message: "이미지에서 결제금액을 분석 중입니다." });
+    setAmountOcrState({ status: "loading", message: "이미지에서 총 결제금액을 분석 중입니다." });
     try {
       const result = await analyzeBeverageOrderAmount(file);
       if (requestId !== amountOcrRequestRef.current) {
         return;
       }
-      if (result?.amount) {
-        const hasExistingAmount = Boolean(String(formRef.current.total_amount || "").trim());
-        setForm((current) => {
-          if (String(current.total_amount || "").trim()) {
-            return current;
-          }
-          return {
-            ...current,
-            total_amount: String(result.amount),
-          };
-        });
-        setAmountOcrState({
-          status: "done",
-          message: !hasExistingAmount
-            ? "이미지에서 결제금액을 자동 인식했습니다. 저장 전 금액을 확인해 주세요."
-            : "이미지에서 결제금액을 인식했지만 기존 입력값은 유지했습니다.",
-        });
-        return;
-      }
-      setAmountOcrState({
-        status: "error",
-        message: "이미지에서 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
-      });
+      applyAmountOcrResult(result);
     } catch {
       if (requestId !== amountOcrRequestRef.current) {
         return;
       }
       setAmountOcrState({
         status: "error",
-        message: "이미지에서 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
+        message: "이미지에서 총 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
       });
     }
+  };
+
+  const analyzeAmountFromExistingImage = async () => {
+    if (!editingOrder?.id || !editingOrder.image_url) {
+      return;
+    }
+    const requestId = amountOcrRequestRef.current + 1;
+    amountOcrRequestRef.current = requestId;
+    setAmountOcrState({ status: "loading", message: "이미지에서 총 결제금액을 분석 중입니다." });
+    try {
+      const result = await analyzeExistingBeverageOrderAmount(editingOrder.id);
+      if (requestId !== amountOcrRequestRef.current) {
+        return;
+      }
+      applyAmountOcrResult(result);
+    } catch {
+      if (requestId !== amountOcrRequestRef.current) {
+        return;
+      }
+      setAmountOcrState({
+        status: "error",
+        message: "이미지에서 총 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
+      });
+    }
+  };
+
+  const applyAmountOcrResult = (result) => {
+    if (result?.amount) {
+      const hasExistingAmount = Boolean(String(formRef.current.total_amount || "").trim());
+      setForm((current) => {
+        if (String(current.total_amount || "").trim()) {
+          return current;
+        }
+        return {
+          ...current,
+          total_amount: String(result.amount),
+        };
+      });
+      setAmountOcrState({
+        status: "done",
+        message: !hasExistingAmount
+          ? "이미지에서 총 결제금액을 자동 인식했습니다. 저장 전 금액을 확인해 주세요."
+          : "이미지에서 총 결제금액을 자동 인식했습니다. 기존 입력값은 유지했습니다.",
+      });
+      return;
+    }
+    setAmountOcrState({
+      status: "error",
+      message: "이미지에서 총 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요.",
+    });
   };
 
   const handlePaste = (event) => {
@@ -316,6 +345,7 @@ function BeverageOrderPage() {
           onChangeMemo={(value) => setForm((current) => ({ ...current, memo: value }))}
           onChangeOrderType={(value) => setForm((current) => ({ ...current, order_type: normalizeOrderType(value) }))}
           onFileChange={setImageFile}
+          onAnalyzeExistingImage={analyzeAmountFromExistingImage}
           onPaste={handlePaste}
           onSubmit={handleSubmit}
         />
@@ -386,10 +416,12 @@ function BeverageOrderForm({
   onChangeMemo,
   onChangeOrderType,
   onFileChange,
+  onAnalyzeExistingImage,
   onPaste,
   onSubmit,
 }) {
   const currentImageUrl = editingOrder?.image_url ? getImageUrl(editingOrder.image_url) : "";
+  const canAnalyzeExistingImage = Boolean(editingOrder?.image_url && !form.image);
   const [isDragging, setIsDragging] = useState(false);
   const handleDrop = (event) => {
     event.preventDefault();
@@ -444,6 +476,16 @@ function BeverageOrderForm({
             onChange={(event) => onFileChange(event.target.files?.[0])}
           />
         </label>
+        {canAnalyzeExistingImage && (
+          <button
+            type="button"
+            className="secondary-button beverage-existing-ocr-button"
+            disabled={amountOcrState?.status === "loading"}
+            onClick={onAnalyzeExistingImage}
+          >
+            {amountOcrState?.status === "loading" ? "이미지 분석 중" : "이미지 금액 다시 분석"}
+          </button>
+        )}
         <label className="field beverage-type-field">
           <span>구분</span>
           <select

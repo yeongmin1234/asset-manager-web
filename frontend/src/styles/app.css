@@ -4144,6 +4144,11 @@ input:disabled {
   object-fit: contain;
 }
 
+.beverage-existing-ocr-button {
+  align-self: start;
+  justify-self: start;
+}
+
 .beverage-image-form .quick-create-actions {
   grid-column: 1 / -1;
 }
@@ -5318,6 +5323,57 @@ input:disabled {
   margin: 0;
 }
 
+.network-page-tabs {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 6px;
+  width: fit-content;
+}
+
+.network-page-tab {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 8px 14px;
+}
+
+.network-page-tab.active {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.network-device-toolbar,
+.network-credential-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.network-device-toolbar h3,
+.network-credential-toolbar h3 {
+  color: #0f172a;
+  font-size: 1.05rem;
+  margin: 0 0 4px;
+}
+
+.network-device-toolbar p,
+.network-credential-toolbar p {
+  color: #64748b;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
 .network-refresh-button {
   min-height: 36px;
   min-width: 88px;
@@ -5521,6 +5577,198 @@ input:disabled {
   min-height: 28px;
   padding: 5px 9px;
   white-space: nowrap;
+}
+
+.network-credential-page {
+  display: grid;
+  gap: 12px;
+}
+
+.network-credential-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.network-credential-summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.network-credential-summary-card span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.network-credential-summary-card strong {
+  color: #0f172a;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.network-credential-summary-important {
+  border-top: 3px solid #f59e0b;
+}
+
+.network-credential-summary-critical {
+  border-top: 3px solid #dc2626;
+}
+
+.network-credential-summary-password {
+  border-top: 3px solid #2563eb;
+}
+
+.network-credential-panel {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.network-credential-filters {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.35fr) minmax(140px, 0.35fr) auto;
+}
+
+.network-credential-message {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  font-size: 0.86rem;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.network-credential-table {
+  min-width: 1120px;
+}
+
+.network-credential-table th,
+.network-credential-table td {
+  font-size: 0.82rem;
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.network-credential-service {
+  color: #0f172a;
+  display: block;
+}
+
+.network-credential-url,
+.network-credential-note {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.network-credential-url {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.network-credential-url:hover {
+  text-decoration: underline;
+}
+
+.importance-badge {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.importance-normal {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.importance-important {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.importance-critical {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.network-password-cell,
+.network-credential-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.network-password-cell {
+  flex-wrap: wrap;
+}
+
+.network-password-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.network-password-mask,
+.network-password-value {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #0f172a;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  max-width: 180px;
+  overflow: hidden;
+  padding: 5px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-password-value {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.compact-button {
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.muted-text {
+  color: #94a3b8;
+}
+
+.network-credential-modal {
+  max-width: 780px;
+}
+
+.network-credential-modal form {
+  display: grid;
+  gap: 14px;
+}
+
+.network-credential-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.network-credential-note-field {
+  grid-column: 1 / -1;
 }
 
 /* UI polish pass: common controls and asset management readability */

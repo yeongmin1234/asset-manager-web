@@ -249,6 +249,27 @@ def delete_beverage_image_file(image_path: str) -> None:
         return
 
 
+def read_beverage_image_file(image_path: str) -> bytes:
+    try:
+        upload_root = Path(settings.upload_dir).resolve()
+        target = (upload_root / image_path).resolve()
+        if upload_root != target and upload_root not in target.parents:
+            raise BeverageOrderImageError("이미지 파일 경로가 올바르지 않습니다.")
+        if not target.exists() or not target.is_file():
+            raise BeverageOrderImageError("이미지 파일을 찾을 수 없습니다.")
+        content = target.read_bytes()
+    except BeverageOrderImageError:
+        raise
+    except OSError as exc:
+        raise BeverageOrderImageError("이미지 파일을 읽을 수 없습니다.") from exc
+
+    if not content:
+        raise BeverageOrderImageError("이미지 파일을 읽을 수 없습니다.")
+    if len(content) > MAX_IMAGE_SIZE_BYTES:
+        raise BeverageOrderImageError("이미지 파일은 10MB 이하만 분석할 수 있습니다.")
+    return content
+
+
 def get_beverage_upload_dir() -> Path:
     return Path(settings.upload_dir).resolve() / BEVERAGE_UPLOAD_SUBDIR
 

@@ -204,6 +204,42 @@ export async function getNetworkStatus() {
   return request("/network/status", { timeoutMs: 30000 });
 }
 
+export async function getNetworkCredentials(filters = {}) {
+  return normalizeCollection(await request("/network-credentials", { query: filters }));
+}
+
+export async function getNetworkCredentialSummary() {
+  return request("/network-credentials/summary");
+}
+
+export async function createNetworkCredential(credential) {
+  return request("/network-credentials", {
+    method: "POST",
+    body: credential,
+  });
+}
+
+export async function updateNetworkCredential(credentialId, credential) {
+  return request(`/network-credentials/${credentialId}`, {
+    method: "PUT",
+    body: credential,
+  });
+}
+
+export async function deleteNetworkCredential(credentialId) {
+  return request(`/network-credentials/${credentialId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function revealNetworkCredentialPassword(credentialId, adminPassword) {
+  return request(`/network-credentials/${credentialId}/reveal-password`, {
+    method: "POST",
+    body: { admin_password: adminPassword },
+    timeoutMs: 8000,
+  });
+}
+
 export async function pingVisitor() {
   return request("/visitors/ping", {
     method: "POST",
@@ -440,6 +476,13 @@ export async function analyzeBeverageOrderAmount(file) {
   const formData = new FormData();
   formData.append("file", file);
   return requestFormData("/beverage-orders/ocr/analyze-amount", formData, {
+    timeoutMs: 30000,
+  });
+}
+
+export async function analyzeExistingBeverageOrderAmount(orderId) {
+  return request(`/beverage-orders/${orderId}/ocr/analyze-amount`, {
+    method: "POST",
     timeoutMs: 30000,
   });
 }

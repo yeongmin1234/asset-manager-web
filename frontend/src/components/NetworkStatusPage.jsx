@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getNetworkStatus } from "../api/client.js";
+import NetworkCredentialPage from "./NetworkCredentialPage.jsx";
 
 const EMPTY_SUMMARY = {
   total: 0,
@@ -20,6 +21,44 @@ const TYPE_LABELS = {
 };
 
 function NetworkStatusPage() {
+  const [activeTab, setActiveTab] = useState("devices");
+
+  return (
+    <>
+      <div className="portal-screen-heading network-status-heading">
+        <div>
+          <h2>네트워크 현황</h2>
+          <p>사내 네트워크 장비 상태와 접속정보를 관리합니다.</p>
+        </div>
+      </div>
+
+      <div className="network-page-tabs" role="tablist" aria-label="네트워크 현황 탭">
+        <button
+          type="button"
+          className={activeTab === "devices" ? "network-page-tab active" : "network-page-tab"}
+          role="tab"
+          aria-selected={activeTab === "devices"}
+          onClick={() => setActiveTab("devices")}
+        >
+          장비 현황
+        </button>
+        <button
+          type="button"
+          className={activeTab === "credentials" ? "network-page-tab active" : "network-page-tab"}
+          role="tab"
+          aria-selected={activeTab === "credentials"}
+          onClick={() => setActiveTab("credentials")}
+        >
+          접속정보 관리
+        </button>
+      </div>
+
+      {activeTab === "devices" ? <NetworkDeviceStatusPanel /> : <NetworkCredentialPage />}
+    </>
+  );
+}
+
+function NetworkDeviceStatusPanel() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [publicIp, setPublicIp] = useState(null);
@@ -70,9 +109,9 @@ function NetworkStatusPage() {
 
   return (
     <>
-      <div className="portal-screen-heading network-status-heading">
+      <div className="network-device-toolbar">
         <div>
-          <h2>네트워크 현황</h2>
+          <h3>장비 현황</h3>
           <p>사내 주요 네트워크 서비스와 서버 상태를 확인합니다.</p>
         </div>
         <button

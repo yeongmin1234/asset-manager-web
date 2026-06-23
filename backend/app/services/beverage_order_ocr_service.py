@@ -12,7 +12,16 @@ _WARNED_RUNTIMES = set()
 AMOUNT_FOUND_MESSAGE = "이미지에서 결제금액을 자동 인식했습니다."
 AMOUNT_NOT_FOUND_MESSAGE = "이미지에서 결제금액을 찾지 못했습니다. 금액을 직접 입력해 주세요."
 
+PRIMARY_AMOUNT_KEYWORDS = [
+    "총 결제금액",
+    "총 결제 금액",
+    "총결제금액",
+    "최종 결제금액",
+    "최종 결제 금액",
+]
+
 AMOUNT_KEYWORDS = [
+    *PRIMARY_AMOUNT_KEYWORDS,
     "총 결제금액",
     "총 결제 금액",
     "결제 예정 금액",
@@ -24,7 +33,9 @@ AMOUNT_KEYWORDS = [
     "총액",
 ]
 
-AMOUNT_PATTERN = re.compile(r"(?:₩|￦)?\s*(\d{1,3}(?:[,\s]\d{3})+|\d{4,9})\s*(?:원)?")
+AMOUNT_PATTERN = re.compile(
+    r"(?:₩|￦)?\s*(\d{1,3}(?:(?:\s*,\s*|\s+)\d{3})+|\d{4,9})\s*(?:원)?"
+)
 
 
 def analyze_beverage_order_amount(image_bytes: bytes) -> BeverageOrderAmountOcrResponse:
@@ -136,13 +147,39 @@ def _merge_ocr_texts(texts: List[str]) -> str:
 
 
 def _extract_amount_candidates(text: str) -> List[int]:
+    primary_keyword_amounts = _extract_primary_keyword_amounts(text)
     keyword_amounts = _extract_keyword_amounts(text)
     all_amounts = _extract_all_amounts(text)
-    ordered_amounts = keyword_amounts[:]
+    ordered_amounts = primary_keyword_amounts[:]
+    for amount in keyword_amounts:
+        if amount not in ordered_amounts:
+            ordered_amounts.append(amount)
     for amount in sorted(all_amounts, reverse=True):
         if amount not in ordered_amounts:
             ordered_amounts.append(amount)
     return ordered_amounts
+
+
+def _extract_primary_keyword_amounts(text: str) -> List[int]:
+    lines = _normalize_ocr_lines(text)
+    amounts: List[int] = []
+    for index, line in enumerate(lines):
+        if not _contains_primary_amount_keyword(line):
+            continue
+        window_start = max(0, index - 2)
+        window_end = min(len(lines), index + 4)
+        ordered_lines = [line]
+        ordered_lines.extend(lines[index + 1:window_end])
+        ordered_lines.extend(lines[window_start:index])
+        for amount in _extract_all_amounts("\n".join(ordered_lines)):
+            if amount not in amounts:
+                amounts.append(amount)
+    if amounts:
+        logger.debug(
+            "Beverage amount OCR matched primary payment keyword. Candidates: %s",
+            amounts[:3],
+        )
+    return amounts
 
 
 def _extract_keyword_amounts(text: str) -> List[int]:
@@ -150,7 +187,7 @@ def _extract_keyword_amounts(text: str) -> List[int]:
     normalized_text = str(text or "")
     for keyword in AMOUNT_KEYWORDS:
         for match in re.finditer(re.escape(keyword), normalized_text, re.IGNORECASE):
-            nearby_text = normalized_text[match.start():match.end() + 80]
+            nearby_text = normalized_text[match.start():match.end() + 140]
             for amount in _extract_all_amounts(nearby_text):
                 if amount not in amounts:
                     amounts.append(amount)
@@ -176,6 +213,27 @@ def _normalize_amount(value: str) -> Optional[int]:
     if amount <= 0:
         return None
     return amount
+
+
+def _normalize_ocr_lines(text: str) -> List[str]:
+    lines: List[str] = []
+    for line in str(text or "").splitlines():
+        normalized_line = re.sub(r"[ \t]+", " ", line).strip()
+        if normalized_line:
+            lines.append(normalized_line)
+    return lines
+
+
+def _contains_primary_amount_keyword(line: str) -> bool:
+    compact_line = _compact_korean_keyword_text(line)
+    for keyword in PRIMARY_AMOUNT_KEYWORDS:
+        if _compact_korean_keyword_text(keyword) in compact_line:
+            return True
+    return False
+
+
+def _compact_korean_keyword_text(value: str) -> str:
+    return re.sub(r"[\s:：·ㆍ\-\|_/\\\[\]().]+", "", str(value or "")).lower()
 
 
 def _format_amount_text(amount: Optional[int]) -> Optional[str]:

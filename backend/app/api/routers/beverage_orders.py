@@ -19,6 +19,7 @@ from app.services.beverage_order_service import (
     get_beverage_order_record,
     get_beverage_order_records,
     get_beverage_order_summary,
+    read_beverage_image_file,
     save_beverage_image_file,
     update_beverage_order_record,
 )
@@ -85,6 +86,33 @@ async def analyze_beverage_order_amount_image(
         )
 
     return analyze_beverage_order_amount(image_bytes)
+
+
+@router.post("/{order_id}/ocr/analyze-amount", response_model=BeverageOrderAmountOcrResponse)
+def analyze_existing_beverage_order_amount_image(
+    order_id: int,
+    db: Session = Depends(get_db),
+) -> BeverageOrderAmountOcrResponse:
+    try:
+        record = get_beverage_order_record(db, order_id)
+        if not record.image_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="분석할 이미지가 없습니다.",
+            )
+        return analyze_beverage_order_amount(read_beverage_image_file(record.image_path))
+    except BeverageOrderRecordNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Beverage order record not found.",
+        ) from exc
+    except BeverageOrderImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while loading beverage order image.",
+        ) from exc
 
 
 @router.post("", response_model=BeverageOrderRecordRead, status_code=status.HTTP_201_CREATED)

@@ -9,3 +9,4 @@ openpyxl
 python-multipart
 Pillow
 pytesseract
+cryptography>=42,<45
