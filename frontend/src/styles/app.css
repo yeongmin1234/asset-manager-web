@@ -8387,10 +8387,99 @@ textarea {
 .data-table th .table-sort.active,
 .asset-table th .table-sort.active,
 .history-table th .table-sort.active {
-  background: #ffffff;
-  border-color: var(--primary-line);
+  background: transparent;
+  border-color: transparent;
+  border-radius: 0;
   box-shadow: inset 0 -2px 0 var(--primary);
   color: var(--primary);
+}
+
+/* Final guard: selected tabs and filters stay line-based, while real action buttons keep filled color. */
+.asset-location-tab.active,
+.asset-location-tab.active:hover,
+.category-tab.active,
+.category-tab.active:not(:disabled):hover,
+.software-tab.active,
+.software-tab.active:not(:disabled):hover,
+.vehicle-page-tab.active,
+.vehicle-page-tab.active:hover,
+.vehicle-form-tab.active,
+.vehicle-form-tab.active:not(:disabled):hover,
+.paju-fire-location-tab.active,
+.paju-fire-location-tab.active:hover,
+.network-page-tab.active,
+.network-page-tab.active:hover,
+.settings-access-tab.active,
+.settings-access-tab.active:hover,
+.settings-nav-item.active,
+.settings-nav-item.active:hover,
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover,
+.software-tabs .software-tab.software-tab-permanent.active,
+.software-tabs .software-tab.software-tab-permanent.active:hover,
+.software-tabs .software-tab.software-tab-subscription.active,
+.software-tabs .software-tab.software-tab-subscription.active:hover,
+.software-tabs .software-tab.software-tab-inactive.active,
+.software-tabs .software-tab.software-tab-inactive.active:hover {
+  background: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow:
+    inset 0 -2px 0 var(--primary),
+    0 0 0 3px rgba(37, 99, 235, 0.08) !important;
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary) !important;
+}
+
+.asset-location-tab:not(.active):not(:disabled):hover,
+.category-tab:not(.active):not(:disabled):hover,
+.software-tab:not(.active):not(:disabled):hover,
+.vehicle-page-tab:not(.active):not(:disabled):hover,
+.vehicle-form-tab:not(.active):not(:disabled):hover,
+.paju-fire-location-tab:not(.active):not(:disabled):hover,
+.network-page-tab:not(.active):not(:disabled):hover,
+.settings-access-tab:not(.active):not(:disabled):hover,
+.settings-nav-item:not(.active):not(:disabled):hover,
+.history-filter-tabs .history-filter-button:not(.history-filter-button-active):not(:disabled):hover {
+  background: var(--primary-soft) !important;
+  border-color: var(--primary-line) !important;
+  color: var(--primary) !important;
+  transform: none;
+}
+
+.category-tab-add,
+.category-tab-add:not(:disabled):hover {
+  background: #ffffff !important;
+  border-style: dashed;
+  box-shadow: none !important;
+}
+
+.data-table th,
+.history-table th,
+.asset-table th,
+.software-table th,
+.vehicle-table th,
+.vehicle-history-table th,
+.paju-fire-table th,
+.network-status-table th,
+.network-credential-table th,
+.excel-preview-table th {
+  background: #f8fafc !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+  color: var(--text-muted) !important;
+}
+
+.data-table th .table-sort,
+.asset-table th .table-sort,
+.history-table th .table-sort,
+.data-table th .table-sort:not(:disabled):hover,
+.asset-table th .table-sort:not(:disabled):hover,
+.history-table th .table-sort:not(:disabled):hover,
+.data-table th .table-sort.active,
+.asset-table th .table-sort.active,
+.history-table th .table-sort.active {
+  background: transparent !important;
+  border-color: transparent !important;
+  border-radius: 0;
 }
 
 /* Final polish: action hierarchy, security value display, and state messages */
@@ -8644,12 +8733,31 @@ button:disabled,
 
 .app-splash::after {
   background:
+    radial-gradient(circle at 22% 28%, rgba(255, 255, 255, 0.16), transparent 18%),
+    radial-gradient(circle at 38% 35%, rgba(96, 165, 250, 0.12), transparent 20%),
     radial-gradient(circle at 75% 28%, rgba(255, 255, 255, 0.1), transparent 26%),
     linear-gradient(90deg, rgba(8, 15, 30, 0.26), transparent 58%);
+  animation: splashGlow 4s ease-in-out infinite alternate;
   content: "";
   inset: 0;
+  opacity: 0.22;
   pointer-events: none;
   position: absolute;
+  z-index: 0;
+}
+
+.app-splash::before {
+  animation: splashRain 1.2s linear infinite;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0 38%, transparent 38% 100%);
+  background-size: 2px 84px;
+  content: "";
+  inset: 0;
+  opacity: 0.14;
+  pointer-events: none;
+  position: absolute;
+  transform: translateY(-84px);
+  z-index: 0;
 }
 
 .app-splash-exit {
@@ -8745,6 +8853,26 @@ button:disabled,
   }
 }
 
+@keyframes splashRain {
+  from {
+    transform: translateY(-84px);
+  }
+  to {
+    transform: translateY(84px);
+  }
+}
+
+@keyframes splashGlow {
+  from {
+    filter: blur(0);
+    transform: translate3d(-8px, -4px, 0) scale(1);
+  }
+  to {
+    filter: blur(1px);
+    transform: translate3d(10px, 8px, 0) scale(1.03);
+  }
+}
+
 @media (max-width: 720px) {
   .app-splash-content {
     left: 50%;
@@ -8768,5 +8896,10 @@ button:disabled,
   .app-splash,
   .app-splash-exit {
     animation-duration: 1ms;
+  }
+
+  .app-splash::before,
+  .app-splash::after {
+    animation: none;
   }
 }

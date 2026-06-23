@@ -202,10 +202,10 @@ function App() {
   useEffect(() => {
     const exitTimerId = window.setTimeout(() => {
       setIsSplashExiting(true);
-    }, 1150);
+    }, 2000);
     const hideTimerId = window.setTimeout(() => {
       setIsSplashVisible(false);
-    }, 1450);
+    }, 2300);
 
     return () => {
       window.clearTimeout(exitTimerId);
