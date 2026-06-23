@@ -8903,3 +8903,153 @@ button:disabled,
     animation: none;
   }
 }
+
+/* Selection-control hardening: tabs/filters use lines, never filled primary blue. */
+.asset-location-tabs .asset-location-tab,
+.asset-category-tabs .category-tab,
+.asset-category-tab-row .category-tab,
+.software-tabs .software-tab,
+.vehicle-page-tabs .vehicle-page-tab,
+.vehicle-form-tabs .vehicle-form-tab,
+.paju-fire-location-tabs .paju-fire-location-tab,
+.network-page-tabs .network-page-tab,
+.settings-access-tabs .settings-access-tab,
+.history-filter-tabs .history-filter-button,
+.filter-tabs button,
+.tab-button,
+.pill-tab,
+.segmented-button,
+.asset-filter-chip {
+  background: #ffffff !important;
+  border: 1px solid var(--border-soft) !important;
+  box-shadow: none !important;
+  color: var(--text-main) !important;
+  -webkit-text-fill-color: var(--text-main) !important;
+}
+
+.asset-location-tabs .asset-location-tab.active,
+.asset-location-tabs button.asset-location-tab.active,
+.asset-category-tabs .category-tab.active,
+.asset-category-tabs button.category-tab.active,
+.asset-category-tab-row .category-tab.active,
+.asset-category-tab-row button.category-tab.active,
+.software-tabs .software-tab.active,
+.vehicle-page-tabs .vehicle-page-tab.active,
+.vehicle-form-tabs .vehicle-form-tab.active,
+.paju-fire-location-tabs .paju-fire-location-tab.active,
+.network-page-tabs .network-page-tab.active,
+.settings-access-tabs .settings-access-tab.active,
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.filter-tabs button.active,
+.tab-button.active,
+.pill-tab.active,
+.segmented-button.active,
+.asset-filter-chip.active,
+.filter-active,
+.tab-active,
+.pill-active,
+.is-active {
+  background: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow:
+    inset 0 -2px 0 var(--primary),
+    0 0 0 3px rgba(37, 99, 235, 0.08) !important;
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary) !important;
+}
+
+.asset-location-tabs .asset-location-tab:not(.active):not(:disabled):hover,
+.asset-category-tabs .category-tab:not(.active):not(:disabled):hover,
+.asset-category-tab-row .category-tab:not(.active):not(:disabled):hover,
+.software-tabs .software-tab:not(.active):not(:disabled):hover,
+.vehicle-page-tabs .vehicle-page-tab:not(.active):not(:disabled):hover,
+.vehicle-form-tabs .vehicle-form-tab:not(.active):not(:disabled):hover,
+.paju-fire-location-tabs .paju-fire-location-tab:not(.active):not(:disabled):hover,
+.network-page-tabs .network-page-tab:not(.active):not(:disabled):hover,
+.settings-access-tabs .settings-access-tab:not(.active):not(:disabled):hover,
+.history-filter-tabs .history-filter-button:not(.history-filter-button-active):not(:disabled):hover,
+.filter-tabs button:not(.active):not(:disabled):hover,
+.tab-button:not(.active):not(:disabled):hover,
+.pill-tab:not(.active):not(:disabled):hover,
+.segmented-button:not(.active):not(:disabled):hover,
+.asset-filter-chip:not(.active):not(:disabled):hover {
+  background: var(--primary-soft) !important;
+  border-color: var(--primary) !important;
+  box-shadow: none !important;
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary) !important;
+}
+
+.asset-location-tabs .asset-location-tab:focus-visible,
+.asset-category-tabs .category-tab:focus-visible,
+.asset-category-tab-row .category-tab:focus-visible,
+.software-tabs .software-tab:focus-visible,
+.vehicle-page-tabs .vehicle-page-tab:focus-visible,
+.vehicle-form-tabs .vehicle-form-tab:focus-visible,
+.paju-fire-location-tabs .paju-fire-location-tab:focus-visible,
+.network-page-tabs .network-page-tab:focus-visible,
+.settings-access-tabs .settings-access-tab:focus-visible,
+.history-filter-tabs .history-filter-button:focus-visible,
+.filter-tabs button:focus-visible,
+.tab-button:focus-visible,
+.pill-tab:focus-visible,
+.segmented-button:focus-visible,
+.asset-filter-chip:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
+.asset-category-tabs .category-tab.category-tab-add,
+.asset-category-tab-row .category-tab.category-tab-add,
+.asset-category-tabs button.category-tab-add,
+.asset-category-tab-row button.category-tab-add {
+  background: #ffffff !important;
+  border: 1px dashed var(--primary) !important;
+  box-shadow: none !important;
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary) !important;
+}
+
+.data-table th,
+.history-table th,
+.asset-table th,
+.software-table th,
+.vehicle-table th,
+.vehicle-history-table th,
+.paju-fire-table th,
+.network-status-table th,
+.network-credential-table th,
+.excel-preview-table th {
+  background: #f8fafc !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+  border-radius: 0 !important;
+  color: var(--text-muted) !important;
+}
+
+.data-table th .table-sort,
+.asset-table th .table-sort,
+.history-table th .table-sort,
+.data-table th .resizable-table-heading,
+.asset-table th .resizable-table-heading,
+.software-table th .resizable-table-heading,
+.paju-fire-table th .resizable-table-heading {
+  background: transparent !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
+
+.data-table th .table-sort.active,
+.asset-table th .table-sort.active,
+.history-table th .table-sort.active,
+.data-table th .table-sort:not(:disabled):hover,
+.asset-table th .table-sort:not(:disabled):hover,
+.history-table th .table-sort:not(:disabled):hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 -2px 0 var(--primary) !important;
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary) !important;
+}
