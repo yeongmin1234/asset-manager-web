@@ -480,13 +480,6 @@ export async function analyzeBeverageOrderAmount(file) {
   });
 }
 
-export async function analyzeExistingBeverageOrderAmount(orderId) {
-  return request(`/beverage-orders/${orderId}/ocr/analyze-amount`, {
-    method: "POST",
-    timeoutMs: 30000,
-  });
-}
-
 export async function createBeverageOrder(order) {
   return requestFormData("/beverage-orders", order);
 }

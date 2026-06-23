@@ -4144,11 +4144,6 @@ input:disabled {
   object-fit: contain;
 }
 
-.beverage-existing-ocr-button {
-  align-self: start;
-  justify-self: start;
-}
-
 .beverage-image-form .quick-create-actions {
   grid-column: 1 / -1;
 }
@@ -6302,6 +6297,678 @@ textarea:focus,
 
   .network-recent-checks {
     flex-direction: column;
+  }
+}
+
+/* Clean Enterprise Dashboard pass: calm, bright, consistent admin UI */
+:root {
+  --page-bg: #f3f7fb;
+  --page-bg-soft: #f8fbff;
+  --card-bg: #ffffff;
+  --card-bg-muted: #f8fafc;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --primary-line: #bfdbfe;
+  --border: #dbe4ef;
+  --border-soft: #e8eef6;
+  --text-main: #172033;
+  --text-muted: #64748b;
+  --success: #15803d;
+  --success-soft: #ecfdf3;
+  --success-line: #bbf7d0;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --warning-line: #fde68a;
+  --danger: #b91c1c;
+  --danger-soft: #fff1f2;
+  --danger-line: #fecdd3;
+  --info: #2563eb;
+  --info-soft: #eff6ff;
+  --info-line: #bfdbfe;
+  --neutral: #475569;
+  --neutral-soft: #f1f5f9;
+  --neutral-line: #cbd5e1;
+  --radius-card: 8px;
+  --radius-control: 7px;
+  --shadow-enterprise: 0 8px 22px rgba(15, 23, 42, 0.045);
+  --shadow-enterprise-hover: 0 14px 30px rgba(15, 23, 42, 0.075);
+  --control-height: 38px;
+  --surface: var(--card-bg);
+  --surface-muted: var(--card-bg-muted);
+  --line: var(--border);
+  --line-soft: var(--border-soft);
+  --text: var(--text-main);
+  --muted: var(--text-muted);
+  --brand: var(--primary);
+  --brand-dark: var(--primary-hover);
+  --shadow-card: var(--shadow-enterprise);
+}
+
+body {
+  background:
+    linear-gradient(180deg, var(--page-bg-soft) 0%, var(--page-bg) 100%),
+    var(--page-bg);
+  color: var(--text-main);
+}
+
+.portal-shell {
+  background:
+    linear-gradient(180deg, var(--page-bg-soft) 0%, var(--page-bg) 100%),
+    var(--page-bg);
+}
+
+.portal-content,
+.portal-main,
+.dashboard-page,
+.settings-page,
+.network-credential-page,
+.beverage-page {
+  gap: 16px;
+}
+
+.content-panel,
+.quick-create,
+.toolbar,
+.portal-screen-heading,
+.portal-side-card,
+.settings-card,
+.settings-hero,
+.settings-detail-panel,
+.settings-side-nav,
+.excel-section-card,
+.dashboard-panel,
+.dashboard-summary-card,
+.dashboard-hero-compact,
+.stats-summary,
+.category-stats,
+.department-stats,
+.monthly-stats,
+.modal,
+.detail-modal,
+.software-license-modal,
+.paju-note-modal,
+.admin-auth-modal,
+.category-create-modal,
+.network-summary-compact,
+.network-credential-summary-card,
+.beverage-stat-card,
+.beverage-post-item,
+.beverage-auto-preview,
+.state-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-enterprise);
+}
+
+.dashboard-summary-card,
+.dashboard-panel,
+.settings-card,
+.network-credential-summary-card,
+.beverage-stat-card {
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.dashboard-summary-card:hover,
+.dashboard-panel:hover,
+.settings-card:hover,
+.network-credential-summary-card:hover,
+.beverage-stat-card:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-enterprise-hover);
+  transform: translateY(-1px);
+}
+
+.portal-screen-heading,
+.section-heading,
+.settings-detail-heading,
+.modal-header,
+.detail-header,
+.software-license-modal-heading,
+.paju-note-modal-heading {
+  border-color: var(--border-soft);
+}
+
+.portal-screen-heading h2,
+.section-heading h2,
+.section-heading h3,
+.quick-create-heading h3,
+.settings-detail-heading h3,
+.dashboard-panel h3,
+.network-device-toolbar h3,
+.network-credential-toolbar h3 {
+  color: var(--text-main);
+  letter-spacing: 0;
+}
+
+.portal-screen-heading p,
+.section-heading p,
+.quick-create-heading p,
+.settings-detail-heading p,
+.dashboard-panel p,
+.network-device-toolbar p,
+.network-credential-toolbar p {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+button,
+.primary-action,
+.primary-button,
+.secondary-button,
+.danger-button,
+.caution-button,
+.export-button,
+.software-action-button,
+.compact-button {
+  border-radius: var(--radius-control);
+  font-weight: 800;
+  min-height: var(--control-height);
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+button:disabled,
+.primary-action:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled,
+.caution-button:disabled,
+.export-button:disabled {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
+}
+
+.primary-action,
+.primary-button,
+button:not(.secondary-button):not(.danger-button):not(.caution-button):not(.export-button):not(.icon-button):not(.portal-brand-button):not(.sidebar-menu-item):not(.network-page-tab):not(.beverage-thumbnail-button):not(.beverage-post-main):not(.network-password-mask):not(.network-password-value) {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #ffffff;
+}
+
+.primary-action:not(:disabled):hover,
+.primary-button:not(:disabled):hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.secondary-button,
+.export-button {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--neutral);
+}
+
+.secondary-button:not(:disabled):hover,
+.export-button:not(:disabled):hover {
+  background: var(--card-bg-muted);
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+}
+
+.danger-button {
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  color: #ffffff;
+}
+
+.danger-button:not(:disabled):hover {
+  background: #991b1b;
+  border-color: #991b1b;
+  box-shadow: 0 8px 18px rgba(185, 28, 28, 0.14);
+}
+
+.icon-button,
+.portal-menu-button,
+.portal-alert-button {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--neutral);
+  min-width: var(--control-height);
+}
+
+.icon-button:not(:disabled):hover,
+.portal-menu-button:not(:disabled):hover,
+.portal-alert-button:not(:disabled):hover {
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+  box-shadow: none;
+  color: var(--primary);
+  transform: none;
+}
+
+.software-row-actions,
+.vehicle-actions-cell,
+.network-credential-actions,
+.network-password-actions,
+.beverage-actions,
+.beverage-detail-actions,
+.form-actions,
+.quick-create-actions {
+  gap: 8px;
+}
+
+.software-action-button,
+.compact-button {
+  min-height: 30px;
+  min-width: auto;
+  padding: 6px 10px;
+}
+
+.field {
+  gap: 6px;
+}
+
+.field span,
+.spec-image-field > span,
+.settings-info-list dt,
+.beverage-auto-preview span,
+.beverage-auto-preview small {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.field.required span::after {
+  color: var(--danger);
+}
+
+.field input,
+.field select,
+.field textarea,
+.portal-search input,
+.filter-field input,
+.filter-field select,
+.settings-admin-password-form input,
+.admin-auth-password-field input {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text-main);
+  min-height: var(--control-height);
+  outline: none;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.field input::placeholder,
+.field textarea::placeholder,
+.portal-search input::placeholder {
+  color: #9aa9bd;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.portal-search input:focus,
+.filter-field input:focus,
+.filter-field select:focus,
+.settings-admin-password-form input:focus,
+.admin-auth-password-field input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.field textarea,
+textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.field small,
+.settings-muted,
+.state-detail {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.inline-alert,
+.state-error,
+.settings-admin-form-error,
+.admin-auth-error {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.inline-info,
+.inline-success,
+.settings-admin-form-message {
+  background: var(--success-soft);
+  border-color: var(--success-line);
+  color: var(--success);
+}
+
+.table-scroll,
+.network-table-scroll,
+.network-credential-table-scroll {
+  overflow-x: auto;
+}
+
+.data-table,
+.history-table,
+.asset-table,
+.software-table,
+.vehicle-table,
+.paju-fire-table,
+.network-status-table,
+.network-credential-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table th,
+.history-table th,
+.asset-table th,
+.software-table th,
+.vehicle-table th,
+.paju-fire-table th,
+.network-status-table th,
+.network-credential-table th {
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border);
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.data-table td,
+.history-table td,
+.asset-table td,
+.software-table td,
+.vehicle-table td,
+.paju-fire-table td,
+.network-status-table td,
+.network-credential-table td {
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-main);
+}
+
+.data-table tbody tr,
+.history-table tbody tr,
+.asset-table tbody tr,
+.software-table tbody tr,
+.vehicle-table tbody tr,
+.paju-fire-table tbody tr,
+.network-status-table tbody tr,
+.network-credential-table tbody tr {
+  transition: background 0.14s ease;
+}
+
+.data-table tbody tr:hover,
+.history-table tbody tr:hover,
+.asset-table tbody tr:hover,
+.software-table tbody tr:hover,
+.vehicle-table tbody tr:hover,
+.paju-fire-table tbody tr:hover,
+.network-status-table tbody tr:hover,
+.network-credential-table tbody tr:hover {
+  background: #f8fbff;
+}
+
+.asset-row-selected,
+.beverage-post-item.selected,
+.software-row-selected,
+.vehicle-row-selected {
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+}
+
+.subtotal-row,
+.paju-fire-subtotal-row,
+.total-row {
+  background: #f8fafc;
+  font-weight: 900;
+}
+
+.network-credential-url,
+.network-credential-note,
+.network-target,
+.asset-table td,
+.software-table td,
+.vehicle-table td {
+  min-width: 0;
+}
+
+.status-badge,
+.software-license-badge,
+.software-expiration-badge,
+.software-type-badge,
+.vehicle-insurance-badge,
+.beverage-type-badge,
+.network-status-badge,
+.importance-badge,
+.settings-version-badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1;
+  min-height: 24px;
+  padding: 4px 9px;
+}
+
+.status-badge-in-use,
+.network-status-badge-ok,
+.software-license-badge.subscription,
+.software-expiration-ok,
+.vehicle-insurance-ok {
+  background: var(--success-soft);
+  border-color: var(--success-line);
+  color: var(--success);
+}
+
+.software-expiration-warning,
+.vehicle-insurance-warning,
+.network-status-badge-warning,
+.importance-important {
+  background: var(--warning-soft);
+  border-color: var(--warning-line);
+  color: var(--warning);
+}
+
+.status-badge-disposed,
+.software-license-badge.inactive,
+.software-expiration-expired,
+.software-expiration-danger,
+.vehicle-insurance-danger,
+.network-status-badge-down,
+.importance-critical {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.status-badge-unused,
+.status-badge-unknown,
+.importance-normal,
+.software-license-badge.unknown {
+  background: var(--neutral-soft);
+  border-color: var(--neutral-line);
+  color: var(--neutral);
+}
+
+.software-license-badge.permanent {
+  background: #334155;
+  border-color: #334155;
+  color: #ffffff;
+}
+
+.beverage-type-beverage,
+.software-type-badge,
+.settings-version-badge {
+  background: var(--info-soft);
+  border-color: var(--info-line);
+  color: var(--info);
+}
+
+.beverage-type-supplies {
+  background: var(--success-soft);
+  border-color: var(--success-line);
+  color: var(--success);
+}
+
+.portal-sidebar {
+  background: rgba(255, 255, 255, 0.96);
+  border-right: 1px solid var(--border);
+  box-shadow: 6px 0 24px rgba(15, 23, 42, 0.035);
+  gap: 18px;
+}
+
+.portal-brand {
+  border-bottom-color: var(--border-soft);
+}
+
+.portal-nav {
+  gap: 18px;
+}
+
+.portal-nav-group {
+  gap: 8px;
+}
+
+.portal-nav-group-title {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 0 8px;
+}
+
+.portal-sidebar .sidebar-menu-item {
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-control);
+  color: #334155;
+  min-height: 42px;
+  padding: 9px 10px;
+}
+
+.portal-sidebar .sidebar-menu-item strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-sidebar .sidebar-menu-item span {
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  color: #64748b;
+}
+
+.portal-sidebar .sidebar-menu-item:hover {
+  background: #f8fbff;
+  border-color: var(--primary-line);
+  box-shadow: none;
+  color: var(--primary);
+  transform: none;
+}
+
+.portal-sidebar .sidebar-menu-item.active {
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+  border-left-color: var(--primary);
+  box-shadow: none;
+  color: #1d4ed8;
+}
+
+.portal-help-card {
+  background: #f8fafc;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.portal-topbar {
+  background: rgba(255, 255, 255, 0.86);
+  border-bottom: 1px solid var(--border-soft);
+  backdrop-filter: blur(8px);
+}
+
+.portal-search {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+
+.dashboard-summary-grid,
+.network-credential-summary,
+.beverage-stats,
+.stats-summary {
+  gap: 12px;
+}
+
+.beverage-image-preview,
+.spec-image-dropzone,
+.excel-empty-state {
+  background: #f8fafc;
+  border-color: var(--border);
+  border-radius: var(--radius-card);
+}
+
+.beverage-image-preview.dragging,
+.beverage-image-preview:focus,
+.spec-image-dropzone.dragging,
+.spec-image-field.dragging .spec-image-dropzone,
+.spec-image-dropzone:focus {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+@media (max-width: 900px) {
+  .dashboard-summary-grid,
+  .network-credential-summary,
+  .beverage-stats,
+  .stats-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-summary-grid,
+  .network-credential-summary,
+  .beverage-stats,
+  .stats-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-screen-heading,
+  .network-device-toolbar,
+  .network-credential-toolbar,
+  .quick-create-heading,
+  .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .software-row-actions,
+  .vehicle-actions-cell,
+  .network-credential-actions,
+  .beverage-actions,
+  .beverage-detail-actions,
+  .form-actions,
+  .quick-create-actions {
+    align-items: stretch;
   }
 }
 
