@@ -8215,3 +8215,180 @@ textarea {
     align-items: stretch;
   }
 }
+
+/* Clean Enterprise pass: tabs, filters, and selection controls use lines, not filled blue. */
+.asset-location-tab,
+.category-tab,
+.software-tab,
+.vehicle-page-tab,
+.vehicle-form-tab,
+.paju-fire-location-tab,
+.network-page-tab,
+.settings-access-tab,
+.settings-nav-item,
+.history-filter-tabs .history-filter-button,
+.table-sort {
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  box-shadow: none;
+  color: var(--text-main);
+  font-weight: 800;
+  min-height: 36px;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+}
+
+.asset-location-tab:not(:disabled):hover,
+.category-tab:not(:disabled):hover,
+.software-tab:not(:disabled):hover,
+.vehicle-page-tab:not(:disabled):hover,
+.vehicle-form-tab:not(:disabled):hover,
+.paju-fire-location-tab:not(:disabled):hover,
+.network-page-tab:not(:disabled):hover,
+.settings-access-tab:not(:disabled):hover,
+.settings-nav-item:not(:disabled):hover,
+.history-filter-tabs .history-filter-button:not(:disabled):hover,
+.table-sort:not(:disabled):hover {
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+  box-shadow: none;
+  color: var(--primary);
+  transform: none;
+}
+
+.asset-location-tab.active,
+.asset-location-tab.active:hover,
+.category-tab.active,
+.category-tab.active:not(:disabled):hover,
+.software-tab.active,
+.software-tab.active:not(:disabled):hover,
+.vehicle-page-tab.active,
+.vehicle-page-tab.active:hover,
+.vehicle-form-tab.active,
+.vehicle-form-tab.active:not(:disabled):hover,
+.paju-fire-location-tab.active,
+.paju-fire-location-tab.active:hover,
+.network-page-tab.active,
+.network-page-tab.active:hover,
+.settings-access-tab.active,
+.settings-nav-item.active,
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover,
+.table-sort.active {
+  background: #ffffff;
+  border-color: var(--primary);
+  box-shadow:
+    inset 0 -2px 0 var(--primary),
+    0 0 0 3px rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+  transform: none;
+}
+
+.software-tabs .software-tab.software-tab-permanent.active,
+.software-tabs .software-tab.software-tab-permanent.active:hover,
+.software-tabs .software-tab.software-tab-subscription.active,
+.software-tabs .software-tab.software-tab-subscription.active:hover,
+.software-tabs .software-tab.software-tab-inactive.active,
+.software-tabs .software-tab.software-tab-inactive.active:hover {
+  background: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow:
+    inset 0 -2px 0 var(--primary),
+    0 0 0 3px rgba(37, 99, 235, 0.08) !important;
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary);
+}
+
+.software-tabs .software-tab.software-tab-permanent:not(.active),
+.software-tabs .software-tab.software-tab-subscription:not(.active),
+.software-tabs .software-tab.software-tab-inactive:not(.active) {
+  background: #ffffff;
+  color: var(--text-main);
+}
+
+.asset-location-tabs,
+.asset-category-tabs,
+.asset-category-tab-row,
+.software-tabs,
+.vehicle-page-tabs,
+.vehicle-form-tabs,
+.paju-fire-location-tabs,
+.network-page-tabs,
+.settings-access-tabs,
+.history-filter-tabs {
+  background: transparent;
+  border-color: var(--border-soft);
+}
+
+.settings-nav-item.active .settings-nav-icon,
+.settings-nav-item:hover .settings-nav-icon {
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+  color: var(--primary);
+}
+
+.settings-nav-item.active small,
+.history-filter-tabs .history-filter-button.history-filter-button-active .history-filter-label,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover .history-filter-label {
+  color: var(--primary);
+}
+
+.paju-fire-location-tab.active span,
+.paju-fire-location-tab.active:hover span {
+  color: var(--primary);
+}
+
+.category-tab-add {
+  background: #ffffff;
+  border: 1px dashed var(--border);
+  color: var(--primary);
+}
+
+.category-tab-add:not(:disabled):hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  box-shadow: none;
+  color: var(--primary);
+}
+
+.data-table th,
+.history-table th,
+.asset-table th,
+.software-table th,
+.vehicle-table th,
+.vehicle-history-table th,
+.paju-fire-table th,
+.network-status-table th,
+.network-credential-table th,
+.excel-preview-table th {
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-weight: 900;
+}
+
+.data-table th .table-sort,
+.asset-table th .table-sort,
+.history-table th .table-sort {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: inherit;
+  min-height: 28px;
+}
+
+.data-table th .table-sort:not(:disabled):hover,
+.asset-table th .table-sort:not(:disabled):hover,
+.history-table th .table-sort:not(:disabled):hover,
+.data-table th .table-sort.active,
+.asset-table th .table-sort.active,
+.history-table th .table-sort.active {
+  background: #ffffff;
+  border-color: var(--primary-line);
+  box-shadow: inset 0 -2px 0 var(--primary);
+  color: var(--primary);
+}
