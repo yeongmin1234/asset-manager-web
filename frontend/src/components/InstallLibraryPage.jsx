@@ -330,6 +330,7 @@ function InstallLibraryPage() {
         <section className="content-panel install-library-list-panel">
           <InstallLibraryList
             error={listState.error}
+            isAdminMode={adminMode.isEnabled}
             isLoading={listState.isLoading}
             items={items}
             onDelete={(item) => runAdminAction("delete", item)}

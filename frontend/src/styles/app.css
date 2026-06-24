@@ -10657,6 +10657,77 @@ a:focus-visible,
   line-height: 1.35;
 }
 
+.install-library-row-actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.install-library-row-actions .secondary-button,
+.install-library-row-actions .ghost-button,
+.install-library-row-actions .danger-ghost-button {
+  min-height: 30px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.install-checklist-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+.install-checklist-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.install-checklist-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.install-checklist-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.install-checklist-title-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.install-checklist-title-row .install-library-required-badge,
+.install-checklist-title-row .install-library-order-badge,
+.install-checklist-title-row small {
+  flex: 0 0 auto;
+}
+
+.install-checklist-meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.install-checklist-download,
+.install-checklist-complete-badge {
+  justify-self: end;
+  white-space: nowrap;
+}
+
 .vehicle-insurance-actions-header,
 .vehicle-insurance-actions-cell {
   min-width: 128px;

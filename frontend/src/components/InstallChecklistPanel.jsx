@@ -50,31 +50,34 @@ function InstallChecklistPanel({ items = [], onDownload }) {
                   : "install-checklist-item"
               }
             >
-              <label className="install-checklist-check">
-                <input
-                  type="checkbox"
-                  checked={checkedMap[String(item.id)] === true}
-                  onChange={(event) =>
-                    setCheckedMap((current) => ({
-                      ...current,
-                      [String(item.id)]: event.target.checked,
-                    }))
-                  }
-                />
-                <span className="install-checklist-main">
-                  <span className="install-checklist-title-row">
-                    {Number(item.install_order || 0) > 0 && (
-                      <em className="install-library-order-badge">{item.install_order}</em>
-                    )}
-                    <strong>{item.title}</strong>
-                    {item.is_required && <em className="install-library-required-badge">필수</em>}
-                    {item.version && <small>{item.version}</small>}
-                  </span>
-                  <small className="install-checklist-meta">
-                    {item.category || "기타"} / {item.original_filename || item.description || "-"}
-                  </small>
-                </span>
-              </label>
+              <input
+                className="install-checklist-checkbox"
+                type="checkbox"
+                aria-label={`${item.title} 설치 완료`}
+                checked={checkedMap[String(item.id)] === true}
+                onChange={(event) =>
+                  setCheckedMap((current) => ({
+                    ...current,
+                    [String(item.id)]: event.target.checked,
+                  }))
+                }
+              />
+              <div className="install-checklist-main">
+                <div className="install-checklist-title-row">
+                  {Number(item.install_order || 0) > 0 && (
+                    <em className="install-library-order-badge">{item.install_order}</em>
+                  )}
+                  <strong title={item.title}>{item.title}</strong>
+                  {item.is_required && <em className="install-library-required-badge">필수</em>}
+                  {item.version && <small>{item.version}</small>}
+                </div>
+                <small
+                  className="install-checklist-meta"
+                  title={`${item.category || "기타"} / ${item.original_filename || item.description || "-"}`}
+                >
+                  {item.category || "기타"} / {item.original_filename || item.description || "-"}
+                </small>
+              </div>
               {checkedMap[String(item.id)] === true ? (
                 <span className="install-checklist-complete-badge">설치 완료</span>
               ) : (

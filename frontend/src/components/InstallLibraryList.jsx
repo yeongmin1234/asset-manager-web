@@ -15,6 +15,7 @@ const INSTALL_LIBRARY_COLUMNS = [
 
 function InstallLibraryList({
   error = "",
+  isAdminMode = false,
   isLoading = false,
   items = [],
   onDelete,
@@ -91,12 +92,16 @@ function InstallLibraryList({
                   <button type="button" className="ghost-button" onClick={() => onOpenDetail?.(item)}>
                     안내
                   </button>
-                  <button type="button" className="ghost-button" onClick={() => onEdit?.(item)}>
-                    수정
-                  </button>
-                  <button type="button" className="danger-ghost-button" onClick={() => onDelete?.(item)}>
-                    삭제
-                  </button>
+                  {isAdminMode && (
+                    <>
+                      <button type="button" className="ghost-button" onClick={() => onEdit?.(item)}>
+                        수정
+                      </button>
+                      <button type="button" className="danger-ghost-button" onClick={() => onDelete?.(item)}>
+                        삭제
+                      </button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
