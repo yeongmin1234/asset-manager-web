@@ -10575,6 +10575,158 @@ a:focus-visible,
   outline: none;
 }
 
+/* Definitive tab/filter focus cleanup: keep primary fills only for true action buttons. */
+.tab-button,
+.filter-chip,
+.segmented-button,
+.page-tab,
+.section-tab,
+.chip,
+.asset-location-tabs .asset-location-tab,
+.asset-category-tabs .category-tab,
+.asset-category-tab-row .category-tab,
+.software-tabs .software-tab,
+.vehicle-page-tabs .vehicle-page-tab,
+.vehicle-form-tabs .vehicle-form-tab,
+.paju-fire-location-tabs .paju-fire-location-tab,
+.network-page-tabs .network-page-tab,
+.settings-access-tabs .settings-access-tab,
+.history-filter-tabs .history-filter-button,
+.filter-tabs button,
+button[role="tab"]:not(.primary-action):not(.primary-button) {
+  box-shadow: none !important;
+  filter: none !important;
+  outline: none;
+}
+
+.tab-button.active,
+.filter-chip.active,
+.segmented-button.active,
+.page-tab.active,
+.section-tab.active,
+.chip.active,
+.chip.selected,
+.asset-location-tabs .asset-location-tab.active,
+.asset-category-tabs .category-tab.active,
+.asset-category-tab-row .category-tab.active,
+.software-tabs .software-tab.active,
+.vehicle-page-tabs .vehicle-page-tab.active,
+.vehicle-form-tabs .vehicle-form-tab.active,
+.paju-fire-location-tabs .paju-fire-location-tab.active,
+.network-page-tabs .network-page-tab.active,
+.settings-access-tabs .settings-access-tab.active,
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.filter-tabs button.active,
+.tab-button[aria-selected="true"],
+.filter-chip[aria-selected="true"],
+.segmented-button[aria-selected="true"],
+.page-tab[aria-selected="true"],
+.section-tab[aria-selected="true"],
+button[role="tab"][aria-selected="true"]:not(.primary-action):not(.primary-button) {
+  background: #ffffff !important;
+  border: 1px solid var(--primary, #2563eb) !important;
+  color: var(--primary, #2563eb) !important;
+  -webkit-text-fill-color: var(--primary, #2563eb) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  outline: none;
+  transform: none !important;
+}
+
+.tab-button:hover,
+.filter-chip:hover,
+.segmented-button:hover,
+.page-tab:hover,
+.section-tab:hover,
+.chip:hover,
+.asset-location-tabs .asset-location-tab:hover,
+.asset-category-tabs .category-tab:not(:disabled):hover,
+.asset-category-tab-row .category-tab:not(:disabled):hover,
+.software-tabs .software-tab:not(:disabled):hover,
+.vehicle-page-tabs .vehicle-page-tab:hover,
+.vehicle-form-tabs .vehicle-form-tab:not(:disabled):hover,
+.paju-fire-location-tabs .paju-fire-location-tab:hover,
+.network-page-tabs .network-page-tab:hover,
+.settings-access-tabs .settings-access-tab:hover,
+.history-filter-tabs .history-filter-button:hover,
+.filter-tabs button:not(:disabled):hover,
+button[role="tab"]:not(.primary-action):not(.primary-button):hover {
+  background: var(--primary-soft, #eff6ff) !important;
+  border-color: var(--primary, #2563eb) !important;
+  color: var(--primary, #2563eb) !important;
+  -webkit-text-fill-color: var(--primary, #2563eb) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.tab-button:focus,
+.filter-chip:focus,
+.segmented-button:focus,
+.page-tab:focus,
+.section-tab:focus,
+.chip:focus,
+.asset-location-tabs .asset-location-tab:focus,
+.asset-category-tabs .category-tab:focus,
+.asset-category-tab-row .category-tab:focus,
+.software-tabs .software-tab:focus,
+.vehicle-page-tabs .vehicle-page-tab:focus,
+.vehicle-form-tabs .vehicle-form-tab:focus,
+.paju-fire-location-tabs .paju-fire-location-tab:focus,
+.network-page-tabs .network-page-tab:focus,
+.settings-access-tabs .settings-access-tab:focus,
+.history-filter-tabs .history-filter-button:focus,
+.filter-tabs button:focus,
+button[role="tab"]:not(.primary-action):not(.primary-button):focus {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.tab-button:focus:not(:focus-visible),
+.filter-chip:focus:not(:focus-visible),
+.segmented-button:focus:not(:focus-visible),
+.page-tab:focus:not(:focus-visible),
+.section-tab:focus:not(:focus-visible),
+.chip:focus:not(:focus-visible),
+.asset-location-tabs .asset-location-tab:focus:not(:focus-visible),
+.asset-category-tabs .category-tab:focus:not(:focus-visible),
+.asset-category-tab-row .category-tab:focus:not(:focus-visible),
+.software-tabs .software-tab:focus:not(:focus-visible),
+.vehicle-page-tabs .vehicle-page-tab:focus:not(:focus-visible),
+.vehicle-form-tabs .vehicle-form-tab:focus:not(:focus-visible),
+.paju-fire-location-tabs .paju-fire-location-tab:focus:not(:focus-visible),
+.network-page-tabs .network-page-tab:focus:not(:focus-visible),
+.settings-access-tabs .settings-access-tab:focus:not(:focus-visible),
+.history-filter-tabs .history-filter-button:focus:not(:focus-visible),
+.filter-tabs button:focus:not(:focus-visible),
+button[role="tab"]:not(.primary-action):not(.primary-button):focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tab-button:focus-visible,
+.filter-chip:focus-visible,
+.segmented-button:focus-visible,
+.page-tab:focus-visible,
+.section-tab:focus-visible,
+.chip:focus-visible,
+.asset-location-tabs .asset-location-tab:focus-visible,
+.asset-category-tabs .category-tab:focus-visible,
+.asset-category-tab-row .category-tab:focus-visible,
+.software-tabs .software-tab:focus-visible,
+.vehicle-page-tabs .vehicle-page-tab:focus-visible,
+.vehicle-form-tabs .vehicle-form-tab:focus-visible,
+.paju-fire-location-tabs .paju-fire-location-tab:focus-visible,
+.network-page-tabs .network-page-tab:focus-visible,
+.settings-access-tabs .settings-access-tab:focus-visible,
+.history-filter-tabs .history-filter-button:focus-visible,
+.filter-tabs button:focus-visible,
+button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
+  outline: 1px solid rgba(37, 99, 235, 0.22) !important;
+  outline-offset: 1px !important;
+  box-shadow: none !important;
+}
+
 .stats-summary {
   gap: 10px;
   padding: 12px 14px;
