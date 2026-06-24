@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createVehicle,
   deleteVehicle,
+  getVehicleInsuranceHistories,
   getVehicleSummary,
   getVehicles,
   updateVehicle,
@@ -41,6 +42,8 @@ function VehiclePage() {
   const [activeTab, setActiveTab] = useState("");
   const [activeCompanyTab, setActiveCompanyTab] = useState("");
   const [activePageTab, setActivePageTab] = useState("list");
+  const [selectedInsuranceVehicleId, setSelectedInsuranceVehicleId] = useState("");
+  const [recentInsuranceHistories, setRecentInsuranceHistories] = useState([]);
 
   const displayedItems = useMemo(
     () => filterVehicles(items, activeTab, activeCompanyTab),
@@ -77,6 +80,37 @@ function VehiclePage() {
     loadSummary();
   }, [loadSummary]);
 
+  const loadRecentInsuranceHistories = useCallback(async () => {
+    const safeItems = Array.isArray(items) ? items : [];
+    if (safeItems.length === 0) {
+      setRecentInsuranceHistories([]);
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      safeItems.map(async (vehicle) => {
+        const histories = await getVehicleInsuranceHistories(vehicle.id);
+        return histories.map((history) => ({
+          ...history,
+          vehicle,
+          vehicle_id: history.vehicle_id || vehicle.id,
+        }));
+      }),
+    );
+
+    const histories = results
+      .filter((result) => result.status === "fulfilled")
+      .flatMap((result) => result.value);
+
+    setRecentInsuranceHistories(
+      histories.sort(compareInsuranceHistoryByRecentDate).slice(0, 3),
+    );
+  }, [items]);
+
+  useEffect(() => {
+    loadRecentInsuranceHistories();
+  }, [loadRecentInsuranceHistories]);
+
   const handleSubmit = async (payload) => {
     if (editingItem) {
       await updateVehicle(editingItem.id, payload);
@@ -108,6 +142,15 @@ function VehiclePage() {
   const handleCancelEdit = () => {
     setEditingItem(null);
     setActivePageTab("list");
+  };
+
+  const handleRecentInsuranceSelect = (history) => {
+    const vehicleId = history?.vehicle_id || history?.vehicle?.id;
+    if (!vehicleId) {
+      return;
+    }
+    setSelectedInsuranceVehicleId(String(vehicleId));
+    setActivePageTab("history");
   };
 
   const renderPageTabs = () => (
@@ -147,6 +190,8 @@ function VehiclePage() {
           summary={summary}
           isLoading={summaryState.isLoading}
           error={summaryState.error}
+          recentInsuranceHistories={recentInsuranceHistories}
+          onRecentInsuranceSelect={handleRecentInsuranceSelect}
           compact
         />
       </div>
@@ -171,7 +216,12 @@ function VehiclePage() {
               tabs={VEHICLE_TABS}
             />
           ) : activePageTab === "history" ? (
-            <VehicleInsuranceHistory vehicles={items} />
+            <VehicleInsuranceHistory
+              vehicles={items}
+              selectedVehicleId={selectedInsuranceVehicleId}
+              onSelectedVehicleChange={setSelectedInsuranceVehicleId}
+              onHistoriesChanged={loadRecentInsuranceHistories}
+            />
           ) : (
             <VehicleQuickForm
               editingItem={editingItem}
@@ -208,6 +258,26 @@ function filterVehicles(items, activeTab, activeCompanyTab) {
     }
     return true;
   });
+}
+
+function compareInsuranceHistoryByRecentDate(firstHistory, secondHistory) {
+  const firstTime = getInsuranceHistorySortTime(firstHistory);
+  const secondTime = getInsuranceHistorySortTime(secondHistory);
+  if (firstTime !== secondTime) {
+    return secondTime - firstTime;
+  }
+  return Number(secondHistory.id || 0) - Number(firstHistory.id || 0);
+}
+
+function getInsuranceHistorySortTime(history) {
+  const dateValue =
+    history?.created_at ||
+    history?.updated_at ||
+    history?.createdAt ||
+    history?.updatedAt ||
+    "";
+  const timestamp = Date.parse(dateValue);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 export default VehiclePage;

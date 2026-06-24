@@ -7,8 +7,18 @@ const INITIAL_SUMMARY = {
   expiring_soon_count: 0,
 };
 
-function VehicleStats({ summary, isLoading, error, compact = false }) {
+function VehicleStats({
+  summary,
+  isLoading,
+  error,
+  recentInsuranceHistories = [],
+  onRecentInsuranceSelect,
+  compact = false,
+}) {
   const safeSummary = { ...INITIAL_SUMMARY, ...(summary || {}) };
+  const safeRecentInsuranceHistories = Array.isArray(recentInsuranceHistories)
+    ? recentInsuranceHistories.slice(0, 3)
+    : [];
   const cards = [
     { label: "전체 차량", value: safeSummary.total_vehicles, tone: "blue" },
     { label: "회사 소유", value: safeSummary.company_owned_count, tone: "green" },
@@ -45,9 +55,60 @@ function VehicleStats({ summary, isLoading, error, compact = false }) {
             <strong>{Number(card.value || 0).toLocaleString("ko-KR")}</strong>
           </article>
         ))}
+        {compact && (
+          <article className="stats-card vehicle-recent-insurance-card">
+            <div className="vehicle-recent-insurance-heading">
+              <span>최근 보험 이력</span>
+              <strong>{safeRecentInsuranceHistories.length}</strong>
+            </div>
+            {safeRecentInsuranceHistories.length === 0 ? (
+              <p className="vehicle-recent-insurance-empty">최근 보험 이력이 없습니다.</p>
+            ) : (
+              <div className="vehicle-recent-insurance-list">
+                {safeRecentInsuranceHistories.map((history) => (
+                  <button
+                    type="button"
+                    className="vehicle-recent-insurance-item"
+                    key={`${history.vehicle_id || history.vehicle?.id || "vehicle"}-${history.id}`}
+                    onClick={() => onRecentInsuranceSelect?.(history)}
+                  >
+                    <span className="vehicle-recent-insurance-main">
+                      <strong>{formatText(history.vehicle?.vehicle_number)}</strong>
+                      <em>{formatText(history.vehicle?.vehicle_name || history.driver_name)}</em>
+                    </span>
+                    <span className="vehicle-recent-insurance-meta">
+                      {formatPeriod(history.start_date, history.end_date)}
+                    </span>
+                    <span className="vehicle-recent-insurance-meta">
+                      {formatText(history.insurance_type || formatCurrency(history.amount))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </article>
+        )}
       </div>
     </section>
   );
+}
+
+function formatText(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  return String(value);
+}
+
+function formatPeriod(startDate, endDate) {
+  return `${formatText(startDate)} ~ ${formatText(endDate)}`;
+}
+
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+  return `${Number(value || 0).toLocaleString("ko-KR")}원`;
 }
 
 export default VehicleStats;

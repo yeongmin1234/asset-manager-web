@@ -27,14 +27,23 @@ const VEHICLE_INSURANCE_COLUMNS = [
   { key: "actions", label: "관리", initialWidth: 128, minWidth: 120 },
 ];
 
-function VehicleInsuranceHistory({ vehicles }) {
+function VehicleInsuranceHistory({
+  vehicles,
+  selectedVehicleId: selectedVehicleIdProp = "",
+  onSelectedVehicleChange,
+  onHistoriesChanged,
+}) {
   const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [internalSelectedVehicleId, setInternalSelectedVehicleId] = useState("");
   const [items, setItems] = useState([]);
   const [state, setState] = useState({ isLoading: false, error: "" });
   const [form, setForm] = useState(INITIAL_FORM);
   const [editingItem, setEditingItem] = useState(null);
   const [actionError, setActionError] = useState("");
+  const selectedVehicleId =
+    selectedVehicleIdProp !== undefined && selectedVehicleIdProp !== null
+      ? selectedVehicleIdProp
+      : internalSelectedVehicleId;
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
     VEHICLE_INSURANCE_COLUMNS,
     VEHICLE_INSURANCE_COLUMN_WIDTH_STORAGE_KEY,
@@ -67,7 +76,9 @@ function VehicleInsuranceHistory({ vehicles }) {
   }, [loadItems]);
 
   const handleVehicleChange = (event) => {
-    setSelectedVehicleId(event.target.value);
+    const nextVehicleId = event.target.value;
+    setInternalSelectedVehicleId(nextVehicleId);
+    onSelectedVehicleChange?.(nextVehicleId);
     setEditingItem(null);
     setForm(INITIAL_FORM);
     setActionError("");
@@ -104,6 +115,7 @@ function VehicleInsuranceHistory({ vehicles }) {
       setEditingItem(null);
       setForm(INITIAL_FORM);
       await loadItems();
+      await onHistoriesChanged?.();
     } catch (error) {
       setActionError(error.message);
     }
@@ -140,6 +152,7 @@ function VehicleInsuranceHistory({ vehicles }) {
         handleCancelEdit();
       }
       await loadItems();
+      await onHistoriesChanged?.();
     } catch (error) {
       setActionError(error.message);
     }
