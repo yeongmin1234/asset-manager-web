@@ -6,7 +6,9 @@ function AdminAuthModal({
   isSubmitting = false,
   menuLabel = "보호 메뉴",
   onCancel,
+  onPasswordResetRequest,
   onSubmit,
+  resetSuccessMessage = "",
 }) {
   const [password, setPassword] = useState("");
   const inputRef = useRef(null);
@@ -58,9 +60,18 @@ function AdminAuthModal({
             />
           </label>
 
+          {resetSuccessMessage && <p className="admin-auth-message">{resetSuccessMessage}</p>}
           {error && <p className="admin-auth-error">{error}</p>}
 
           <div className="admin-auth-modal-actions">
+            <button
+              type="button"
+              className="link-button admin-forgot-password-button"
+              onClick={onPasswordResetRequest}
+              disabled={isSubmitting}
+            >
+              비밀번호를 잊으셨나요?
+            </button>
             <button type="button" className="secondary-button" onClick={onCancel} disabled={isSubmitting}>
               취소
             </button>

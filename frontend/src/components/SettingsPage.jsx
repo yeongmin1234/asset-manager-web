@@ -137,9 +137,11 @@ function RuleList({ rules }) {
 
 function SettingsPage({
   adminAuthClearedAt = null,
+  adminResetSuccessMessage = "",
   adminStatus = { configured: false, error: "", isLoading: true },
   menuVisibility = {},
   onAdminPasswordSave,
+  onAdminPasswordResetRequest,
   onClearAdminAuth,
   onMenuVisibilityChange,
   onProtectedMenuChange,
@@ -367,12 +369,29 @@ function SettingsPage({
                 {adminPasswordState.message && (
                   <p className="settings-admin-form-message">{adminPasswordState.message}</p>
                 )}
+                {adminResetSuccessMessage && (
+                  <p className="settings-admin-form-message">{adminResetSuccessMessage}</p>
+                )}
                 <div className="settings-admin-actions">
                   <button type="submit" disabled={adminPasswordState.isSubmitting}>
                     {isAdminConfigured ? "변경" : "저장"}
                   </button>
                 </div>
               </form>
+              <div className="settings-admin-reset-section">
+                <div>
+                  <strong>관리자 비밀번호 초기화</strong>
+                  <p>현재 관리자 비밀번호를 잊은 경우 초기화 코드를 사용해 새 비밀번호로 재설정할 수 있습니다.</p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onAdminPasswordResetRequest}
+                  disabled={adminPasswordState.isSubmitting}
+                >
+                  관리자 비밀번호 초기화
+                </button>
+              </div>
               <RuleList
                 rules={[
                   "보호 메뉴 ON/OFF 설정은 브라우저 localStorage에 저장됩니다.",

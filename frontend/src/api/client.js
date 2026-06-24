@@ -392,6 +392,14 @@ export async function updateAdminPassword(payload) {
   });
 }
 
+export async function resetAdminPassword(payload) {
+  return request("/admin/password/reset", {
+    method: "POST",
+    body: payload,
+    timeoutMs: 8000,
+  });
+}
+
 export async function verifyAdminPassword(password) {
   return request("/admin/verify", {
     method: "POST",

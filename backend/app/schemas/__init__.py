@@ -1,4 +1,8 @@
 from app.schemas.activity_log import ActivityLogRead
+from app.schemas.admin import (
+    AdminPasswordResetRequest,
+    AdminPasswordResetResponse,
+)
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from app.schemas.company_vehicle import (
@@ -27,6 +31,8 @@ from app.schemas.vehicle_insurance_history import (
 
 __all__ = [
     "ActivityLogRead",
+    "AdminPasswordResetRequest",
+    "AdminPasswordResetResponse",
     "AssetCreate",
     "AssetHistoryCreate",
     "AssetHistoryRead",

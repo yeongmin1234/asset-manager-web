@@ -21,6 +21,17 @@ class AdminPasswordResponse(BaseModel):
     configured: bool
 
 
+class AdminPasswordResetRequest(BaseModel):
+    reset_code: str
+    new_password: str
+    confirm_password: str
+
+
+class AdminPasswordResetResponse(BaseModel):
+    ok: bool
+    message: str
+
+
 class AdminVerifyResponse(BaseModel):
     ok: bool
     token: str

@@ -1569,6 +1569,31 @@ p {
   gap: 10px;
 }
 
+.settings-admin-reset-section {
+  align-items: center;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-line);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.settings-admin-reset-section strong {
+  color: var(--warning);
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 3px;
+}
+
+.settings-admin-reset-section p {
+  color: #92400e;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .settings-admin-password-form .field {
   margin: 0;
 }
@@ -1640,7 +1665,8 @@ p {
   margin: 0;
 }
 
-.admin-auth-error {
+.admin-auth-error,
+.admin-auth-message {
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 8px;
@@ -1651,10 +1677,22 @@ p {
   padding: 10px 12px;
 }
 
+.admin-auth-message {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
 .admin-auth-modal-actions {
+  align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.admin-forgot-password-button {
+  margin-right: auto;
 }
 
 .settings-two-column {
@@ -8010,6 +8048,48 @@ textarea {
   border: 1px solid #dbe3ee;
   border-radius: 12px;
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+}
+
+.admin-reset-modal {
+  max-width: 480px;
+  width: min(100%, 480px);
+}
+
+.admin-reset-warning {
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-line);
+  border-radius: 8px;
+  color: var(--warning);
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+}
+
+.admin-reset-warning strong {
+  color: var(--warning);
+  font-size: 0.88rem;
+}
+
+.admin-reset-warning span {
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.admin-reset-submit {
+  background: #ffffff !important;
+  border: 1px solid var(--warning-line) !important;
+  box-shadow: none !important;
+  color: var(--warning) !important;
+  -webkit-text-fill-color: var(--warning) !important;
+}
+
+.admin-reset-submit:not(:disabled):hover {
+  background: var(--warning-soft) !important;
+  border-color: var(--warning) !important;
+  box-shadow: none !important;
+  color: var(--warning) !important;
+  transform: none !important;
+  -webkit-text-fill-color: var(--warning) !important;
 }
 
 .modal,

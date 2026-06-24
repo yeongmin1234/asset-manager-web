@@ -1,24 +1,30 @@
 from datetime import datetime, timedelta
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
 from app.schemas.admin import (
     AdminPasswordRequest,
+    AdminPasswordResetRequest,
+    AdminPasswordResetResponse,
     AdminPasswordResponse,
     AdminStatusResponse,
     AdminVerifyRequest,
     AdminVerifyResponse,
 )
+from app.services.activity_log_service import record_activity_log
 from app.services.admin_service import (
     AdminPasswordInvalidError,
     AdminPasswordRequiredError,
     AdminPasswordTooShortError,
+    AdminResetCodeNotConfiguredError,
     is_admin_password_configured,
+    reset_admin_password_with_reset_code,
     set_admin_password,
+    verify_admin_reset_code,
     verify_admin_password as verify_stored_admin_password,
 )
 
@@ -59,6 +65,49 @@ def update_admin_password(
         ) from exc
 
     return AdminPasswordResponse(ok=True, configured=True)
+
+
+@router.post("/password/reset", response_model=AdminPasswordResetResponse)
+def reset_admin_password(
+    payload: AdminPasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AdminPasswordResetResponse:
+    try:
+        if payload.new_password != payload.confirm_password:
+            raise AdminPasswordInvalidError()
+        if not verify_admin_reset_code(payload.reset_code):
+            raise AdminPasswordInvalidError()
+        reset_admin_password_with_reset_code(db, payload.new_password)
+    except AdminResetCodeNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="관리자 비밀번호 초기화 코드가 설정되지 않았습니다.",
+        ) from exc
+    except (AdminPasswordTooShortError, AdminPasswordInvalidError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="초기화 코드 또는 입력값을 확인해 주세요.",
+        ) from exc
+
+    record_activity_log(
+        db,
+        menu_name="설정",
+        action_type="admin-password-reset",
+        target_type="admin",
+        target_id=None,
+        target_name="관리자 비밀번호",
+        actor_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        summary="관리자 비밀번호 웹 초기화",
+        before_data=None,
+        after_data=None,
+    )
+    db.commit()
+    return AdminPasswordResetResponse(
+        ok=True,
+        message="관리자 비밀번호가 초기화되었습니다. 새 비밀번호로 다시 인증해 주세요.",
+    )
 
 
 @router.post("/verify", response_model=AdminVerifyResponse)

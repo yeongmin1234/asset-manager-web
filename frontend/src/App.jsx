@@ -15,10 +15,12 @@ import {
   getStatsSummary,
   getVisitorsSummary,
   pingVisitor,
+  resetAdminPassword,
   updateAdminPassword,
   verifyAdminPassword,
 } from "./api/client.js";
 import AdminAuthModal from "./components/AdminAuthModal.jsx";
+import AdminPasswordResetModal from "./components/AdminPasswordResetModal.jsx";
 import AssetDetail from "./components/AssetDetail.jsx";
 import AssetForm from "./components/AssetForm.jsx";
 import AssetList from "./components/AssetList.jsx";
@@ -139,6 +141,12 @@ function App() {
     targetSection: "",
   });
   const [adminAuthClearedAt, setAdminAuthClearedAt] = useState(null);
+  const [adminResetModal, setAdminResetModal] = useState({
+    error: "",
+    isOpen: false,
+    isSubmitting: false,
+  });
+  const [adminResetSuccessMessage, setAdminResetSuccessMessage] = useState("");
   const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [assets, setAssets] = useState([]);
@@ -638,6 +646,50 @@ function App() {
     });
   };
 
+  const handleAdminPasswordResetOpen = () => {
+    setAdminResetSuccessMessage("");
+    setAdminResetModal({
+      error: "",
+      isOpen: true,
+      isSubmitting: false,
+    });
+  };
+
+  const handleAdminPasswordResetClose = () => {
+    setAdminResetModal({
+      error: "",
+      isOpen: false,
+      isSubmitting: false,
+    });
+  };
+
+  const handleAdminPasswordResetSubmit = async (payload) => {
+    setAdminResetModal((current) => ({
+      ...current,
+      error: "",
+      isSubmitting: true,
+    }));
+
+    try {
+      await resetAdminPassword(payload);
+      await loadAdminStatus();
+      clearAdminAuth();
+      setAdminAuthClearedAt(new Date().toISOString());
+      setAdminResetSuccessMessage("관리자 비밀번호가 초기화되었습니다. 새 비밀번호로 다시 인증해 주세요.");
+      setAdminResetModal({
+        error: "",
+        isOpen: false,
+        isSubmitting: false,
+      });
+    } catch (error) {
+      setAdminResetModal((current) => ({
+        ...current,
+        error: "초기화 코드 또는 입력값을 확인해 주세요.",
+        isSubmitting: false,
+      }));
+    }
+  };
+
   const handleClearAdminAuth = () => {
     clearAdminAuth();
     setAdminAuthClearedAt(new Date().toISOString());
@@ -858,11 +910,13 @@ function App() {
           onCheckBackend={checkBackend}
           onClearAdminAuth={handleClearAdminAuth}
           onAdminPasswordSave={handleAdminPasswordSave}
+          onAdminPasswordResetRequest={handleAdminPasswordResetOpen}
           onMenuVisibilityChange={handleMenuVisibilityChange}
           onNavigate={handleNavigate}
           onProtectedMenuChange={handleProtectedMenuChange}
           adminStatus={adminStatus}
           adminAuthClearedAt={adminAuthClearedAt}
+          adminResetSuccessMessage={adminResetSuccessMessage}
           protectedMenus={protectedMenus}
         />
       );
@@ -1012,7 +1066,16 @@ function App() {
         isSubmitting={adminAuthModal.isSubmitting}
         menuLabel={MENU_LABELS[adminAuthModal.targetSection] || "보호 메뉴"}
         onCancel={handleAdminAuthCancel}
+        onPasswordResetRequest={handleAdminPasswordResetOpen}
         onSubmit={handleAdminAuthSubmit}
+        resetSuccessMessage={adminResetSuccessMessage}
+      />
+      <AdminPasswordResetModal
+        error={adminResetModal.error}
+        isOpen={adminResetModal.isOpen}
+        isSubmitting={adminResetModal.isSubmitting}
+        onClose={handleAdminPasswordResetClose}
+        onSubmit={handleAdminPasswordResetSubmit}
       />
     </div>
     </>

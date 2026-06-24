@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     upload_dir: str = "../uploads"
     export_dir: str = "../exports"
     admin_auth_minutes: int = 60
+    admin_reset_code: str = ""
     network_credential_secret_key: str = ""
     scm_reboot_host: str = ""
     scm_reboot_port: int = 22

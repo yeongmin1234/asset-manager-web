@@ -1,10 +1,12 @@
 import hashlib
+import hmac
 import secrets
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.admin_setting import AdminSetting
 
 
@@ -22,6 +24,10 @@ class AdminPasswordRequiredError(Exception):
 
 
 class AdminPasswordInvalidError(Exception):
+    pass
+
+
+class AdminResetCodeNotConfiguredError(Exception):
     pass
 
 
@@ -57,6 +63,32 @@ def verify_admin_password(db: Session, password: str) -> bool:
     if not setting or not setting.password_hash:
         return False
     return verify_password(password, setting.password_hash)
+
+
+def reset_admin_password_with_reset_code(
+    db: Session,
+    new_password: str,
+) -> AdminSetting:
+    if len(new_password or "") < MIN_ADMIN_PASSWORD_LENGTH:
+        raise AdminPasswordTooShortError()
+
+    setting = get_or_create_admin_setting(db)
+    setting.password_hash = hash_password(new_password)
+    db.add(setting)
+    db.commit()
+    db.refresh(setting)
+    return setting
+
+
+def is_admin_reset_code_configured() -> bool:
+    return bool(str(settings.admin_reset_code or "").strip())
+
+
+def verify_admin_reset_code(reset_code: str) -> bool:
+    expected_code = str(settings.admin_reset_code or "").strip()
+    if not expected_code:
+        raise AdminResetCodeNotConfiguredError()
+    return hmac.compare_digest(str(reset_code or ""), expected_code)
 
 
 def get_admin_setting(db: Session) -> Optional[AdminSetting]:
