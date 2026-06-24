@@ -41,6 +41,8 @@ function PortalSidebar({
   const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
   const [draftMenuOrder, setDraftMenuOrder] = useState(() => menuOrder);
   const [isEditingMenuOrder, setIsEditingMenuOrder] = useState(false);
+  const [draggedMenuItem, setDraggedMenuItem] = useState(null);
+  const [dragOverMenuItem, setDragOverMenuItem] = useState(null);
   const visibleMenuItems = MENU_ITEMS.filter(
     (item) => menuVisibility[item.id] !== false,
   );
@@ -70,14 +72,61 @@ function PortalSidebar({
   const handleCancelOrder = () => {
     setDraftMenuOrder(menuOrder);
     setIsEditingMenuOrder(false);
+    setDraggedMenuItem(null);
+    setDragOverMenuItem(null);
   };
 
   const handleResetOrder = () => {
     const defaultOrder = getDefaultMenuOrder();
     setDraftMenuOrder(defaultOrder);
+    setDraggedMenuItem(null);
+    setDragOverMenuItem(null);
   };
 
-  const handleMoveMenuItem = (groupTitle, itemId, direction) => {
+  const handleDragStart = (event, groupTitle, itemId) => {
+    setDraggedMenuItem({ groupTitle, itemId });
+    setDragOverMenuItem(null);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", itemId);
+  };
+
+  const handleDragOver = (event, groupTitle, itemId) => {
+    if (!draggedMenuItem || draggedMenuItem.groupTitle !== groupTitle) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+
+    if (draggedMenuItem.itemId === itemId) {
+      setDragOverMenuItem(null);
+      return;
+    }
+
+    const targetRect = event.currentTarget.getBoundingClientRect();
+    const position =
+      event.clientY > targetRect.top + targetRect.height / 2 ? "after" : "before";
+    setDragOverMenuItem({ groupTitle, itemId, position });
+  };
+
+  const handleDrop = (event, groupTitle, targetItemId) => {
+    event.preventDefault();
+    if (
+      !draggedMenuItem ||
+      draggedMenuItem.groupTitle !== groupTitle ||
+      draggedMenuItem.itemId === targetItemId
+    ) {
+      setDraggedMenuItem(null);
+      setDragOverMenuItem(null);
+      return;
+    }
+
+    const insertPosition =
+      dragOverMenuItem?.groupTitle === groupTitle &&
+      dragOverMenuItem?.itemId === targetItemId
+        ? dragOverMenuItem.position
+        : "before";
+
     setDraftMenuOrder((currentOrder) => {
       const group = MENU_GROUPS.find((candidate) => candidate.title === groupTitle);
       if (!group) {
@@ -88,12 +137,25 @@ function PortalSidebar({
         group.itemIds,
       );
       const visibleIds = currentGroupIds.filter((id) => visibleMenuItemsById[id]);
-      const nextGroupIds = moveVisibleItem(currentGroupIds, visibleIds, itemId, direction);
+      const nextGroupIds = reorderVisibleItem(
+        currentGroupIds,
+        visibleIds,
+        draggedMenuItem.itemId,
+        targetItemId,
+        insertPosition,
+      );
       return {
         ...currentOrder,
         [groupTitle]: nextGroupIds,
       };
     });
+    setDraggedMenuItem(null);
+    setDragOverMenuItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedMenuItem(null);
+    setDragOverMenuItem(null);
   };
 
   return (
@@ -147,43 +209,51 @@ function PortalSidebar({
             <div className="portal-nav-group" key={group.title}>
               <span className="portal-nav-group-title">{group.title}</span>
               <div className="portal-nav-group-items">
-                {groupItems.map((item, itemIndex) => {
+                {groupItems.map((item) => {
                   const itemClassName =
                     activeSection === item.id
                       ? "portal-nav-item sidebar-menu-item active"
                       : "portal-nav-item sidebar-menu-item";
+                  const isDraggedItem =
+                    draggedMenuItem?.groupTitle === group.title &&
+                    draggedMenuItem?.itemId === item.id;
+                  const dragOverPosition =
+                    dragOverMenuItem?.groupTitle === group.title &&
+                    dragOverMenuItem?.itemId === item.id
+                      ? dragOverMenuItem.position
+                      : null;
+                  const editRowClassName = [
+                    "sidebar-menu-edit-row",
+                    isDraggedItem ? "is-dragging" : "",
+                    dragOverPosition === "before" ? "is-drop-before" : "",
+                    dragOverPosition === "after" ? "is-drop-after" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
 
                   if (isEditingMenuOrder) {
                     return (
-                      <div className="sidebar-menu-edit-row" key={item.id}>
+                      <div
+                        className={editRowClassName}
+                        key={item.id}
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, group.title, item.id)}
+                        onDragOver={(event) => handleDragOver(event, group.title, item.id)}
+                        onDrop={(event) => handleDrop(event, group.title, item.id)}
+                        onDragEnd={handleDragEnd}
+                      >
                         <button
                           type="button"
                           className={`${itemClassName} sidebar-menu-item-editing`}
                           onClick={(event) => event.preventDefault()}
+                          aria-label={`${item.label} 메뉴 순서 편집`}
                         >
+                          <span className="sidebar-drag-handle" aria-hidden="true">
+                            ⋮⋮
+                          </span>
                           <span aria-hidden="true">{item.icon}</span>
                           <strong>{item.label}</strong>
                         </button>
-                        <div className="sidebar-move-controls" aria-label={`${item.label} 순서 변경`}>
-                          <button
-                            type="button"
-                            className="sidebar-move-button"
-                            disabled={itemIndex === 0}
-                            onClick={() => handleMoveMenuItem(group.title, item.id, "up")}
-                            aria-label={`${item.label} 위로 이동`}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="sidebar-move-button"
-                            disabled={itemIndex === groupItems.length - 1}
-                            onClick={() => handleMoveMenuItem(group.title, item.id, "down")}
-                            aria-label={`${item.label} 아래로 이동`}
-                          >
-                            ↓
-                          </button>
-                        </div>
                       </div>
                     );
                   }
@@ -282,24 +352,25 @@ function applyMenuOrder(groups, order) {
   }));
 }
 
-function moveVisibleItem(groupIds, visibleIds, itemId, direction) {
-  const currentVisibleIndex = visibleIds.indexOf(itemId);
-  if (currentVisibleIndex < 0) {
-    return groupIds;
-  }
-  const targetVisibleIndex =
-    direction === "up" ? currentVisibleIndex - 1 : currentVisibleIndex + 1;
-  if (targetVisibleIndex < 0 || targetVisibleIndex >= visibleIds.length) {
+function reorderVisibleItem(groupIds, visibleIds, draggedId, targetId, position) {
+  if (!visibleIds.includes(draggedId) || !visibleIds.includes(targetId)) {
     return groupIds;
   }
 
-  const targetId = visibleIds[targetVisibleIndex];
-  const nextGroupIds = groupIds.filter((id) => id !== itemId);
+  if (draggedId === targetId) {
+    return groupIds;
+  }
+
+  const nextGroupIds = groupIds.filter((id) => id !== draggedId);
   const targetIndex = nextGroupIds.indexOf(targetId);
-  const insertIndex = direction === "up" ? targetIndex : targetIndex + 1;
+  if (targetIndex < 0) {
+    return groupIds;
+  }
+
+  const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
   return [
     ...nextGroupIds.slice(0, insertIndex),
-    itemId,
+    draggedId,
     ...nextGroupIds.slice(insertIndex),
   ];
 }

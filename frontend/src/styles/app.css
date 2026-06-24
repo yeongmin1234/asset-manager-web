@@ -10488,8 +10488,7 @@ a:focus-visible,
 }
 
 .sidebar-edit-button,
-.sidebar-save-button,
-.sidebar-move-button {
+.sidebar-save-button {
   border-radius: 7px;
   box-shadow: none;
   font-weight: 800;
@@ -10513,8 +10512,7 @@ a:focus-visible,
   padding: 5px 8px;
 }
 
-.sidebar-edit-button:hover,
-.sidebar-move-button:hover:not(:disabled) {
+.sidebar-edit-button:hover {
   background: #f8fafc !important;
   border-color: #94a3b8 !important;
   color: #334155 !important;
@@ -10522,15 +10520,45 @@ a:focus-visible,
 
 .sidebar-menu-edit-row {
   align-items: center;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 5px;
+  display: block;
+  position: relative;
+}
+
+.sidebar-menu-edit-row.is-dragging {
+  opacity: 0.55;
+}
+
+.sidebar-menu-edit-row.is-drop-before::before,
+.sidebar-menu-edit-row.is-drop-after::after {
+  background: rgba(37, 99, 235, 0.34);
+  border-radius: 999px;
+  content: "";
+  height: 2px;
+  left: 8px;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  z-index: 2;
+}
+
+.sidebar-menu-edit-row.is-drop-before::before {
+  top: -3px;
+}
+
+.sidebar-menu-edit-row.is-drop-after::after {
+  bottom: -3px;
 }
 
 .portal-sidebar .sidebar-menu-item.sidebar-menu-item-editing {
-  cursor: default;
+  cursor: grab;
   min-width: 0;
+  padding-left: 8px;
   padding-right: 8px;
+  user-select: none;
+}
+
+.sidebar-menu-edit-row.is-dragging .sidebar-menu-item.sidebar-menu-item-editing {
+  cursor: grabbing;
 }
 
 .portal-sidebar .sidebar-menu-item.sidebar-menu-item-editing:hover {
@@ -10538,29 +10566,26 @@ a:focus-visible,
   transform: none;
 }
 
-.sidebar-move-controls {
-  display: flex;
-  gap: 3px;
-}
-
-.sidebar-move-button {
+.portal-sidebar .sidebar-menu-item.sidebar-menu-item-editing .sidebar-drag-handle {
   align-items: center;
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  color: #475569 !important;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #94a3b8;
   display: inline-flex;
-  height: 28px;
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  height: auto;
   justify-content: center;
   line-height: 1;
-  padding: 0;
-  width: 24px;
+  letter-spacing: -0.22em;
+  margin-right: 1px;
+  min-width: 12px;
+  width: 12px;
 }
 
-.sidebar-move-button:disabled {
-  background: #f1f5f9 !important;
-  border-color: #e2e8f0 !important;
-  color: #cbd5e1 !important;
-  cursor: not-allowed;
+.portal-sidebar .sidebar-menu-item.sidebar-menu-item-editing:hover .sidebar-drag-handle {
+  color: #64748b;
 }
 
 .portal-search:focus-within {
