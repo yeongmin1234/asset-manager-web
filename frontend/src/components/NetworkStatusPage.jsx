@@ -116,7 +116,7 @@ function NetworkDeviceStatusPanel() {
         </div>
         <button
           type="button"
-          className="primary-button network-refresh-button"
+          className="secondary-button network-refresh-button"
           onClick={loadStatus}
           disabled={statusState.isLoading}
         >

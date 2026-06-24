@@ -36,6 +36,7 @@ import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
 import PortalSidebar from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
+import ScmPage from "./components/ScmPage.jsx";
 import ServerStatusPopover from "./components/ServerStatusPopover.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
 import SoftwarePage from "./components/SoftwarePage.jsx";
@@ -72,6 +73,7 @@ const DEFAULT_MENU_VISIBILITY = {
   excel: true,
   stats: true,
   history: true,
+  scm: true,
   network: true,
   "paju-fire-insurance": true,
 };
@@ -82,6 +84,7 @@ const DEFAULT_PROTECTED_MENUS = {
   "beverage-orders": false,
   network: false,
   history: false,
+  scm: true,
   settings: false,
 };
 const MENU_LABELS = {
@@ -95,6 +98,7 @@ const MENU_LABELS = {
   excel: "엑셀 관리",
   stats: "통계 / 리포트",
   history: "변경 이력",
+  scm: "SCM",
   settings: "설정",
 };
 
@@ -842,6 +846,10 @@ function App() {
       return <HistoryPage />;
     }
 
+    if (activeSection === "scm") {
+      return <ScmPage />;
+    }
+
     if (activeSection === "settings") {
       return (
         <SettingsPage
@@ -951,13 +959,14 @@ function App() {
               || activeSection === "vehicles"
               || activeSection === "paju-fire-insurance"
               || activeSection === "network"
+              || activeSection === "scm"
               ? "portal-content portal-content-wide"
               : "portal-content"
           }
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && (
+          {activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "scm" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>

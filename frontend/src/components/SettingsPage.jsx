@@ -30,6 +30,11 @@ const MENU_VISIBILITY_ITEMS = [
     description: "자산 변경 이력 조회 메뉴",
   },
   {
+    id: "scm",
+    label: "SCM",
+    description: "SCM 서버 상태와 재부팅 준비 메뉴",
+  },
+  {
     id: "network",
     label: "네트워크 현황",
     description: "네트워크 장비 상태 메뉴",
@@ -71,6 +76,11 @@ const PROTECTED_MENU_ITEMS = [
     id: "history",
     label: "변경 이력",
     description: "자산 변경 이력 조회 메뉴",
+  },
+  {
+    id: "scm",
+    label: "SCM",
+    description: "SCM 서버 운영 관리 메뉴. 기본값은 보호 ON 권장",
   },
   {
     id: "settings",

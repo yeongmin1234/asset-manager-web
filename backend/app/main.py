@@ -14,6 +14,7 @@ from app.api.routers import (
     network_credentials,
     network_status,
     paju_fire_insurance,
+    server_operations,
     software,
     stats,
     vehicle_insurance_histories,
@@ -62,5 +63,6 @@ app.include_router(vehicle_insurance_histories.router)
 app.include_router(paju_fire_insurance.router)
 app.include_router(network_status.router)
 app.include_router(network_credentials.router)
+app.include_router(server_operations.router)
 app.include_router(visitors.router)
 app.include_router(activity_logs.router)

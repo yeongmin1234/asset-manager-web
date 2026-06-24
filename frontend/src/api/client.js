@@ -204,6 +204,18 @@ export async function getNetworkStatus() {
   return request("/network/status", { timeoutMs: 30000 });
 }
 
+export async function getScmServerStatus() {
+  return request("/server-operations/scm/status", { timeoutMs: 15000 });
+}
+
+export async function dryRunScmReboot(payload) {
+  return request("/server-operations/scm/reboot/dry-run", {
+    method: "POST",
+    body: payload,
+    timeoutMs: 10000,
+  });
+}
+
 export async function getNetworkCredentials(filters = {}) {
   return normalizeCollection(await request("/network-credentials", { query: filters }));
 }

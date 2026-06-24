@@ -14,6 +14,11 @@ from app.schemas.network_credential import (
     NetworkCredentialRead,
     NetworkCredentialUpdate,
 )
+from app.schemas.server_operation import (
+    ScmRebootDryRunRequest,
+    ScmRebootDryRunResponse,
+    ScmStatusResponse,
+)
 from app.schemas.vehicle_insurance_history import (
     VehicleInsuranceHistoryCreate,
     VehicleInsuranceHistoryRead,
@@ -40,6 +45,9 @@ __all__ = [
     "NetworkCredentialCreate",
     "NetworkCredentialRead",
     "NetworkCredentialUpdate",
+    "ScmRebootDryRunRequest",
+    "ScmRebootDryRunResponse",
+    "ScmStatusResponse",
     "VehicleInsuranceHistoryCreate",
     "VehicleInsuranceHistoryRead",
     "VehicleInsuranceHistoryUpdate",

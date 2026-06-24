@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     export_dir: str = "../exports"
     admin_auth_minutes: int = 60
     network_credential_secret_key: str = ""
+    scm_reboot_host: str = ""
+    scm_reboot_port: int = 22
+    scm_reboot_user: str = ""
+    scm_reboot_password: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
