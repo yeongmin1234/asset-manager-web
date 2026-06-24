@@ -8791,10 +8791,10 @@ button:disabled,
 .app-splash {
   align-items: center;
   background:
-    linear-gradient(90deg, rgba(2, 6, 23, 0.9) 0%, rgba(8, 15, 30, 0.74) 46%, rgba(8, 15, 30, 0.48) 100%),
-    linear-gradient(180deg, rgba(2, 6, 23, 0.46) 0%, rgba(8, 15, 30, 0.34) 52%, rgba(2, 6, 23, 0.5) 100%),
+    linear-gradient(90deg, rgba(2, 6, 23, 0.92) 0%, rgba(8, 15, 30, 0.78) 48%, rgba(8, 15, 30, 0.54) 100%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.5) 0%, rgba(8, 15, 30, 0.32) 48%, rgba(2, 6, 23, 0.58) 100%),
     url("/images/background.jpg"),
-    radial-gradient(circle at 72% 42%, rgba(96, 165, 250, 0.2), transparent 34%),
+    radial-gradient(circle at 72% 42%, rgba(96, 165, 250, 0.12), transparent 34%),
     linear-gradient(135deg, #0f172a, #1e293b);
   background-color: #0f172a;
   background-position: center;
@@ -8814,14 +8814,13 @@ button:disabled,
 
 .app-splash::after {
   background:
-    radial-gradient(ellipse at 78% 44%, rgba(255, 255, 255, 0.11), transparent 23%),
-    radial-gradient(ellipse at 70% 64%, rgba(96, 165, 250, 0.14), transparent 28%),
-    radial-gradient(ellipse at 26% 28%, rgba(255, 255, 255, 0.06), transparent 18%),
-    linear-gradient(90deg, rgba(2, 6, 23, 0.32), transparent 62%);
-  animation: splashGlow 6.8s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 76% 46%, rgba(255, 255, 255, 0.08), transparent 24%),
+    radial-gradient(ellipse at 70% 64%, rgba(96, 165, 250, 0.09), transparent 30%),
+    linear-gradient(90deg, rgba(2, 6, 23, 0.34), transparent 64%);
+  animation: splashGlow 8s ease-in-out infinite alternate;
   content: "";
   inset: 0;
-  opacity: 0.2;
+  opacity: 0.18;
   pointer-events: none;
   position: absolute;
   z-index: 4;
@@ -8837,92 +8836,6 @@ button:disabled,
   pointer-events: none;
   position: absolute;
   z-index: 1;
-}
-
-.splash-rain-layer {
-  inset: -24% -10% -8% -10%;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  position: absolute;
-  z-index: 2;
-}
-
-.splash-rain-layer-far {
-  animation: splashRainFallFar 2.9s linear infinite;
-  background-image:
-    linear-gradient(168deg, transparent 0 42%, rgba(226, 232, 240, 0.42) 43% 46%, transparent 47% 100%),
-    linear-gradient(170deg, transparent 0 58%, rgba(147, 197, 253, 0.26) 59% 61%, transparent 62% 100%),
-    linear-gradient(166deg, transparent 0 25%, rgba(255, 255, 255, 0.26) 26% 28%, transparent 29% 100%);
-  background-position: 0 -180px, 72px -240px, 138px -120px;
-  background-size: 137px 260px, 191px 330px, 229px 285px;
-  opacity: 0.11;
-}
-
-.splash-rain-layer-mid {
-  animation: splashRainFallMid 2.15s linear infinite;
-  background-image:
-    linear-gradient(169deg, transparent 0 34%, rgba(255, 255, 255, 0.5) 35% 39%, transparent 40% 100%),
-    linear-gradient(171deg, transparent 0 64%, rgba(191, 219, 254, 0.32) 65% 68%, transparent 69% 100%),
-    linear-gradient(167deg, transparent 0 48%, rgba(226, 232, 240, 0.35) 49% 51%, transparent 52% 100%);
-  background-position: 32px -160px, 111px -260px, 205px -96px;
-  background-size: 112px 230px, 163px 305px, 251px 340px;
-  opacity: 0.14;
-}
-
-.splash-rain-layer-near {
-  animation: splashRainFallNear 1.65s linear infinite;
-  background-image:
-    linear-gradient(170deg, transparent 0 18%, rgba(255, 255, 255, 0.48) 19% 24%, transparent 25% 100%),
-    linear-gradient(168deg, transparent 0 53%, rgba(147, 197, 253, 0.3) 54% 58%, transparent 59% 100%);
-  background-position: 46px -210px, 172px -120px;
-  background-size: 151px 315px, 287px 410px;
-  opacity: 0.1;
-}
-
-.splash-reflection {
-  animation: splashWaterShimmer 7.2s ease-in-out infinite alternate;
-  background:
-    radial-gradient(ellipse at 76% 10%, rgba(255, 255, 255, 0.16), transparent 34%),
-    radial-gradient(ellipse at 68% 48%, rgba(96, 165, 250, 0.13), transparent 42%),
-    radial-gradient(ellipse at 36% 62%, rgba(148, 163, 184, 0.08), transparent 46%),
-    linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.22) 30%, rgba(2, 6, 23, 0.72) 100%);
-  bottom: 0;
-  filter: blur(0.35px);
-  height: 34%;
-  left: 0;
-  opacity: 0.36;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  z-index: 3;
-}
-
-.splash-reflection::before {
-  animation: splashRipple 8s linear infinite;
-  background-image:
-    repeating-linear-gradient(
-      176deg,
-      transparent 0,
-      transparent 18px,
-      rgba(255, 255, 255, 0.08) 19px,
-      transparent 22px
-    );
-  content: "";
-  inset: 0;
-  opacity: 0.13;
-  position: absolute;
-  transform: skewX(-7deg);
-}
-
-.splash-reflection::after {
-  background:
-    linear-gradient(90deg, rgba(2, 6, 23, 0.64), rgba(2, 6, 23, 0.28) 42%, transparent 72%),
-    radial-gradient(ellipse at 76% 58%, rgba(219, 234, 254, 0.12), transparent 38%),
-    radial-gradient(ellipse at 66% 76%, rgba(96, 165, 250, 0.1), transparent 52%);
-  content: "";
-  inset: 0;
-  opacity: 0.78;
-  position: absolute;
 }
 
 .app-splash-exit {
@@ -9018,61 +8931,14 @@ button:disabled,
   }
 }
 
-@keyframes splashRainFallFar {
-  from {
-    background-position: 0 -260px, 72px -330px, 138px -285px;
-  }
-  to {
-    background-position: -32px 260px, 38px 330px, 104px 285px;
-  }
-}
-
-@keyframes splashRainFallMid {
-  from {
-    background-position: 32px -230px, 111px -305px, 205px -340px;
-  }
-  to {
-    background-position: -18px 230px, 59px 305px, 153px 340px;
-  }
-}
-
-@keyframes splashRainFallNear {
-  from {
-    background-position: 46px -315px, 172px -410px;
-  }
-  to {
-    background-position: -26px 315px, 100px 410px;
-  }
-}
-
 @keyframes splashGlow {
   from {
-    filter: blur(0);
-    transform: translate3d(-8px, -4px, 0) scale(1);
+    opacity: 0.14;
+    transform: translate3d(-4px, -2px, 0) scale(1);
   }
   to {
-    filter: blur(1px);
-    transform: translate3d(10px, 8px, 0) scale(1.03);
-  }
-}
-
-@keyframes splashWaterShimmer {
-  from {
-    opacity: 0.3;
-    transform: translate3d(0, 0, 0) scaleX(1);
-  }
-  to {
-    opacity: 0.4;
-    transform: translate3d(0, 2px, 0) scaleX(1.012);
-  }
-}
-
-@keyframes splashRipple {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 42px 34px;
+    opacity: 0.2;
+    transform: translate3d(4px, 3px, 0) scale(1.015);
   }
 }
 
@@ -9094,10 +8960,6 @@ button:disabled,
     margin: 22px auto;
   }
 
-  .splash-reflection {
-    height: 28%;
-    opacity: 0.3;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -9106,11 +8968,7 @@ button:disabled,
     animation-duration: 1ms;
   }
 
-  .app-splash::after,
-  .splash-rain-layer,
-  .splash-reflection,
-  .splash-reflection::before,
-  .splash-reflection::after {
+  .app-splash::after {
     animation: none;
   }
 }

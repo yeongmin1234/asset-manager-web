@@ -964,10 +964,6 @@ function App() {
         className={isSplashExiting ? "app-splash app-splash-exit" : "app-splash"}
         aria-label="앱 로딩 화면"
       >
-        <span className="splash-rain-layer splash-rain-layer-far" aria-hidden="true" />
-        <span className="splash-rain-layer splash-rain-layer-mid" aria-hidden="true" />
-        <span className="splash-rain-layer splash-rain-layer-near" aria-hidden="true" />
-        <span className="splash-reflection" aria-hidden="true" />
         <div className="app-splash-content">
           <div className="app-splash-emotion">
             <h1>BALMUDA</h1>
