@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas.server_operation import (
-    ScmRebootDryRunRequest,
-    ScmRebootDryRunResponse,
+    ScmMariaDbRestartDryRunRequest,
+    ScmMariaDbRestartDryRunResponse,
     ScmStatusResponse,
 )
 from app.services.admin_service import (
@@ -12,8 +12,9 @@ from app.services.admin_service import (
     verify_admin_password,
 )
 from app.services.server_operation_service import (
+    MARIADB_DRY_RUN_SUCCESS_MESSAGE,
     get_scm_status,
-    validate_scm_reboot_dry_run,
+    validate_scm_mariadb_restart_dry_run,
 )
 
 
@@ -25,13 +26,13 @@ def read_scm_status() -> ScmStatusResponse:
     return get_scm_status()
 
 
-@router.post("/scm/reboot/dry-run", response_model=ScmRebootDryRunResponse)
-def dry_run_scm_reboot(
-    payload: ScmRebootDryRunRequest,
+@router.post("/scm/mariadb/restart/dry-run", response_model=ScmMariaDbRestartDryRunResponse)
+def dry_run_scm_mariadb_restart(
+    payload: ScmMariaDbRestartDryRunRequest,
     db: Session = Depends(get_db),
-) -> ScmRebootDryRunResponse:
+) -> ScmMariaDbRestartDryRunResponse:
     try:
-        validate_scm_reboot_dry_run(payload.reason, payload.confirm_text)
+        validate_scm_mariadb_restart_dry_run(payload.reason, payload.confirm_text)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -49,8 +50,8 @@ def dry_run_scm_reboot(
             detail="관리자 비밀번호가 올바르지 않습니다.",
         )
 
-    return ScmRebootDryRunResponse(
+    return ScmMariaDbRestartDryRunResponse(
         ok=True,
-        message="재부팅 실행 조건 확인이 완료되었습니다. 현재 단계에서는 실제 재부팅을 실행하지 않습니다.",
+        message=MARIADB_DRY_RUN_SUCCESS_MESSAGE,
         dry_run=True,
     )

@@ -3,7 +3,9 @@ import React from "react";
 function ScmServerStatus({ status, isLoading, error, onRefresh }) {
   const tone = getStatusTone(status, error);
   const statusLabel = getStatusLabel(status, error);
-  const uptime = formatUptime(status?.uptime_text);
+  const uptime = formatUptime(status?.uptime_display || status?.uptime_text);
+  const mariadbTone = getMariaDbTone(status);
+  const portTone = getPortTone(status);
 
   return (
     <section className="scm-status-grid" aria-label="SCM 서버 상태">
@@ -21,6 +23,16 @@ function ScmServerStatus({ status, isLoading, error, onRefresh }) {
         <span>Uptime</span>
         <strong>{uptime.text}</strong>
         <p>{uptime.summary || "서버가 마지막 부팅 이후 계속 실행된 시간입니다."}</p>
+      </article>
+      <article className={`scm-status-card scm-status-card-${mariadbTone}`}>
+        <span>MariaDB 서비스 상태</span>
+        <strong>{formatMariaDbStatus(status?.mariadb_status)}</strong>
+        <p>{status?.mariadb_message || "MariaDB 서비스 상태를 확인합니다."}</p>
+      </article>
+      <article className={`scm-status-card scm-status-card-${portTone}`}>
+        <span>3306 포트 상태</span>
+        <strong>{formatPortStatus(status)}</strong>
+        <p>{status?.db_port_message || "3306 포트 상태를 확인합니다."}</p>
       </article>
       <article className="scm-status-card">
         <span>마지막 확인</span>
@@ -40,7 +52,7 @@ function getStatusTone(status, error) {
   if (status?.status === "configuration_required") {
     return "warning";
   }
-  if (status?.reachable) {
+  if (status?.server_reachable || status?.reachable) {
     return "success";
   }
   if (status?.status === "connection_failed") {
@@ -56,13 +68,59 @@ function getStatusLabel(status, error) {
   if (status?.status === "configuration_required") {
     return "설정 필요";
   }
-  if (status?.reachable) {
+  if (status?.server_reachable || status?.reachable) {
     return "연결 가능";
   }
   if (status?.status === "connection_failed") {
     return "확인 실패";
   }
   return "상태 대기";
+}
+
+function getMariaDbTone(status) {
+  if (status?.mariadb_status === "active" || status?.mariadb_active) {
+    return "success";
+  }
+  if (status?.mariadb_status === "inactive" || status?.mariadb_status === "unknown") {
+    return "warning";
+  }
+  if (status?.mariadb_status === "failed") {
+    return "danger";
+  }
+  return "neutral";
+}
+
+function getPortTone(status) {
+  if (status?.db_port_reachable) {
+    return "success";
+  }
+  if (status?.status === "configuration_required") {
+    return "warning";
+  }
+  return "danger";
+}
+
+function formatMariaDbStatus(status) {
+  if (status === "active") {
+    return "active";
+  }
+  if (status === "inactive") {
+    return "inactive";
+  }
+  if (status === "failed") {
+    return "failed";
+  }
+  return "unknown";
+}
+
+function formatPortStatus(status) {
+  if (status?.db_port_reachable) {
+    return "응답 가능";
+  }
+  if (status?.status === "configuration_required") {
+    return "설정 필요";
+  }
+  return "응답 없음";
 }
 
 function formatDateTime(value) {

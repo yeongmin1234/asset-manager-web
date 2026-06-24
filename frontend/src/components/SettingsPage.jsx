@@ -32,7 +32,7 @@ const MENU_VISIBILITY_ITEMS = [
   {
     id: "scm",
     label: "SCM",
-    description: "SCM 서버 상태와 재부팅 준비 메뉴",
+    description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴",
   },
   {
     id: "network",

@@ -208,8 +208,8 @@ export async function getScmServerStatus() {
   return request("/server-operations/scm/status", { timeoutMs: 15000 });
 }
 
-export async function dryRunScmReboot(payload) {
-  return request("/server-operations/scm/reboot/dry-run", {
+export async function dryRunScmMariaDbRestart(payload) {
+  return request("/server-operations/scm/mariadb/restart/dry-run", {
     method: "POST",
     body: payload,
     timeoutMs: 10000,
