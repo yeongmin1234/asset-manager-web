@@ -44,6 +44,7 @@ function VehiclePage() {
   const [activePageTab, setActivePageTab] = useState("list");
   const [selectedInsuranceVehicleId, setSelectedInsuranceVehicleId] = useState("");
   const [recentInsuranceHistories, setRecentInsuranceHistories] = useState([]);
+  const [isRecentInsuranceOpen, setIsRecentInsuranceOpen] = useState(false);
 
   const displayedItems = useMemo(
     () => filterVehicles(items, activeTab, activeCompanyTab),
@@ -103,7 +104,7 @@ function VehiclePage() {
       .flatMap((result) => result.value);
 
     setRecentInsuranceHistories(
-      histories.sort(compareInsuranceHistoryByRecentDate).slice(0, 3),
+      histories.sort(compareInsuranceHistoryByRecentDate).slice(0, 5),
     );
   }, [items]);
 
@@ -149,6 +150,7 @@ function VehiclePage() {
     if (!vehicleId) {
       return;
     }
+    setIsRecentInsuranceOpen(false);
     setSelectedInsuranceVehicleId(String(vehicleId));
     setActivePageTab("history");
   };
@@ -191,6 +193,9 @@ function VehiclePage() {
           isLoading={summaryState.isLoading}
           error={summaryState.error}
           recentInsuranceHistories={recentInsuranceHistories}
+          isRecentInsuranceOpen={isRecentInsuranceOpen}
+          onRecentInsuranceOpen={() => setIsRecentInsuranceOpen(true)}
+          onRecentInsuranceClose={() => setIsRecentInsuranceOpen(false)}
           onRecentInsuranceSelect={handleRecentInsuranceSelect}
           compact
         />

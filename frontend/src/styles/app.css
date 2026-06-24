@@ -945,72 +945,141 @@ p {
 }
 
 .vehicle-stats-compact .stats-grid {
-  grid-template-columns: repeat(4, minmax(96px, 1fr)) minmax(260px, 1.35fr);
+  grid-template-columns: repeat(5, minmax(96px, 1fr));
 }
 
 .vehicle-recent-insurance-card {
-  gap: 6px;
+  appearance: none;
+  background: #ffffff !important;
+  border: 1px solid var(--border-soft, #e2e8f0) !important;
+  border-radius: 8px;
+  box-shadow: none !important;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  justify-items: start;
   min-height: 54px;
   padding: 8px 10px;
+  text-align: left;
 }
 
-.vehicle-recent-insurance-heading {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
+.vehicle-recent-insurance-card:hover {
+  background: #f8fafc !important;
+  border-color: var(--primary-line, #bfdbfe) !important;
 }
 
-.vehicle-recent-insurance-heading span {
-  color: #475569;
+.vehicle-recent-insurance-card:focus,
+.vehicle-recent-insurance-card:focus-visible {
+  box-shadow: none !important;
+}
+
+.vehicle-recent-insurance-card:focus {
+  outline: none;
+}
+
+.vehicle-recent-insurance-card:focus-visible {
+  outline: 1px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 1px;
+}
+
+.vehicle-recent-insurance-card span {
+  color: #64748b !important;
   font-size: 0.76rem;
   font-weight: 900;
 }
 
-.vehicle-recent-insurance-heading strong {
-  color: var(--primary, #2563eb);
-  font-size: 0.9rem;
-  line-height: 1;
+.vehicle-recent-insurance-card strong {
+  color: #172033;
+  font-size: 1.04rem;
+  line-height: 1.1;
 }
 
-.vehicle-recent-insurance-list {
+.vehicle-recent-insurance-card small {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.vehicle-recent-insurance-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.34);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1500;
+}
+
+.vehicle-recent-insurance-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
   display: grid;
-  gap: 4px;
+  gap: 12px;
+  max-width: 720px;
+  padding: 16px;
+  width: min(720px, 100%);
 }
 
-.vehicle-recent-insurance-item {
+.vehicle-recent-insurance-modal-heading {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.vehicle-recent-insurance-modal-heading h3 {
+  color: #172033;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.vehicle-recent-insurance-modal-heading p {
+  color: #64748b;
+  font-size: 0.82rem;
+  margin: 4px 0 0;
+}
+
+.vehicle-recent-insurance-modal-list {
+  display: grid;
+  gap: 8px;
+}
+
+.vehicle-recent-insurance-modal-item {
   align-items: center;
   appearance: none;
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  border-radius: 7px;
+  border-radius: 8px;
   box-shadow: none !important;
   color: #172033 !important;
   cursor: pointer;
   display: grid;
-  gap: 4px 8px;
-  grid-template-columns: minmax(86px, 0.85fr) minmax(0, 1.25fr) minmax(70px, 0.7fr);
-  min-height: 28px;
-  padding: 5px 7px;
+  gap: 6px 10px;
+  grid-template-columns: minmax(110px, 0.9fr) minmax(0, 1.25fr) minmax(90px, 0.75fr) minmax(86px, 0.7fr);
+  min-width: 0;
+  padding: 9px 10px;
   text-align: left;
-  width: 100%;
 }
 
-.vehicle-recent-insurance-item:hover {
+.vehicle-recent-insurance-modal-item:hover {
   background: #f8fafc !important;
   border-color: #cbd5e1 !important;
 }
 
-.vehicle-recent-insurance-item:focus,
-.vehicle-recent-insurance-item:focus-visible {
+.vehicle-recent-insurance-modal-item:focus,
+.vehicle-recent-insurance-modal-item:focus-visible {
   box-shadow: none !important;
 }
 
-.vehicle-recent-insurance-item:focus {
+.vehicle-recent-insurance-modal-item:focus {
   outline: none;
 }
 
-.vehicle-recent-insurance-item:focus-visible {
+.vehicle-recent-insurance-modal-item:focus-visible {
   outline: 1px solid rgba(37, 99, 235, 0.22);
   outline-offset: 1px;
 }
@@ -1018,13 +1087,14 @@ p {
 .vehicle-recent-insurance-main {
   align-items: baseline;
   display: flex;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
 }
 
 .vehicle-recent-insurance-main strong,
 .vehicle-recent-insurance-main em,
-.vehicle-recent-insurance-meta {
+.vehicle-recent-insurance-modal-item span,
+.vehicle-recent-insurance-modal-item small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1033,30 +1103,23 @@ p {
 
 .vehicle-recent-insurance-main strong {
   color: #172033;
-  font-size: 0.76rem;
+  font-size: 0.86rem;
   font-weight: 900;
 }
 
 .vehicle-recent-insurance-main em,
-.vehicle-recent-insurance-meta,
+.vehicle-recent-insurance-modal-item span,
+.vehicle-recent-insurance-modal-item small,
 .vehicle-recent-insurance-empty {
   color: #64748b;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-style: normal;
   font-weight: 700;
-}
-
-.vehicle-recent-insurance-empty {
-  margin: 3px 0 0;
 }
 
 @media (max-width: 1180px) {
   .vehicle-stats-compact .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .vehicle-recent-insurance-card {
-    grid-column: 1 / -1;
   }
 }
 
@@ -1065,7 +1128,21 @@ p {
     grid-template-columns: 1fr;
   }
 
-  .vehicle-recent-insurance-item {
+  .vehicle-recent-insurance-modal-backdrop {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .vehicle-recent-insurance-modal {
+    align-self: center;
+  }
+
+  .vehicle-recent-insurance-modal-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vehicle-recent-insurance-modal-item {
     grid-template-columns: 1fr;
   }
 }
