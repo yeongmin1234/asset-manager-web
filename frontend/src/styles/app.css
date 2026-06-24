@@ -6531,7 +6531,7 @@ button:disabled,
 
 .primary-action,
 .primary-button,
-button:not(.secondary-button):not(.danger-button):not(.caution-button):not(.export-button):not(.icon-button):not(.portal-brand-button):not(.sidebar-menu-item):not(.network-page-tab):not(.beverage-thumbnail-button):not(.beverage-post-main):not(.network-password-mask):not(.network-password-value) {
+button:not(.secondary-button):not(.danger-button):not(.caution-button):not(.export-button):not(.icon-button):not(.portal-brand-button):not(.sidebar-menu-item):not(.network-page-tab):not(.beverage-thumbnail-button):not(.beverage-post-main):not(.beverage-table-title):not(.network-password-mask):not(.network-password-value) {
   background: var(--primary);
   border: 1px solid var(--primary);
   color: #ffffff;
@@ -10437,20 +10437,82 @@ a:focus-visible,
 }
 
 .beverage-table-title {
+  appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--text-main, #172033) !important;
+  cursor: pointer;
   display: grid;
   gap: 4px;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: #172033;
-  cursor: pointer;
+  justify-items: start;
+  line-height: 1.35;
   padding: 0;
   text-align: left;
+  width: 100%;
+}
+
+.beverage-table-title strong {
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  min-width: 0;
+}
+
+.beverage-table-title:hover {
+  background: transparent !important;
+  color: var(--primary, #2563eb) !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.beverage-table-title:focus,
+.beverage-table-title:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.beverage-table-title:focus {
+  outline: none;
+}
+
+.beverage-table-title:focus-visible {
+  outline: 1px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
 }
 
 .beverage-table-title small {
   color: #64748b;
   font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.beverage-list-controls select:focus,
+.beverage-list-controls input:focus,
+.beverage-list-controls select:focus-visible,
+.beverage-list-controls input:focus-visible {
+  border-color: var(--primary-line, #bfdbfe);
+  box-shadow: none;
+  outline: 1px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 1px;
+}
+
+.beverage-list-controls select:focus:not(:focus-visible),
+.beverage-list-controls input:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.beverage-actions .software-action-button,
+.beverage-detail-actions .software-action-button {
+  box-shadow: none;
 }
 
 .beverage-table-meta {
