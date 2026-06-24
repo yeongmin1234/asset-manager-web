@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { dryRunScmReboot, getScmServerStatus } from "../api/client.js";
 import ScmRebootDryRunPanel from "./ScmRebootDryRunPanel.jsx";
+import ScmRebootProgressModal from "./ScmRebootProgressModal.jsx";
 import ScmServerStatus from "./ScmServerStatus.jsx";
 
 function ScmPage() {
   const [status, setStatus] = useState(null);
   const [statusState, setStatusState] = useState({ isLoading: false, error: "" });
+  const [progressModal, setProgressModal] = useState({
+    isOpen: false,
+    runKey: 0,
+  });
 
   const loadStatus = useCallback(async () => {
     setStatusState({ isLoading: true, error: "" });
@@ -22,6 +27,20 @@ function ScmPage() {
   useEffect(() => {
     loadStatus();
   }, [loadStatus]);
+
+  const handleDryRunSuccess = () => {
+    setProgressModal((current) => ({
+      isOpen: true,
+      runKey: current.runKey + 1,
+    }));
+  };
+
+  const handleProgressClose = () => {
+    setProgressModal((current) => ({
+      ...current,
+      isOpen: false,
+    }));
+  };
 
   return (
     <section className="scm-page" aria-labelledby="scm-page-title">
@@ -40,7 +59,15 @@ function ScmPage() {
         onRefresh={loadStatus}
       />
 
-      <ScmRebootDryRunPanel onDryRun={dryRunScmReboot} />
+      <ScmRebootDryRunPanel onDryRun={dryRunScmReboot} onDryRunSuccess={handleDryRunSuccess} />
+
+      <ScmRebootProgressModal
+        isOpen={progressModal.isOpen}
+        runKey={progressModal.runKey}
+        onClose={handleProgressClose}
+        onRefreshStatus={loadStatus}
+        isRefreshingStatus={statusState.isLoading}
+      />
     </section>
   );
 }

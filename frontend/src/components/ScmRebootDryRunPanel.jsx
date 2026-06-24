@@ -6,7 +6,7 @@ const INITIAL_FORM = {
   confirm_text: "",
 };
 
-function ScmRebootDryRunPanel({ onDryRun }) {
+function ScmRebootDryRunPanel({ onDryRun, onDryRunSuccess }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [countdown, setCountdown] = useState(10);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -49,10 +49,11 @@ function ScmRebootDryRunPanel({ onDryRun }) {
       });
       setMessage({
         type: "success",
-        text: result?.message || "재부팅 실행 조건이 확인되었습니다. 실제 재부팅은 3단계에서 활성화됩니다.",
+        text: result?.message || "재부팅 실행 조건 확인이 완료되었습니다. 현재 단계에서는 실제 재부팅을 실행하지 않습니다.",
       });
       setForm((current) => ({ ...current, admin_password: "", confirm_text: "" }));
       setCountdown(10);
+      onDryRunSuccess?.(result);
     } catch (error) {
       setMessage({ type: "error", text: error.message });
     } finally {
@@ -68,7 +69,7 @@ function ScmRebootDryRunPanel({ onDryRun }) {
           <h3 id="scm-reboot-title">재부팅 준비</h3>
           <p>이번 단계에서는 조건 확인만 수행하며 실제 재부팅 명령은 실행하지 않습니다.</p>
         </div>
-        <span className="scm-dry-run-badge">실행 비활성</span>
+        <span className="scm-dry-run-badge">Dry-run 전용</span>
       </div>
 
       <div className="scm-warning-box">
@@ -78,7 +79,7 @@ function ScmRebootDryRunPanel({ onDryRun }) {
 
       <div className="scm-countdown-box">
         <span>재부팅 실행 전 안전 대기 UI</span>
-        <strong>{countdown > 0 ? `${countdown}초` : "준비 완료"}</strong>
+        <strong>{countdown > 0 ? `${countdown}초` : "대기 종료"}</strong>
         <small>카운트다운이 끝나도 실제 reboot 명령은 실행되지 않습니다.</small>
       </div>
 
@@ -125,7 +126,7 @@ function ScmRebootDryRunPanel({ onDryRun }) {
           <button type="submit" className="caution-button scm-dry-run-button" disabled={isSubmitting}>
             {isSubmitting ? "확인 중" : "재부팅 조건 확인"}
           </button>
-          <span>dry-run API만 호출합니다.</span>
+          <span>dry-run API만 호출하며 실제 reboot 명령은 실행하지 않습니다.</span>
         </div>
       </form>
     </section>

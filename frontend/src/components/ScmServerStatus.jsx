@@ -3,6 +3,7 @@ import React from "react";
 function ScmServerStatus({ status, isLoading, error, onRefresh }) {
   const tone = getStatusTone(status, error);
   const statusLabel = getStatusLabel(status, error);
+  const uptime = formatUptime(status?.uptime_text);
 
   return (
     <section className="scm-status-grid" aria-label="SCM 서버 상태">
@@ -18,8 +19,8 @@ function ScmServerStatus({ status, isLoading, error, onRefresh }) {
       </article>
       <article className="scm-status-card">
         <span>Uptime</span>
-        <strong>{status?.uptime_text || "-"}</strong>
-        <p>SSH 상태 확인이 성공하면 uptime이 표시됩니다.</p>
+        <strong>{uptime.text}</strong>
+        <p>{uptime.summary || "서버가 마지막 부팅 이후 계속 실행된 시간입니다."}</p>
       </article>
       <article className="scm-status-card">
         <span>마지막 확인</span>
@@ -79,6 +80,53 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatUptime(value) {
+  if (!value) {
+    return { text: "-", summary: "서버가 마지막 부팅 이후 계속 실행된 시간입니다." };
+  }
+
+  const sourceText = String(value).trim();
+  const normalizedText = sourceText.replace(/^up\s+/i, "");
+  const unitMap = {
+    week: { label: "주", days: 7 },
+    weeks: { label: "주", days: 7 },
+    day: { label: "일", days: 1 },
+    days: { label: "일", days: 1 },
+    hour: { label: "시간", days: 0 },
+    hours: { label: "시간", days: 0 },
+    minute: { label: "분", days: 0 },
+    minutes: { label: "분", days: 0 },
+    second: { label: "초", days: 0 },
+    seconds: { label: "초", days: 0 },
+  };
+
+  const parts = [];
+  let approximateDays = 0;
+  const matches = normalizedText.matchAll(/(\d+)\s+(weeks?|days?|hours?|minutes?|seconds?)/gi);
+  for (const match of matches) {
+    const amount = Number(match[1]);
+    const unit = String(match[2]).toLowerCase();
+    const unitInfo = unitMap[unit];
+    if (!Number.isFinite(amount) || !unitInfo) {
+      continue;
+    }
+    parts.push(`${amount}${unitInfo.label}`);
+    approximateDays += amount * unitInfo.days;
+  }
+
+  if (parts.length === 0) {
+    return { text: sourceText, summary: "서버가 마지막 부팅 이후 계속 실행된 시간입니다." };
+  }
+
+  return {
+    text: parts.join(" "),
+    summary:
+      approximateDays > 0
+        ? `약 ${approximateDays}일 동안 실행 중`
+        : "서버가 마지막 부팅 이후 계속 실행된 시간입니다.",
+  };
 }
 
 export default ScmServerStatus;

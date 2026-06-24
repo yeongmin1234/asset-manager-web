@@ -51,6 +51,6 @@ def dry_run_scm_reboot(
 
     return ScmRebootDryRunResponse(
         ok=True,
-        message="재부팅 실행 조건이 확인되었습니다. 실제 재부팅은 3단계에서 활성화됩니다.",
+        message="재부팅 실행 조건 확인이 완료되었습니다. 현재 단계에서는 실제 재부팅을 실행하지 않습니다.",
         dry_run=True,
     )
