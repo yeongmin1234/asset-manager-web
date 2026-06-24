@@ -30,6 +30,11 @@ const MENU_VISIBILITY_ITEMS = [
     description: "자산 변경 이력 조회 메뉴",
   },
   {
+    id: "install-library",
+    label: "설치자료실",
+    description: "사내 설치 파일 자료실 메뉴",
+  },
+  {
     id: "scm",
     label: "SCM",
     description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴",
@@ -76,6 +81,11 @@ const PROTECTED_MENU_ITEMS = [
     id: "history",
     label: "변경 이력",
     description: "자산 변경 이력 조회 메뉴",
+  },
+  {
+    id: "install-library",
+    label: "설치자료실",
+    description: "설치자료 등록/수정/삭제는 별도 관리자 인증이 필요합니다.",
   },
   {
     id: "scm",

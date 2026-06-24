@@ -73,7 +73,8 @@ async function request(path, options = {}) {
 async function requestBlob(path, options = {}) {
   const url = new URL(`${API_BASE_URL}${path}`);
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutMs = Number(options.timeoutMs || REQUEST_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   if (options.query) {
     Object.entries(options.query).forEach(([key, value]) => {
@@ -249,6 +250,44 @@ export async function revealNetworkCredentialPassword(credentialId, adminPasswor
     method: "POST",
     body: { admin_password: adminPassword },
     timeoutMs: 8000,
+  });
+}
+
+export async function getInstallFiles(filters = {}) {
+  return request("/install-files", { query: filters });
+}
+
+export async function getInstallFile(fileId) {
+  return request(`/install-files/${fileId}`);
+}
+
+export async function getInstallFileSummary() {
+  return request("/install-files/summary");
+}
+
+export async function createInstallFile(payload) {
+  return requestFormData("/install-files", buildInstallFileFormData(payload), {
+    timeoutMs: 60000,
+  });
+}
+
+export async function updateInstallFile(fileId, payload) {
+  return requestFormData(`/install-files/${fileId}`, buildInstallFileFormData(payload), {
+    method: "PUT",
+    timeoutMs: 60000,
+  });
+}
+
+export async function deleteInstallFile(fileId, adminPassword) {
+  return request(`/install-files/${fileId}`, {
+    method: "DELETE",
+    body: { admin_password: adminPassword },
+  });
+}
+
+export async function downloadInstallFile(fileId) {
+  return requestBlob(`/install-files/${fileId}/download`, {
+    timeoutMs: 120000,
   });
 }
 
@@ -602,6 +641,22 @@ function buildAssetFormData(asset) {
     }
     if (value !== undefined && value !== null) {
       formData.append(key, String(value));
+    }
+  });
+  return formData;
+}
+
+function buildInstallFileFormData(payload) {
+  const formData = new FormData();
+  Object.entries(payload || {}).forEach(([key, value]) => {
+    if (key === "file") {
+      if (value) {
+        formData.append("file", value);
+      }
+      return;
+    }
+    if (value !== undefined && value !== null) {
+      formData.append(key, typeof value === "boolean" ? String(value) : String(value));
     }
   });
   return formData;

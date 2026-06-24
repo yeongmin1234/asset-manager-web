@@ -11,6 +11,7 @@ from app.api.routers import (
     admin,
     beverage_orders,
     company_vehicles,
+    install_files,
     network_credentials,
     network_status,
     paju_fire_insurance,
@@ -59,6 +60,7 @@ app.include_router(software.router)
 app.include_router(admin.router)
 app.include_router(beverage_orders.router)
 app.include_router(company_vehicles.router)
+app.include_router(install_files.router)
 app.include_router(vehicle_insurance_histories.router)
 app.include_router(paju_fire_insurance.router)
 app.include_router(network_status.router)

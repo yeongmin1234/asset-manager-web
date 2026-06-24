@@ -11,6 +11,7 @@ const MENU_ITEMS = [
   { id: "excel", label: "엑셀 관리", icon: "▤" },
   { id: "stats", label: "통계 / 리포트", icon: "▥" },
   { id: "history", label: "변경 이력", icon: "◷" },
+  { id: "install-library", label: "설치자료실", icon: "▩" },
   { id: "scm", label: "SCM", icon: "S" },
   { id: "settings", label: "설정", icon: "⚙" },
 ];
@@ -26,7 +27,7 @@ const MENU_GROUPS = [
   },
   {
     title: "관리",
-    itemIds: ["excel", "stats", "history", "scm", "settings"],
+    itemIds: ["excel", "stats", "history", "install-library", "scm", "settings"],
   },
 ];
 

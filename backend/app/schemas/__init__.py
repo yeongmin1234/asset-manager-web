@@ -13,6 +13,12 @@ from app.schemas.company_vehicle import (
 )
 from app.schemas.department import DepartmentCreate, DepartmentRead, DepartmentUpdate
 from app.schemas.history import AssetHistoryCreate, AssetHistoryRead
+from app.schemas.install_file import (
+    InstallFileDeleteRequest,
+    InstallFileListResponse,
+    InstallFileRead,
+    InstallFileSummary,
+)
 from app.schemas.network_credential import (
     NetworkCredentialCreate,
     NetworkCredentialRead,
@@ -48,6 +54,10 @@ __all__ = [
     "DepartmentCreate",
     "DepartmentRead",
     "DepartmentUpdate",
+    "InstallFileDeleteRequest",
+    "InstallFileListResponse",
+    "InstallFileRead",
+    "InstallFileSummary",
     "NetworkCredentialCreate",
     "NetworkCredentialRead",
     "NetworkCredentialUpdate",

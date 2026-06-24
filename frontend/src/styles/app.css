@@ -9651,3 +9651,410 @@ button.paju-note-text:not(:disabled):hover {
     display: grid;
   }
 }
+.install-library-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.install-library-hero,
+.install-library-admin-panel,
+.install-library-controls,
+.install-library-toast,
+.install-checklist-panel,
+.install-library-summary-card {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.install-library-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+}
+
+.install-library-hero h2 {
+  margin: 4px 0 8px;
+  color: #172033;
+  font-size: 28px;
+}
+
+.install-library-hero p,
+.install-library-admin-panel p,
+.install-checklist-heading p,
+.install-library-modal-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.install-library-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.install-library-summary-card {
+  padding: 16px;
+}
+
+.install-library-summary-card span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.install-library-summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: #172033;
+  font-size: 24px;
+}
+
+.install-library-admin-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+
+.install-library-admin-panel form {
+  display: flex;
+  gap: 8px;
+}
+
+.install-library-admin-panel input,
+.install-library-controls input,
+.install-library-controls select,
+.install-library-form-modal input,
+.install-library-form-modal select,
+.install-library-form-modal textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.install-library-admin-panel span,
+.install-library-form-error {
+  color: #b42318;
+  font-size: 13px;
+}
+
+.install-library-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(140px, 1fr)) auto auto;
+  align-items: end;
+  gap: 10px;
+  padding: 16px;
+}
+
+.install-library-controls label,
+.install-library-form-modal .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.install-library-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  color: #334155;
+}
+
+.install-library-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.install-library-list-panel {
+  overflow: hidden;
+}
+
+.install-library-table-wrap {
+  overflow-x: auto;
+}
+
+.install-library-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.install-library-table th,
+.install-library-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 13px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.install-library-table th {
+  color: #64748b;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.install-library-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.install-library-title-cell strong {
+  color: #172033;
+}
+
+.install-library-title-cell span,
+.install-library-table td {
+  color: #475569;
+  font-size: 14px;
+}
+
+.install-library-badge-row,
+.install-library-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.install-library-required-badge,
+.install-library-order-badge {
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.install-library-required-badge {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.install-library-order-badge {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.install-library-empty {
+  padding: 32px;
+  color: #64748b;
+  text-align: center;
+}
+
+.install-library-empty.error {
+  color: #b42318;
+}
+
+.install-checklist-panel {
+  padding: 16px;
+}
+
+.install-checklist-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.install-checklist-heading h3 {
+  margin: 0 0 6px;
+  color: #172033;
+}
+
+.install-checklist-heading span {
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #175cd3;
+  font-weight: 800;
+  padding: 5px 10px;
+}
+
+.install-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.install-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.install-checklist-item span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.install-checklist-item strong {
+  color: #172033;
+}
+
+.install-checklist-item small,
+.install-checklist-empty {
+  color: #64748b;
+}
+
+.install-library-modal-backdrop {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.install-library-form-modal,
+.install-library-detail-modal,
+.install-library-delete-modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+}
+
+.install-library-delete-modal {
+  width: min(460px, 100%);
+  padding: 22px;
+}
+
+.install-library-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 20px 22px;
+}
+
+.install-library-modal-header h3,
+.install-library-delete-modal h3 {
+  margin: 4px 0 8px;
+  color: #172033;
+}
+
+.install-library-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 22px;
+}
+
+.install-library-form-wide {
+  grid-column: 1 / -1;
+}
+
+.install-library-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: end;
+  color: #334155;
+  font-weight: 700;
+}
+
+.install-library-form-modal small {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.install-library-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.install-library-detail-grid {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+}
+
+.install-library-detail-grid section {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.install-library-detail-grid h4 {
+  margin: 0 0 8px;
+  color: #172033;
+}
+
+.install-library-detail-grid p {
+  margin: 0;
+  color: #475569;
+  white-space: pre-wrap;
+}
+
+.install-library-warning-box {
+  background: #fffbeb;
+}
+
+.danger-button,
+.danger-ghost-button {
+  border: 1px solid #fda29b;
+  color: #b42318;
+}
+
+.danger-button {
+  background: #b42318;
+  border-color: #b42318;
+  color: #ffffff;
+}
+
+.danger-ghost-button {
+  background: #ffffff;
+}
+
+@media (max-width: 1100px) {
+  .install-library-summary-grid,
+  .install-library-content-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .install-library-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .install-library-hero,
+  .install-library-admin-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .install-library-admin-panel form,
+  .install-library-summary-grid,
+  .install-library-content-grid,
+  .install-library-controls,
+  .install-library-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .install-library-admin-panel form {
+    display: grid;
+  }
+}

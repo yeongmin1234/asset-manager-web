@@ -6,6 +6,7 @@ from app.models.category import Category
 from app.models.company_vehicle import CompanyVehicle, VehicleOwnershipType
 from app.models.department import Department
 from app.models.history import AssetActionType, AssetHistory
+from app.models.install_file import InstallFile
 from app.models.network_credential import (
     NetworkCredential,
     NetworkCredentialCategory,
@@ -25,6 +26,7 @@ __all__ = [
     "Category",
     "CompanyVehicle",
     "Department",
+    "InstallFile",
     "NetworkCredential",
     "NetworkCredentialCategory",
     "NetworkCredentialImportance",
