@@ -10801,6 +10801,138 @@ a:focus-visible,
   color: #b42318;
 }
 
+.dashboard-recent-panel .dashboard-recent-list {
+  gap: 0;
+  margin-top: 4px;
+}
+
+.dashboard-recent-panel .dashboard-recent-item {
+  display: grid;
+  grid-template-columns: 74px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 44px;
+  padding: 9px 0;
+}
+
+.dashboard-recent-module {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 900;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-recent-summary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard-recent-panel .dashboard-recent-summary strong {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #172033;
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-recent-panel .dashboard-recent-summary p {
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-insurance-recent {
+  border-top: 1px solid #e2e8f0;
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.dashboard-insurance-recent-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-insurance-recent-heading h4 {
+  color: #172033;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.dashboard-insurance-recent-heading span,
+.dashboard-insurance-empty {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.dashboard-insurance-list {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-insurance-item {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.dashboard-insurance-item strong {
+  color: #172033;
+  font-size: 0.84rem;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-insurance-item span {
+  color: #64748b;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .dashboard-recent-panel .dashboard-recent-item,
+  .dashboard-insurance-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .dashboard-recent-summary,
+  .dashboard-insurance-item strong {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-insurance-item span {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 1100px) {
   .install-library-summary-grid,
   .install-library-content-grid {

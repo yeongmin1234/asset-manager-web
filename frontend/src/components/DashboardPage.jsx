@@ -36,16 +36,6 @@ const EMPTY_NETWORK_SUMMARY = {
   down: 0,
 };
 
-const RECENT_LOG_TABS = [
-  { id: "all", label: "전체" },
-  { id: "asset", label: "자산" },
-  { id: "software", label: "SW" },
-  { id: "vehicle", label: "법인차량" },
-  { id: "vehicle-insurance", label: "보험 이력" },
-  { id: "beverage", label: "음료" },
-  { id: "settings", label: "설정" },
-];
-
 function DashboardPage({ onNavigate }) {
   const [assetSummary, setAssetSummary] = useState(EMPTY_ASSET_SUMMARY);
   const [softwareSummary, setSoftwareSummary] = useState(EMPTY_SOFTWARE_SUMMARY);
@@ -58,7 +48,6 @@ function DashboardPage({ onNavigate }) {
     error: "",
   });
   const [recentLogs, setRecentLogs] = useState([]);
-  const [activeRecentLogTab, setActiveRecentLogTab] = useState("all");
   const [dashboardState, setDashboardState] = useState({ isLoading: false, error: "" });
 
   const loadDashboard = useCallback(async () => {
@@ -160,9 +149,14 @@ function DashboardPage({ onNavigate }) {
     [networkStatus, recentLogs, softwareExpireSoonCount, vehicleSummary],
   );
 
-  const filteredRecentLogs = useMemo(
-    () => filterRecentLogs(recentLogs, activeRecentLogTab).slice(0, 6),
-    [activeRecentLogTab, recentLogs],
+  const displayedRecentLogs = useMemo(
+    () => recentLogs.slice(0, 6),
+    [recentLogs],
+  );
+
+  const recentInsuranceLogs = useMemo(
+    () => recentLogs.filter(isVehicleInsuranceLog).slice(0, 4),
+    [recentLogs],
   );
 
   const summaryGroups = useMemo(
@@ -303,54 +297,57 @@ function DashboardPage({ onNavigate }) {
             </button>
           </div>
 
-          <div className="dashboard-recent-tabs" role="tablist" aria-label="최근 변경 이력 필터">
-            {RECENT_LOG_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={activeRecentLogTab === tab.id}
-                className={activeRecentLogTab === tab.id ? "dashboard-recent-tab active" : "dashboard-recent-tab"}
-                onClick={() => setActiveRecentLogTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {filteredRecentLogs.length === 0 ? (
+          {displayedRecentLogs.length === 0 ? (
             <div className="dashboard-empty">최근 변경 이력이 없습니다.</div>
           ) : (
             <div className="dashboard-recent-list">
-              {filteredRecentLogs.map((log) => (
+              {displayedRecentLogs.map((log) => (
                 <div className="dashboard-recent-item" key={log.id}>
-                  <div className="dashboard-recent-item-top">
-                    <span>{getLogModuleLabel(log)}</span>
-                    <em className={`dashboard-action-badge dashboard-action-badge-${getActionTone(log.action_type)}`}>
-                      {getActionLabel(log.action_type)}
-                    </em>
+                  <span className="dashboard-recent-module">{getLogModuleLabel(log)}</span>
+                  <em className={`dashboard-action-badge dashboard-action-badge-${getActionTone(log.action_type)}`}>
+                    {getActionLabel(log.action_type)}
+                  </em>
+                  <div className="dashboard-recent-summary">
+                    <strong title={formatText(log.summary || log.target_name)}>
+                      {formatText(log.summary || log.target_name)}
+                    </strong>
+                    <p>
+                      {formatDateTime(log.created_at)}
+                      {getActorLabel(log) ? ` · ${getActorLabel(log)}` : ""}
+                    </p>
                   </div>
-                  <strong>{formatText(log.summary || log.target_name)}</strong>
-                  <p>
-                    {formatDateTime(log.created_at)}
-                    {getActorLabel(log) ? ` · ${getActorLabel(log)}` : " · 작업자 정보 없음"}
-                  </p>
                 </div>
               ))}
             </div>
           )}
+
+          <div className="dashboard-insurance-recent">
+            <div className="dashboard-insurance-recent-heading">
+              <h4>최근 보험 이력</h4>
+              <span>등록/수정/삭제</span>
+            </div>
+            {recentInsuranceLogs.length === 0 ? (
+              <div className="dashboard-insurance-empty">최근 보험 이력이 없습니다.</div>
+            ) : (
+              <div className="dashboard-insurance-list">
+                {recentInsuranceLogs.map((log) => (
+                  <div className="dashboard-insurance-item" key={`insurance-${log.id}`}>
+                    <em className={`dashboard-action-badge dashboard-action-badge-${getActionTone(log.action_type)}`}>
+                      {getActionLabel(log.action_type)}
+                    </em>
+                    <strong title={formatText(log.summary || log.target_name)}>
+                      {formatText(log.summary || log.target_name)}
+                    </strong>
+                    <span>{formatDateTime(log.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </section>
   );
-}
-
-function filterRecentLogs(logs, activeTab) {
-  const safeLogs = Array.isArray(logs) ? logs : [];
-  if (activeTab === "all") {
-    return safeLogs;
-  }
-  return safeLogs.filter((log) => getLogCategory(log) === activeTab);
 }
 
 function getLogCategory(log) {
@@ -382,6 +379,10 @@ function getLogCategory(log) {
     return "settings";
   }
   return "asset";
+}
+
+function isVehicleInsuranceLog(log) {
+  return getLogCategory(log) === "vehicle-insurance";
 }
 
 function getLogModuleLabel(log) {
