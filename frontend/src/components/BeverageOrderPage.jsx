@@ -8,6 +8,7 @@ import {
   getBeverageOrders,
   updateBeverageOrder,
 } from "../api/client.js";
+import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const INITIAL_FILTERS = {
   order_month: "",
@@ -34,6 +35,15 @@ const INITIAL_FORM = {
 const BEVERAGE_ORDER_TYPES = [
   { value: "beverage", label: "음료" },
   { value: "supplies", label: "소모품" },
+];
+const BEVERAGE_COLUMN_WIDTH_STORAGE_KEY = "assetManager.beverageOrderTable.columnWidths";
+const BEVERAGE_COLUMNS = [
+  { key: "image", label: "이미지", initialWidth: 110, minWidth: 90 },
+  { key: "title", label: "제목", initialWidth: 260, minWidth: 160 },
+  { key: "type", label: "구분/주문월", initialWidth: 130, minWidth: 110 },
+  { key: "amount", label: "총 결제금액", initialWidth: 130, minWidth: 110 },
+  { key: "created", label: "등록일", initialWidth: 150, minWidth: 120 },
+  { key: "actions", label: "관리", initialWidth: 130, minWidth: 120 },
 ];
 
 function BeverageOrderPage() {
@@ -443,6 +453,11 @@ function BeverageOrderList({
   onDelete,
 }) {
   const safeOrders = Array.isArray(orders) ? orders : [];
+  const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
+    BEVERAGE_COLUMNS,
+    BEVERAGE_COLUMN_WIDTH_STORAGE_KEY,
+    "beverage-column-resizing",
+  );
   return (
     <section className="content-panel beverage-list-panel">
       <div className="section-heading">
@@ -500,47 +515,73 @@ function BeverageOrderList({
           <span>글쓰기 버튼으로 첫 캡처 이미지를 추가해주세요.</span>
         </div>
       ) : (
-        <div className="beverage-post-list">
-          {safeOrders.map((order) => (
-            <article
-              className={[
-                "beverage-post-item",
-                "beverage-board-item",
-                selectedOrderId === order.id ? "selected" : "",
-                editingOrderId === order.id ? "editing" : "",
-              ].filter(Boolean).join(" ")}
-              key={order.id}
-            >
-              <button type="button" className="beverage-thumbnail-button" onClick={() => onSelect(order)}>
-                {order.image_url ? (
-                  <img src={getImageUrl(order.image_url)} alt={`${order.title} 미리보기`} />
-                ) : (
-                  <span>이미지 없음</span>
-                )}
-              </button>
-              <button type="button" className="beverage-post-main" onClick={() => onSelect(order)}>
-                <span className="beverage-post-meta-line">
-                  <OrderTypeBadge orderType={order.order_type} />
-                  <span className="beverage-post-date">{formatText(order.order_month)}</span>
-                </span>
-                <strong>{order.title}</strong>
-                <span>{formatDateTime(order.created_at)}</span>
-                {order.memo && <small>{truncateText(order.memo, 70)}</small>}
-              </button>
-              <div className="beverage-post-amount">
-                <span>총 결제금액</span>
-                <strong>{formatCurrency(order.total_amount)}</strong>
-              </div>
-              <div className="software-row-actions beverage-actions">
-                <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(order)}>
-                  수정
-                </button>
-                <button type="button" className="danger-button software-action-button" onClick={() => onDelete(order)}>
-                  삭제
-                </button>
-              </div>
-            </article>
-          ))}
+        <div className="asset-table-wrap beverage-table-wrap">
+          <table className="asset-table beverage-order-table resizable-data-table" style={{ minWidth: `${tableWidth}px` }}>
+            <colgroup>
+              {BEVERAGE_COLUMNS.map((column) => (
+                <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                {BEVERAGE_COLUMNS.map((column) => (
+                  <th key={column.key}>
+                    <span className="resizable-table-heading">{column.label}</span>
+                    <span
+                      aria-hidden="true"
+                      className="table-column-resize-handle"
+                      onMouseDown={(event) => handleColumnResizeStart(event, column)}
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {safeOrders.map((order) => (
+                <tr
+                  className={[
+                    selectedOrderId === order.id ? "selected" : "",
+                    editingOrderId === order.id ? "editing" : "",
+                  ].filter(Boolean).join(" ")}
+                  key={order.id}
+                >
+                  <td>
+                    <button type="button" className="beverage-thumbnail-button" onClick={() => onSelect(order)}>
+                      {order.image_url ? (
+                        <img src={getImageUrl(order.image_url)} alt={`${order.title} 미리보기`} />
+                      ) : (
+                        <span>이미지 없음</span>
+                      )}
+                    </button>
+                  </td>
+                  <td>
+                    <button type="button" className="beverage-table-title" onClick={() => onSelect(order)}>
+                      <strong>{order.title}</strong>
+                      {order.memo && <small>{truncateText(order.memo, 70)}</small>}
+                    </button>
+                  </td>
+                  <td>
+                    <div className="beverage-table-meta">
+                      <OrderTypeBadge orderType={order.order_type} />
+                      <span>{formatText(order.order_month)}</span>
+                    </div>
+                  </td>
+                  <td>{formatCurrency(order.total_amount)}</td>
+                  <td>{formatDateTime(order.created_at)}</td>
+                  <td>
+                    <div className="software-row-actions beverage-actions">
+                      <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(order)}>
+                        수정
+                      </button>
+                      <button type="button" className="danger-button software-action-button" onClick={() => onDelete(order)}>
+                        삭제
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

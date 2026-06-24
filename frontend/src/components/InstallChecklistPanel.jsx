@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 const CHECKLIST_STORAGE_KEY = "assetManager.installLibraryChecklist";
 
-function InstallChecklistPanel({ items = [] }) {
+function InstallChecklistPanel({ items = [], onDownload }) {
   const requiredItems = useMemo(
     () =>
       items
@@ -19,6 +19,8 @@ function InstallChecklistPanel({ items = [] }) {
   }, [checkedMap]);
 
   const completedCount = requiredItems.filter((item) => checkedMap[String(item.id)]).length;
+  const progressPercent =
+    requiredItems.length > 0 ? Math.round((completedCount / requiredItems.length) * 100) : 0;
 
   return (
     <section className="install-checklist-panel">
@@ -27,35 +29,72 @@ function InstallChecklistPanel({ items = [] }) {
           <h3>설치 체크리스트</h3>
           <p>필수 자료와 설치 순서가 있는 자료를 브라우저별로 체크합니다.</p>
         </div>
-        <span>{completedCount}/{requiredItems.length}</span>
+        <div className="install-checklist-progress">
+          <strong>{completedCount}/{requiredItems.length}</strong>
+          <span>{progressPercent}%</span>
+        </div>
+      </div>
+      <div className="install-checklist-progress-bar" aria-hidden="true">
+        <span style={{ width: `${progressPercent}%` }} />
       </div>
       {requiredItems.length === 0 ? (
         <p className="install-checklist-empty">필수 설치 항목이 없습니다.</p>
       ) : (
         <div className="install-checklist-list">
           {requiredItems.map((item) => (
-            <label key={item.id} className="install-checklist-item">
-              <input
-                type="checkbox"
-                checked={checkedMap[String(item.id)] === true}
-                onChange={(event) =>
-                  setCheckedMap((current) => ({
-                    ...current,
-                    [String(item.id)]: event.target.checked,
-                  }))
-                }
-              />
-              <span>
-                <strong>{item.title}</strong>
-                <small>{Number(item.install_order || 0) > 0 ? `${item.install_order}순서` : "필수"}</small>
-              </span>
-            </label>
+            <article
+              key={item.id}
+              className={
+                checkedMap[String(item.id)] === true
+                  ? "install-checklist-item completed"
+                  : "install-checklist-item"
+              }
+            >
+              <label className="install-checklist-check">
+                <input
+                  type="checkbox"
+                  checked={checkedMap[String(item.id)] === true}
+                  onChange={(event) =>
+                    setCheckedMap((current) => ({
+                      ...current,
+                      [String(item.id)]: event.target.checked,
+                    }))
+                  }
+                />
+                <span className="install-checklist-main">
+                  <span className="install-checklist-title-row">
+                    {Number(item.install_order || 0) > 0 && (
+                      <em className="install-library-order-badge">{item.install_order}</em>
+                    )}
+                    <strong>{item.title}</strong>
+                    {item.is_required && <em className="install-library-required-badge">필수</em>}
+                    {item.version && <small>{item.version}</small>}
+                  </span>
+                  <small className="install-checklist-meta">
+                    {item.category || "기타"} / {item.original_filename || item.description || "-"}
+                  </small>
+                </span>
+              </label>
+              {checkedMap[String(item.id)] === true ? (
+                <span className="install-checklist-complete-badge">설치 완료</span>
+              ) : (
+                <button
+                  type="button"
+                  className="secondary-button install-checklist-download"
+                  onClick={() => onDownload?.(item)}
+                >
+                  다운로드
+                </button>
+              )}
+            </article>
           ))}
         </div>
       )}
-      <button type="button" className="secondary-button" onClick={() => setCheckedMap({})}>
-        체크 초기화
-      </button>
+      <div className="install-checklist-footer">
+        <button type="button" className="secondary-button" onClick={() => setCheckedMap({})}>
+          체크 초기화
+        </button>
+      </div>
     </section>
   );
 }

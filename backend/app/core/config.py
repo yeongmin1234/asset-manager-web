@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3010"]
     upload_dir: str = "../uploads"
     install_file_upload_dir: str = "../uploads/install_files"
-    install_file_max_size_mb: int = 500
+    install_file_max_size_mb: int = 2048
     export_dir: str = "../exports"
     admin_auth_minutes: int = 60
     admin_reset_code: str = ""

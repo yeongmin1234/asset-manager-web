@@ -19,17 +19,11 @@ function StatsSummary({ summary, isLoading, error }) {
 
   return (
     <section className="stats-summary" aria-labelledby="stats-summary-title">
-      <div className="section-heading">
-        <div>
-          <h2 id="stats-summary-title">자산 현황</h2>
-          <p>현재 사용 가능한 자산 기준입니다.</p>
-        </div>
-        {isLoading && <span className="inline-info">통계를 불러오는 중입니다.</span>}
-        {error && !isLoading && (
-          <span className="inline-alert">자산 현황을 불러오지 못했습니다.</span>
-        )}
-      </div>
-
+      <h3 id="stats-summary-title" className="stats-summary-compact-title">자산 현황</h3>
+      {isLoading && <span className="inline-info">통계를 불러오는 중입니다.</span>}
+      {error && !isLoading && (
+        <span className="inline-alert">자산 현황을 불러오지 못했습니다.</span>
+      )}
       {error && !isLoading && <p className="state-detail">{error}</p>}
 
       <div className="stats-grid">

@@ -80,7 +80,7 @@ function InstallLibraryForm({
         <form className="install-library-form-grid" onSubmit={handleSubmit}>
           <label className="field">
             <span>자료명</span>
-            <input value={form.title} required disabled={isSubmitting} onChange={(event) => handleChange("title", event.target.value)} />
+            <input value={form.title} disabled={isSubmitting} onChange={(event) => handleChange("title", event.target.value)} />
           </label>
           <label className="field">
             <span>분류</span>
@@ -110,24 +110,25 @@ function InstallLibraryForm({
             <span>주의사항</span>
             <textarea value={form.caution_note} disabled={isSubmitting} rows={3} onChange={(event) => handleChange("caution_note", event.target.value)} />
           </label>
-          <label className="field">
-            <span>설치 순서</span>
-            <input type="number" min="0" value={form.install_order} disabled={isSubmitting} onChange={(event) => handleChange("install_order", event.target.value)} />
-          </label>
-          <label className="install-library-checkbox">
-            <input type="checkbox" checked={form.is_required} disabled={isSubmitting} onChange={(event) => handleChange("is_required", event.target.checked)} />
-            <span>필수 설치 항목</span>
-          </label>
+          <div className="install-library-form-options install-library-form-wide">
+            <label className="install-library-checkbox">
+              <input type="checkbox" checked={form.is_required} disabled={isSubmitting} onChange={(event) => handleChange("is_required", event.target.checked)} />
+              <span>필수 설치 항목</span>
+            </label>
+            <label className="field install-library-order-field">
+              <span>설치 순서</span>
+              <input type="number" min="0" value={form.install_order} disabled={isSubmitting} onChange={(event) => handleChange("install_order", event.target.value)} />
+            </label>
+          </div>
           <label className="field install-library-form-wide">
             <span>{isEditMode ? "파일 교체" : "파일"}</span>
             <input
               type="file"
-              required={!isEditMode}
               disabled={isSubmitting}
               accept=".exe,.msi,.zip,.7z,.pdf,.txt,.bat,.ps1"
               onChange={(event) => handleChange("file", event.target.files?.[0] || null)}
             />
-            <small>허용 확장자: {ALLOWED_EXTENSIONS_TEXT}, 최대 500MB</small>
+            <small>허용 확장자: {ALLOWED_EXTENSIONS_TEXT}, 최대 2GB. 대용량 파일은 네트워크 상태에 따라 시간이 걸릴 수 있습니다.</small>
           </label>
           {error && <p className="install-library-form-error install-library-form-wide">{error}</p>}
           <div className="install-library-form-actions install-library-form-wide">

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getActivityLogs } from "../api/client.js";
+import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const HISTORY_FILTERS = [
   { label: "전체", targetType: "" },
@@ -7,12 +8,32 @@ const HISTORY_FILTERS = [
   { label: "SW", targetType: "software" },
   { label: "법인차량", targetType: "vehicle" },
   { label: "보험 이력", targetType: "vehicle_insurance_history" },
+  { label: "음료", targetType: "beverage_order" },
+  { label: "설정", targetType: "admin_setting" },
+];
+const HISTORY_COLUMN_WIDTH_STORAGE_KEY = "assetManager.historyTable.columnWidths";
+const HISTORY_COLUMNS = [
+  { key: "createdAt", label: "일시", initialWidth: 150, minWidth: 120 },
+  { key: "menu", label: "메뉴", initialWidth: 120, minWidth: 90 },
+  { key: "action", label: "작업", initialWidth: 90, minWidth: 80 },
+  { key: "target", label: "대상", initialWidth: 180, minWidth: 120 },
+  { key: "summary", label: "요약", initialWidth: 300, minWidth: 160 },
+  { key: "actor", label: "작업자/IP", initialWidth: 140, minWidth: 120 },
 ];
 
 function HistoryPage() {
   const [logs, setLogs] = useState([]);
   const [activeFilter, setActiveFilter] = useState("");
   const [state, setState] = useState({ isLoading: false, error: "" });
+  const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
+    HISTORY_COLUMNS,
+    HISTORY_COLUMN_WIDTH_STORAGE_KEY,
+    "history-column-resizing",
+  );
+  const displayedLogs = useMemo(
+    () => filterHistoryLogs(logs, activeFilter),
+    [activeFilter, logs],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -20,7 +41,7 @@ function HistoryPage() {
     async function loadLogs() {
       setState({ isLoading: true, error: "" });
       try {
-        const data = await getActivityLogs({ target_type: activeFilter });
+        const data = await getActivityLogs({ limit: 100 });
         if (isMounted) {
           setLogs(Array.isArray(data) ? data : []);
           setState({ isLoading: false, error: "" });
@@ -38,7 +59,7 @@ function HistoryPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeFilter]);
+  }, []);
 
   return (
     <section className="content-panel history-page" aria-labelledby="history-page-title">
@@ -74,25 +95,34 @@ function HistoryPage() {
           </div>
         )}
 
-        {!state.isLoading && !state.error && logs.length === 0 && (
+        {!state.isLoading && !state.error && displayedLogs.length === 0 && (
           <div className="history-state">변경 이력이 없습니다.</div>
         )}
 
-        {!state.isLoading && !state.error && logs.length > 0 && (
+        {!state.isLoading && !state.error && displayedLogs.length > 0 && (
           <div className="history-table-wrap">
-            <table className="history-table activity-history-table">
+            <table className="history-table activity-history-table resizable-data-table" style={{ minWidth: `${tableWidth}px` }}>
+              <colgroup>
+                {HISTORY_COLUMNS.map((column) => (
+                  <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
-                  <th>일시</th>
-                  <th>메뉴</th>
-                  <th>작업</th>
-                  <th>대상</th>
-                  <th>요약</th>
-                  <th>작업자/IP</th>
+                  {HISTORY_COLUMNS.map((column) => (
+                    <th key={column.key}>
+                      <span className="resizable-table-heading">{column.label}</span>
+                      <span
+                        aria-hidden="true"
+                        className="table-column-resize-handle"
+                        onMouseDown={(event) => handleColumnResizeStart(event, column)}
+                      />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => (
+                {displayedLogs.map((log) => (
                   <tr key={log.id}>
                     <td>{formatDateTime(log.created_at)}</td>
                     <td>{formatText(log.menu_name)}</td>
@@ -113,6 +143,41 @@ function HistoryPage() {
       </div>
     </section>
   );
+}
+
+function filterHistoryLogs(logs, activeFilter) {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  if (!activeFilter) {
+    return safeLogs;
+  }
+  return safeLogs.filter((log) => getHistoryLogType(log) === activeFilter);
+}
+
+function getHistoryLogType(log) {
+  const haystack = [
+    log?.menu_name,
+    log?.target_type,
+    log?.target_name,
+    log?.summary,
+    log?.description,
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  if (haystack.includes("차량 보험 이력") || haystack.includes("보험 이력") || haystack.includes("vehicle_insurance")) {
+    return "vehicle_insurance_history";
+  }
+  if (haystack.includes("법인차량") || haystack.includes("차량") || haystack.includes("vehicle")) {
+    return "vehicle";
+  }
+  if (haystack.includes("software") || haystack.includes("sw") || haystack.includes("소프트웨어")) {
+    return "software";
+  }
+  if (haystack.includes("음료") || haystack.includes("beverage")) {
+    return "beverage_order";
+  }
+  if (haystack.includes("설정") || haystack.includes("admin") || haystack.includes("settings")) {
+    return "admin_setting";
+  }
+  return "asset";
 }
 
 function getActionClassName(actionType) {

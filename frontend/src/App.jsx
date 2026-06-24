@@ -597,6 +597,18 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handlePortalSearchKeyDown = (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    const keyword = filters.keyword.trim();
+    if (!keyword) {
+      return;
+    }
+    navigateToSection("assets");
+  };
+
   const handleProtectedMenuChange = (menuId, isProtected) => {
     const nextProtectedMenus = {
       ...DEFAULT_PROTECTED_MENUS,
@@ -952,6 +964,10 @@ function App() {
         className={isSplashExiting ? "app-splash app-splash-exit" : "app-splash"}
         aria-label="앱 로딩 화면"
       >
+        <span className="splash-rain-layer splash-rain-layer-far" aria-hidden="true" />
+        <span className="splash-rain-layer splash-rain-layer-mid" aria-hidden="true" />
+        <span className="splash-rain-layer splash-rain-layer-near" aria-hidden="true" />
+        <span className="splash-reflection" aria-hidden="true" />
         <div className="app-splash-content">
           <div className="app-splash-emotion">
             <h1>BALMUDA</h1>
@@ -990,6 +1006,7 @@ function App() {
             <input
               value={filters.keyword}
               onChange={(event) => setFilters({ ...filters, keyword: event.target.value })}
+              onKeyDown={handlePortalSearchKeyDown}
               placeholder="자산 검색 (제품명, 시리얼번호, 모델명)"
             />
           </label>

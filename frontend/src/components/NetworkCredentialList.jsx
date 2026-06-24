@@ -1,6 +1,19 @@
 import React from "react";
+import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const MASKED_PASSWORD = "••••••••";
+const NETWORK_CREDENTIAL_COLUMN_WIDTH_STORAGE_KEY = "assetManager.networkCredentialTable.columnWidths";
+const NETWORK_CREDENTIAL_COLUMNS = [
+  { key: "category", label: "구분", initialWidth: 110, minWidth: 80 },
+  { key: "service", label: "서비스명", initialWidth: 150, minWidth: 120 },
+  { key: "internal", label: "내부 주소", initialWidth: 180, minWidth: 130 },
+  { key: "external", label: "외부 주소", initialWidth: 180, minWidth: 130 },
+  { key: "username", label: "계정", initialWidth: 120, minWidth: 90 },
+  { key: "importance", label: "중요도", initialWidth: 100, minWidth: 80 },
+  { key: "password", label: "비밀번호", initialWidth: 170, minWidth: 140 },
+  { key: "note", label: "비고", initialWidth: 180, minWidth: 120 },
+  { key: "actions", label: "관리", initialWidth: 130, minWidth: 120 },
+];
 
 function NetworkCredentialList({
   credentials = [],
@@ -12,6 +25,12 @@ function NetworkCredentialList({
   onEdit,
   onRevealPassword,
 }) {
+  const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
+    NETWORK_CREDENTIAL_COLUMNS,
+    NETWORK_CREDENTIAL_COLUMN_WIDTH_STORAGE_KEY,
+    "network-credential-column-resizing",
+  );
+
   if (error) {
     return <div className="empty-state error-state">접속정보를 불러오지 못했습니다. {error}</div>;
   }
@@ -26,18 +45,24 @@ function NetworkCredentialList({
 
   return (
     <div className="table-scroll network-credential-table-scroll">
-      <table className="data-table network-credential-table">
+      <table className="data-table network-credential-table resizable-data-table" style={{ minWidth: `${tableWidth}px` }}>
+        <colgroup>
+          {NETWORK_CREDENTIAL_COLUMNS.map((column) => (
+            <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
-            <th>구분</th>
-            <th>서비스명</th>
-            <th>내부 주소</th>
-            <th>외부 주소</th>
-            <th>계정</th>
-            <th>중요도</th>
-            <th>비밀번호</th>
-            <th>비고</th>
-            <th>관리</th>
+            {NETWORK_CREDENTIAL_COLUMNS.map((column) => (
+              <th key={column.key}>
+                <span className="resizable-table-heading">{column.label}</span>
+                <span
+                  aria-hidden="true"
+                  className="table-column-resize-handle"
+                  onMouseDown={(event) => handleColumnResizeStart(event, column)}
+                />
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>

@@ -5,6 +5,7 @@ import {
   getVehicleInsuranceHistories,
   updateVehicleInsuranceHistory,
 } from "../api/client.js";
+import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const INITIAL_FORM = {
   start_date: "",
@@ -15,6 +16,16 @@ const INITIAL_FORM = {
   payment_method: "",
   note: "",
 };
+const VEHICLE_INSURANCE_COLUMN_WIDTH_STORAGE_KEY = "assetManager.vehicleInsuranceTable.columnWidths";
+const VEHICLE_INSURANCE_COLUMNS = [
+  { key: "period", label: "기간", initialWidth: 180, minWidth: 130 },
+  { key: "type", label: "보험 유형", initialWidth: 120, minWidth: 90 },
+  { key: "driver", label: "대상자/운전자", initialWidth: 140, minWidth: 110 },
+  { key: "amount", label: "금액", initialWidth: 120, minWidth: 90 },
+  { key: "payment", label: "결제/처리 방식", initialWidth: 150, minWidth: 110 },
+  { key: "note", label: "비고", initialWidth: 220, minWidth: 140 },
+  { key: "actions", label: "관리", initialWidth: 128, minWidth: 120 },
+];
 
 function VehicleInsuranceHistory({ vehicles }) {
   const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
@@ -24,6 +35,11 @@ function VehicleInsuranceHistory({ vehicles }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [editingItem, setEditingItem] = useState(null);
   const [actionError, setActionError] = useState("");
+  const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
+    VEHICLE_INSURANCE_COLUMNS,
+    VEHICLE_INSURANCE_COLUMN_WIDTH_STORAGE_KEY,
+    "vehicle-insurance-column-resizing",
+  );
 
   const selectedVehicle = useMemo(
     () => safeVehicles.find((vehicle) => String(vehicle.id) === String(selectedVehicleId)) || null,
@@ -154,16 +170,27 @@ function VehicleInsuranceHistory({ vehicles }) {
           </div>
 
           <div className="asset-table-wrap">
-            <table className="asset-table vehicle-history-table">
+            <table className="asset-table vehicle-history-table resizable-data-table" style={{ minWidth: `${tableWidth}px` }}>
+              <colgroup>
+                {VEHICLE_INSURANCE_COLUMNS.map((column) => (
+                  <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
-                  <th>기간</th>
-                  <th>보험 유형</th>
-                  <th>대상자/운전자</th>
-                  <th>금액</th>
-                  <th>결제/처리 방식</th>
-                  <th>비고</th>
-                  <th>관리</th>
+                  {VEHICLE_INSURANCE_COLUMNS.map((column) => (
+                    <th
+                      key={column.key}
+                      className={column.key === "actions" ? "vehicle-insurance-actions-header" : undefined}
+                    >
+                      <span className="resizable-table-heading">{column.label}</span>
+                      <span
+                        aria-hidden="true"
+                        className="table-column-resize-handle"
+                        onMouseDown={(event) => handleColumnResizeStart(event, column)}
+                      />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -188,8 +215,8 @@ function VehicleInsuranceHistory({ vehicles }) {
                       <td>{formatCurrency(item.amount)}</td>
                       <td>{formatText(item.payment_method)}</td>
                       <td className="vehicle-history-note-cell">{formatText(item.note)}</td>
-                      <td>
-                        <div className="software-row-actions">
+                      <td className="vehicle-insurance-actions-cell">
+                        <div className="vehicle-insurance-actions">
                           <button
                             type="button"
                             className="secondary-button software-action-button"

@@ -40,7 +40,7 @@ def get_install_file_upload_dir() -> Path:
 
 
 def get_max_install_file_size() -> int:
-    return int(settings.install_file_max_size_mb or 500) * 1024 * 1024
+    return int(settings.install_file_max_size_mb or 2048) * 1024 * 1024
 
 
 def validate_original_filename(filename: str) -> str:
@@ -94,7 +94,7 @@ async def save_install_upload(upload_file: UploadFile) -> dict:
                     break
                 file_size += len(chunk)
                 if file_size > max_size:
-                    raise InstallFileValidationError("파일 크기는 500MB 이하만 업로드할 수 있습니다.")
+                    raise InstallFileValidationError("파일 크기는 2GB 이하만 업로드할 수 있습니다.")
                 file_handle.write(chunk)
         temp_path.replace(final_path)
     except Exception:

@@ -36,6 +36,16 @@ const EMPTY_NETWORK_SUMMARY = {
   down: 0,
 };
 
+const RECENT_LOG_TABS = [
+  { id: "all", label: "전체" },
+  { id: "asset", label: "자산" },
+  { id: "software", label: "SW" },
+  { id: "vehicle", label: "법인차량" },
+  { id: "vehicle-insurance", label: "보험 이력" },
+  { id: "beverage", label: "음료" },
+  { id: "settings", label: "설정" },
+];
+
 function DashboardPage({ onNavigate }) {
   const [assetSummary, setAssetSummary] = useState(EMPTY_ASSET_SUMMARY);
   const [softwareSummary, setSoftwareSummary] = useState(EMPTY_SOFTWARE_SUMMARY);
@@ -48,6 +58,7 @@ function DashboardPage({ onNavigate }) {
     error: "",
   });
   const [recentLogs, setRecentLogs] = useState([]);
+  const [activeRecentLogTab, setActiveRecentLogTab] = useState("all");
   const [dashboardState, setDashboardState] = useState({ isLoading: false, error: "" });
 
   const loadDashboard = useCallback(async () => {
@@ -66,7 +77,7 @@ function DashboardPage({ onNavigate }) {
       getSoftwareItems(),
       getVehicleSummary(),
       getNetworkStatus(),
-      getRecentActivityLogs(6),
+      getRecentActivityLogs(30),
     ]);
 
     if (assetResult.status === "fulfilled") {
@@ -147,6 +158,11 @@ function DashboardPage({ onNavigate }) {
         recentLogs,
       }),
     [networkStatus, recentLogs, softwareExpireSoonCount, vehicleSummary],
+  );
+
+  const filteredRecentLogs = useMemo(
+    () => filterRecentLogs(recentLogs, activeRecentLogTab).slice(0, 6),
+    [activeRecentLogTab, recentLogs],
   );
 
   const summaryGroups = useMemo(
@@ -287,15 +303,38 @@ function DashboardPage({ onNavigate }) {
             </button>
           </div>
 
-          {recentLogs.length === 0 ? (
+          <div className="dashboard-recent-tabs" role="tablist" aria-label="최근 변경 이력 필터">
+            {RECENT_LOG_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeRecentLogTab === tab.id}
+                className={activeRecentLogTab === tab.id ? "dashboard-recent-tab active" : "dashboard-recent-tab"}
+                onClick={() => setActiveRecentLogTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {filteredRecentLogs.length === 0 ? (
             <div className="dashboard-empty">최근 변경 이력이 없습니다.</div>
           ) : (
             <div className="dashboard-recent-list">
-              {recentLogs.map((log) => (
+              {filteredRecentLogs.map((log) => (
                 <div className="dashboard-recent-item" key={log.id}>
-                  <span>{formatText(log.menu_name)}</span>
-                  <strong>{getActionLabel(log.action_type)}</strong>
-                  <p>{formatText(log.summary || log.target_name)} · {formatDateTime(log.created_at)}</p>
+                  <div className="dashboard-recent-item-top">
+                    <span>{getLogModuleLabel(log)}</span>
+                    <em className={`dashboard-action-badge dashboard-action-badge-${getActionTone(log.action_type)}`}>
+                      {getActionLabel(log.action_type)}
+                    </em>
+                  </div>
+                  <strong>{formatText(log.summary || log.target_name)}</strong>
+                  <p>
+                    {formatDateTime(log.created_at)}
+                    {getActorLabel(log) ? ` · ${getActorLabel(log)}` : " · 작업자 정보 없음"}
+                  </p>
                 </div>
               ))}
             </div>
@@ -304,6 +343,79 @@ function DashboardPage({ onNavigate }) {
       </div>
     </section>
   );
+}
+
+function filterRecentLogs(logs, activeTab) {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  if (activeTab === "all") {
+    return safeLogs;
+  }
+  return safeLogs.filter((log) => getLogCategory(log) === activeTab);
+}
+
+function getLogCategory(log) {
+  const haystack = [
+    log?.menu_name,
+    log?.target_type,
+    log?.target_name,
+    log?.summary,
+    log?.description,
+    log?.action_type,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (haystack.includes("차량 보험 이력") || haystack.includes("보험 이력")) {
+    return "vehicle-insurance";
+  }
+  if (haystack.includes("법인차량") || haystack.includes("차량") || haystack.includes("vehicle")) {
+    return "vehicle";
+  }
+  if (haystack.includes("software") || haystack.includes("sw") || haystack.includes("소프트웨어")) {
+    return "software";
+  }
+  if (haystack.includes("음료") || haystack.includes("beverage")) {
+    return "beverage";
+  }
+  if (haystack.includes("설정") || haystack.includes("admin") || haystack.includes("settings")) {
+    return "settings";
+  }
+  return "asset";
+}
+
+function getLogModuleLabel(log) {
+  const category = getLogCategory(log);
+  const labelMap = {
+    asset: "자산",
+    software: "SW",
+    vehicle: "법인차량",
+    "vehicle-insurance": "보험 이력",
+    beverage: "음료",
+    settings: "설정",
+  };
+  return labelMap[category] || formatText(log?.menu_name);
+}
+
+function getActorLabel(log) {
+  return (
+    log?.actor_name ||
+    log?.actor ||
+    log?.user_name ||
+    log?.admin_name ||
+    log?.created_by ||
+    ""
+  );
+}
+
+function getActionTone(actionType) {
+  if (actionType === "delete" || actionType === "dispose") {
+    return "danger";
+  }
+  if (actionType === "update") {
+    return "warning";
+  }
+  return "success";
 }
 
 function buildAttentionItems({ vehicleSummary, softwareExpireSoonCount, networkStatus, recentLogs }) {

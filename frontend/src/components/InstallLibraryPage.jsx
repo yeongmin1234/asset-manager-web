@@ -37,6 +37,15 @@ function InstallLibraryPage() {
   const [listState, setListState] = useState({ error: "", isLoading: false });
   const [adminPassword, setAdminPassword] = useState("");
   const [adminMode, setAdminMode] = useState({ error: "", isEnabled: false, isVerifying: false });
+  const [adminPrompt, setAdminPrompt] = useState({
+    error: "",
+    isOpen: false,
+    isVerifying: false,
+    message: "",
+    password: "",
+    pendingAction: null,
+    pendingItem: null,
+  });
   const [formState, setFormState] = useState({
     error: "",
     initialItem: null,
@@ -94,6 +103,75 @@ function InstallLibraryPage() {
     }
   };
 
+  const openAdminPrompt = (message, pendingAction, pendingItem = null) => {
+    setToastMessage(message);
+    setAdminPrompt({
+      error: "",
+      isOpen: true,
+      isVerifying: false,
+      message,
+      password: "",
+      pendingAction,
+      pendingItem,
+    });
+  };
+
+  const runAdminAction = (action, item = null) => {
+    if (adminMode.isEnabled) {
+      executeAdminAction(action, item);
+      return;
+    }
+
+    const messageMap = {
+      create: "설치자료 등록은 관리자 인증 후 사용할 수 있습니다.",
+      edit: "설치자료 수정은 관리자 인증 후 사용할 수 있습니다.",
+      delete: "설치자료 삭제는 관리자 인증 후 사용할 수 있습니다.",
+    };
+    openAdminPrompt(messageMap[action] || "관리자 인증 후 사용할 수 있습니다.", action, item);
+  };
+
+  const executeAdminAction = (action, item = null) => {
+    if (action === "create") {
+      setFormState({ error: "", initialItem: null, isOpen: true, isSubmitting: false });
+      return;
+    }
+    if (action === "edit") {
+      setFormState({ error: "", initialItem: item, isOpen: true, isSubmitting: false });
+      return;
+    }
+    if (action === "delete") {
+      setDeleteTarget(item);
+    }
+  };
+
+  const handleAdminPromptSubmit = async (event) => {
+    event.preventDefault();
+    const password = adminPrompt.password;
+    setAdminPrompt((current) => ({ ...current, error: "", isVerifying: true }));
+    try {
+      await verifyAdminPassword(password);
+      setAdminPassword(password);
+      setAdminMode({ error: "", isEnabled: true, isVerifying: false });
+      const { pendingAction, pendingItem } = adminPrompt;
+      setAdminPrompt({
+        error: "",
+        isOpen: false,
+        isVerifying: false,
+        message: "",
+        password: "",
+        pendingAction: null,
+        pendingItem: null,
+      });
+      executeAdminAction(pendingAction, pendingItem);
+    } catch (error) {
+      setAdminPrompt((current) => ({
+        ...current,
+        error: "관리자 비밀번호를 확인해 주세요.",
+        isVerifying: false,
+      }));
+    }
+  };
+
   const handleAdminClear = () => {
     setAdminPassword("");
     setAdminMode({ error: "", isEnabled: false, isVerifying: false });
@@ -103,6 +181,18 @@ function InstallLibraryPage() {
   const handleFormSubmit = async (payload) => {
     if (!adminMode.isEnabled || !adminPassword) {
       setFormState((current) => ({ ...current, error: "관리자 인증 후 저장할 수 있습니다." }));
+      return;
+    }
+    if (!String(payload.title || "").trim()) {
+      setFormState((current) => ({ ...current, error: "프로그램명을 입력해 주세요." }));
+      return;
+    }
+    if (!String(payload.category || "").trim()) {
+      setFormState((current) => ({ ...current, error: "분류를 선택해 주세요." }));
+      return;
+    }
+    if (!formState.initialItem?.id && !payload.file) {
+      setFormState((current) => ({ ...current, error: "첨부파일을 선택해 주세요." }));
       return;
     }
     setFormState((current) => ({ ...current, error: "", isSubmitting: true }));
@@ -148,25 +238,23 @@ function InstallLibraryPage() {
   return (
     <section className="install-library-page" aria-labelledby="install-library-title">
       <div className="install-library-hero">
-        <div>
+        <div className="install-library-hero-main">
           <span className="section-kicker">Internal Install Library</span>
           <h2 id="install-library-title">설치자료실</h2>
           <p>USB로 들고 다니던 설치 파일을 내부 웹에서 등록, 조회, 다운로드합니다.</p>
+          <div className="install-library-summary-grid">
+            <SummaryCard label="등록 자료" value={`${summary.total_count}개`} />
+            <SummaryCard label="필수 자료" value={`${summary.required_count}개`} />
+            <SummaryCard label="총 용량" value={formatBytes(summary.total_size)} />
+            <SummaryCard label="다운로드" value={`${Number(summary.total_download_count || 0).toLocaleString("ko-KR")}회`} />
+          </div>
         </div>
         <button
           type="button"
-          disabled={!adminMode.isEnabled}
-          onClick={() => setFormState({ error: "", initialItem: null, isOpen: true, isSubmitting: false })}
+          onClick={() => runAdminAction("create")}
         >
           설치자료 등록
         </button>
-      </div>
-
-      <div className="install-library-summary-grid">
-        <SummaryCard label="등록 자료" value={`${summary.total_count}개`} />
-        <SummaryCard label="필수 자료" value={`${summary.required_count}개`} />
-        <SummaryCard label="총 용량" value={formatBytes(summary.total_size)} />
-        <SummaryCard label="다운로드" value={`${Number(summary.total_download_count || 0).toLocaleString("ko-KR")}회`} />
       </div>
 
       <section className="install-library-admin-panel">
@@ -242,16 +330,15 @@ function InstallLibraryPage() {
         <section className="content-panel install-library-list-panel">
           <InstallLibraryList
             error={listState.error}
-            isAdminMode={adminMode.isEnabled}
             isLoading={listState.isLoading}
             items={items}
-            onDelete={setDeleteTarget}
+            onDelete={(item) => runAdminAction("delete", item)}
             onDownload={handleDownload}
-            onEdit={(item) => setFormState({ error: "", initialItem: item, isOpen: true, isSubmitting: false })}
+            onEdit={(item) => runAdminAction("edit", item)}
             onOpenDetail={setDetailItem}
           />
         </section>
-        <InstallChecklistPanel items={items} />
+        <InstallChecklistPanel items={items} onDownload={handleDownload} />
       </div>
 
       <InstallLibraryForm
@@ -263,6 +350,79 @@ function InstallLibraryPage() {
         onSubmit={handleFormSubmit}
       />
       <InstallLibraryDetail item={detailItem} onClose={() => setDetailItem(null)} />
+      {adminPrompt.isOpen && (
+        <div className="modal-backdrop install-library-modal-backdrop" role="presentation">
+          <section className="install-library-auth-modal" role="dialog" aria-modal="true" aria-labelledby="install-library-auth-title">
+            <div className="install-library-modal-header">
+              <div>
+                <span className="section-kicker">Admin Required</span>
+                <h3 id="install-library-auth-title">관리자 인증</h3>
+                <p>{adminPrompt.message}</p>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="닫기"
+                onClick={() =>
+                  setAdminPrompt({
+                    error: "",
+                    isOpen: false,
+                    isVerifying: false,
+                    message: "",
+                    password: "",
+                    pendingAction: null,
+                    pendingItem: null,
+                  })
+                }
+              >
+                ×
+              </button>
+            </div>
+            <form className="install-library-auth-form" onSubmit={handleAdminPromptSubmit}>
+              <label className="field">
+                <span>관리자 비밀번호</span>
+                <input
+                  type="password"
+                  value={adminPrompt.password}
+                  autoComplete="current-password"
+                  disabled={adminPrompt.isVerifying}
+                  onChange={(event) =>
+                    setAdminPrompt((current) => ({
+                      ...current,
+                      error: "",
+                      password: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              {adminPrompt.error && <p className="install-library-form-error">{adminPrompt.error}</p>}
+              <div className="install-library-form-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={adminPrompt.isVerifying}
+                  onClick={() =>
+                    setAdminPrompt({
+                      error: "",
+                      isOpen: false,
+                      isVerifying: false,
+                      message: "",
+                      password: "",
+                      pendingAction: null,
+                      pendingItem: null,
+                    })
+                  }
+                >
+                  취소
+                </button>
+                <button type="submit" disabled={adminPrompt.isVerifying || !adminPrompt.password}>
+                  인증 후 계속
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
       {deleteTarget && (
         <div className="modal-backdrop install-library-modal-backdrop" role="presentation">
           <section className="install-library-delete-modal" role="dialog" aria-modal="true" aria-labelledby="install-library-delete-title">

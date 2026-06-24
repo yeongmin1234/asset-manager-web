@@ -8791,7 +8791,8 @@ button:disabled,
 .app-splash {
   align-items: center;
   background:
-    linear-gradient(rgba(8, 15, 30, 0.72), rgba(8, 15, 30, 0.55)),
+    linear-gradient(90deg, rgba(3, 7, 18, 0.84) 0%, rgba(8, 15, 30, 0.68) 48%, rgba(8, 15, 30, 0.5) 100%),
+    linear-gradient(rgba(8, 15, 30, 0.54), rgba(8, 15, 30, 0.42)),
     url("/images/background.jpg"),
     radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.28), transparent 35%),
     linear-gradient(135deg, #0f172a, #1e293b);
@@ -8813,31 +8814,109 @@ button:disabled,
 
 .app-splash::after {
   background:
-    radial-gradient(circle at 22% 28%, rgba(255, 255, 255, 0.16), transparent 18%),
-    radial-gradient(circle at 38% 35%, rgba(96, 165, 250, 0.12), transparent 20%),
-    radial-gradient(circle at 75% 28%, rgba(255, 255, 255, 0.1), transparent 26%),
+    radial-gradient(circle at 24% 30%, rgba(255, 255, 255, 0.1), transparent 17%),
+    radial-gradient(circle at 42% 36%, rgba(96, 165, 250, 0.08), transparent 20%),
+    radial-gradient(circle at 76% 34%, rgba(255, 255, 255, 0.08), transparent 25%),
     linear-gradient(90deg, rgba(8, 15, 30, 0.26), transparent 58%);
   animation: splashGlow 4s ease-in-out infinite alternate;
   content: "";
   inset: 0;
-  opacity: 0.22;
+  opacity: 0.18;
   pointer-events: none;
   position: absolute;
-  z-index: 0;
+  z-index: 4;
 }
 
 .app-splash::before {
-  animation: splashRain 1.2s linear infinite;
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0 38%, transparent 38% 100%);
-  background-size: 2px 84px;
+  background: linear-gradient(90deg, rgba(2, 6, 23, 0.42), transparent 52%);
   content: "";
   inset: 0;
-  opacity: 0.14;
+  opacity: 1;
   pointer-events: none;
   position: absolute;
-  transform: translateY(-84px);
-  z-index: 0;
+  z-index: 1;
+}
+
+.splash-rain-layer {
+  inset: -18% -8% 0 -8%;
+  pointer-events: none;
+  position: absolute;
+  transform: skewX(-10deg);
+  z-index: 2;
+}
+
+.splash-rain-layer-far {
+  animation: splashRainFallFar 1.65s linear infinite;
+  background-image:
+    linear-gradient(182deg, rgba(255, 255, 255, 0.2) 0 18%, transparent 18% 100%),
+    linear-gradient(182deg, transparent 0 48%, rgba(147, 197, 253, 0.13) 49% 62%, transparent 62% 100%);
+  background-position: 0 0, 31px 18px;
+  background-size: 78px 128px, 116px 174px;
+  opacity: 0.12;
+}
+
+.splash-rain-layer-mid {
+  animation: splashRainFallMid 1.05s linear infinite;
+  background-image:
+    linear-gradient(184deg, rgba(255, 255, 255, 0.22) 0 24%, transparent 24% 100%),
+    linear-gradient(184deg, transparent 0 28%, rgba(191, 219, 254, 0.16) 29% 48%, transparent 48% 100%);
+  background-position: 18px 0, 67px 42px;
+  background-size: 96px 142px, 143px 196px;
+  opacity: 0.16;
+}
+
+.splash-rain-layer-near {
+  animation: splashRainFallNear 0.82s linear infinite;
+  background-image:
+    linear-gradient(185deg, rgba(255, 255, 255, 0.24) 0 30%, transparent 30% 100%);
+  background-position: 44px 0;
+  background-size: 132px 214px;
+  opacity: 0.13;
+}
+
+.splash-reflection {
+  animation: splashWaterShimmer 5.4s ease-in-out infinite alternate;
+  background:
+    radial-gradient(ellipse at 72% 16%, rgba(255, 255, 255, 0.14), transparent 36%),
+    radial-gradient(ellipse at 30% 38%, rgba(96, 165, 250, 0.1), transparent 44%),
+    radial-gradient(ellipse at 58% 70%, rgba(255, 255, 255, 0.08), transparent 50%),
+    linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.18) 35%, rgba(2, 6, 23, 0.58) 100%);
+  bottom: 0;
+  filter: blur(0.2px);
+  height: 32%;
+  left: 0;
+  opacity: 0.34;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  z-index: 3;
+}
+
+.splash-reflection::before {
+  animation: splashRipple 4.6s linear infinite;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 9px,
+      rgba(255, 255, 255, 0.1) 10px,
+      transparent 12px
+    );
+  content: "";
+  inset: 0;
+  opacity: 0.2;
+  position: absolute;
+  transform: skewX(-8deg);
+}
+
+.splash-reflection::after {
+  background:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.46), transparent 48%),
+    radial-gradient(ellipse at 78% 58%, rgba(147, 197, 253, 0.12), transparent 42%);
+  content: "";
+  inset: 0;
+  opacity: 0.72;
+  position: absolute;
 }
 
 .app-splash-exit {
@@ -8858,7 +8937,7 @@ button:disabled,
   top: 46%;
   transform: translateY(-50%);
   width: max-content;
-  z-index: 1;
+  z-index: 5;
 }
 
 .app-splash-emotion,
@@ -8933,12 +9012,30 @@ button:disabled,
   }
 }
 
-@keyframes splashRain {
+@keyframes splashRainFallFar {
   from {
-    transform: translateY(-84px);
+    background-position: 0 -150px, 31px -220px;
   }
   to {
-    transform: translateY(84px);
+    background-position: 24px 150px, 55px 220px;
+  }
+}
+
+@keyframes splashRainFallMid {
+  from {
+    background-position: 18px -170px, 67px -230px;
+  }
+  to {
+    background-position: 42px 170px, 91px 230px;
+  }
+}
+
+@keyframes splashRainFallNear {
+  from {
+    background-position: 44px -260px;
+  }
+  to {
+    background-position: 74px 260px;
   }
 }
 
@@ -8950,6 +9047,26 @@ button:disabled,
   to {
     filter: blur(1px);
     transform: translate3d(10px, 8px, 0) scale(1.03);
+  }
+}
+
+@keyframes splashWaterShimmer {
+  from {
+    opacity: 0.27;
+    transform: translateY(0) scaleX(1);
+  }
+  to {
+    opacity: 0.38;
+    transform: translateY(3px) scaleX(1.015);
+  }
+}
+
+@keyframes splashRipple {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 36px;
   }
 }
 
@@ -8970,6 +9087,11 @@ button:disabled,
   .app-splash-divider {
     margin: 22px auto;
   }
+
+  .splash-reflection {
+    height: 28%;
+    opacity: 0.3;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8978,8 +9100,10 @@ button:disabled,
     animation-duration: 1ms;
   }
 
-  .app-splash::before,
-  .app-splash::after {
+  .app-splash::after,
+  .splash-rain-layer,
+  .splash-reflection,
+  .splash-reflection::before {
     animation: none;
   }
 }
@@ -9798,9 +9922,9 @@ button.paju-note-text:not(:disabled):hover {
 .install-library-table th,
 .install-library-table td {
   border-bottom: 1px solid #e2e8f0;
-  padding: 13px 12px;
+  padding: 10px 12px;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .install-library-table th {
@@ -9812,11 +9936,19 @@ button.paju-note-text:not(:disabled):hover {
 .install-library-title-cell {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+}
+
+.install-library-title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .install-library-title-cell strong {
   color: #172033;
+  line-height: 1.3;
 }
 
 .install-library-title-cell span,
@@ -9825,7 +9957,6 @@ button.paju-note-text:not(:disabled):hover {
   font-size: 14px;
 }
 
-.install-library-badge-row,
 .install-library-row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -9835,20 +9966,24 @@ button.paju-note-text:not(:disabled):hover {
 .install-library-required-badge,
 .install-library-order-badge {
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 800;
-  padding: 3px 8px;
+  line-height: 1;
+  padding: 4px 7px;
+  white-space: nowrap;
 }
 
 .install-library-required-badge {
   background: #fff7ed;
-  color: #c2410c;
+  border: 1px solid #fed7aa;
+  color: #b45309;
 }
 
 .install-library-order-badge {
-  background: #ecfdf3;
-  color: #027a48;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
 }
 
 .install-library-empty {
@@ -9870,7 +10005,7 @@ button.paju-note-text:not(:disabled):hover {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .install-checklist-heading h3 {
@@ -9878,43 +10013,129 @@ button.paju-note-text:not(:disabled):hover {
   color: #172033;
 }
 
-.install-checklist-heading span {
+.install-checklist-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   border-radius: 999px;
   background: #eef4ff;
   color: #175cd3;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.install-checklist-progress strong {
+  font-size: 13px;
+}
+
+.install-checklist-progress span {
+  color: #64748b;
+  font-size: 12px;
   font-weight: 800;
-  padding: 5px 10px;
+}
+
+.install-checklist-progress-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+  margin-bottom: 14px;
+}
+
+.install-checklist-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+  transition: width 0.2s ease;
 }
 
 .install-checklist-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   margin-bottom: 14px;
 }
 
 .install-checklist-item {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 10px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 10px;
+  background: #ffffff;
+  padding: 10px 12px;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.install-checklist-item span {
+.install-checklist-item.completed {
+  background: #f8fafc;
+  border-color: #d9e2ec;
+  opacity: 0.72;
+}
+
+.install-checklist-check {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.install-checklist-check input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.install-checklist-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.install-checklist-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
 }
 
 .install-checklist-item strong {
   color: #172033;
+  line-height: 1.3;
 }
 
-.install-checklist-item small,
+.install-checklist-title-row small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.install-checklist-meta,
 .install-checklist-empty {
   color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.install-checklist-download {
+  padding: 7px 10px;
+}
+
+.install-checklist-complete-badge {
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #027a48;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.install-checklist-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .install-library-modal-backdrop {
@@ -9925,6 +10146,7 @@ button.paju-note-text:not(:disabled):hover {
 
 .install-library-form-modal,
 .install-library-detail-modal,
+.install-library-auth-modal,
 .install-library-delete-modal {
   width: min(920px, 100%);
   max-height: calc(100vh - 40px);
@@ -9936,6 +10158,16 @@ button.paju-note-text:not(:disabled):hover {
 
 .install-library-delete-modal {
   width: min(460px, 100%);
+  padding: 22px;
+}
+
+.install-library-auth-modal {
+  width: min(520px, 100%);
+}
+
+.install-library-auth-form {
+  display: grid;
+  gap: 14px;
   padding: 22px;
 }
 
@@ -9957,7 +10189,7 @@ button.paju-note-text:not(:disabled):hover {
 .install-library-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 13px 14px;
   padding: 22px;
 }
 
@@ -9965,13 +10197,32 @@ button.paju-note-text:not(:disabled):hover {
   grid-column: 1 / -1;
 }
 
+.install-library-form-options {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(180px, 1fr);
+  align-items: end;
+  gap: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
 .install-library-checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
-  align-self: end;
   color: #334155;
   font-weight: 700;
+  min-height: 42px;
+}
+
+.install-library-checkbox input {
+  width: auto;
+}
+
+.install-library-order-field {
+  margin: 0;
 }
 
 .install-library-form-modal small {
@@ -10028,6 +10279,457 @@ button.paju-note-text:not(:disabled):hover {
   background: #ffffff;
 }
 
+button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.software-tab,
+.vehicle-form-tab,
+.vehicle-page-tab,
+.category-tab,
+.asset-location-tab,
+.settings-access-tab,
+.history-filter-button,
+.network-page-tab,
+.dashboard-recent-tab,
+.paju-fire-location-tab {
+  box-shadow: none;
+}
+
+.software-tab.active,
+.software-tab.active:not(:disabled):hover,
+.vehicle-form-tab.active,
+.vehicle-form-tab.active:not(:disabled):hover,
+.vehicle-page-tab.active,
+.vehicle-page-tab.active:hover,
+.category-tab.active,
+.category-tab.active:not(:disabled):hover,
+.asset-location-tab.active,
+.asset-location-tab.active:hover,
+.settings-access-tab.active,
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover,
+.network-page-tab.active,
+.dashboard-recent-tab.active,
+.paju-fire-location-tab.active,
+.paju-fire-location-tab.active:hover {
+  background: #ffffff;
+  border-color: var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+  box-shadow: none;
+}
+
+.history-filter-tabs .history-filter-button .history-filter-label,
+.history-filter-tabs .history-filter-button.history-filter-button-active .history-filter-label,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover .history-filter-label {
+  color: inherit;
+  opacity: 1;
+}
+
+.software-tab:not(:disabled):hover,
+.vehicle-form-tab:not(:disabled):hover,
+.vehicle-page-tab:hover,
+.category-tab:not(:disabled):hover,
+.asset-location-tab:hover,
+.settings-access-tab:hover,
+.history-filter-tabs .history-filter-button:hover,
+.network-page-tab:hover,
+.dashboard-recent-tab:hover,
+.paju-fire-location-tab:hover {
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.resizable-data-table {
+  table-layout: fixed;
+}
+
+.resizable-data-table th,
+.asset-resizable-table th,
+.software-resizable-table th,
+.paju-fire-resizable-table th,
+.vehicle-table th {
+  position: relative;
+  background: #f8fafc;
+}
+
+.resizable-table-heading,
+.vehicle-resizable-heading {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  padding-right: 10px;
+}
+
+.table-column-resize-handle,
+.vehicle-column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 2;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+}
+
+.table-column-resize-handle::after,
+.vehicle-column-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 3px;
+  width: 1px;
+  height: calc(100% - 16px);
+  border-radius: 999px;
+  background: #cbd5e1;
+  opacity: 0.65;
+}
+
+.table-column-resize-handle:hover::after,
+.vehicle-column-resize-handle:hover::after,
+.table-column-resizing .table-column-resize-handle::after,
+.asset-column-resizing .table-column-resize-handle::after,
+.software-column-resizing .table-column-resize-handle::after,
+.vehicle-column-resizing .vehicle-column-resize-handle::after,
+.vehicle-insurance-column-resizing .table-column-resize-handle::after,
+.network-credential-column-resizing .table-column-resize-handle::after,
+.install-library-column-resizing .table-column-resize-handle::after,
+.history-column-resizing .table-column-resize-handle::after,
+.beverage-column-resizing .table-column-resize-handle::after,
+.paju-fire-column-resizing .table-column-resize-handle::after {
+  background: var(--primary, #2563eb);
+  opacity: 0.85;
+}
+
+.beverage-table-wrap {
+  overflow-x: auto;
+}
+
+.beverage-order-table th,
+.beverage-order-table td {
+  vertical-align: middle;
+}
+
+.beverage-order-table .beverage-thumbnail-button {
+  width: 72px;
+  height: 54px;
+  border-radius: 8px;
+}
+
+.beverage-table-title {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #172033;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.beverage-table-title small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.beverage-table-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-edit-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+
+.sidebar-edit-panel.editing {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.sidebar-edit-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-edit-heading span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px;
+}
+
+.sidebar-edit-button,
+.sidebar-save-button,
+.sidebar-move-button {
+  border-radius: 7px;
+  box-shadow: none;
+  font-weight: 800;
+}
+
+.sidebar-edit-button {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  font-size: 0.72rem;
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.sidebar-save-button {
+  background: var(--primary, #2563eb) !important;
+  border: 1px solid var(--primary, #2563eb) !important;
+  color: #ffffff !important;
+  font-size: 0.72rem;
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.sidebar-edit-button:hover,
+.sidebar-move-button:hover:not(:disabled) {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #334155 !important;
+}
+
+.sidebar-menu-edit-row {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+}
+
+.portal-sidebar .sidebar-menu-item.sidebar-menu-item-editing {
+  cursor: default;
+  min-width: 0;
+  padding-right: 8px;
+}
+
+.portal-sidebar .sidebar-menu-item.sidebar-menu-item-editing:hover {
+  color: #334155;
+  transform: none;
+}
+
+.sidebar-move-controls {
+  display: flex;
+  gap: 3px;
+}
+
+.sidebar-move-button {
+  align-items: center;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 24px;
+}
+
+.sidebar-move-button:disabled {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #cbd5e1 !important;
+  cursor: not-allowed;
+}
+
+.portal-search:focus-within {
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
+
+.portal-search input:focus,
+.portal-search input:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.stats-summary {
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.stats-summary-compact-title {
+  margin: 0;
+  color: #172033;
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.stats-summary .stats-grid {
+  margin-top: 0;
+}
+
+.stats-summary .stats-card {
+  min-height: 84px;
+  padding: 14px;
+}
+
+.install-library-hero {
+  align-items: flex-start;
+  padding: 18px 20px;
+}
+
+.install-library-hero-main {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+.install-library-hero h2 {
+  font-size: 24px;
+  margin: 2px 0 4px;
+}
+
+.install-library-hero .install-library-summary-grid {
+  margin-top: 2px;
+}
+
+.install-library-summary-grid {
+  gap: 8px;
+}
+
+.install-library-summary-card {
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+.install-library-summary-card span {
+  font-size: 12px;
+}
+
+.install-library-summary-card strong {
+  margin-top: 4px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.install-library-content-grid {
+  align-items: start;
+}
+
+.install-checklist-panel {
+  padding: 14px;
+}
+
+.install-checklist-heading {
+  margin-bottom: 8px;
+}
+
+.install-checklist-heading h3 {
+  font-size: 1rem;
+}
+
+.install-checklist-heading p {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.vehicle-insurance-actions-header,
+.vehicle-insurance-actions-cell {
+  min-width: 128px;
+  text-align: center;
+}
+
+.vehicle-insurance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.vehicle-insurance-actions .software-action-button {
+  flex: 0 0 auto;
+}
+
+.dashboard-recent-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.dashboard-recent-tab {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.dashboard-recent-tab.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.dashboard-recent-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.dashboard-action-badge {
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.dashboard-action-badge-success {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.dashboard-action-badge-warning {
+  background: #fffbeb;
+  color: #b54708;
+}
+
+.dashboard-action-badge-danger {
+  background: #fef3f2;
+  color: #b42318;
+}
+
 @media (max-width: 1100px) {
   .install-library-summary-grid,
   .install-library-content-grid {
@@ -10050,11 +10752,21 @@ button.paju-note-text:not(:disabled):hover {
   .install-library-summary-grid,
   .install-library-content-grid,
   .install-library-controls,
+  .install-library-form-options,
   .install-library-form-grid {
     grid-template-columns: 1fr;
   }
 
   .install-library-admin-panel form {
     display: grid;
+  }
+
+  .install-checklist-item {
+    grid-template-columns: 1fr;
+  }
+
+  .install-checklist-download,
+  .install-checklist-complete-badge {
+    justify-self: start;
   }
 }
