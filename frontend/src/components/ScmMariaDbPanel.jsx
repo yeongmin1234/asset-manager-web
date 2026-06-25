@@ -57,19 +57,19 @@ function ScmMariaDbPanel({ onDryRun }) {
       <div className="scm-mariadb-heading">
         <div>
           <span className="section-kicker">MariaDB Recovery</span>
-          <h3 id="scm-mariadb-title">MariaDB 긴급 조치</h3>
-          <p>Ping은 정상이나 3306 포트가 응답하지 않을 때 우선 시도하는 조치입니다.</p>
+          <h3 id="scm-mariadb-title">MariaDB 재시작 조건 확인</h3>
+          <p>Ping/SSH와 3306 포트 상태를 바탕으로 재시작 검토 조건만 확인합니다.</p>
         </div>
         <span className="scm-dry-run-badge">Dry-run 전용</span>
       </div>
 
       <div className="scm-warning-box">
-        <strong>영향 범위 안내</strong>
-        <span>MariaDB 재시작은 SCM DB 계층에 집중한 조치이며, SCM DB 접속이 일시적으로 중단될 수 있습니다.</span>
+        <strong>실행 범위 안내</strong>
+        <span>현재 단계에서는 조건 확인만 수행하며 실제 MariaDB 재시작 명령은 실행하지 않습니다.</span>
       </div>
 
       <div className="scm-diagnosis-box">
-        <strong>장애 판단 기준</strong>
+        <strong>조건 확인 기준</strong>
         <ul>
           <li>Ping 또는 SSH는 정상인데 SCM 접속이 멈춘 경우</li>
           <li>MariaDB 상태가 inactive 또는 failed인 경우</li>
@@ -120,7 +120,7 @@ function ScmMariaDbPanel({ onDryRun }) {
           <button type="submit" className="caution-button scm-dry-run-button" disabled={isSubmitting}>
             {isSubmitting ? "확인 중" : "MariaDB 재시작 조건 확인"}
           </button>
-          <span>dry-run API만 호출하며 실제 MariaDB 재시작 명령은 실행하지 않습니다.</span>
+          <span>확인 문구는 MARIADB이며, dry-run API만 호출합니다.</span>
         </div>
       </form>
     </section>

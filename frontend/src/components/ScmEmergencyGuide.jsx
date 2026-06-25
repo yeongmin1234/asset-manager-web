@@ -1,26 +1,29 @@
 import React from "react";
 
-const GUIDE_STEPS = [
-  "1단계: Ping/SSH 연결 확인",
-  "2단계: MariaDB 상태 확인",
-  "3단계: 3306 포트 확인",
-  "4단계: MariaDB 재시작",
-  "5단계: 그래도 안 되면 웹서버 상태 확인",
+const DECISION_RULES = [
+  { label: "정상", text: "Ping/SSH 가능 + 3306 응답 가능" },
+  { label: "Freeze 의심", text: "Ping/SSH 가능 + 3306 응답 없음" },
+  { label: "재시작 검토", text: "MariaDB active + 3306 응답 없음" },
+  { label: "점검 검토", text: "MariaDB 실행 시간 30일 이상" },
+  { label: "업무 종료 후 권장", text: "MariaDB 실행 시간 60일 이상" },
 ];
 
 function ScmEmergencyGuide() {
   return (
     <section className="scm-guide-card" aria-labelledby="scm-guide-title">
       <div>
-        <span className="section-kicker">Emergency Guide</span>
-        <h3 id="scm-guide-title">장애 조치 가이드</h3>
-        <p>SCM 장애가 MariaDB freeze인지 먼저 좁혀서 확인합니다.</p>
+        <span className="section-kicker">Decision Guide</span>
+        <h3 id="scm-guide-title">운영 판단 기준</h3>
+        <p>Ping은 되지만 3306 포트가 응답하지 않는 상황을 우선 확인합니다.</p>
       </div>
-      <ol>
-        {GUIDE_STEPS.map((step) => (
-          <li key={step}>{step}</li>
+      <div className="scm-decision-list">
+        {DECISION_RULES.map((rule) => (
+          <div className="scm-decision-item" key={rule.label}>
+            <strong>{rule.label}</strong>
+            <span>{rule.text}</span>
+          </div>
         ))}
-      </ol>
+      </div>
       <div className="scm-guide-note">
         이번 단계에서는 MariaDB 실제 재시작을 실행하지 않고 dry-run 조건 확인까지만 제공합니다.
       </div>

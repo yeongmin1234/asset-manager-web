@@ -8,50 +8,56 @@ function ScmServerStatus({ status, isLoading, error, onRefresh }) {
   const mariadbUptimeTone = getMariaDbUptimeTone(status);
   const mariadbUptimeBadge = getMariaDbUptimeBadge(status);
   const portTone = getPortTone(status);
+  const healthSummary = getHealthSummary(status, error);
 
   return (
-    <section className="scm-status-grid" aria-label="SCM 서버 상태">
-      <article className={`scm-status-card scm-status-card-${tone}`}>
-        <span>연결 상태</span>
-        <strong>{isLoading ? "확인 중" : statusLabel}</strong>
-        <p>{error || status?.message || "SCM 서버 상태를 확인할 수 있습니다."}</p>
-      </article>
-      <article className="scm-status-card">
-        <span>서버명</span>
-        <strong>{status?.server_name || "SCM"}</strong>
-        <p>내부 접속 정보는 화면에 표시하지 않습니다.</p>
-      </article>
-      <article className="scm-status-card scm-status-card-info">
-        <span>서버 Uptime</span>
-        <strong>{uptime.text}</strong>
-        <p>SCM 서버 OS가 마지막 부팅 이후 실행된 시간입니다.</p>
-      </article>
-      <article className={`scm-status-card scm-status-card-${mariadbUptimeTone}`}>
-        <div className="scm-card-title-row">
-          <span>MariaDB 실행 시간</span>
-          {mariadbUptimeBadge ? <em>{mariadbUptimeBadge}</em> : null}
+    <section className="scm-status-panel" aria-label="SCM 서버 상태">
+      <div className="scm-status-toolbar">
+        <div>
+          <span>마지막 확인</span>
+          <strong>{isLoading ? "새로고침 중" : formatDateTime(status?.checked_at)}</strong>
         </div>
-        <strong>{formatMariaDbUptime(status)}</strong>
-        <p>MariaDB 서비스가 마지막 재시작 이후 실행된 시간입니다. 서버 Uptime과 다를 수 있습니다.</p>
-        <small>시작 시각: {formatMariaDbActiveSince(status?.mariadb_active_since)}</small>
-      </article>
-      <article className={`scm-status-card scm-status-card-${mariadbTone}`}>
-        <span>MariaDB 서비스 상태</span>
-        <strong>{formatMariaDbStatus(status?.mariadb_status)}</strong>
-        <p>{status?.mariadb_message || "MariaDB 서비스 상태를 확인합니다."}</p>
-      </article>
-      <article className={`scm-status-card scm-status-card-${portTone}`}>
-        <span>3306 포트 상태</span>
-        <strong>{formatPortStatus(status)}</strong>
-        <p>{status?.db_port_message || "3306 포트 상태를 확인합니다."}</p>
-      </article>
-      <article className="scm-status-card">
-        <span>마지막 확인</span>
-        <strong>{formatDateTime(status?.checked_at)}</strong>
         <button type="button" className="secondary-button scm-refresh-button" onClick={onRefresh} disabled={isLoading}>
-          {isLoading ? "확인 중" : "상태 새로고침"}
+          {isLoading ? "상태 확인 중" : "상태 새로고침"}
         </button>
-      </article>
+      </div>
+
+      <div className={`scm-health-summary scm-health-summary-${healthSummary.tone}`}>
+        <strong>{healthSummary.title}</strong>
+        <span>{healthSummary.message}</span>
+      </div>
+
+      <div className="scm-status-grid">
+        <article className={`scm-status-card scm-status-card-${tone}`}>
+          <span>SCM 서버 연결 상태</span>
+          <strong>{isLoading ? "확인 중" : statusLabel}</strong>
+          <p>{error || status?.message || "SCM 서버 상태를 확인할 수 있습니다."}</p>
+        </article>
+        <article className="scm-status-card scm-status-card-info">
+          <span>서버 Uptime</span>
+          <strong>{uptime.text}</strong>
+          <p>SCM 서버 OS가 마지막 부팅 이후 실행된 시간입니다.</p>
+        </article>
+        <article className={`scm-status-card scm-status-card-${mariadbUptimeTone}`}>
+          <div className="scm-card-title-row">
+            <span>MariaDB 실행 시간</span>
+            <em>{mariadbUptimeBadge}</em>
+          </div>
+          <strong>{formatMariaDbUptime(status)}</strong>
+          <p>MariaDB 서비스가 마지막 재시작 이후 실행된 시간입니다.</p>
+          <small>시작 시각: {formatMariaDbActiveSince(status?.mariadb_active_since)}</small>
+        </article>
+        <article className={`scm-status-card scm-status-card-${mariadbTone}`}>
+          <span>MariaDB 서비스 상태</span>
+          <strong>{formatMariaDbStatus(status?.mariadb_status)}</strong>
+          <p>{status?.mariadb_message || "MariaDB 서비스 상태를 확인합니다."}</p>
+        </article>
+        <article className={`scm-status-card scm-status-card-${portTone}`}>
+          <span>3306 포트 상태</span>
+          <strong>{formatPortStatus(status)}</strong>
+          <p>SCM DB 접속 포트 응답 여부입니다.</p>
+        </article>
+      </div>
     </section>
   );
 }
@@ -118,7 +124,7 @@ function getMariaDbUptimeTone(status) {
 function getMariaDbUptimeBadge(status) {
   const days = Number(status?.mariadb_uptime_days);
   if (!Number.isFinite(days)) {
-    return "";
+    return "확인 대기";
   }
   if (days >= 60) {
     return "정기 점검 권장";
@@ -126,7 +132,7 @@ function getMariaDbUptimeBadge(status) {
   if (days >= 30) {
     return "장기 구동 중";
   }
-  return "";
+  return "정상";
 }
 
 function getPortTone(status) {
@@ -136,7 +142,50 @@ function getPortTone(status) {
   if (status?.status === "configuration_required") {
     return "warning";
   }
-  return "danger";
+  return "danger-soft";
+}
+
+function getHealthSummary(status, error) {
+  if (error) {
+    return {
+      tone: "danger-soft",
+      title: "상태 확인 실패",
+      message: error,
+    };
+  }
+  if (!status) {
+    return {
+      tone: "neutral",
+      title: "상태 대기",
+      message: "SCM MariaDB 상태를 확인하는 중입니다.",
+    };
+  }
+  if (status?.mariadb_active && !status?.db_port_reachable) {
+    return {
+      tone: "danger-soft",
+      title: "Freeze 의심",
+      message: "MariaDB 서비스는 실행 중이지만 3306 포트가 응답하지 않습니다. Freeze 가능성이 있습니다.",
+    };
+  }
+  if (status?.mariadb_status === "inactive" || status?.mariadb_status === "failed") {
+    return {
+      tone: "warning",
+      title: "서비스 점검 필요",
+      message: "MariaDB 서비스가 정상 실행 중이 아닙니다.",
+    };
+  }
+  if (status?.mariadb_active && status?.db_port_reachable) {
+    return {
+      tone: "success",
+      title: "정상",
+      message: "현재 MariaDB 서비스와 3306 포트가 정상으로 확인되었습니다.",
+    };
+  }
+  return {
+    tone: "warning",
+    title: "추가 확인 필요",
+    message: status?.message || "SCM 서버 연결, MariaDB 상태, 3306 포트 상태를 함께 확인해 주세요.",
+  };
 }
 
 function formatMariaDbUptime(status) {

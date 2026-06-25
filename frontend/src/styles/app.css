@@ -9563,10 +9563,91 @@ button.paju-note-text:not(:disabled):hover {
   margin-bottom: 0;
 }
 
+.scm-status-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.scm-status-toolbar {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.scm-status-toolbar div {
+  display: grid;
+  gap: 2px;
+}
+
+.scm-status-toolbar span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.scm-status-toolbar strong {
+  color: var(--text-main);
+  font-size: 0.92rem;
+}
+
+.scm-health-summary {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 11px 12px;
+}
+
+.scm-health-summary strong {
+  color: var(--text-main);
+  flex: 0 0 auto;
+  font-size: 0.92rem;
+}
+
+.scm-health-summary span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.scm-health-summary-success {
+  background: rgba(22, 163, 74, 0.06);
+  border-color: var(--success-line);
+}
+
+.scm-health-summary-success strong {
+  color: var(--success);
+}
+
+.scm-health-summary-warning {
+  background: var(--warning-soft);
+  border-color: var(--warning-line);
+}
+
+.scm-health-summary-warning strong {
+  color: var(--warning);
+}
+
+.scm-health-summary-danger-soft {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.scm-health-summary-danger-soft strong {
+  color: #b91c1c;
+}
+
 .scm-status-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
 }
 
 .scm-status-card,
@@ -9580,9 +9661,9 @@ button.paju-note-text:not(:disabled):hover {
 
 .scm-status-card {
   display: grid;
-  gap: 8px;
-  min-height: 142px;
-  padding: 16px;
+  gap: 7px;
+  min-height: 124px;
+  padding: 13px;
 }
 
 .scm-status-card span,
@@ -9595,13 +9676,13 @@ button.paju-note-text:not(:disabled):hover {
 
 .scm-status-card strong {
   color: var(--text-main);
-  font-size: 1.25rem;
+  font-size: 1.12rem;
   line-height: 1.2;
 }
 
 .scm-status-card p {
   color: var(--text-muted);
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   line-height: 1.45;
 }
 
@@ -9617,6 +9698,7 @@ button.paju-note-text:not(:disabled):hover {
   display: flex;
   gap: 8px;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .scm-card-title-row em {
@@ -9629,6 +9711,7 @@ button.paju-note-text:not(:disabled):hover {
   font-style: normal;
   font-weight: 900;
   padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .scm-status-card-info {
@@ -9683,8 +9766,7 @@ button.paju-note-text:not(:disabled):hover {
 }
 
 .scm-refresh-button {
-  align-self: end;
-  justify-self: start;
+  flex: 0 0 auto;
 }
 
 .scm-work-grid {
@@ -9863,6 +9945,31 @@ button.paju-note-text:not(:disabled):hover {
   line-height: 1.45;
 }
 
+.scm-decision-list {
+  display: grid;
+  gap: 8px;
+}
+
+.scm-decision-item {
+  background: #f8fafc;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+}
+
+.scm-decision-item strong {
+  color: var(--text-main);
+  font-size: 0.86rem;
+}
+
+.scm-decision-item span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .scm-guide-note {
   background: var(--warning-soft);
   border: 1px solid var(--warning-line);
@@ -9885,6 +9992,12 @@ button.paju-note-text:not(:disabled):hover {
 }
 
 @media (max-width: 720px) {
+  .scm-status-toolbar,
+  .scm-health-summary {
+    align-items: stretch;
+    display: grid;
+  }
+
   .scm-status-grid {
     grid-template-columns: minmax(0, 1fr);
   }

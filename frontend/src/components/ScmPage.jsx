@@ -15,8 +15,12 @@ function ScmPage() {
       setStatus(data);
       setStatusState({ isLoading: false, error: "" });
     } catch (error) {
+      console.warn("SCM status check failed", error);
       setStatus(null);
-      setStatusState({ isLoading: false, error: error.message });
+      setStatusState({
+        isLoading: false,
+        error: "SCM 상태 확인에 실패했습니다. SSH 접속 정보 또는 네트워크 상태를 확인해 주세요.",
+      });
     }
   }, []);
 
