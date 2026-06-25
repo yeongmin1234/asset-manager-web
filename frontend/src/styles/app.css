@@ -11719,6 +11719,51 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   flex: 0 0 auto;
 }
 
+.vehicle-table-wrap .vehicle-table th,
+.vehicle-table-wrap .vehicle-table td,
+.vehicle-table-wrap .vehicle-table th:first-child,
+.vehicle-table-wrap .vehicle-table td:first-child {
+  text-align: center;
+}
+
+.vehicle-table-wrap .vehicle-table th .vehicle-resizable-heading,
+.vehicle-table-wrap .vehicle-table th:first-child .vehicle-resizable-heading {
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.vehicle-table-wrap .vehicle-table .vehicle-name-cell,
+.vehicle-table-wrap .vehicle-table .vehicle-insurance-type-cell {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-table-wrap .vehicle-table .software-row-actions,
+.vehicle-table-wrap .vehicle-table .vehicle-detail-toggle-cell {
+  justify-content: center;
+  text-align: center;
+}
+
+.vehicle-table-wrap .vehicle-table .vehicle-actions-cell .software-row-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+
+.vehicle-table-wrap .vehicle-table .software-type-badge,
+.vehicle-table-wrap .vehicle-table .software-expiration-badge,
+.vehicle-table-wrap .vehicle-table .vehicle-insurance-badge {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
 .dashboard-recent-tabs {
   display: flex;
   flex-wrap: wrap;

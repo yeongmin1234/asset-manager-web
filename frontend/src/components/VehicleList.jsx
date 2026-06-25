@@ -101,7 +101,7 @@ function VehicleList({
     }
 
     return (
-      <div className="asset-table-wrap">
+      <div className="asset-table-wrap vehicle-table-wrap">
         <table className="asset-table vehicle-table" style={{ minWidth: `${tableWidth}px` }}>
           <colgroup>
             {VEHICLE_COLUMNS.map((column) => (
