@@ -3,8 +3,10 @@ import React from "react";
 function ScmServerStatus({ status, isLoading, error, onRefresh }) {
   const tone = getStatusTone(status, error);
   const statusLabel = getStatusLabel(status, error);
-  const uptime = formatUptime(status?.uptime_display || status?.uptime_text);
+  const uptime = formatUptime(status?.server_uptime_display || status?.uptime_display || status?.uptime_text);
   const mariadbTone = getMariaDbTone(status);
+  const mariadbUptimeTone = getMariaDbUptimeTone(status);
+  const mariadbUptimeBadge = getMariaDbUptimeBadge(status);
   const portTone = getPortTone(status);
 
   return (
@@ -19,10 +21,19 @@ function ScmServerStatus({ status, isLoading, error, onRefresh }) {
         <strong>{status?.server_name || "SCM"}</strong>
         <p>내부 접속 정보는 화면에 표시하지 않습니다.</p>
       </article>
-      <article className="scm-status-card">
-        <span>Uptime</span>
+      <article className="scm-status-card scm-status-card-info">
+        <span>서버 Uptime</span>
         <strong>{uptime.text}</strong>
-        <p>{uptime.summary || "서버가 마지막 부팅 이후 계속 실행된 시간입니다."}</p>
+        <p>SCM 서버 OS가 마지막 부팅 이후 실행된 시간입니다.</p>
+      </article>
+      <article className={`scm-status-card scm-status-card-${mariadbUptimeTone}`}>
+        <div className="scm-card-title-row">
+          <span>MariaDB 실행 시간</span>
+          {mariadbUptimeBadge ? <em>{mariadbUptimeBadge}</em> : null}
+        </div>
+        <strong>{formatMariaDbUptime(status)}</strong>
+        <p>MariaDB 서비스가 마지막 재시작 이후 실행된 시간입니다. 서버 Uptime과 다를 수 있습니다.</p>
+        <small>시작 시각: {formatMariaDbActiveSince(status?.mariadb_active_since)}</small>
       </article>
       <article className={`scm-status-card scm-status-card-${mariadbTone}`}>
         <span>MariaDB 서비스 상태</span>
@@ -90,6 +101,34 @@ function getMariaDbTone(status) {
   return "neutral";
 }
 
+function getMariaDbUptimeTone(status) {
+  const days = Number(status?.mariadb_uptime_days);
+  if (!Number.isFinite(days)) {
+    return "neutral";
+  }
+  if (days >= 60) {
+    return "danger-soft";
+  }
+  if (days >= 30) {
+    return "warning";
+  }
+  return "success";
+}
+
+function getMariaDbUptimeBadge(status) {
+  const days = Number(status?.mariadb_uptime_days);
+  if (!Number.isFinite(days)) {
+    return "";
+  }
+  if (days >= 60) {
+    return "정기 점검 권장";
+  }
+  if (days >= 30) {
+    return "장기 구동 중";
+  }
+  return "";
+}
+
 function getPortTone(status) {
   if (status?.db_port_reachable) {
     return "success";
@@ -98,6 +137,35 @@ function getPortTone(status) {
     return "warning";
   }
   return "danger";
+}
+
+function formatMariaDbUptime(status) {
+  return status?.mariadb_uptime_display || status?.mariadb_uptime_text || "-";
+}
+
+function formatMariaDbActiveSince(value) {
+  if (!value) {
+    return "-";
+  }
+  const sourceText = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(sourceText)) {
+    return sourceText;
+  }
+  const date = new Date(sourceText);
+  if (Number.isNaN(date.getTime())) {
+    return sourceText;
+  }
+  return date
+    .toLocaleString("sv-SE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })
+    .replace("T", " ");
 }
 
 function formatMariaDbStatus(status) {

@@ -9581,7 +9581,7 @@ button.paju-note-text:not(:disabled):hover {
 .scm-status-card {
   display: grid;
   gap: 8px;
-  min-height: 150px;
+  min-height: 142px;
   padding: 16px;
 }
 
@@ -9603,6 +9603,41 @@ button.paju-note-text:not(:disabled):hover {
   color: var(--text-muted);
   font-size: 0.86rem;
   line-height: 1.45;
+}
+
+.scm-status-card small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.scm-card-title-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.scm-card-title-row em {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #9a3412;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
+.scm-status-card-info {
+  background: linear-gradient(180deg, rgba(2, 132, 199, 0.07), #ffffff 68%);
+  border-color: #bae6fd;
+}
+
+.scm-status-card-info strong {
+  color: #0369a1;
 }
 
 .scm-status-card-success {
@@ -9630,6 +9665,21 @@ button.paju-note-text:not(:disabled):hover {
 
 .scm-status-card-danger strong {
   color: var(--danger);
+}
+
+.scm-status-card-danger-soft {
+  background: linear-gradient(180deg, rgba(220, 38, 38, 0.07), #ffffff 68%);
+  border-color: #fecaca;
+}
+
+.scm-status-card-danger-soft strong {
+  color: #b91c1c;
+}
+
+.scm-status-card-danger-soft .scm-card-title-row em {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 .scm-refresh-button {

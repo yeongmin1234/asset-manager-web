@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 import socket
 from typing import Optional
 
@@ -22,6 +23,12 @@ def get_scm_status() -> ScmStatusResponse:
             server_reachable=False,
             uptime_text=None,
             uptime_display=None,
+            server_uptime_text=None,
+            server_uptime_display=None,
+            mariadb_active_since=None,
+            mariadb_uptime_text=None,
+            mariadb_uptime_display=None,
+            mariadb_uptime_days=None,
             mariadb_status="unknown",
             mariadb_active=False,
             mariadb_message="SCM SSH 접속 정보가 설정되지 않아 MariaDB 상태를 확인할 수 없습니다.",
@@ -40,6 +47,12 @@ def get_scm_status() -> ScmStatusResponse:
             server_reachable=False,
             uptime_text=None,
             uptime_display=None,
+            server_uptime_text=None,
+            server_uptime_display=None,
+            mariadb_active_since=None,
+            mariadb_uptime_text=None,
+            mariadb_uptime_display=None,
+            mariadb_uptime_days=None,
             mariadb_status="unknown",
             mariadb_active=False,
             mariadb_message="SCM 서버 상태 확인 기능을 사용할 수 없습니다.",
@@ -55,6 +68,12 @@ def get_scm_status() -> ScmStatusResponse:
             server_reachable=False,
             uptime_text=None,
             uptime_display=None,
+            server_uptime_text=None,
+            server_uptime_display=None,
+            mariadb_active_since=None,
+            mariadb_uptime_text=None,
+            mariadb_uptime_display=None,
+            mariadb_uptime_days=None,
             mariadb_status="unknown",
             mariadb_active=False,
             mariadb_message="MariaDB 상태를 확인하지 못했습니다.",
@@ -70,6 +89,12 @@ def get_scm_status() -> ScmStatusResponse:
         server_reachable=True,
         uptime_text=health.get("uptime_text") or "확인됨",
         uptime_display=health.get("uptime_display"),
+        server_uptime_text=health.get("server_uptime_text") or health.get("uptime_text") or "확인됨",
+        server_uptime_display=health.get("server_uptime_display") or health.get("uptime_display"),
+        mariadb_active_since=health.get("mariadb_active_since"),
+        mariadb_uptime_text=health.get("mariadb_uptime_text"),
+        mariadb_uptime_display=health.get("mariadb_uptime_display"),
+        mariadb_uptime_days=health.get("mariadb_uptime_days"),
         mariadb_status=health.get("mariadb_status") or "unknown",
         mariadb_active=bool(health.get("mariadb_active")),
         mariadb_message=health.get("mariadb_message") or "MariaDB 상태를 확인했습니다.",
@@ -124,13 +149,21 @@ def _read_scm_mariadb_health() -> dict:
             uptime_text = _format_proc_uptime(raw_uptime)
 
         mariadb_status = _normalize_mariadb_status(_run_ssh_command_text(client, "systemctl is-active mariadb"))
+        mariadb_uptime = _read_mariadb_uptime(client)
         db_port_reachable = _check_mariadb_port_from_ssh(client)
         if db_port_reachable is None:
             db_port_reachable = _check_mariadb_port_socket()
 
+        server_uptime_display = format_uptime_display(uptime_text)
         return {
             "uptime_text": uptime_text,
-            "uptime_display": format_uptime_display(uptime_text),
+            "uptime_display": server_uptime_display,
+            "server_uptime_text": uptime_text,
+            "server_uptime_display": server_uptime_display,
+            "mariadb_active_since": mariadb_uptime.get("active_since"),
+            "mariadb_uptime_text": mariadb_uptime.get("uptime_text"),
+            "mariadb_uptime_display": mariadb_uptime.get("uptime_display"),
+            "mariadb_uptime_days": mariadb_uptime.get("uptime_days"),
             "mariadb_status": mariadb_status,
             "mariadb_active": mariadb_status == "active",
             "mariadb_message": _get_mariadb_message(mariadb_status),
@@ -139,6 +172,73 @@ def _read_scm_mariadb_health() -> dict:
         }
     finally:
         client.close()
+
+
+def _read_mariadb_uptime(client) -> dict:
+    active_since_text = _run_ssh_command(
+        client,
+        "systemctl show mariadb --property=ActiveEnterTimestamp --value",
+    )
+    if not active_since_text:
+        status_text = _run_ssh_command_text(client, "systemctl status mariadb --no-pager")
+        active_since_text = _parse_active_since_from_status(status_text)
+
+    active_since = _parse_systemctl_timestamp(active_since_text)
+    if not active_since:
+        return {
+            "active_since": _normalize_active_since_display(active_since_text),
+            "uptime_text": None,
+            "uptime_display": "확인 실패" if active_since_text else None,
+            "uptime_days": None,
+        }
+
+    now = datetime.now()
+    total_seconds = int((now - active_since).total_seconds())
+    if total_seconds < 0:
+        total_seconds = 0
+
+    uptime_display = format_duration_display(total_seconds)
+    return {
+        "active_since": active_since.strftime("%Y-%m-%d %H:%M:%S"),
+        "uptime_text": uptime_display,
+        "uptime_display": uptime_display,
+        "uptime_days": total_seconds // 86400,
+    }
+
+
+def _parse_active_since_from_status(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    match = re.search(r"Active:\s+.*?\bsince\s+(.+?);", str(value), re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    match = re.search(r"Active:\s+.*?\bsince\s+(.+)$", str(value), re.IGNORECASE | re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def _parse_systemctl_timestamp(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in ("n/a", "none"):
+        return None
+
+    match = re.search(r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})", text)
+    if not match:
+        return None
+
+    try:
+        return datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+def _normalize_active_since_display(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    return str(value).strip() or None
 
 
 def _run_ssh_command(client, command: str) -> Optional[str]:
@@ -210,6 +310,38 @@ def format_uptime_display(value: Optional[str]) -> Optional[str]:
         index += 2
 
     return " ".join(parts) if parts else str(value)
+
+
+def format_duration_display(total_seconds: int) -> str:
+    if total_seconds < 0:
+        total_seconds = 0
+
+    total_minutes = total_seconds // 60
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+
+    if days >= 30:
+        months = days // 30
+        remaining_days = days % 30
+        parts = ["{}개월".format(months)]
+        if remaining_days:
+            parts.append("{}일".format(remaining_days))
+        return " ".join(parts)
+
+    if days:
+        parts = ["{}일".format(days)]
+        if hours:
+            parts.append("{}시간".format(hours))
+        return " ".join(parts)
+
+    if hours:
+        parts = ["{}시간".format(hours)]
+        if minutes:
+            parts.append("{}분".format(minutes))
+        return " ".join(parts)
+
+    return "{}분".format(total_minutes)
 
 
 def _normalize_mariadb_status(value: Optional[str]) -> str:

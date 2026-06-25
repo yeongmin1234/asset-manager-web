@@ -9,6 +9,12 @@ class ScmStatusResponse(BaseModel):
     server_reachable: bool
     uptime_text: Optional[str] = None
     uptime_display: Optional[str] = None
+    server_uptime_text: Optional[str] = None
+    server_uptime_display: Optional[str] = None
+    mariadb_active_since: Optional[str] = None
+    mariadb_uptime_text: Optional[str] = None
+    mariadb_uptime_display: Optional[str] = None
+    mariadb_uptime_days: Optional[int] = None
     mariadb_status: str = "unknown"
     mariadb_active: bool = False
     mariadb_message: str
