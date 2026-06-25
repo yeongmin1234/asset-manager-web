@@ -373,6 +373,34 @@ export async function getRecentActivityLogs(limit = 10) {
   return normalizeCollection(await request("/activity-logs/recent", { query: { limit } }));
 }
 
+export async function getDashboardNotices() {
+  return normalizeCollection(await request("/dashboard-notices"));
+}
+
+export async function createDashboardNotice(notice) {
+  return request("/dashboard-notices", {
+    method: "POST",
+    body: notice,
+    timeoutMs: 8000,
+  });
+}
+
+export async function updateDashboardNotice(noticeId, notice) {
+  return request(`/dashboard-notices/${noticeId}`, {
+    method: "PUT",
+    body: notice,
+    timeoutMs: 8000,
+  });
+}
+
+export async function deleteDashboardNotice(noticeId, adminPassword) {
+  return request(`/dashboard-notices/${noticeId}`, {
+    method: "DELETE",
+    body: { admin_password: adminPassword },
+    timeoutMs: 8000,
+  });
+}
+
 export async function getStatsSummary() {
   return request("/stats/summary");
 }

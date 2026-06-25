@@ -11,6 +11,12 @@ from app.schemas.company_vehicle import (
     CompanyVehicleSummary,
     CompanyVehicleUpdate,
 )
+from app.schemas.dashboard_notice import (
+    DashboardNoticeCreate,
+    DashboardNoticeDeleteRequest,
+    DashboardNoticeRead,
+    DashboardNoticeUpdate,
+)
 from app.schemas.department import DepartmentCreate, DepartmentRead, DepartmentUpdate
 from app.schemas.history import AssetHistoryCreate, AssetHistoryRead
 from app.schemas.install_file import (
@@ -51,6 +57,10 @@ __all__ = [
     "CompanyVehicleRead",
     "CompanyVehicleSummary",
     "CompanyVehicleUpdate",
+    "DashboardNoticeCreate",
+    "DashboardNoticeDeleteRequest",
+    "DashboardNoticeRead",
+    "DashboardNoticeUpdate",
     "DepartmentCreate",
     "DepartmentRead",
     "DepartmentUpdate",

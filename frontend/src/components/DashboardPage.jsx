@@ -1,12 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createDashboardNotice,
+  deleteDashboardNotice,
+  getDashboardNotices,
   getNetworkStatus,
   getRecentActivityLogs,
   getSoftwareItems,
   getSoftwareStatsSummary,
   getStatsSummary,
   getVehicleSummary,
+  updateDashboardNotice,
 } from "../api/client.js";
+
+const NOTICE_TYPES = ["공지", "업데이트", "점검", "기타"];
+const EMPTY_NOTICE_FORM = {
+  notice_type: "공지",
+  title: "",
+  content: "",
+  is_pinned: false,
+  admin_password: "",
+};
 
 const EMPTY_ASSET_SUMMARY = {
   total_assets: 0,
@@ -48,6 +61,22 @@ function DashboardPage({ onNavigate }) {
     error: "",
   });
   const [recentLogs, setRecentLogs] = useState([]);
+  const [dashboardNotices, setDashboardNotices] = useState([]);
+  const [noticeFormState, setNoticeFormState] = useState({
+    error: "",
+    isOpen: false,
+    isSubmitting: false,
+    notice: null,
+  });
+  const [noticeDetail, setNoticeDetail] = useState(null);
+  const [noticeDeleteState, setNoticeDeleteState] = useState({
+    adminPassword: "",
+    error: "",
+    isOpen: false,
+    isSubmitting: false,
+    notice: null,
+  });
+  const [noticeAdminUnlocked, setNoticeAdminUnlocked] = useState(false);
   const [dashboardState, setDashboardState] = useState({ isLoading: false, error: "" });
 
   const loadDashboard = useCallback(async () => {
@@ -60,6 +89,7 @@ function DashboardPage({ onNavigate }) {
       vehicleResult,
       networkResult,
       recentLogResult,
+      noticesResult,
     ] = await Promise.allSettled([
       getStatsSummary(),
       getSoftwareStatsSummary(),
@@ -67,6 +97,7 @@ function DashboardPage({ onNavigate }) {
       getVehicleSummary(),
       getNetworkStatus(),
       getRecentActivityLogs(30),
+      getDashboardNotices(),
     ]);
 
     if (assetResult.status === "fulfilled") {
@@ -117,6 +148,12 @@ function DashboardPage({ onNavigate }) {
       setRecentLogs([]);
     }
 
+    if (noticesResult.status === "fulfilled") {
+      setDashboardNotices(Array.isArray(noticesResult.value) ? noticesResult.value : []);
+    } else {
+      setDashboardNotices([]);
+    }
+
     setDashboardState({
       isLoading: false,
       error: getDashboardError([
@@ -125,6 +162,7 @@ function DashboardPage({ onNavigate }) {
         vehicleResult,
         networkResult,
         recentLogResult,
+        noticesResult,
       ]),
     });
   }, []);
@@ -138,15 +176,9 @@ function DashboardPage({ onNavigate }) {
     [softwareItems],
   );
 
-  const attentionItems = useMemo(
-    () =>
-      buildAttentionItems({
-        vehicleSummary,
-        softwareExpireSoonCount,
-        networkStatus,
-        recentLogs,
-      }),
-    [networkStatus, recentLogs, softwareExpireSoonCount, vehicleSummary],
+  const displayedNotices = useMemo(
+    () => dashboardNotices.slice(0, 5),
+    [dashboardNotices],
   );
 
   const displayedRecentLogs = useMemo(
@@ -158,6 +190,79 @@ function DashboardPage({ onNavigate }) {
     () => recentLogs.filter(isVehicleInsuranceLog).slice(0, 4),
     [recentLogs],
   );
+
+  const openNoticeForm = (notice = null) => {
+    setNoticeFormState({
+      error: "",
+      isOpen: true,
+      isSubmitting: false,
+      notice,
+    });
+  };
+
+  const closeNoticeForm = () => {
+    setNoticeFormState({ error: "", isOpen: false, isSubmitting: false, notice: null });
+  };
+
+  const handleNoticeSubmit = async (payload) => {
+    setNoticeFormState((current) => ({ ...current, error: "", isSubmitting: true }));
+    try {
+      if (noticeFormState.notice) {
+        await updateDashboardNotice(noticeFormState.notice.id, payload);
+      } else {
+        await createDashboardNotice(payload);
+      }
+      setNoticeAdminUnlocked(true);
+      closeNoticeForm();
+      await loadDashboard();
+    } catch (error) {
+      setNoticeFormState((current) => ({
+        ...current,
+        error: error.message,
+        isSubmitting: false,
+      }));
+    }
+  };
+
+  const openNoticeDelete = (notice) => {
+    setNoticeDeleteState({
+      adminPassword: "",
+      error: "",
+      isOpen: true,
+      isSubmitting: false,
+      notice,
+    });
+  };
+
+  const closeNoticeDelete = () => {
+    setNoticeDeleteState({
+      adminPassword: "",
+      error: "",
+      isOpen: false,
+      isSubmitting: false,
+      notice: null,
+    });
+  };
+
+  const handleNoticeDelete = async () => {
+    if (!noticeDeleteState.notice) {
+      return;
+    }
+    setNoticeDeleteState((current) => ({ ...current, error: "", isSubmitting: true }));
+    try {
+      await deleteDashboardNotice(noticeDeleteState.notice.id, noticeDeleteState.adminPassword);
+      setNoticeAdminUnlocked(true);
+      closeNoticeDelete();
+      setNoticeDetail(null);
+      await loadDashboard();
+    } catch (error) {
+      setNoticeDeleteState((current) => ({
+        ...current,
+        error: error.message,
+        isSubmitting: false,
+      }));
+    }
+  };
 
   const summaryGroups = useMemo(
     () => [
@@ -264,25 +369,44 @@ function DashboardPage({ onNavigate }) {
       <div className="dashboard-work-grid">
         <section className="dashboard-panel dashboard-attention-panel">
           <div className="dashboard-panel-heading">
-            <h3>주의 항목</h3>
-            <button type="button" className="link-button" onClick={loadDashboard}>
-              새로고침
+            <h3>공지사항</h3>
+            <button type="button" className="link-button" onClick={() => openNoticeForm()}>
+              새 공지
             </button>
           </div>
 
           {dashboardState.isLoading ? (
-            <div className="dashboard-empty">운영 현황을 불러오는 중입니다.</div>
-          ) : attentionItems.length === 0 ? (
-            <div className="dashboard-empty">현재 주의 항목이 없습니다.</div>
+            <div className="dashboard-empty dashboard-notice-empty">공지사항을 불러오는 중입니다.</div>
+          ) : displayedNotices.length === 0 ? (
+            <div className="dashboard-empty dashboard-notice-empty">등록된 공지사항이 없습니다.</div>
           ) : (
-            <ul className="dashboard-attention-list">
-              {attentionItems.map((item) => (
-                <li key={item.id}>
-                  <span className={`dashboard-attention-dot dashboard-attention-dot-${item.tone}`} />
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>{item.description}</p>
-                  </div>
+            <ul className="dashboard-notice-list">
+              {displayedNotices.map((notice) => (
+                <li key={notice.id}>
+                  <button type="button" className="dashboard-notice-item" onClick={() => setNoticeDetail(notice)}>
+                    <span className={`dashboard-notice-badge dashboard-notice-badge-${getNoticeTone(notice.notice_type)}`}>
+                      {formatText(notice.notice_type)}
+                    </span>
+                    <div className="dashboard-notice-main">
+                      <div className="dashboard-notice-title-row">
+                        <strong title={formatText(notice.title)}>
+                          {notice.is_pinned ? "[고정] " : ""}{formatText(notice.title)}
+                        </strong>
+                        <span>{formatDate(notice.created_at)}</span>
+                      </div>
+                      <p title={formatText(notice.content)}>{formatText(notice.content)}</p>
+                    </div>
+                  </button>
+                  {noticeAdminUnlocked ? (
+                    <div className="dashboard-notice-actions">
+                      <button type="button" className="link-button" onClick={() => openNoticeForm(notice)}>
+                        수정
+                      </button>
+                      <button type="button" className="link-button danger-link-button" onClick={() => openNoticeDelete(notice)}>
+                        삭제
+                      </button>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -346,7 +470,264 @@ function DashboardPage({ onNavigate }) {
           </div>
         </section>
       </div>
+
+      <DashboardNoticeFormModal
+        error={noticeFormState.error}
+        isOpen={noticeFormState.isOpen}
+        isSubmitting={noticeFormState.isSubmitting}
+        notice={noticeFormState.notice}
+        onClose={closeNoticeForm}
+        onSubmit={handleNoticeSubmit}
+      />
+      <DashboardNoticeDetailModal
+        canManage={noticeAdminUnlocked}
+        notice={noticeDetail}
+        onClose={() => setNoticeDetail(null)}
+        onDelete={(notice) => {
+          setNoticeDetail(null);
+          openNoticeDelete(notice);
+        }}
+        onEdit={(notice) => {
+          setNoticeDetail(null);
+          openNoticeForm(notice);
+        }}
+      />
+      <DashboardNoticeDeleteModal
+        state={noticeDeleteState}
+        onChangePassword={(adminPassword) =>
+          setNoticeDeleteState((current) => ({ ...current, adminPassword }))
+        }
+        onClose={closeNoticeDelete}
+        onConfirm={handleNoticeDelete}
+      />
     </section>
+  );
+}
+
+function DashboardNoticeFormModal({
+  error = "",
+  isOpen,
+  isSubmitting = false,
+  notice,
+  onClose,
+  onSubmit,
+}) {
+  const [form, setForm] = useState(EMPTY_NOTICE_FORM);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setForm(EMPTY_NOTICE_FORM);
+      return;
+    }
+    setForm({
+      notice_type: notice?.notice_type || "공지",
+      title: notice?.title || "",
+      content: notice?.content || "",
+      is_pinned: Boolean(notice?.is_pinned),
+      admin_password: "",
+    });
+  }, [isOpen, notice]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSubmit?.(form);
+  };
+
+  return (
+    <div className="dashboard-notice-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="dashboard-notice-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboard-notice-form-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="dashboard-notice-modal-heading">
+            <div>
+              <h3 id="dashboard-notice-form-title">{notice ? "공지 수정" : "새 공지"}</h3>
+              <p>대시보드에 표시할 공지사항을 작성합니다.</p>
+            </div>
+            <button type="button" className="icon-button" onClick={onClose} aria-label="닫기">
+              x
+            </button>
+          </div>
+
+          <div className="dashboard-notice-form-grid">
+            <label className="field">
+              <span>유형</span>
+              <select
+                value={form.notice_type}
+                onChange={(event) => setForm((current) => ({ ...current, notice_type: event.target.value }))}
+                disabled={isSubmitting}
+              >
+                {NOTICE_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field dashboard-notice-pin-field">
+              <span>고정</span>
+              <label className="dashboard-notice-checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.is_pinned}
+                  onChange={(event) => setForm((current) => ({ ...current, is_pinned: event.target.checked }))}
+                  disabled={isSubmitting}
+                />
+                <span>상단 표시</span>
+              </label>
+            </label>
+            <label className="field dashboard-notice-wide-field">
+              <span>제목</span>
+              <input
+                value={form.title}
+                maxLength={200}
+                onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                disabled={isSubmitting}
+              />
+            </label>
+            <label className="field dashboard-notice-wide-field">
+              <span>내용</span>
+              <textarea
+                value={form.content}
+                rows={5}
+                maxLength={5000}
+                onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
+                disabled={isSubmitting}
+              />
+            </label>
+            <label className="field dashboard-notice-wide-field">
+              <span>관리자 비밀번호</span>
+              <input
+                type="password"
+                value={form.admin_password}
+                autoComplete="current-password"
+                onChange={(event) => setForm((current) => ({ ...current, admin_password: event.target.value }))}
+                disabled={isSubmitting}
+              />
+            </label>
+          </div>
+
+          {error ? <p className="dashboard-notice-error">{error}</p> : null}
+
+          <div className="dashboard-notice-modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose} disabled={isSubmitting}>
+              취소
+            </button>
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={isSubmitting || !form.title.trim() || !form.content.trim() || !form.admin_password}
+            >
+              {isSubmitting ? "저장 중" : "저장"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function DashboardNoticeDetailModal({ canManage, notice, onClose, onDelete, onEdit }) {
+  if (!notice) {
+    return null;
+  }
+
+  return (
+    <div className="dashboard-notice-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="dashboard-notice-modal dashboard-notice-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboard-notice-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dashboard-notice-modal-heading">
+          <div>
+            <span className={`dashboard-notice-badge dashboard-notice-badge-${getNoticeTone(notice.notice_type)}`}>
+              {formatText(notice.notice_type)}
+            </span>
+            <h3 id="dashboard-notice-detail-title">{formatText(notice.title)}</h3>
+            <p>{formatDateTime(notice.created_at)}</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="닫기">
+            x
+          </button>
+        </div>
+
+        <div className="dashboard-notice-detail-content">{formatText(notice.content)}</div>
+
+        <div className="dashboard-notice-modal-actions">
+          {canManage ? (
+            <>
+              <button type="button" className="secondary-button" onClick={() => onEdit?.(notice)}>
+                수정
+              </button>
+              <button type="button" className="danger-button" onClick={() => onDelete?.(notice)}>
+                삭제
+              </button>
+            </>
+          ) : null}
+          <button type="button" className="secondary-button" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DashboardNoticeDeleteModal({ state, onChangePassword, onClose, onConfirm }) {
+  if (!state.isOpen || !state.notice) {
+    return null;
+  }
+
+  return (
+    <div className="dashboard-notice-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="dashboard-notice-modal dashboard-notice-delete-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboard-notice-delete-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dashboard-notice-modal-heading">
+          <div>
+            <h3 id="dashboard-notice-delete-title">공지 삭제</h3>
+            <p>{formatText(state.notice.title)} 공지를 삭제합니다.</p>
+          </div>
+        </div>
+        <label className="field">
+          <span>관리자 비밀번호</span>
+          <input
+            type="password"
+            value={state.adminPassword}
+            autoComplete="current-password"
+            onChange={(event) => onChangePassword?.(event.target.value)}
+            disabled={state.isSubmitting}
+          />
+        </label>
+        {state.error ? <p className="dashboard-notice-error">{state.error}</p> : null}
+        <div className="dashboard-notice-modal-actions">
+          <button type="button" className="secondary-button" onClick={onClose} disabled={state.isSubmitting}>
+            취소
+          </button>
+          <button
+            type="button"
+            className="danger-button"
+            onClick={onConfirm}
+            disabled={state.isSubmitting || !state.adminPassword}
+          >
+            {state.isSubmitting ? "삭제 중" : "삭제"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -417,6 +798,19 @@ function getActionTone(actionType) {
     return "warning";
   }
   return "success";
+}
+
+function getNoticeTone(noticeType) {
+  if (noticeType === "업데이트") {
+    return "update";
+  }
+  if (noticeType === "점검") {
+    return "maintenance";
+  }
+  if (noticeType === "기타") {
+    return "etc";
+  }
+  return "notice";
 }
 
 function buildAttentionItems({ vehicleSummary, softwareExpireSoonCount, networkStatus, recentLogs }) {
@@ -540,6 +934,20 @@ function formatDateTime(value) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+  }).format(date);
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
   }).format(date);
 }
 
