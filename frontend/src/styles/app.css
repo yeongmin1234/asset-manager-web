@@ -5862,6 +5862,7 @@ input:disabled {
 .network-credential-panel {
   display: grid;
   gap: 12px;
+  min-width: 0;
   padding: 12px;
 }
 
@@ -5869,7 +5870,46 @@ input:disabled {
   align-items: end;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.35fr) minmax(140px, 0.35fr) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.35fr) auto;
+}
+
+.network-credential-category-tabs {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.network-credential-category-chip {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  box-shadow: none;
+  color: #172033;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 9px;
+  white-space: nowrap;
+}
+
+.network-credential-category-count {
+  align-items: center;
+  background: #eef2f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #475569;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 20px;
+  padding: 2px 6px;
+  justify-content: center;
 }
 
 .network-credential-message {
@@ -5883,7 +5923,8 @@ input:disabled {
 }
 
 .network-credential-table {
-  min-width: 1120px;
+  min-width: 1180px;
+  width: max-content;
 }
 
 .network-credential-table th,
@@ -5891,6 +5932,11 @@ input:disabled {
   font-size: 0.82rem;
   padding: 8px 10px;
   vertical-align: middle;
+}
+
+.network-credential-table th:last-child,
+.network-credential-table td:last-child {
+  white-space: nowrap;
 }
 
 .network-credential-service {
@@ -5906,6 +5952,25 @@ input:disabled {
   text-overflow: ellipsis;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.network-credential-copy-text {
+  cursor: pointer;
+}
+
+.network-credential-copy-text:hover {
+  text-decoration: underline;
+}
+
+.network-credential-copy-text:focus,
+.network-credential-copy-text:focus-visible {
+  box-shadow: none;
+  outline: 1px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
+.network-credential-note-cell {
+  text-align: center;
 }
 
 .network-credential-url {
@@ -5963,8 +6028,8 @@ input:disabled {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
+  box-shadow: none;
   color: #0f172a;
-  cursor: pointer;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   max-width: 180px;
@@ -5974,9 +6039,15 @@ input:disabled {
   white-space: nowrap;
 }
 
+.network-password-mask {
+  cursor: default;
+  user-select: none;
+}
+
 .network-password-value {
   background: #eff6ff;
   border-color: #bfdbfe;
+  cursor: pointer;
 }
 
 .compact-button {
@@ -11157,6 +11228,130 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   outline: 1px solid rgba(37, 99, 235, 0.22) !important;
   outline-offset: 1px !important;
   box-shadow: none !important;
+}
+
+.network-credential-page .network-credential-table-scroll {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  width: 100%;
+}
+
+.network-credential-page .network-credential-category-tabs {
+  scrollbar-width: thin;
+}
+
+.network-credential-page .network-credential-category-chip {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: none !important;
+  color: var(--text-main, #172033) !important;
+  filter: none !important;
+  min-height: 28px;
+  transform: none !important;
+}
+
+.network-credential-page .network-credential-category-chip:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+  color: var(--text-main, #172033) !important;
+  transform: none !important;
+}
+
+.network-credential-page .network-credential-category-chip.active,
+.network-credential-page .network-credential-category-chip[aria-selected="true"] {
+  background: #ffffff !important;
+  border-color: var(--primary, #2563eb) !important;
+  box-shadow: none !important;
+  color: var(--primary, #2563eb) !important;
+}
+
+.network-credential-page .network-credential-category-chip:focus,
+.network-credential-page .network-credential-category-chip:focus-visible {
+  box-shadow: none !important;
+  outline: 1px solid rgba(37, 99, 235, 0.22) !important;
+  outline-offset: 1px !important;
+}
+
+.network-credential-page .network-credential-category-count {
+  background: #eef2f7 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+  box-shadow: none !important;
+}
+
+.network-credential-page .network-credential-category-chip.active .network-credential-category-count,
+.network-credential-page .network-credential-category-chip[aria-selected="true"] .network-credential-category-count {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: var(--primary, #2563eb) !important;
+}
+
+.network-credential-page .network-credential-table {
+  table-layout: fixed;
+}
+
+.network-credential-page .network-credential-table th:last-child,
+.network-credential-page .network-credential-table td:last-child {
+  min-width: 130px;
+  white-space: nowrap;
+}
+
+.network-credential-page .network-credential-actions {
+  flex-wrap: nowrap;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.network-credential-page .network-credential-note-cell,
+.network-credential-page .network-credential-table th:nth-child(8) .resizable-table-heading {
+  text-align: center;
+}
+
+.network-credential-page .network-credential-note-cell .network-credential-note {
+  max-width: 100%;
+}
+
+.network-credential-page button:not(.primary-button):not(.primary-action),
+.network-credential-page input,
+.network-credential-page select,
+.network-credential-page textarea,
+.network-credential-page .network-credential-category-count,
+.network-credential-page .importance-badge,
+.network-credential-page .network-password-mask,
+.network-credential-page .network-password-value,
+.network-credential-page .network-credential-table th,
+.network-credential-page .network-credential-table td {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.network-credential-page button:not(.primary-button):not(.primary-action):hover,
+.network-credential-page button:not(.primary-button):not(.primary-action):focus,
+.network-credential-page button:not(.primary-button):not(.primary-action):focus-visible,
+.network-credential-page input:focus,
+.network-credential-page input:focus-visible,
+.network-credential-page select:focus,
+.network-credential-page select:focus-visible,
+.network-credential-page textarea:focus,
+.network-credential-page textarea:focus-visible,
+.network-credential-page .network-password-value:focus,
+.network-credential-page .network-password-value:focus-visible {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.network-credential-page .network-password-value:hover {
+  text-decoration: underline;
+}
+
+.network-credential-page .network-password-mask,
+.network-credential-page .network-password-value {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-left-color: #e2e8f0 !important;
 }
 
 .stats-summary {

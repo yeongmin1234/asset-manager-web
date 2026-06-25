@@ -9,10 +9,12 @@ import {
 } from "../api/client.js";
 import AdminAuthModal from "./AdminAuthModal.jsx";
 import NetworkCredentialForm, {
-  NETWORK_CREDENTIAL_CATEGORIES,
   NETWORK_CREDENTIAL_IMPORTANCE,
 } from "./NetworkCredentialForm.jsx";
 import NetworkCredentialList from "./NetworkCredentialList.jsx";
+
+const UNCATEGORIZED_CATEGORY_KEY = "__uncategorized__";
+const UNCATEGORIZED_CATEGORY_LABEL = "기타";
 
 const EMPTY_SUMMARY = {
   total: 0,
@@ -24,7 +26,8 @@ const EMPTY_SUMMARY = {
 function NetworkCredentialPage() {
   const [credentials, setCredentials] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
-  const [filters, setFilters] = useState({ keyword: "", category: "", importance: "" });
+  const [filters, setFilters] = useState({ keyword: "", importance: "" });
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [listState, setListState] = useState({ error: "", isLoading: false });
   const [formState, setFormState] = useState({
     credential: null,
@@ -46,11 +49,34 @@ function NetworkCredentialPage() {
   const activeFilters = useMemo(
     () => ({
       keyword: filters.keyword.trim(),
-      category: filters.category,
       importance: filters.importance,
     }),
     [filters],
   );
+
+  const categoryTabs = useMemo(() => {
+    const counts = new Map();
+    credentials.forEach((credential) => {
+      const category = normalizeCategory(credential.category);
+      counts.set(category.key, {
+        key: category.key,
+        label: category.label,
+        count: (counts.get(category.key)?.count || 0) + 1,
+      });
+    });
+
+    return [
+      { key: "", label: "전체", count: credentials.length },
+      ...Array.from(counts.values()),
+    ];
+  }, [credentials]);
+
+  const displayedCredentials = useMemo(() => {
+    if (!selectedCategory) {
+      return credentials;
+    }
+    return credentials.filter((credential) => normalizeCategory(credential.category).key === selectedCategory);
+  }, [credentials, selectedCategory]);
 
   const loadCredentials = useCallback(async () => {
     setListState({ error: "", isLoading: true });
@@ -72,6 +98,12 @@ function NetworkCredentialPage() {
   useEffect(() => {
     loadCredentials();
   }, [loadCredentials]);
+
+  useEffect(() => {
+    if (selectedCategory && !categoryTabs.some((tab) => tab.key === selectedCategory)) {
+      setSelectedCategory("");
+    }
+  }, [categoryTabs, selectedCategory]);
 
   useEffect(
     () => () => {
@@ -132,7 +164,7 @@ function NetworkCredentialPage() {
         showTemporaryPassword(authState.credential.id, password, Number(result?.expires_in || 15));
         if (authState.mode === "copy") {
           await copyText(password);
-          showCopyMessage("비밀번호를 복사했습니다.");
+          showCopyMessage("복사되었습니다.");
         }
       } else {
         showCopyMessage(result?.message || "등록된 비밀번호가 없습니다.");
@@ -147,12 +179,20 @@ function NetworkCredentialPage() {
     const visiblePassword = revealedPasswords[credential.id];
     if (visiblePassword) {
       await copyText(visiblePassword);
-      showCopyMessage("비밀번호를 복사했습니다.");
+      showCopyMessage("복사되었습니다.");
       scheduleHide(credential.id, 15);
       return;
     }
 
     openRevealAuth(credential, "copy");
+  };
+
+  const handleCopyText = async (value) => {
+    if (!value) {
+      return;
+    }
+    await copyText(value);
+    showCopyMessage("복사되었습니다.");
   };
 
   const showTemporaryPassword = (credentialId, password, expiresIn) => {
@@ -227,18 +267,6 @@ function NetworkCredentialPage() {
             />
           </label>
           <label className="field">
-            <span>구분</span>
-            <select
-              value={filters.category}
-              onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
-            >
-              <option value="">전체</option>
-              {NETWORK_CREDENTIAL_CATEGORIES.map((category) => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
             <span>중요도</span>
             <select
               value={filters.importance}
@@ -250,18 +278,29 @@ function NetworkCredentialPage() {
               ))}
             </select>
           </label>
-          <button type="button" className="secondary-button" onClick={loadCredentials} disabled={listState.isLoading}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setSelectedCategory("");
+              loadCredentials();
+            }}
+            disabled={listState.isLoading}
+          >
             새로고침
           </button>
         </div>
 
+        <CategoryTabs tabs={categoryTabs} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
+
         {copyMessage ? <p className="network-credential-message">{copyMessage}</p> : null}
 
         <NetworkCredentialList
-          credentials={credentials}
+          credentials={displayedCredentials}
           error={listState.error}
           isLoading={listState.isLoading}
           revealedPasswords={revealedPasswords}
+          onCopyText={handleCopyText}
           onCopyPassword={handleCopyPassword}
           onDelete={handleDelete}
           onEdit={(credential) => setFormState({ credential, error: "", isOpen: true, isSubmitting: false })}
@@ -290,6 +329,29 @@ function NetworkCredentialPage() {
   );
 }
 
+function CategoryTabs({ tabs, selectedCategory, onSelect }) {
+  return (
+    <div className="network-credential-category-tabs" role="tablist" aria-label="접속정보 구분">
+      {tabs.map((tab) => {
+        const active = tab.key === selectedCategory;
+        return (
+          <button
+            key={tab.key || "all"}
+            type="button"
+            className={`network-credential-category-chip${active ? " active" : ""}`}
+            onClick={() => onSelect(tab.key)}
+            role="tab"
+            aria-selected={active}
+          >
+            <span>{tab.label}</span>
+            <span className="network-credential-category-count">{tab.count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SummaryCard({ label, value, tone = "normal" }) {
   return (
     <article className={`network-credential-summary-card network-credential-summary-${tone}`}>
@@ -297,6 +359,14 @@ function SummaryCard({ label, value, tone = "normal" }) {
       <strong>{value}</strong>
     </article>
   );
+}
+
+function normalizeCategory(value) {
+  const label = String(value || "").trim();
+  if (!label) {
+    return { key: UNCATEGORIZED_CATEGORY_KEY, label: UNCATEGORIZED_CATEGORY_LABEL };
+  }
+  return { key: label, label };
 }
 
 async function copyText(value) {

@@ -6,13 +6,13 @@ const NETWORK_CREDENTIAL_COLUMN_WIDTH_STORAGE_KEY = "assetManager.networkCredent
 const NETWORK_CREDENTIAL_COLUMNS = [
   { key: "category", label: "구분", initialWidth: 110, minWidth: 80 },
   { key: "service", label: "서비스명", initialWidth: 150, minWidth: 120 },
-  { key: "internal", label: "내부 주소", initialWidth: 180, minWidth: 130 },
-  { key: "external", label: "외부 주소", initialWidth: 180, minWidth: 130 },
+  { key: "internal", label: "내부 주소", initialWidth: 160, minWidth: 130 },
+  { key: "external", label: "외부 주소", initialWidth: 160, minWidth: 130 },
   { key: "username", label: "계정", initialWidth: 120, minWidth: 90 },
   { key: "importance", label: "중요도", initialWidth: 100, minWidth: 80 },
-  { key: "password", label: "비밀번호", initialWidth: 170, minWidth: 140 },
-  { key: "note", label: "비고", initialWidth: 180, minWidth: 120 },
-  { key: "actions", label: "관리", initialWidth: 130, minWidth: 120 },
+  { key: "password", label: "비밀번호", initialWidth: 150, minWidth: 140 },
+  { key: "note", label: "비고", initialWidth: 140, minWidth: 110 },
+  { key: "actions", label: "관리", initialWidth: 140, minWidth: 130 },
 ];
 
 function NetworkCredentialList({
@@ -20,6 +20,7 @@ function NetworkCredentialList({
   error = "",
   isLoading = false,
   revealedPasswords = {},
+  onCopyText,
   onCopyPassword,
   onDelete,
   onEdit,
@@ -77,9 +78,9 @@ function NetworkCredentialList({
                   </strong>
                   {credential.port ? <small>:{credential.port}</small> : null}
                 </td>
-                <td>{renderUrl(credential.internal_url)}</td>
-                <td>{renderUrl(credential.external_url)}</td>
-                <td>{displayValue(credential.username)}</td>
+                <td>{renderCopyableValue(credential.internal_url, onCopyText, "network-credential-url")}</td>
+                <td>{renderCopyableValue(credential.external_url, onCopyText, "network-credential-url")}</td>
+                <td>{renderCopyableValue(credential.username, onCopyText)}</td>
                 <td>
                   <span className={`importance-badge ${getImportanceClass(credential.importance)}`}>
                     {displayValue(credential.importance)}
@@ -88,24 +89,16 @@ function NetworkCredentialList({
                 <td>
                   {credential.has_password ? (
                     <div className="network-password-cell">
-                      <button
-                        type="button"
-                        className={revealed ? "network-password-value" : "network-password-mask"}
-                        onClick={() =>
-                          revealed
-                            ? onCopyPassword?.(credential, "copy-visible")
-                            : onRevealPassword?.(credential)
-                        }
-                        title={revealed ? "클릭하여 복사" : "비밀번호 보기"}
-                      >
-                        {revealed || MASKED_PASSWORD}
-                      </button>
+                      {revealed ? (
+                        renderCopyableValue(revealed, () => onCopyPassword?.(credential, "copy-visible"), "network-password-value")
+                      ) : (
+                        <span className="network-password-mask" title="비밀번호 보기 후 복사할 수 있습니다.">
+                          {MASKED_PASSWORD}
+                        </span>
+                      )}
                       <div className="network-password-actions">
                         <button type="button" className="secondary-button compact-button" onClick={() => onRevealPassword?.(credential)}>
                           보기
-                        </button>
-                        <button type="button" className="secondary-button compact-button" onClick={() => onCopyPassword?.(credential)}>
-                          복사
                         </button>
                       </div>
                     </div>
@@ -113,8 +106,10 @@ function NetworkCredentialList({
                     <span className="muted-text">없음</span>
                   )}
                 </td>
-                <td className="network-credential-note" title={credential.note || ""}>
-                  {displayValue(credential.note)}
+                <td className="network-credential-note-cell">
+                  <span className="network-credential-note" title={credential.note || ""}>
+                    {displayValue(credential.note)}
+                  </span>
                 </td>
                 <td>
                   <div className="network-credential-actions">
@@ -135,23 +130,41 @@ function NetworkCredentialList({
   );
 }
 
-function renderUrl(value) {
+function renderCopyableValue(value, onCopyText, className = "") {
   if (!value) {
     return "-";
   }
-  const href = toHref(value);
   return (
-    <a className="network-credential-url" href={href} target="_blank" rel="noreferrer" title={value}>
+    <CopyableText className={className} value={value} onCopyText={onCopyText}>
       {value}
-    </a>
+    </CopyableText>
   );
 }
 
-function toHref(value) {
-  if (/^https?:\/\//i.test(value)) {
-    return value;
-  }
-  return `http://${value}`;
+function CopyableText({ children, className = "", value, onCopyText }) {
+  const handleCopy = () => {
+    onCopyText?.(value);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleCopy();
+    }
+  };
+
+  return (
+    <span
+      className={`network-credential-copy-text ${className}`.trim()}
+      onClick={handleCopy}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      title={value}
+    >
+      {children}
+    </span>
+  );
 }
 
 function getImportanceClass(importance) {
