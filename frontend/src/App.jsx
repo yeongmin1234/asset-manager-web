@@ -895,7 +895,7 @@ function App() {
 
     if (activeSection === "stats") {
       return (
-        <>
+        <div className="portal-stats-page">
           <div className="portal-screen-heading">
             <h2>통계 / 리포트</h2>
             <p>자산 현황과 분류, 부서, 월별 흐름을 확인합니다.</p>
@@ -906,7 +906,7 @@ function App() {
             error={statsState.error}
           />
           {renderStatsReports()}
-        </>
+        </div>
       );
     }
 
@@ -1027,17 +1027,19 @@ function App() {
 
         <div
           className={
-            activeSection === "excel"
-              || activeSection === "dashboard"
-              || activeSection === "beverage-orders"
-              || activeSection === "software"
-              || activeSection === "vehicles"
-              || activeSection === "paju-fire-insurance"
-              || activeSection === "network"
-              || activeSection === "install-library"
-              || activeSection === "scm"
-              ? "portal-content portal-content-wide"
-              : "portal-content"
+            activeSection === "stats"
+              ? "portal-content portal-content-stats"
+              : activeSection === "excel"
+                || activeSection === "dashboard"
+                || activeSection === "beverage-orders"
+                || activeSection === "software"
+                || activeSection === "vehicles"
+                || activeSection === "paju-fire-insurance"
+                || activeSection === "network"
+                || activeSection === "install-library"
+                || activeSection === "scm"
+                ? "portal-content portal-content-wide"
+                : "portal-content"
           }
         >
           <main className="portal-main">{renderActiveSection()}</main>
