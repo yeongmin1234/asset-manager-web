@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     scm_reboot_port: int = 22
     scm_reboot_user: str = ""
     scm_reboot_password: str = ""
+    scm_mariadb_restart_enabled: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { dryRunScmMariaDbRestart, getScmServerStatus } from "../api/client.js";
+import { dryRunScmMariaDbRestart, getScmServerStatus, restartScmMariaDb } from "../api/client.js";
 import ScmEmergencyGuide from "./ScmEmergencyGuide.jsx";
 import ScmMariaDbPanel from "./ScmMariaDbPanel.jsx";
 import ScmServerStatus from "./ScmServerStatus.jsx";
@@ -46,7 +46,12 @@ function ScmPage() {
       />
 
       <div className="scm-work-grid">
-        <ScmMariaDbPanel onDryRun={dryRunScmMariaDbRestart} />
+        <ScmMariaDbPanel
+          status={status}
+          onDryRun={dryRunScmMariaDbRestart}
+          onRestart={restartScmMariaDb}
+          onRefreshStatus={loadStatus}
+        />
         <ScmEmergencyGuide />
       </div>
     </section>

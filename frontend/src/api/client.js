@@ -217,6 +217,14 @@ export async function dryRunScmMariaDbRestart(payload) {
   });
 }
 
+export async function restartScmMariaDb(payload) {
+  return request("/server-operations/scm/mariadb/restart", {
+    method: "POST",
+    body: payload,
+    timeoutMs: 30000,
+  });
+}
+
 export async function getNetworkCredentials(filters = {}) {
   return normalizeCollection(await request("/network-credentials", { query: filters }));
 }

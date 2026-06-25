@@ -20,6 +20,7 @@ class ScmStatusResponse(BaseModel):
     mariadb_message: str
     db_port_reachable: bool = False
     db_port_message: str
+    mariadb_restart_enabled: bool = False
     checked_at: datetime
     message: str
     status: str
@@ -35,3 +36,18 @@ class ScmMariaDbRestartDryRunResponse(BaseModel):
     ok: bool
     message: str
     dry_run: bool
+
+
+class ScmMariaDbRestartRequest(BaseModel):
+    admin_password: str
+    reason: str
+    confirm_text: str
+
+
+class ScmMariaDbRestartResponse(BaseModel):
+    ok: bool
+    message: str
+    before_status: str
+    after_status: str
+    db_port_reachable: bool
+    checked_at: datetime

@@ -1,6 +1,7 @@
 from datetime import datetime
 import re
 import socket
+import time
 from typing import Optional
 
 from app.core.config import settings
@@ -13,6 +14,7 @@ SCM_SSH_UNAVAILABLE_MESSAGE = "SCM 서버 상태 확인 기능을 사용할 수 
 SCM_CONNECTION_OK_MESSAGE = "SCM 서버 연결이 확인되었습니다."
 SCM_CONNECTION_FAILED_MESSAGE = "SCM 서버 연결을 확인하지 못했습니다."
 MARIADB_DRY_RUN_SUCCESS_MESSAGE = "MariaDB 재시작 조건 확인이 완료되었습니다. 현재 단계에서는 실제 재시작 명령을 실행하지 않습니다."
+MARIADB_RESTART_SUCCESS_MESSAGE = "MariaDB 재시작 명령을 실행했습니다."
 
 
 def get_scm_status() -> ScmStatusResponse:
@@ -34,6 +36,7 @@ def get_scm_status() -> ScmStatusResponse:
             mariadb_message="SCM SSH 접속 정보가 설정되지 않아 MariaDB 상태를 확인할 수 없습니다.",
             db_port_reachable=False,
             db_port_message="SCM SSH 접속 정보가 설정되지 않아 3306 포트를 확인할 수 없습니다.",
+            mariadb_restart_enabled=is_scm_mariadb_restart_enabled(),
             checked_at=checked_at,
             message=SCM_CONFIG_REQUIRED_MESSAGE,
             status="configuration_required",
@@ -58,6 +61,7 @@ def get_scm_status() -> ScmStatusResponse:
             mariadb_message="SCM 서버 상태 확인 기능을 사용할 수 없습니다.",
             db_port_reachable=False,
             db_port_message="SCM 서버 3306 포트 확인 기능을 사용할 수 없습니다.",
+            mariadb_restart_enabled=is_scm_mariadb_restart_enabled(),
             checked_at=checked_at,
             message=SCM_SSH_UNAVAILABLE_MESSAGE,
             status="check_unavailable",
@@ -79,6 +83,7 @@ def get_scm_status() -> ScmStatusResponse:
             mariadb_message="MariaDB 상태를 확인하지 못했습니다.",
             db_port_reachable=False,
             db_port_message="3306 포트 상태를 확인하지 못했습니다.",
+            mariadb_restart_enabled=is_scm_mariadb_restart_enabled(),
             checked_at=checked_at,
             message=SCM_CONNECTION_FAILED_MESSAGE,
             status="connection_failed",
@@ -100,6 +105,7 @@ def get_scm_status() -> ScmStatusResponse:
         mariadb_message=health.get("mariadb_message") or "MariaDB 상태를 확인했습니다.",
         db_port_reachable=bool(health.get("db_port_reachable")),
         db_port_message=health.get("db_port_message") or "3306 포트 상태를 확인했습니다.",
+        mariadb_restart_enabled=is_scm_mariadb_restart_enabled(),
         checked_at=checked_at,
         message=SCM_CONNECTION_OK_MESSAGE,
         status="ok",
@@ -113,6 +119,48 @@ def validate_scm_mariadb_restart_dry_run(reason: str, confirm_text: str) -> None
         raise ValueError("확인 문구를 정확히 MARIADB로 입력해주세요.")
 
 
+def is_scm_mariadb_restart_enabled() -> bool:
+    return bool(settings.scm_mariadb_restart_enabled)
+
+
+def execute_scm_mariadb_restart() -> dict:
+    if not is_scm_mariadb_restart_enabled():
+        raise RuntimeError("현재 실제 MariaDB 재시작은 비활성화되어 있습니다.")
+    if not _has_scm_connection_config():
+        raise RuntimeError("SCM SSH 접속 정보가 설정되지 않아 MariaDB 재시작을 실행할 수 없습니다.")
+
+    client = _create_scm_ssh_client()
+    try:
+        before_status = _normalize_mariadb_status(_run_ssh_command_text(client, "systemctl is-active mariadb"))
+        _check_mariadb_port_from_ssh(client)
+        restart_result = _run_ssh_command_result(client, "systemctl restart mariadb", timeout=15)
+        if not restart_result.get("ok"):
+            raise RuntimeError("MariaDB 재시작 명령 실행에 실패했습니다.")
+
+        time.sleep(4)
+        after_status = _normalize_mariadb_status(_run_ssh_command_text(client, "systemctl is-active mariadb"))
+        db_port_reachable = _check_mariadb_port_from_ssh(client)
+        if db_port_reachable is None:
+            db_port_reachable = _check_mariadb_port_socket()
+
+        return {
+            "ok": after_status == "active",
+            "message": MARIADB_RESTART_SUCCESS_MESSAGE,
+            "before_status": before_status,
+            "after_status": after_status,
+            "db_port_reachable": bool(db_port_reachable),
+            "checked_at": datetime.utcnow(),
+        }
+    except RuntimeError:
+        raise
+    except ImportError as exc:
+        raise RuntimeError("SCM 서버 상태 확인 기능을 사용할 수 없습니다.") from exc
+    except Exception as exc:
+        raise RuntimeError("SCM 서버 SSH 연결 또는 MariaDB 재확인에 실패했습니다.") from exc
+    finally:
+        client.close()
+
+
 def _has_scm_connection_config() -> bool:
     return all(
         [
@@ -124,25 +172,8 @@ def _has_scm_connection_config() -> bool:
 
 
 def _read_scm_mariadb_health() -> dict:
+    client = _create_scm_ssh_client()
     try:
-        import paramiko
-    except ImportError as exc:
-        raise ImportError("paramiko is not available") from exc
-
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    try:
-        client.connect(
-            hostname=str(settings.scm_reboot_host),
-            port=int(settings.scm_reboot_port or 22),
-            username=str(settings.scm_reboot_user),
-            password=str(settings.scm_reboot_password),
-            timeout=5,
-            banner_timeout=5,
-            auth_timeout=5,
-            look_for_keys=False,
-            allow_agent=False,
-        )
         uptime_text = _run_ssh_command(client, "uptime -p")
         if not uptime_text:
             raw_uptime = _run_ssh_command(client, "cat /proc/uptime")
@@ -172,6 +203,46 @@ def _read_scm_mariadb_health() -> dict:
         }
     finally:
         client.close()
+
+
+def _create_scm_ssh_client():
+    try:
+        import paramiko
+    except ImportError as exc:
+        raise ImportError("paramiko is not available") from exc
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        client.connect(
+            hostname=str(settings.scm_reboot_host),
+            port=int(settings.scm_reboot_port or 22),
+            username=str(settings.scm_reboot_user),
+            password=str(settings.scm_reboot_password),
+            timeout=5,
+            banner_timeout=5,
+            auth_timeout=5,
+            look_for_keys=False,
+            allow_agent=False,
+        )
+        return client
+    except Exception:
+        client.close()
+        raise
+
+
+def _run_ssh_command_result(client, command: str, timeout: int = 5) -> dict:
+    stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+    del stdin
+    exit_status = stdout.channel.recv_exit_status()
+    output = stdout.read().decode("utf-8", errors="replace").strip()
+    error_output = stderr.read().decode("utf-8", errors="replace").strip()
+    return {
+        "ok": exit_status == 0,
+        "exit_status": exit_status,
+        "output": output,
+        "error": error_output,
+    }
 
 
 def _read_mariadb_uptime(client) -> dict:
