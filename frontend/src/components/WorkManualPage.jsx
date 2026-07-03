@@ -357,6 +357,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
   const [form, setForm] = useState(EMPTY_MANUAL_FORM);
   const [uploadState, setUploadState] = useState({ error: "", isDragging: false, isUploading: false });
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -379,6 +380,62 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
   const handleSubmit = (event) => {
     event.preventDefault();
     onSubmit?.(form);
+  };
+
+  const replaceTextareaSelection = (formatter) => {
+    const textarea = textareaRef.current;
+    setForm((current) => {
+      const content = current.content || "";
+      const start = textarea?.selectionStart || 0;
+      const end = textarea?.selectionEnd || 0;
+      const selectedText = content.slice(start, end);
+      const result = formatter({ content, start, end, selectedText });
+      window.setTimeout(() => {
+        textarea?.focus();
+        textarea?.setSelectionRange(result.cursorStart, result.cursorEnd);
+      }, 0);
+      return { ...current, content: result.content };
+    });
+  };
+
+  const wrapSelection = (beforeText, afterText, fallbackText) => {
+    replaceTextareaSelection(({ content, start, end, selectedText }) => {
+      const body = selectedText || fallbackText;
+      const inserted = `${beforeText}${body}${afterText}`;
+      return {
+        content: `${content.slice(0, start)}${inserted}${content.slice(end)}`,
+        cursorStart: start + beforeText.length,
+        cursorEnd: start + beforeText.length + body.length,
+      };
+    });
+  };
+
+  const prefixSelectedLines = (prefix, fallbackText) => {
+    replaceTextareaSelection(({ content, start, end, selectedText }) => {
+      const body = selectedText || fallbackText;
+      const prefixed = body
+        .split("\n")
+        .map((line, index) => {
+          if (!line.trim()) {
+            return line;
+          }
+          return typeof prefix === "function" ? `${prefix(index)}${line}` : `${prefix}${line}`;
+        })
+        .join("\n");
+      return {
+        content: `${content.slice(0, start)}${prefixed}${content.slice(end)}`,
+        cursorStart: start,
+        cursorEnd: start + prefixed.length,
+      };
+    });
+  };
+
+  const insertPlainText = (text) => {
+    replaceTextareaSelection(({ content, start, end }) => ({
+      content: `${content.slice(0, start)}${text}${content.slice(end)}`,
+      cursorStart: start + text.length,
+      cursorEnd: start + text.length,
+    }));
   };
 
   const insertImageMarkdown = (image) => {
@@ -512,6 +569,16 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
             </label>
             <label className="field work-manual-wide-field">
               <span>본문</span>
+              <div className="work-manual-format-toolbar" aria-label="본문 서식 도구">
+                <button type="button" onClick={() => wrapSelection("**", "**", "굵게")}>굵게</button>
+                <button type="button" onClick={() => wrapSelection("<u>", "</u>", "밑줄")}>밑줄</button>
+                <button type="button" onClick={() => wrapSelection("*", "*", "기울임")}>기울임</button>
+                <button type="button" onClick={() => prefixSelectedLines("## ", "제목")}>제목</button>
+                <button type="button" onClick={() => prefixSelectedLines("- ", "글머리")}>글머리</button>
+                <button type="button" onClick={() => prefixSelectedLines((index) => `${index + 1}. `, "번호 목록")}>번호</button>
+                <button type="button" onClick={() => insertPlainText("\n---\n")}>구분선</button>
+                <button type="button" onClick={() => fileInputRef.current?.click()}>이미지</button>
+              </div>
               <textarea
                 ref={textareaRef}
                 value={form.content}
@@ -539,6 +606,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
               <label className="secondary-button work-manual-image-upload-button">
                 이미지 선택
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
                   disabled={isSubmitting || uploadState.isUploading}
@@ -590,7 +658,7 @@ function ManualContent({ content, onImageClick }) {
             </button>
           );
         }
-        return <p key={`text-${index}`}>{node.text}</p>;
+        return renderManualTextBlocks(node.text, `text-${index}`);
       })}
     </div>
   );
@@ -726,6 +794,90 @@ function parseManualContent(content) {
   }
 
   return nodes.length ? nodes : [{ type: "text", text: "" }];
+}
+
+function renderManualTextBlocks(text, keyPrefix) {
+  const lines = String(text || "").split("\n");
+  const blocks = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      blocks.push(<p className="work-manual-blank-line" key={`${keyPrefix}-blank-${index}`} />);
+      index += 1;
+      continue;
+    }
+    if (line.trim() === "---") {
+      blocks.push(<hr key={`${keyPrefix}-hr-${index}`} />);
+      index += 1;
+      continue;
+    }
+    if (line.startsWith("## ")) {
+      blocks.push(<h4 key={`${keyPrefix}-heading-${index}`}>{renderInlineManualText(line.slice(3))}</h4>);
+      index += 1;
+      continue;
+    }
+    if (/^\s*-\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*-\s+/.test(lines[index])) {
+        items.push(lines[index].replace(/^\s*-\s+/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ul key={`${keyPrefix}-ul-${index}`}>
+          {items.map((item, itemIndex) => <li key={itemIndex}>{renderInlineManualText(item)}</li>)}
+        </ul>,
+      );
+      continue;
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
+        items.push(lines[index].replace(/^\s*\d+\.\s+/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ol key={`${keyPrefix}-ol-${index}`}>
+          {items.map((item, itemIndex) => <li key={itemIndex}>{renderInlineManualText(item)}</li>)}
+        </ol>,
+      );
+      continue;
+    }
+    blocks.push(<p key={`${keyPrefix}-p-${index}`}>{renderInlineManualText(line)}</p>);
+    index += 1;
+  }
+
+  return blocks;
+}
+
+function renderInlineManualText(text) {
+  const parts = [];
+  const pattern = /(\*\*[^*]+\*\*|<u>[^<]+<\/u>|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match = pattern.exec(text);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith("**") && token.endsWith("**")) {
+      parts.push(<strong key={parts.length}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("<u>") && token.endsWith("</u>")) {
+      parts.push(<u key={parts.length}>{token.slice(3, -4)}</u>);
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      parts.push(<em key={parts.length}>{token.slice(1, -1)}</em>);
+    }
+    lastIndex = pattern.lastIndex;
+    match = pattern.exec(text);
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
 }
 
 function isSafeManualImageUrl(url) {

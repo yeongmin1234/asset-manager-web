@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createCategory,
   createAsset,
@@ -9,6 +9,7 @@ import {
   getDatabaseHealth,
   getDepartments,
   getHealth,
+  getRecentActivityLogs,
   getStatsByCategory,
   getStatsByDepartment,
   getStatsMonthly,
@@ -155,6 +156,10 @@ function App() {
   });
   const [adminResetSuccessMessage, setAdminResetSuccessMessage] = useState("");
   const [isServerStatusOpen, setIsServerStatusOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notificationLogs, setNotificationLogs] = useState([]);
+  const [notificationState, setNotificationState] = useState({ error: "", isLoading: false });
+  const notificationRef = useRef(null);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [assets, setAssets] = useState([]);
   const [statsSummary, setStatsSummary] = useState(INITIAL_STATS_SUMMARY);
@@ -444,6 +449,48 @@ function App() {
     const intervalId = window.setInterval(refreshVisitors, 30000);
     return () => window.clearInterval(intervalId);
   }, [refreshVisitors]);
+
+  const loadNotificationLogs = useCallback(async () => {
+    setNotificationState({ error: "", isLoading: true });
+    try {
+      const data = await getRecentActivityLogs(5);
+      setNotificationLogs(Array.isArray(data) ? data.slice(0, 5) : []);
+      setNotificationState({ error: "", isLoading: false });
+    } catch (error) {
+      setNotificationLogs([]);
+      setNotificationState({ error: error.message, isLoading: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isNotificationOpen) {
+      loadNotificationLogs();
+    }
+  }, [isNotificationOpen, loadNotificationLogs]);
+
+  useEffect(() => {
+    if (!isNotificationOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      if (!notificationRef.current?.contains(event.target)) {
+        setIsNotificationOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsNotificationOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isNotificationOpen]);
 
   useEffect(() => {
     loadAssets();
@@ -1022,9 +1069,27 @@ function App() {
               status={backendStatus}
               visitorSummary={visitorSummary}
             />
-            <button type="button" className="icon-button portal-alert-button" aria-label="알림">
-              ◦
-            </button>
+            <div className="portal-notification-control" ref={notificationRef}>
+              <button
+                type="button"
+                className="portal-alert-button"
+                aria-label="최근 변경 이력 알림"
+                aria-expanded={isNotificationOpen}
+                onClick={() => setIsNotificationOpen((current) => !current)}
+              >
+                알림
+              </button>
+              {isNotificationOpen ? (
+                <NotificationPopover
+                  logs={notificationLogs}
+                  state={notificationState}
+                  onMore={() => {
+                    setIsNotificationOpen(false);
+                    handleNavigate("history");
+                  }}
+                />
+              ) : null}
+            </div>
             <div className="portal-user">
               <strong>관리자</strong>
               <span>Asset Admin</span>
@@ -1037,6 +1102,7 @@ function App() {
             activeSection === "stats"
               ? "portal-content portal-content-stats"
               : activeSection === "excel"
+                || activeSection === "assets"
                 || activeSection === "dashboard"
                 || activeSection === "beverage-orders"
                 || activeSection === "work-manuals"
@@ -1052,7 +1118,7 @@ function App() {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
@@ -1112,6 +1178,71 @@ function App() {
     </div>
     </>
   );
+}
+
+function NotificationPopover({ logs, onMore, state }) {
+  return (
+    <section className="notification-popover" aria-label="최근 변경 이력 알림">
+      <div className="notification-popover-heading">
+        <h3>알림</h3>
+        <button type="button" className="link-button" onClick={onMore}>
+          더보기
+        </button>
+      </div>
+      {state.isLoading ? (
+        <div className="notification-empty">불러오는 중입니다.</div>
+      ) : state.error ? (
+        <div className="notification-empty">최근 변경 이력을 불러오지 못했습니다.</div>
+      ) : logs.length === 0 ? (
+        <div className="notification-empty">최근 알림이 없습니다.</div>
+      ) : (
+        <div className="notification-list">
+          {logs.map((log) => (
+            <button type="button" className="notification-item" key={log.id} onClick={onMore}>
+              <span>{getNotificationActionLabel(log.action_type)}</span>
+              <strong title={formatNotificationText(log.summary || log.target_name)}>
+                {formatNotificationText(log.summary || log.target_name)}
+              </strong>
+              <em>{formatNotificationDateTime(log.created_at)}</em>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function getNotificationActionLabel(actionType) {
+  const labelMap = {
+    create: "등록",
+    update: "수정",
+    delete: "삭제",
+    dispose: "폐기",
+  };
+  return labelMap[actionType] || formatNotificationText(actionType);
+}
+
+function formatNotificationText(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  return String(value);
+}
+
+function formatNotificationDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function downloadBlob(blob, filename) {

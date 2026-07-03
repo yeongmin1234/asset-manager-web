@@ -363,6 +363,121 @@ p {
   position: relative;
 }
 
+.portal-notification-control {
+  position: relative;
+}
+
+.portal-alert-button {
+  background: #ffffff !important;
+  border: 1px solid var(--line-soft) !important;
+  border-radius: 8px;
+  box-shadow: none !important;
+  color: #475569 !important;
+  font-size: 0.82rem;
+  font-weight: 900;
+  min-height: 38px;
+  min-width: 58px;
+  padding: 8px 11px;
+  transform: none !important;
+}
+
+.portal-alert-button:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+  color: #172033 !important;
+}
+
+.notification-popover {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+  display: grid;
+  gap: 8px;
+  max-width: calc(100vw - 28px);
+  padding: 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: 340px;
+  z-index: 30;
+}
+
+.notification-popover-heading {
+  align-items: center;
+  border-bottom: 1px solid #edf2f7;
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 8px;
+}
+
+.notification-popover-heading h3 {
+  color: #172033;
+  font-size: 0.94rem;
+  margin: 0;
+}
+
+.notification-list {
+  display: grid;
+  gap: 0;
+}
+
+.notification-item {
+  align-items: center;
+  appearance: none;
+  background: transparent !important;
+  border: 0;
+  border-bottom: 1px solid #edf2f7;
+  border-radius: 0;
+  box-shadow: none !important;
+  color: #172033 !important;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  min-height: 42px;
+  min-width: 0;
+  padding: 8px 0;
+  text-align: left;
+  transform: none !important;
+  width: 100%;
+}
+
+.notification-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-item:hover {
+  background: #f8fafc !important;
+  box-shadow: none !important;
+}
+
+.notification-item span {
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.notification-item strong {
+  color: #172033;
+  font-size: 0.84rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-item em,
+.notification-empty {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-style: normal;
+}
+
+.notification-empty {
+  padding: 10px 0;
+}
+
 .server-status-control {
   position: relative;
 }
@@ -12458,6 +12573,43 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   white-space: pre-wrap;
 }
 
+.work-manual-preview-content h4 {
+  color: #111827;
+  font-size: 1.06rem;
+  line-height: 1.45;
+  margin: 16px 0 8px;
+}
+
+.work-manual-preview-content ul,
+.work-manual-preview-content ol {
+  color: #172033;
+  display: grid;
+  font-size: 0.92rem;
+  gap: 5px;
+  line-height: 1.65;
+  margin: 0 0 12px 20px;
+  padding: 0;
+}
+
+.work-manual-preview-content hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 18px 0;
+}
+
+.work-manual-preview-content strong {
+  color: #111827;
+  font-weight: 900;
+}
+
+.work-manual-preview-content u {
+  text-underline-offset: 3px;
+}
+
+.work-manual-blank-line {
+  min-height: 8px;
+}
+
 .work-manual-content-image-button {
   appearance: none;
   background: transparent !important;
@@ -12587,6 +12739,39 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .work-manual-checkbox input {
   width: auto;
+}
+
+.work-manual-format-toolbar {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 6px;
+  padding: 6px;
+}
+
+.work-manual-format-toolbar button {
+  background: #ffffff !important;
+  border: 1px solid #dbe3ee !important;
+  border-radius: 6px;
+  box-shadow: none !important;
+  color: #475569 !important;
+  font-size: 0.76rem;
+  font-weight: 900;
+  min-height: 28px;
+  min-width: auto;
+  padding: 5px 8px;
+  transform: none !important;
+}
+
+.work-manual-format-toolbar button:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+  color: #111827 !important;
 }
 
 .work-manual-image-upload {
