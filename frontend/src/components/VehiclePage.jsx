@@ -11,6 +11,11 @@ import VehicleList, { getDaysUntilDate } from "./VehicleList.jsx";
 import VehicleInsuranceHistory from "./VehicleInsuranceHistory.jsx";
 import VehicleQuickForm from "./VehicleQuickForm.jsx";
 import VehicleStats from "./VehicleStats.jsx";
+import {
+  SORT_VALUES,
+  VEHICLE_SORT_OPTIONS,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const INITIAL_SUMMARY = {
   total_vehicles: 0,
@@ -45,10 +50,16 @@ function VehiclePage() {
   const [selectedInsuranceVehicleId, setSelectedInsuranceVehicleId] = useState("");
   const [recentInsuranceHistories, setRecentInsuranceHistories] = useState([]);
   const [isRecentInsuranceOpen, setIsRecentInsuranceOpen] = useState(false);
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
 
   const displayedItems = useMemo(
-    () => filterVehicles(items, activeTab, activeCompanyTab),
-    [activeCompanyTab, activeTab, items],
+    () => sortItems(filterVehicles(items, activeTab, activeCompanyTab), sortValue, {
+      created: ["created_at", "registered_at"],
+      updated: ["updated_at", "created_at"],
+      name: ["vehicle_number", "vehicle_name"],
+      expiry: ["insurance_end_date", "lease_end_date"],
+    }),
+    [activeCompanyTab, activeTab, items, sortValue],
   );
 
   const loadItems = useCallback(async () => {
@@ -217,7 +228,10 @@ function VehiclePage() {
               onDelete={handleDelete}
               onEdit={handleEdit}
               onCompanyTabChange={setActiveCompanyTab}
+              onSortChange={setSortValue}
               onTabChange={setActiveTab}
+              sortOptions={VEHICLE_SORT_OPTIONS}
+              sortValue={sortValue}
               tabs={VEHICLE_TABS}
             />
           ) : activePageTab === "history" ? (

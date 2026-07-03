@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getActivityLogs } from "../api/client.js";
 import useResizableColumns from "../hooks/useResizableColumns.js";
+import {
+  HISTORY_SORT_OPTIONS,
+  SORT_VALUES,
+  SortSelect,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const HISTORY_FILTERS = [
   { label: "전체", targetType: "" },
@@ -24,6 +30,7 @@ const HISTORY_COLUMNS = [
 function HistoryPage() {
   const [logs, setLogs] = useState([]);
   const [activeFilter, setActiveFilter] = useState("");
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [state, setState] = useState({ isLoading: false, error: "" });
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
     HISTORY_COLUMNS,
@@ -31,8 +38,10 @@ function HistoryPage() {
     "history-column-resizing",
   );
   const displayedLogs = useMemo(
-    () => filterHistoryLogs(logs, activeFilter),
-    [activeFilter, logs],
+    () => sortItems(filterHistoryLogs(logs, activeFilter), sortValue, {
+      created: ["created_at"],
+    }),
+    [activeFilter, logs, sortValue],
   );
 
   useEffect(() => {
@@ -84,6 +93,11 @@ function HistoryPage() {
             <span className="history-filter-label">{filter.label}</span>
           </button>
         ))}
+        <SortSelect
+          value={sortValue}
+          options={HISTORY_SORT_OPTIONS}
+          onChange={setSortValue}
+        />
       </div>
 
       <div className="history-list-panel">

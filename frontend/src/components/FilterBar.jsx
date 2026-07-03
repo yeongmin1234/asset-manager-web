@@ -28,7 +28,7 @@ function FilterBar({
   isLoading,
   isExporting,
   hasActiveFilters,
-  sortLabel,
+  sortControl,
 }) {
   const handleChange = (event) => {
     onFilterChange({
@@ -113,7 +113,7 @@ function FilterBar({
       </div>
 
       <div className="toolbar-actions">
-        <span className="sort-caption">{sortLabel}</span>
+        {sortControl}
         <button
           type="button"
           className="secondary-button"

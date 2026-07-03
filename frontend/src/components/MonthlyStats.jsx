@@ -1,7 +1,17 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
+import {
+  HISTORY_SORT_OPTIONS,
+  SORT_VALUES,
+  SortSelect,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 function MonthlyStats({ items, isLoading, error }) {
-  const safeItems = Array.isArray(items) ? items : [];
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
+  const safeItems = useMemo(
+    () => sortItems(items, sortValue, { created: ["month"] }),
+    [items, sortValue],
+  );
   const maxValue = Math.max(
     1,
     ...safeItems.map((item) =>
@@ -20,6 +30,11 @@ function MonthlyStats({ items, isLoading, error }) {
         {error && !isLoading && (
           <span className="inline-alert">월별 통계를 불러오지 못했습니다.</span>
         )}
+        <SortSelect
+          value={sortValue}
+          options={HISTORY_SORT_OPTIONS}
+          onChange={setSortValue}
+        />
       </div>
 
       {error && !isLoading && <p className="state-detail">{error}</p>}

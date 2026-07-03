@@ -47,6 +47,12 @@ import SoftwarePage from "./components/SoftwarePage.jsx";
 import StatsSummary from "./components/StatsSummary.jsx";
 import VehiclePage from "./components/VehiclePage.jsx";
 import WorkManualPage from "./components/WorkManualPage.jsx";
+import {
+  ASSET_SORT_OPTIONS,
+  SORT_VALUES,
+  SortSelect,
+  sortItems,
+} from "./utils/sortOptions.jsx";
 import "./styles/app.css";
 
 const INITIAL_FILTERS = {
@@ -55,11 +61,6 @@ const INITIAL_FILTERS = {
   category_id: "",
   location_group: "",
   department_id: "",
-};
-
-const INITIAL_SORT = {
-  key: "",
-  direction: "asc",
 };
 
 const INITIAL_STATS_SUMMARY = {
@@ -197,7 +198,7 @@ function App() {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState(null);
-  const [sortConfig, setSortConfig] = useState(INITIAL_SORT);
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [activeSection, setActiveSection] = useState("dashboard");
 
   const activeFilters = useMemo(
@@ -217,11 +218,13 @@ function App() {
   );
 
   const displayedAssets = useMemo(
-    () => sortAssets(assets, sortConfig),
-    [assets, sortConfig],
+    () => sortItems(assets, sortValue, {
+      created: ["created_at", "registered_at", "purchase_date"],
+      updated: ["updated_at", "created_at"],
+      name: ["name", "asset_name"],
+    }),
+    [assets, sortValue],
   );
-
-  const sortLabel = useMemo(() => getSortLabel(sortConfig), [sortConfig]);
 
   useEffect(() => {
     const exitTimerId = window.setTimeout(() => {
@@ -453,8 +456,8 @@ function App() {
   const loadNotificationLogs = useCallback(async () => {
     setNotificationState({ error: "", isLoading: true });
     try {
-      const data = await getRecentActivityLogs(5);
-      setNotificationLogs(Array.isArray(data) ? data.slice(0, 5) : []);
+      const data = await getRecentActivityLogs(8);
+      setNotificationLogs(Array.isArray(data) ? data.slice(0, 8) : []);
       setNotificationState({ error: "", isLoading: false });
     } catch (error) {
       setNotificationLogs([]);
@@ -595,20 +598,6 @@ function App() {
       }));
       return false;
     }
-  };
-
-  const handleSortChange = (key) => {
-    setSortConfig((current) => {
-      if (current.key !== key) {
-        return { key, direction: "asc" };
-      }
-
-      if (current.direction === "asc") {
-        return { key, direction: "desc" };
-      }
-
-      return INITIAL_SORT;
-    });
   };
 
   const handleExportExcel = async () => {
@@ -862,7 +851,13 @@ function App() {
         }}
         isLoading={assetState.isLoading}
         hasActiveFilters={hasActiveFilters}
-        sortLabel={sortLabel}
+        sortControl={
+          <SortSelect
+            value={sortValue}
+            options={ASSET_SORT_OPTIONS}
+            onChange={setSortValue}
+          />
+        }
       />
 
       <AssetList
@@ -872,8 +867,6 @@ function App() {
         hasActiveFilters={hasActiveFilters}
         selectedAssetId={selectedAssetId}
         onSelectAsset={setSelectedAssetId}
-        sortConfig={sortConfig}
-        onSortChange={handleSortChange}
         categories={categories}
         activeCategoryId={filters.category_id}
         onCategorySelect={handleCategoryTabSelect}
@@ -1199,11 +1192,13 @@ function NotificationPopover({ logs, onMore, state }) {
         <div className="notification-list">
           {logs.map((log) => (
             <button type="button" className="notification-item" key={log.id} onClick={onMore}>
-              <span>{getNotificationActionLabel(log.action_type)}</span>
-              <strong title={formatNotificationText(log.summary || log.target_name)}>
-                {formatNotificationText(log.summary || log.target_name)}
+              <span className={`notification-action-badge notification-action-${getNotificationActionTone(log.action_type)}`}>
+                {getNotificationActionLabel(log.action_type)}
+              </span>
+              <strong title={formatNotificationTitle(log)}>
+                {formatNotificationTitle(log)}
               </strong>
-              <em>{formatNotificationDateTime(log.created_at)}</em>
+              <time dateTime={log.created_at || ""}>{formatNotificationDateTime(log.created_at)}</time>
             </button>
           ))}
         </div>
@@ -1213,13 +1208,46 @@ function NotificationPopover({ logs, onMore, state }) {
 }
 
 function getNotificationActionLabel(actionType) {
+  const normalizedType = String(actionType || "").toLowerCase();
   const labelMap = {
     create: "등록",
+    register: "등록",
     update: "수정",
+    edit: "수정",
     delete: "삭제",
+    remove: "삭제",
     dispose: "폐기",
+    "reveal-password": "확인",
+    reveal_password: "확인",
+    view: "조회",
+    read: "조회",
+    login: "접속",
+    unknown: "기타",
   };
-  return labelMap[actionType] || formatNotificationText(actionType);
+  return labelMap[normalizedType] || "기타";
+}
+
+function getNotificationActionTone(actionType) {
+  const label = getNotificationActionLabel(actionType);
+  if (label === "삭제" || label === "폐기") {
+    return "danger";
+  }
+  if (label === "수정") {
+    return "warning";
+  }
+  if (label === "확인" || label === "조회" || label === "접속") {
+    return "neutral";
+  }
+  return "success";
+}
+
+function formatNotificationTitle(log) {
+  const summary = formatNotificationText(log?.summary || log?.target_name);
+  const actionLabel = getNotificationActionLabel(log?.action_type);
+  if (String(log?.action_type || "").toLowerCase().includes("reveal")) {
+    return `접속정보 비밀번호 확인: ${summary}`;
+  }
+  return `${actionLabel}: ${summary}`;
 }
 
 function formatNotificationText(value) {
@@ -1237,12 +1265,15 @@ function formatNotificationDateTime(value) {
   if (Number.isNaN(date.getTime())) {
     return String(value);
   }
-  return new Intl.DateTimeFormat("ko-KR", {
+  const datePart = new Intl.DateTimeFormat("ko-KR", {
     month: "2-digit",
     day: "2-digit",
+  }).format(date).replace(/\s/g, "");
+  const timePart = new Intl.DateTimeFormat("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+  return `${datePart} ${timePart}`;
 }
 
 function downloadBlob(blob, filename) {
@@ -1360,52 +1391,6 @@ function clearAdminAuth() {
   }
 
   window.sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
-}
-
-function sortAssets(items, sortConfig) {
-  if (!sortConfig.key) {
-    return Array.isArray(items) ? items : [];
-  }
-
-  return [...items].sort((left, right) => {
-    const leftValue = normalizeSortValue(getSortValue(left, sortConfig.key));
-    const rightValue = normalizeSortValue(getSortValue(right, sortConfig.key));
-    const result = leftValue.localeCompare(rightValue, "ko-KR", {
-      numeric: true,
-      sensitivity: "base",
-    });
-    return sortConfig.direction === "asc" ? result : -result;
-  });
-}
-
-function getSortValue(asset, key) {
-  if (key === "department_name") {
-    return asset?.department_name || asset?.user_name;
-  }
-  return asset?.[key];
-}
-
-function normalizeSortValue(value) {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  return String(value);
-}
-
-function getSortLabel(sortConfig) {
-  const labelMap = {
-    name: "제품명",
-    status: "상태",
-    department_name: "부서(사용자명)",
-    serial_number: "시리얼번호",
-  };
-
-  if (!sortConfig.key) {
-    return "현재 정렬: 최신 등록순";
-  }
-
-  const direction = sortConfig.direction === "desc" ? "내림차순" : "오름차순";
-  return `현재 정렬: ${labelMap[sortConfig.key]} ${direction}`;
 }
 
 export default App;

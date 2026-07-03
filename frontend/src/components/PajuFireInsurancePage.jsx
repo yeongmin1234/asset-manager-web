@@ -6,6 +6,12 @@ import {
   getPajuFireInsuranceSummary,
   updatePajuFireInsuranceContract,
 } from "../api/client.js";
+import {
+  SORT_VALUES,
+  VEHICLE_SORT_OPTIONS,
+  SortSelect,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const INITIAL_FORM = {
   location_group: "송촌동",
@@ -70,10 +76,16 @@ function PajuFireInsurancePage() {
   const [listState, setListState] = useState({ isLoading: false, error: "" });
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [submitState, setSubmitState] = useState({ isSubmitting: false, message: "", error: "" });
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
 
   const displayedItems = useMemo(
-    () => filterContracts(items, filters),
-    [filters, items],
+    () => sortItems(filterContracts(items, filters), sortValue, {
+      created: ["created_at", "contract_start_date"],
+      updated: ["updated_at", "created_at"],
+      name: ["warehouse_name", "insurer_name", "contractor"],
+      expiry: ["contract_end_date"],
+    }),
+    [filters, items, sortValue],
   );
 
   const loadItems = useCallback(async () => {
@@ -239,6 +251,8 @@ function PajuFireInsurancePage() {
         onDelete={handleDelete}
         onEdit={setEditingItem}
         onFilterChange={setFilters}
+        onSortChange={setSortValue}
+        sortValue={sortValue}
       />
     </div>
   );
@@ -276,6 +290,8 @@ function PajuFireInsuranceList({
   onDelete,
   onEdit,
   onFilterChange,
+  onSortChange,
+  sortValue,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   const subtotal = useMemo(() => getContractSubtotal(safeItems), [safeItems]);
@@ -405,6 +421,11 @@ function PajuFireInsuranceList({
             placeholder="창고, 보험사, 계약자, 비고"
           />
         </label>
+        <SortSelect
+          value={sortValue}
+          options={VEHICLE_SORT_OPTIONS}
+          onChange={onSortChange}
+        />
       </div>
 
       {isLoading ? (

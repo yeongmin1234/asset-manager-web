@@ -7,14 +7,23 @@ import {
   updateWorkManual,
   uploadWorkManualImage,
 } from "../api/client.js";
+import {
+  BOARD_SORT_OPTIONS,
+  SORT_VALUES,
+  SortSelect,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const EMPTY_MANUAL_FORM = {
-  category: "일반",
+  category: "다우오피스",
   title: "",
   content: "",
   author: "관리자",
   is_pinned: false,
 };
+
+const WORK_MANUAL_CATEGORIES = ["다우오피스", "전산", "백업메뉴얼"];
+const WORK_MANUAL_ALL_CATEGORY = "";
 
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -23,7 +32,8 @@ const BASE64_IMAGE_PATTERN = /data:image\/[a-z0-9.+-]+;base64,[^\s"'<)]+/gi;
 function WorkManualPage() {
   const [manuals, setManuals] = useState([]);
   const [listState, setListState] = useState({ error: "", isLoading: false });
-  const [filters, setFilters] = useState({ keyword: "", category: "" });
+  const [filters, setFilters] = useState({ keyword: "", category: "다우오피스" });
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [selectedManual, setSelectedManual] = useState(null);
   const [detailState, setDetailState] = useState({ error: "", isLoading: false });
   const [formState, setFormState] = useState({
@@ -63,20 +73,41 @@ function WorkManualPage() {
     loadManuals();
   }, [loadManuals]);
 
-  const categories = useMemo(() => {
-    const categorySet = new Set();
+  useEffect(() => {
+    if (filters.category !== "다우오피스" || manuals.length === 0) {
+      return;
+    }
+    const hasOfficialCategoryManual = manuals.some((manual) =>
+      WORK_MANUAL_CATEGORIES.includes(manual.category),
+    );
+    if (!hasOfficialCategoryManual) {
+      setFilters((current) => ({ ...current, category: WORK_MANUAL_ALL_CATEGORY }));
+    }
+  }, [filters.category, manuals]);
+
+  const categoryTabs = useMemo(() => {
+    const counts = WORK_MANUAL_CATEGORIES.reduce(
+      (accumulator, category) => ({ ...accumulator, [category]: 0 }),
+      {},
+    );
     manuals.forEach((manual) => {
-      const category = formatText(manual.category);
-      if (category !== "-") {
-        categorySet.add(category);
+      if (WORK_MANUAL_CATEGORIES.includes(manual.category)) {
+        counts[manual.category] += 1;
       }
     });
-    return Array.from(categorySet);
+    return [
+      { label: "전체", value: WORK_MANUAL_ALL_CATEGORY, count: manuals.length },
+      ...WORK_MANUAL_CATEGORIES.map((category) => ({
+        label: category,
+        value: category,
+        count: counts[category] || 0,
+      })),
+    ];
   }, [manuals]);
 
   const filteredManuals = useMemo(() => {
     const keyword = filters.keyword.trim().toLowerCase();
-    return manuals.filter((manual) => {
+    const nextManuals = manuals.filter((manual) => {
       const matchesCategory = !filters.category || manual.category === filters.category;
       if (!matchesCategory) {
         return false;
@@ -88,7 +119,21 @@ function WorkManualPage() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(keyword));
     });
-  }, [filters, manuals]);
+    return sortItems(nextManuals, sortValue, {
+      created: ["created_at"],
+      updated: ["updated_at", "created_at"],
+      title: ["title"],
+    });
+  }, [filters, manuals, sortValue]);
+
+  useEffect(() => {
+    if (!selectedManual || !filters.category) {
+      return;
+    }
+    if (selectedManual.category !== filters.category) {
+      setSelectedManual(null);
+    }
+  }, [filters.category, selectedManual]);
 
   const handleSelectManual = async (manual) => {
     setDetailState({ error: "", isLoading: true });
@@ -180,6 +225,25 @@ function WorkManualPage() {
         </button>
       </div>
 
+      <div className="work-manual-category-tabs" role="tablist" aria-label="업무설명서 카테고리">
+        {categoryTabs.map((tab) => {
+          const active = filters.category === tab.value;
+          return (
+            <button
+              type="button"
+              key={tab.label}
+              className={active ? "work-manual-category-tab active" : "work-manual-category-tab"}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setFilters((current) => ({ ...current, category: tab.value }))}
+            >
+              <span>{tab.label}</span>
+              <strong>{Number(tab.count || 0).toLocaleString("ko-KR")}</strong>
+            </button>
+          );
+        })}
+      </div>
+
       <section className="work-manual-controls" aria-label="업무설명서 검색 및 필터">
         <label>
           <span>검색</span>
@@ -189,24 +253,22 @@ function WorkManualPage() {
             onChange={(event) => setFilters((current) => ({ ...current, keyword: event.target.value }))}
           />
         </label>
-        <label>
-          <span>카테고리</span>
-          <select
-            value={filters.category}
-            onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
-          >
-            <option value="">전체</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>{category}</option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="secondary-button" onClick={() => setFilters({ keyword: "", category: "" })}>
-          초기화
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => setFilters((current) => ({ ...current, keyword: "" }))}
+          disabled={!filters.keyword}
+        >
+          검색 초기화
         </button>
         <button type="button" className="secondary-button" onClick={loadManuals}>
           새로고침
         </button>
+        <SortSelect
+          value={sortValue}
+          options={BOARD_SORT_OPTIONS}
+          onChange={setSortValue}
+        />
       </section>
 
       {detailState.error ? <div className="inline-alert">{detailState.error}</div> : null}
@@ -236,6 +298,7 @@ function WorkManualPage() {
 
       <WorkManualFormModal
         error={formState.error}
+        initialCategory={WORK_MANUAL_CATEGORIES.includes(filters.category) ? filters.category : "다우오피스"}
         initialManual={formState.initialManual}
         isOpen={formState.isOpen}
         isSubmitting={formState.isSubmitting}
@@ -354,12 +417,14 @@ function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
   );
 }
 
-function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClose, onSubmit }) {
+function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, isSubmitting, onClose, onSubmit }) {
   const [form, setForm] = useState(EMPTY_MANUAL_FORM);
+  const [editorImageAction, setEditorImageAction] = useState(null);
   const [uploadState, setUploadState] = useState({ error: "", isDragging: false, isUploading: false });
   const editorRef = useRef(null);
   const fileInputRef = useRef(null);
   const savedRangeRef = useRef(null);
+  const selectedImageRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -367,13 +432,13 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
       return;
     }
     setForm({
-      category: initialManual?.category || "일반",
+      category: initialManual?.category || initialCategory || "다우오피스",
       title: initialManual?.title || "",
       content: initialManual?.content || "",
       author: initialManual?.author || "관리자",
       is_pinned: Boolean(initialManual?.is_pinned),
     });
-  }, [initialManual, isOpen]);
+  }, [initialCategory, initialManual, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !editorRef.current) {
@@ -382,9 +447,40 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     editorRef.current.innerHTML = normalizeContentForEditor(initialManual?.content || "");
   }, [initialManual, isOpen]);
 
-  if (!isOpen) {
-    return null;
-  }
+  useEffect(() => {
+    if (!isOpen) {
+      selectedImageRef.current?.classList.remove("work-manual-editor-image-selected");
+      selectedImageRef.current = null;
+      setEditorImageAction(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!editorImageAction) {
+      return undefined;
+    }
+    const handleDocumentMouseDown = (event) => {
+      const target = event.target;
+      if (
+        editorRef.current?.contains(target) ||
+        target?.closest?.(".work-manual-editor-image-delete")
+      ) {
+        return;
+      }
+      clearSelectedEditorImage();
+    };
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        clearSelectedEditorImage();
+      }
+    };
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [editorImageAction]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -392,11 +488,40 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     onSubmit?.({ ...form, content });
   };
 
+  const categoryOptions = useMemo(() => {
+    const currentCategory = String(form.category || "").trim();
+    if (currentCategory && !WORK_MANUAL_CATEGORIES.includes(currentCategory)) {
+      return [currentCategory, ...WORK_MANUAL_CATEGORIES];
+    }
+    return WORK_MANUAL_CATEGORIES;
+  }, [form.category]);
+
   const syncEditorContent = () => {
     setForm((current) => ({
       ...current,
       content: sanitizeManualHtml(editorRef.current?.innerHTML || ""),
     }));
+  };
+
+  const clearSelectedEditorImage = () => {
+    selectedImageRef.current?.classList.remove("work-manual-editor-image-selected");
+    selectedImageRef.current = null;
+    setEditorImageAction(null);
+  };
+
+  const selectEditorImage = (imageElement) => {
+    if (!editorRef.current || !imageElement) {
+      return;
+    }
+    selectedImageRef.current?.classList.remove("work-manual-editor-image-selected");
+    selectedImageRef.current = imageElement;
+    imageElement.classList.add("work-manual-editor-image-selected");
+    const editorRect = editorRef.current.getBoundingClientRect();
+    const imageRect = imageElement.getBoundingClientRect();
+    setEditorImageAction({
+      left: Math.max(8, imageRect.right - editorRect.left - 42),
+      top: Math.max(8, imageRect.top - editorRect.top + editorRef.current.scrollTop + 8),
+    });
   };
 
   const saveSelection = () => {
@@ -485,6 +610,10 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
   };
 
   const handleEditorKeyDown = (event) => {
+    if (event.key === "Escape") {
+      clearSelectedEditorImage();
+      return;
+    }
     if (!event.ctrlKey && !event.metaKey) {
       return;
     }
@@ -570,6 +699,57 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     }
   };
 
+  const handleEditorMouseDown = (event) => {
+    if (event.target?.tagName?.toLowerCase() !== "img") {
+      clearSelectedEditorImage();
+      return;
+    }
+    const scrollY = window.scrollY;
+    event.preventDefault();
+    event.stopPropagation();
+    selectEditorImage(event.target);
+    window.requestAnimationFrame(() => window.scrollTo(window.scrollX, scrollY));
+  };
+
+  const handleEditorClick = (event) => {
+    if (event.target?.tagName?.toLowerCase() !== "img") {
+      return;
+    }
+    const scrollY = window.scrollY;
+    event.preventDefault();
+    event.stopPropagation();
+    window.requestAnimationFrame(() => window.scrollTo(window.scrollX, scrollY));
+  };
+
+  const handleDeleteSelectedImage = (event) => {
+    const scrollY = window.scrollY;
+    const editorScrollTop = editorRef.current?.scrollTop || 0;
+    event.preventDefault();
+    event.stopPropagation();
+    const imageElement = selectedImageRef.current;
+    if (!imageElement || !editorRef.current?.contains(imageElement)) {
+      clearSelectedEditorImage();
+      return;
+    }
+    if (!window.confirm("이 이미지를 삭제할까요?")) {
+      window.requestAnimationFrame(() => window.scrollTo(window.scrollX, scrollY));
+      return;
+    }
+    imageElement.remove();
+    clearSelectedEditorImage();
+    syncEditorContent();
+    window.requestAnimationFrame(() => {
+      if (editorRef.current) {
+        editorRef.current.scrollTop = editorScrollTop;
+      }
+      window.scrollTo(window.scrollX, scrollY);
+    });
+  };
+
+  if (!isOpen) {
+    return null;
+  }
+
   return (
     <div className="work-manual-modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
@@ -592,12 +772,17 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
           <div className="work-manual-form-grid">
             <label className="field">
               <span>카테고리</span>
-              <input
+              <select
                 value={form.category}
-                maxLength={80}
                 disabled={isSubmitting}
                 onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-              />
+              >
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {WORK_MANUAL_CATEGORIES.includes(category) ? category : `${category} (기존)`}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="field">
               <span>작성자</span>
@@ -638,27 +823,45 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
                 <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => insertHtmlAtCursor("<hr>")}>구분선</button>
                 <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => fileInputRef.current?.click()}>이미지</button>
               </div>
-              <div
-                ref={editorRef}
-                className={uploadState.isDragging ? "work-manual-rich-editor dragging" : "work-manual-rich-editor"}
-                contentEditable={!isSubmitting}
-                role="textbox"
-                aria-multiline="true"
-                suppressContentEditableWarning
-                onBlur={syncEditorContent}
-                onInput={syncEditorContent}
-                onKeyDown={handleEditorKeyDown}
-                onKeyUp={saveSelection}
-                onMouseUp={saveSelection}
-                onDragEnter={(event) => {
-                  event.preventDefault();
-                  setUploadState((current) => ({ ...current, isDragging: true }));
-                }}
-                onDragOver={(event) => event.preventDefault()}
-                onDragLeave={() => setUploadState((current) => ({ ...current, isDragging: false }))}
-                onDrop={handleDrop}
-                onPaste={handlePaste}
-              />
+              <div className="work-manual-editor-shell">
+                <div
+                  ref={editorRef}
+                  className={uploadState.isDragging ? "work-manual-rich-editor dragging" : "work-manual-rich-editor"}
+                  contentEditable={!isSubmitting}
+                  role="textbox"
+                  aria-multiline="true"
+                  suppressContentEditableWarning
+                  onBlur={syncEditorContent}
+                  onClick={handleEditorClick}
+                  onInput={syncEditorContent}
+                  onKeyDown={handleEditorKeyDown}
+                  onKeyUp={saveSelection}
+                  onMouseDown={handleEditorMouseDown}
+                  onMouseUp={saveSelection}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setUploadState((current) => ({ ...current, isDragging: true }));
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragLeave={() => setUploadState((current) => ({ ...current, isDragging: false }))}
+                  onDrop={handleDrop}
+                  onPaste={handlePaste}
+                />
+                {editorImageAction ? (
+                  <button
+                    type="button"
+                    className="work-manual-editor-image-delete"
+                    style={{ left: `${editorImageAction.left}px`, top: `${editorImageAction.top}px` }}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={handleDeleteSelectedImage}
+                  >
+                    삭제
+                  </button>
+                ) : null}
+              </div>
             </label>
             <div
               className={uploadState.isDragging ? "work-manual-image-upload dragging" : "work-manual-image-upload"}

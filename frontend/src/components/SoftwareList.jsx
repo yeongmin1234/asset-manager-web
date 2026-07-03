@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { SortSelect } from "../utils/sortOptions.jsx";
 
 const SOFTWARE_COLUMN_WIDTH_STORAGE_KEY = "assetManager.softwareTable.columnWidths";
 const SOFTWARE_COLUMNS = [
@@ -22,7 +23,10 @@ function SoftwareList({
   onDelete,
   onEdit,
   onFilterChange,
+  onSortChange,
   onTabChange,
+  sortOptions,
+  sortValue,
   tabs,
 }) {
   const [expandedLicenseIds, setExpandedLicenseIds] = useState(() => new Set());
@@ -297,6 +301,11 @@ function SoftwareList({
               <option value="no_date">만료일 없음</option>
             </select>
           </label>
+          <SortSelect
+            value={sortValue}
+            options={sortOptions}
+            onChange={onSortChange}
+          />
         </div>
       </div>
 

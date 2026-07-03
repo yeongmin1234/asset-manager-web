@@ -1,4 +1,5 @@
 import React, { Fragment, useMemo, useRef, useState } from "react";
+import { SortSelect } from "../utils/sortOptions.jsx";
 
 const COLUMN_WIDTH_STORAGE_KEY = "assetManager.vehicleTable.columnWidths";
 const VEHICLE_COLUMNS = [
@@ -27,7 +28,10 @@ function VehicleList({
   onDelete,
   onEdit,
   onCompanyTabChange,
+  onSortChange,
   onTabChange,
+  sortOptions,
+  sortValue,
   tabs,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
@@ -216,6 +220,13 @@ function VehicleList({
                 {tab.label}
               </button>
             ))}
+          </div>
+          <div className="vehicle-sort-control">
+            <SortSelect
+              value={sortValue}
+              options={sortOptions}
+              onChange={onSortChange}
+            />
           </div>
         </div>
       </div>

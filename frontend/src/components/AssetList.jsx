@@ -2,20 +2,13 @@ import React, { useMemo, useRef, useState } from "react";
 import AssetCategoryTabs from "./AssetCategoryTabs.jsx";
 import StatusBadge from "./StatusBadge.jsx";
 
-const SORTABLE_COLUMNS = {
-  name: "제품명",
-  status: "상태",
-  serial_number: "시리얼번호",
-  department_name: "부서(사용자명)",
-};
-
 const LOCATION_TABS = ["", "본사", "백화점", "파주창고", "기타"];
 const ASSET_COLUMN_WIDTH_STORAGE_KEY = "assetManager.assetTable.columnWidths";
 const ASSET_COLUMNS = [
-  { key: "name", label: "제품명", initialWidth: 220, minWidth: 160, sortable: true },
-  { key: "status", label: "상태", initialWidth: 100, minWidth: 90, sortable: true },
-  { key: "serial", label: "시리얼번호", initialWidth: 150, minWidth: 140, sortable: true, sortKey: "serial_number" },
-  { key: "department", label: "부서(사용자명)", initialWidth: 170, minWidth: 150, sortable: true, sortKey: "department_name" },
+  { key: "name", label: "제품명", initialWidth: 220, minWidth: 160 },
+  { key: "status", label: "상태", initialWidth: 100, minWidth: 90 },
+  { key: "serial", label: "시리얼번호", initialWidth: 150, minWidth: 140 },
+  { key: "department", label: "부서(사용자명)", initialWidth: 170, minWidth: 150 },
   { key: "location", label: "위치", initialWidth: 160, minWidth: 90 },
   { key: "purchaseDate", label: "구매일", initialWidth: 120, minWidth: 100 },
 ];
@@ -27,8 +20,6 @@ function AssetList({
   hasActiveFilters,
   selectedAssetId,
   onSelectAsset,
-  sortConfig,
-  onSortChange,
   categories,
   activeCategoryId,
   onCategorySelect,
@@ -116,8 +107,6 @@ function AssetList({
                 <ResizableHeader
                   key={column.key}
                   column={column}
-                  sortConfig={sortConfig}
-                  onSortChange={onSortChange}
                   onResizeStart={handleColumnResizeStart}
                 />
               ))}
@@ -255,27 +244,10 @@ function getLocationLabel(asset) {
   return group || detail || "-";
 }
 
-function ResizableHeader({ column, sortConfig, onSortChange, onResizeStart }) {
-  const sortKey = column.sortKey || column.key;
-  const isActive = sortConfig?.key === sortKey;
-  const directionText = sortConfig?.direction === "desc" ? "내림차순" : "오름차순";
-  const marker = isActive ? (sortConfig.direction === "desc" ? "↓" : "↑") : "";
-
+function ResizableHeader({ column, onResizeStart }) {
   return (
     <th>
-      {column.sortable ? (
-        <button
-          type="button"
-          className={isActive ? "table-sort active" : "table-sort"}
-          onClick={() => onSortChange(sortKey)}
-          aria-label={`${SORTABLE_COLUMNS[sortKey]} 정렬${isActive ? `, 현재 ${directionText}` : ""}`}
-        >
-          <span>{column.label}</span>
-          <span aria-hidden="true">{marker}</span>
-        </button>
-      ) : (
-        <span className="resizable-table-heading">{column.label}</span>
-      )}
+      <span className="resizable-table-heading">{column.label}</span>
       <span
         aria-hidden="true"
         className="table-column-resize-handle"

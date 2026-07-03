@@ -12,6 +12,12 @@ import NetworkCredentialForm, {
   NETWORK_CREDENTIAL_IMPORTANCE,
 } from "./NetworkCredentialForm.jsx";
 import NetworkCredentialList from "./NetworkCredentialList.jsx";
+import {
+  ASSET_SORT_OPTIONS,
+  SORT_VALUES,
+  SortSelect,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const UNCATEGORIZED_CATEGORY_KEY = "__uncategorized__";
 const UNCATEGORIZED_CATEGORY_LABEL = "기타";
@@ -37,6 +43,7 @@ function NetworkCredentialPage() {
   });
   const [revealedPasswords, setRevealedPasswords] = useState({});
   const [copyMessage, setCopyMessage] = useState("");
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [authState, setAuthState] = useState({
     credential: null,
     error: "",
@@ -72,11 +79,15 @@ function NetworkCredentialPage() {
   }, [credentials]);
 
   const displayedCredentials = useMemo(() => {
-    if (!selectedCategory) {
-      return credentials;
-    }
-    return credentials.filter((credential) => normalizeCategory(credential.category).key === selectedCategory);
-  }, [credentials, selectedCategory]);
+    const filteredCredentials = selectedCategory
+      ? credentials.filter((credential) => normalizeCategory(credential.category).key === selectedCategory)
+      : credentials;
+    return sortItems(filteredCredentials, sortValue, {
+      created: ["created_at"],
+      updated: ["updated_at", "created_at"],
+      name: ["service_name", "url", "internal_url", "external_url"],
+    });
+  }, [credentials, selectedCategory, sortValue]);
 
   const loadCredentials = useCallback(async () => {
     setListState({ error: "", isLoading: true });
@@ -289,6 +300,11 @@ function NetworkCredentialPage() {
           >
             새로고침
           </button>
+          <SortSelect
+            value={sortValue}
+            options={ASSET_SORT_OPTIONS}
+            onChange={setSortValue}
+          />
         </div>
 
         <CategoryTabs tabs={categoryTabs} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />

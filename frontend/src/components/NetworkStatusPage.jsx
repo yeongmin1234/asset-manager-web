@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getNetworkStatus } from "../api/client.js";
 import NetworkCredentialPage from "./NetworkCredentialPage.jsx";
+import {
+  ASSET_SORT_OPTIONS,
+  SORT_VALUES,
+  SortSelect,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const EMPTY_SUMMARY = {
   total: 0,
@@ -65,6 +71,7 @@ function NetworkDeviceStatusPanel() {
   const [recentChecks, setRecentChecks] = useState([]);
   const [statusState, setStatusState] = useState({ isLoading: false, error: "" });
   const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
 
   const loadStatus = useCallback(async () => {
     setStatusState({ isLoading: true, error: "" });
@@ -107,6 +114,15 @@ function NetworkDeviceStatusPanel() {
     [summary],
   );
 
+  const displayedItems = useMemo(
+    () => sortItems(items, sortValue, {
+      created: ["checked_at"],
+      updated: ["checked_at", "last_problem_at"],
+      name: ["name", "target"],
+    }),
+    [items, sortValue],
+  );
+
   return (
     <>
       <div className="network-device-toolbar">
@@ -122,6 +138,11 @@ function NetworkDeviceStatusPanel() {
         >
           {statusState.isLoading ? "확인 중" : "새로고침"}
         </button>
+        <SortSelect
+          value={sortValue}
+          options={ASSET_SORT_OPTIONS}
+          onChange={setSortValue}
+        />
       </div>
 
       <section className="network-summary-compact" aria-label="네트워크 상태 요약">
@@ -157,15 +178,15 @@ function NetworkDeviceStatusPanel() {
           <div className="empty-state error-state">네트워크 상태를 불러오지 못했습니다. {statusState.error}</div>
         ) : null}
 
-        {!statusState.error && statusState.isLoading && items.length === 0 ? (
+        {!statusState.error && statusState.isLoading && displayedItems.length === 0 ? (
           <div className="empty-state">네트워크 상태를 확인 중입니다.</div>
         ) : null}
 
-        {!statusState.error && !statusState.isLoading && items.length === 0 ? (
+        {!statusState.error && !statusState.isLoading && displayedItems.length === 0 ? (
           <div className="empty-state">표시할 네트워크 상태가 없습니다.</div>
         ) : null}
 
-        {items.length > 0 ? (
+        {displayedItems.length > 0 ? (
           <div className="table-scroll network-table-scroll">
             <table className="data-table network-status-table">
               <thead>
@@ -179,7 +200,7 @@ function NetworkDeviceStatusPanel() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {displayedItems.map((item) => (
                   <tr key={`${item.name}-${item.target}`}>
                     <td className="network-service-name">{displayValue(item.name)}</td>
                     <td className="network-target" title={displayValue(item.target)}>

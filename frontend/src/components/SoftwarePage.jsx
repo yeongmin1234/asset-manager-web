@@ -9,6 +9,11 @@ import {
 import SoftwareList from "./SoftwareList.jsx";
 import SoftwareQuickForm from "./SoftwareQuickForm.jsx";
 import SoftwareStats from "./SoftwareStats.jsx";
+import {
+  INFO_EXPIRY_SORT_OPTIONS,
+  SORT_VALUES,
+  sortItems,
+} from "../utils/sortOptions.jsx";
 
 const INITIAL_FILTERS = {
   expiration_status: "",
@@ -36,10 +41,16 @@ function SoftwarePage() {
   const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [editingItem, setEditingItem] = useState(null);
   const [activeTab, setActiveTab] = useState("");
+  const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
 
   const displayedItems = useMemo(
-    () => filterSoftwareItems(items, activeTab, filters.expiration_status),
-    [activeTab, filters.expiration_status, items],
+    () => sortItems(filterSoftwareItems(items, activeTab, filters.expiration_status), sortValue, {
+      created: ["created_at", "registered_at"],
+      updated: ["updated_at", "created_at"],
+      name: ["name"],
+      expiry: ["expire_date", "expiry_date"],
+    }),
+    [activeTab, filters.expiration_status, items, sortValue],
   );
 
   const expirationSummary = useMemo(
@@ -126,7 +137,10 @@ function SoftwarePage() {
         onDelete={handleDelete}
         onEdit={setEditingItem}
         onFilterChange={setFilters}
+        onSortChange={setSortValue}
         onTabChange={setActiveTab}
+        sortOptions={INFO_EXPIRY_SORT_OPTIONS}
+        sortValue={sortValue}
         tabs={SOFTWARE_TABS}
       />
     </>
