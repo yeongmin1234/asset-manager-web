@@ -18,6 +18,7 @@ const EMPTY_MANUAL_FORM = {
 
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+const BASE64_IMAGE_PATTERN = /data:image\/[a-z0-9.+-]+;base64,[^\s"'<)]+/gi;
 
 function WorkManualPage() {
   const [manuals, setManuals] = useState([]);
@@ -423,6 +424,31 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     selection.addRange(range);
   };
 
+  const moveSelectionToPoint = (clientX, clientY) => {
+    if (!editorRef.current) {
+      return;
+    }
+    let range = null;
+    if (document.caretRangeFromPoint) {
+      range = document.caretRangeFromPoint(clientX, clientY);
+    } else if (document.caretPositionFromPoint) {
+      const position = document.caretPositionFromPoint(clientX, clientY);
+      if (position) {
+        range = document.createRange();
+        range.setStart(position.offsetNode, position.offset);
+      }
+    }
+    if (!range || !editorRef.current.contains(range.startContainer)) {
+      restoreSelection();
+      return;
+    }
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    savedRangeRef.current = range.cloneRange();
+  };
+
   const runEditorCommand = (command, value = null) => {
     restoreSelection();
     document.execCommand(command, false, value);
@@ -432,7 +458,23 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
 
   const insertHtmlAtCursor = (html) => {
     restoreSelection();
-    document.execCommand("insertHTML", false, html);
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const fragment = template.content;
+    const lastNode = fragment.lastChild;
+    range.insertNode(fragment);
+    if (lastNode) {
+      range.setStartAfter(lastNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
     syncEditorContent();
     saveSelection();
   };
@@ -465,41 +507,45 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     if (!isSafeManualImageUrl(image?.url)) {
       return;
     }
-    insertHtmlAtCursor(`<img src="${image.url}" alt="이미지 설명"><p><br></p>`);
+    insertHtmlAtCursor(`<img src="${image.url}" alt="이미지"><p><br></p>`);
   };
 
-  const uploadImageFile = async (file) => {
-    const imageFile = normalizeImageFile(file);
-    const validationError = validateImageFile(imageFile);
-    if (validationError) {
-      setUploadState({ error: validationError, isDragging: false, isUploading: false });
+  const uploadImageAndInsert = async (files) => {
+    const imageFiles = Array.from(files || []).filter(Boolean);
+    if (imageFiles.length === 0) {
       return;
     }
 
     setUploadState({ error: "", isDragging: false, isUploading: true });
+    let lastError = "";
     try {
-      const uploadedImage = await uploadWorkManualImage(imageFile);
-      insertUploadedImage(uploadedImage);
-      setUploadState({ error: "", isDragging: false, isUploading: false });
+      for (const file of imageFiles) {
+        const imageFile = normalizeImageFile(file);
+        const validationError = validateImageFile(imageFile);
+        if (validationError) {
+          lastError = validationError;
+          continue;
+        }
+        const uploadedImage = await uploadWorkManualImage(imageFile);
+        insertUploadedImage(uploadedImage);
+      }
+      setUploadState({ error: lastError, isDragging: false, isUploading: false });
     } catch {
       setUploadState({ error: "이미지 업로드에 실패했습니다.", isDragging: false, isUploading: false });
     }
   };
 
   const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      uploadImageFile(file);
-    }
+    uploadImageAndInsert(event.target.files);
     event.target.value = "";
   };
 
   const handleDrop = (event) => {
     event.preventDefault();
-    restoreSelection();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      uploadImageFile(file);
+    moveSelectionToPoint(event.clientX, event.clientY);
+    const files = Array.from(event.dataTransfer.files || []);
+    if (files.length > 0) {
+      uploadImageAndInsert(files);
     } else {
       setUploadState((current) => ({ ...current, isDragging: false }));
     }
@@ -507,13 +553,14 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
 
   const handlePaste = (event) => {
     const items = Array.from(event.clipboardData?.items || []);
-    const imageItem = items.find((item) => item.type.startsWith("image/"));
-    if (imageItem) {
-      const file = imageItem.getAsFile();
+    const imageFiles = items
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (imageFiles.length > 0) {
       event.preventDefault();
-      if (file) {
-        uploadImageFile(file);
-      }
+      saveSelection();
+      uploadImageAndInsert(imageFiles);
       return;
     }
     const text = event.clipboardData?.getData("text/plain") || "";
@@ -593,7 +640,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
               </div>
               <div
                 ref={editorRef}
-                className="work-manual-rich-editor"
+                className={uploadState.isDragging ? "work-manual-rich-editor dragging" : "work-manual-rich-editor"}
                 contentEditable={!isSubmitting}
                 role="textbox"
                 aria-multiline="true"
@@ -603,6 +650,13 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
                 onKeyDown={handleEditorKeyDown}
                 onKeyUp={saveSelection}
                 onMouseUp={saveSelection}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setUploadState((current) => ({ ...current, isDragging: true }));
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragLeave={() => setUploadState((current) => ({ ...current, isDragging: false }))}
+                onDrop={handleDrop}
                 onPaste={handlePaste}
               />
             </label>
@@ -630,7 +684,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
                   onChange={handleFileChange}
                 />
               </label>
-              {uploadState.isUploading ? <em>업로드 중입니다.</em> : null}
+              {uploadState.isUploading ? <em>이미지 업로드 중...</em> : null}
               {uploadState.error ? <p>{uploadState.error}</p> : null}
             </div>
           </div>
@@ -752,8 +806,9 @@ function sanitizeManualHtml(html) {
   if (typeof window === "undefined" || typeof DOMParser === "undefined") {
     return "";
   }
+  const normalizedHtml = String(html || "").replace(BASE64_IMAGE_PATTERN, "");
   const parser = new DOMParser();
-  const documentValue = parser.parseFromString(`<div>${html || ""}</div>`, "text/html");
+  const documentValue = parser.parseFromString(`<div>${normalizedHtml}</div>`, "text/html");
   return Array.from(documentValue.body.firstChild?.childNodes || [])
     .map((node) => sanitizeManualNodeToHtml(node))
     .join("");
@@ -958,9 +1013,12 @@ function validateImageFile(file) {
   if (!file) {
     return "이미지 업로드에 실패했습니다.";
   }
+  if (file.type && !file.type.startsWith("image/")) {
+    return "이미지 파일만 업로드할 수 있습니다.";
+  }
   const extension = getFileExtension(file.name);
   if (!ALLOWED_IMAGE_EXTENSIONS.includes(extension)) {
-    return "jpg, png, webp, gif 이미지만 업로드할 수 있습니다.";
+    return "jpg, jpeg, png, webp, gif 이미지만 업로드할 수 있습니다.";
   }
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
     return "이미지는 10MB 이하만 업로드할 수 있습니다.";

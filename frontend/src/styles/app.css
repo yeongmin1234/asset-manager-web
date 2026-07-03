@@ -12621,7 +12621,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border: 0;
   box-shadow: none !important;
   display: block;
-  margin: 14px 0 18px;
+  margin: 10px 0;
   max-width: 100%;
   min-height: 0;
   min-width: 0;
@@ -12635,6 +12635,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border-radius: 8px;
   display: block;
   height: auto;
+  margin: 0;
   max-width: 100%;
 }
 
@@ -12796,6 +12797,11 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border-color: #94a3b8;
 }
 
+.work-manual-rich-editor.dragging {
+  background: #f8fbff;
+  border-color: #94a3b8;
+}
+
 .work-manual-rich-editor p {
   margin: 0 0 10px;
 }
@@ -12817,8 +12823,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border-radius: 8px;
   display: block;
   height: auto;
-  margin: 12px 0;
-  max-height: 360px;
+  margin: 10px 0;
   max-width: 100%;
 }
 
