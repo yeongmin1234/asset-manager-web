@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -21,6 +20,7 @@ from app.services.admin_service import (
     AdminPasswordRequiredError,
     AdminPasswordTooShortError,
     AdminResetCodeNotConfiguredError,
+    create_admin_auth_token,
     is_admin_password_configured,
     reset_admin_password_with_reset_code,
     set_admin_password,
@@ -130,7 +130,7 @@ def verify_admin_password(
     expires_at = datetime.utcnow() + timedelta(minutes=_get_auth_minutes())
     return AdminVerifyResponse(
         ok=True,
-        token=secrets.token_urlsafe(32),
+        token=create_admin_auth_token(db, expires_at),
         expires_at=expires_at,
     )
 

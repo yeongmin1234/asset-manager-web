@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createWorkManual,
   deleteWorkManual,
   getWorkManual,
   getWorkManuals,
   updateWorkManual,
+  uploadWorkManualImage,
 } from "../api/client.js";
 
 const EMPTY_MANUAL_FORM = {
@@ -13,8 +14,11 @@ const EMPTY_MANUAL_FORM = {
   content: "",
   author: "관리자",
   is_pinned: false,
-  admin_password: "",
 };
+
+const ADMIN_AUTH_STORAGE_KEY = "assetManager.adminAuth";
+const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function WorkManualPage() {
   const [manuals, setManuals] = useState([]);
@@ -29,12 +33,12 @@ function WorkManualPage() {
     isSubmitting: false,
   });
   const [deleteState, setDeleteState] = useState({
-    adminPassword: "",
     error: "",
     isOpen: false,
     isSubmitting: false,
     manual: null,
   });
+  const [isAdminAuthorized, setIsAdminAuthorized] = useState(() => hasValidAdminAuth());
 
   const loadManuals = useCallback(async () => {
     setListState({ error: "", isLoading: true });
@@ -59,6 +63,17 @@ function WorkManualPage() {
   useEffect(() => {
     loadManuals();
   }, [loadManuals]);
+
+  useEffect(() => {
+    const refreshAdminState = () => setIsAdminAuthorized(hasValidAdminAuth());
+    refreshAdminState();
+    window.addEventListener("storage", refreshAdminState);
+    window.addEventListener("focus", refreshAdminState);
+    return () => {
+      window.removeEventListener("storage", refreshAdminState);
+      window.removeEventListener("focus", refreshAdminState);
+    };
+  }, []);
 
   const categories = useMemo(() => {
     const categorySet = new Set();
@@ -102,10 +117,16 @@ function WorkManualPage() {
   };
 
   const openCreateForm = () => {
+    if (!isAdminAuthorized) {
+      return;
+    }
     setFormState({ error: "", initialManual: null, isOpen: true, isSubmitting: false });
   };
 
   const openEditForm = (manual) => {
+    if (!isAdminAuthorized) {
+      return;
+    }
     setFormState({ error: "", initialManual: manual, isOpen: true, isSubmitting: false });
   };
 
@@ -130,8 +151,10 @@ function WorkManualPage() {
   };
 
   const openDelete = (manual) => {
+    if (!isAdminAuthorized) {
+      return;
+    }
     setDeleteState({
-      adminPassword: "",
       error: "",
       isOpen: true,
       isSubmitting: false,
@@ -141,7 +164,6 @@ function WorkManualPage() {
 
   const closeDelete = () => {
     setDeleteState({
-      adminPassword: "",
       error: "",
       isOpen: false,
       isSubmitting: false,
@@ -155,7 +177,7 @@ function WorkManualPage() {
     }
     setDeleteState((current) => ({ ...current, error: "", isSubmitting: true }));
     try {
-      await deleteWorkManual(deleteState.manual.id, deleteState.adminPassword);
+      await deleteWorkManual(deleteState.manual.id);
       if (selectedManual?.id === deleteState.manual.id) {
         setSelectedManual(null);
       }
@@ -174,10 +196,16 @@ function WorkManualPage() {
           <h2 id="work-manual-title">업무설명서</h2>
           <p>자주 사용하는 업무 절차와 내부 기준을 정리합니다.</p>
         </div>
-        <button type="button" onClick={openCreateForm}>
-          새 글 작성
-        </button>
+        {isAdminAuthorized ? (
+          <button type="button" onClick={openCreateForm}>
+            새 글 작성
+          </button>
+        ) : null}
       </div>
+
+      {!isAdminAuthorized ? (
+        <div className="work-manual-admin-notice">관리자 권한이 필요합니다. 목록과 상세 내용은 조회할 수 있습니다.</div>
+      ) : null}
 
       <section className="work-manual-controls" aria-label="업무설명서 검색 및 필터">
         <label>
@@ -226,6 +254,7 @@ function WorkManualPage() {
           <WorkManualPreview
             isLoading={detailState.isLoading}
             manual={selectedManual}
+            canManage={isAdminAuthorized}
             onClose={() => setSelectedManual(null)}
             onDelete={openDelete}
             onEdit={openEditForm}
@@ -243,9 +272,6 @@ function WorkManualPage() {
       />
       <WorkManualDeleteModal
         state={deleteState}
-        onChangePassword={(adminPassword) =>
-          setDeleteState((current) => ({ ...current, adminPassword }))
-        }
         onClose={closeDelete}
         onConfirm={handleDelete}
       />
@@ -316,7 +342,9 @@ function WorkManualTable({
   );
 }
 
-function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
+function WorkManualPreview({ canManage, isLoading, manual, onClose, onDelete, onEdit }) {
+  const [previewImage, setPreviewImage] = useState(null);
+
   return (
     <aside className="work-manual-preview" aria-label="선택한 업무설명서 미리보기">
       <div className="work-manual-preview-heading">
@@ -336,25 +364,34 @@ function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
       {isLoading ? (
         <div className="work-manual-empty">본문을 불러오는 중입니다.</div>
       ) : (
-        <div className="work-manual-preview-content">{formatText(manual.content)}</div>
+        <ManualContent content={manual.content} onImageClick={setPreviewImage} />
       )}
       <div className="work-manual-preview-actions">
-        <button type="button" className="secondary-button" onClick={() => onEdit?.(manual)}>
-          수정
-        </button>
-        <button type="button" className="danger-button" onClick={() => onDelete?.(manual)}>
-          삭제
-        </button>
+        {canManage ? (
+          <>
+            <button type="button" className="secondary-button" onClick={() => onEdit?.(manual)}>
+              수정
+            </button>
+            <button type="button" className="danger-button" onClick={() => onDelete?.(manual)}>
+              삭제
+            </button>
+          </>
+        ) : (
+          <span className="work-manual-admin-inline">관리자 권한이 필요합니다.</span>
+        )}
         <button type="button" className="secondary-button" onClick={onClose}>
           닫기
         </button>
       </div>
+      <WorkManualImageModal image={previewImage} onClose={() => setPreviewImage(null)} />
     </aside>
   );
 }
 
 function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClose, onSubmit }) {
   const [form, setForm] = useState(EMPTY_MANUAL_FORM);
+  const [uploadState, setUploadState] = useState({ error: "", isDragging: false, isUploading: false });
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -367,7 +404,6 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
       content: initialManual?.content || "",
       author: initialManual?.author || "관리자",
       is_pinned: Boolean(initialManual?.is_pinned),
-      admin_password: "",
     });
   }, [initialManual, isOpen]);
 
@@ -378,6 +414,79 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
   const handleSubmit = (event) => {
     event.preventDefault();
     onSubmit?.(form);
+  };
+
+  const insertImageMarkdown = (image) => {
+    const markdown = `![이미지 설명](${image.url})`;
+    const textarea = textareaRef.current;
+    setForm((current) => {
+      const content = current.content || "";
+      if (!textarea) {
+        return { ...current, content: content ? `${content}\n\n${markdown}` : markdown };
+      }
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const before = content.slice(0, start);
+      const after = content.slice(end);
+      const prefix = before && !before.endsWith("\n") ? "\n" : "";
+      const suffix = after && !after.startsWith("\n") ? "\n" : "";
+      const nextContent = `${before}${prefix}${markdown}${suffix}${after}`;
+      window.setTimeout(() => {
+        textarea.focus();
+        const cursorPosition = before.length + prefix.length + markdown.length;
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      }, 0);
+      return { ...current, content: nextContent };
+    });
+  };
+
+  const uploadImageFile = async (file) => {
+    const imageFile = normalizeImageFile(file);
+    const validationError = validateImageFile(imageFile);
+    if (validationError) {
+      setUploadState({ error: validationError, isDragging: false, isUploading: false });
+      return;
+    }
+
+    setUploadState({ error: "", isDragging: false, isUploading: true });
+    try {
+      const uploadedImage = await uploadWorkManualImage(imageFile);
+      insertImageMarkdown(uploadedImage);
+      setUploadState({ error: "", isDragging: false, isUploading: false });
+    } catch {
+      setUploadState({ error: "이미지 업로드에 실패했습니다.", isDragging: false, isUploading: false });
+    }
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      uploadImageFile(file);
+    }
+    event.target.value = "";
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      uploadImageFile(file);
+    } else {
+      setUploadState((current) => ({ ...current, isDragging: false }));
+    }
+  };
+
+  const handlePaste = (event) => {
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find((item) => item.type.startsWith("image/"));
+    if (!imageItem) {
+      return;
+    }
+    const file = imageItem.getAsFile();
+    if (file) {
+      event.preventDefault();
+      uploadImageFile(file);
+    }
   };
 
   return (
@@ -439,23 +548,41 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
             <label className="field work-manual-wide-field">
               <span>본문</span>
               <textarea
+                ref={textareaRef}
                 value={form.content}
                 rows={10}
                 maxLength={10000}
                 disabled={isSubmitting}
+                onPaste={handlePaste}
                 onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
               />
             </label>
-            <label className="field work-manual-wide-field">
-              <span>관리자 비밀번호</span>
-              <input
-                type="password"
-                value={form.admin_password}
-                autoComplete="current-password"
-                disabled={isSubmitting}
-                onChange={(event) => setForm((current) => ({ ...current, admin_password: event.target.value }))}
-              />
-            </label>
+            <div
+              className={uploadState.isDragging ? "work-manual-image-upload dragging" : "work-manual-image-upload"}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setUploadState((current) => ({ ...current, isDragging: true }));
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setUploadState((current) => ({ ...current, isDragging: false }))}
+              onDrop={handleDrop}
+            >
+              <div>
+                <strong>본문 이미지</strong>
+                <span>파일 선택, 드래그앤드롭, Ctrl+V 붙여넣기 지원</span>
+              </div>
+              <label className="secondary-button work-manual-image-upload-button">
+                이미지 선택
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+                  disabled={isSubmitting || uploadState.isUploading}
+                  onChange={handleFileChange}
+                />
+              </label>
+              {uploadState.isUploading ? <em>업로드 중입니다.</em> : null}
+              {uploadState.error ? <p>{uploadState.error}</p> : null}
+            </div>
           </div>
           {error ? <p className="work-manual-form-error">{error}</p> : null}
           <div className="work-manual-modal-actions">
@@ -469,8 +596,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
                 !form.category.trim() ||
                 !form.title.trim() ||
                 !form.content.trim() ||
-                !form.author.trim() ||
-                !form.admin_password
+                !form.author.trim()
               }
             >
               {isSubmitting ? "저장 중" : "저장"}
@@ -482,7 +608,53 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
   );
 }
 
-function WorkManualDeleteModal({ state, onChangePassword, onClose, onConfirm }) {
+function ManualContent({ content, onImageClick }) {
+  const nodes = parseManualContent(formatText(content));
+  return (
+    <div className="work-manual-preview-content">
+      {nodes.map((node, index) => {
+        if (node.type === "image") {
+          return (
+            <button
+              type="button"
+              className="work-manual-content-image-button"
+              key={`${node.url}-${index}`}
+              onClick={() => onImageClick?.(node)}
+            >
+              <img src={node.url} alt={node.alt || "업무설명서 이미지"} loading="lazy" />
+            </button>
+          );
+        }
+        return <p key={`text-${index}`}>{node.text}</p>;
+      })}
+    </div>
+  );
+}
+
+function WorkManualImageModal({ image, onClose }) {
+  if (!image) {
+    return null;
+  }
+
+  return (
+    <div className="work-manual-image-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="work-manual-image-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="업무설명서 이미지 크게 보기"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="icon-button" aria-label="닫기" onClick={onClose}>
+          x
+        </button>
+        <img src={image.url} alt={image.alt || "업무설명서 이미지"} />
+      </section>
+    </div>
+  );
+}
+
+function WorkManualDeleteModal({ state, onClose, onConfirm }) {
   if (!state.isOpen || !state.manual) {
     return null;
   }
@@ -498,16 +670,6 @@ function WorkManualDeleteModal({ state, onChangePassword, onClose, onConfirm }) 
       >
         <h3 id="work-manual-delete-title">업무설명서 삭제</h3>
         <p>{formatText(state.manual.title)} 글을 목록에서 숨김 처리합니다.</p>
-        <label className="field">
-          <span>관리자 비밀번호</span>
-          <input
-            type="password"
-            value={state.adminPassword}
-            autoComplete="current-password"
-            disabled={state.isSubmitting}
-            onChange={(event) => onChangePassword?.(event.target.value)}
-          />
-        </label>
         {state.error ? <p className="work-manual-form-error">{state.error}</p> : null}
         <div className="work-manual-modal-actions">
           <button type="button" className="secondary-button" disabled={state.isSubmitting} onClick={onClose}>
@@ -516,7 +678,7 @@ function WorkManualDeleteModal({ state, onChangePassword, onClose, onConfirm }) 
           <button
             type="button"
             className="danger-button"
-            disabled={state.isSubmitting || !state.adminPassword}
+            disabled={state.isSubmitting}
             onClick={onConfirm}
           >
             {state.isSubmitting ? "삭제 중" : "삭제"}
@@ -532,6 +694,106 @@ function formatText(value) {
     return "-";
   }
   return String(value);
+}
+
+function validateImageFile(file) {
+  if (!file) {
+    return "이미지 업로드에 실패했습니다.";
+  }
+  const extension = getFileExtension(file.name);
+  if (!ALLOWED_IMAGE_EXTENSIONS.includes(extension)) {
+    return "jpg, png, webp, gif 이미지만 업로드할 수 있습니다.";
+  }
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return "이미지는 10MB 이하만 업로드할 수 있습니다.";
+  }
+  return "";
+}
+
+function normalizeImageFile(file) {
+  if (!file || getFileExtension(file.name)) {
+    return file;
+  }
+  const extensionMap = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+  };
+  const extension = extensionMap[file.type] || "";
+  if (!extension) {
+    return file;
+  }
+  return new File([file], `pasted-image${extension}`, { type: file.type });
+}
+
+function getFileExtension(filename) {
+  const dotIndex = String(filename || "").lastIndexOf(".");
+  if (dotIndex < 0) {
+    return "";
+  }
+  return String(filename).slice(dotIndex).toLowerCase();
+}
+
+function parseManualContent(content) {
+  const nodes = [];
+  const imagePattern = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+  let lastIndex = 0;
+  let match = imagePattern.exec(content);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      nodes.push({ type: "text", text: content.slice(lastIndex, match.index) });
+    }
+    const alt = match[1] || "";
+    const url = match[2] || "";
+    if (isSafeManualImageUrl(url)) {
+      nodes.push({ type: "image", alt, url });
+    } else {
+      nodes.push({ type: "text", text: match[0] });
+    }
+    lastIndex = imagePattern.lastIndex;
+    match = imagePattern.exec(content);
+  }
+
+  if (lastIndex < content.length) {
+    nodes.push({ type: "text", text: content.slice(lastIndex) });
+  }
+
+  return nodes.length ? nodes : [{ type: "text", text: "" }];
+}
+
+function isSafeManualImageUrl(url) {
+  const normalizedUrl = String(url || "");
+  return (
+    normalizedUrl.startsWith("/uploads/work_manuals/images/") &&
+    !normalizedUrl.includes("..") &&
+    !normalizedUrl.includes("\\") &&
+    /\.(jpe?g|png|webp|gif)$/i.test(normalizedUrl)
+  );
+}
+
+function hasValidAdminAuth() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
+    if (!storedValue) {
+      return false;
+    }
+    const parsedValue = JSON.parse(storedValue);
+    const expiresAt = Date.parse(parsedValue?.expires_at || "");
+    if (!parsedValue?.token || !String(parsedValue.token).includes(".") || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      window.sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    window.sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+    return false;
+  }
 }
 
 function formatDate(value) {

@@ -20,15 +20,11 @@ class WorkManualBase(BaseModel):
 
 
 class WorkManualCreate(WorkManualBase):
-    admin_password: str = Field(..., min_length=1)
+    pass
 
 
 class WorkManualUpdate(WorkManualBase):
-    admin_password: str = Field(..., min_length=1)
-
-
-class WorkManualDeleteRequest(BaseModel):
-    admin_password: str = Field(..., min_length=1)
+    pass
 
 
 class WorkManualRead(WorkManualBase):
@@ -39,3 +35,8 @@ class WorkManualRead(WorkManualBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WorkManualImageUploadResponse(BaseModel):
+    url: str
+    filename: str

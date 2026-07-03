@@ -1,6 +1,11 @@
 import hashlib
 import hmac
+import base64
+import calendar
+import json
 import secrets
+import time
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import select
@@ -28,6 +33,10 @@ class AdminPasswordInvalidError(Exception):
 
 
 class AdminResetCodeNotConfiguredError(Exception):
+    pass
+
+
+class AdminAuthTokenInvalidError(Exception):
     pass
 
 
@@ -63,6 +72,41 @@ def verify_admin_password(db: Session, password: str) -> bool:
     if not setting or not setting.password_hash:
         return False
     return verify_password(password, setting.password_hash)
+
+
+def create_admin_auth_token(db: Session, expires_at: datetime) -> str:
+    setting = get_admin_setting(db)
+    if not setting or not setting.password_hash:
+        raise AdminAuthTokenInvalidError()
+
+    payload = {
+        "exp": int(calendar.timegm(expires_at.utctimetuple())),
+        "nonce": secrets.token_urlsafe(16),
+    }
+    payload_text = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    payload_token = base64.urlsafe_b64encode(payload_text.encode("utf-8")).decode("utf-8").rstrip("=")
+    signature = _sign_admin_token_payload(payload_token, setting.password_hash)
+    return "{}.{}".format(payload_token, signature)
+
+
+def verify_admin_auth_token(db: Session, token: str) -> bool:
+    setting = get_admin_setting(db)
+    if not setting or not setting.password_hash or not token:
+        return False
+
+    try:
+        payload_token, signature = str(token).split(".", 1)
+        expected_signature = _sign_admin_token_payload(payload_token, setting.password_hash)
+        if not hmac.compare_digest(signature, expected_signature):
+            return False
+        padded_payload = payload_token + "=" * (-len(payload_token) % 4)
+        payload_text = base64.urlsafe_b64decode(padded_payload.encode("utf-8")).decode("utf-8")
+        payload = json.loads(payload_text)
+        expires_at = int(payload.get("exp") or 0)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return False
+
+    return expires_at > int(time.time())
 
 
 def reset_admin_password_with_reset_code(
@@ -139,3 +183,12 @@ def verify_password(password: str, stored_hash: str) -> bool:
         iterations,
     ).hex()
     return secrets.compare_digest(actual_hash, expected_hash)
+
+
+def _sign_admin_token_payload(payload_token: str, password_hash: str) -> str:
+    signature = hmac.new(
+        password_hash.encode("utf-8"),
+        payload_token.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return signature

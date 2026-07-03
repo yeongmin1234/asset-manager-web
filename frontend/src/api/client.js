@@ -415,6 +415,7 @@ export async function createWorkManual(manual) {
   return request("/work-manuals", {
     method: "POST",
     body: manual,
+    headers: getAdminAuthHeaders(),
     timeoutMs: 8000,
   });
 }
@@ -423,15 +424,25 @@ export async function updateWorkManual(manualId, manual) {
   return request(`/work-manuals/${manualId}`, {
     method: "PUT",
     body: manual,
+    headers: getAdminAuthHeaders(),
     timeoutMs: 8000,
   });
 }
 
-export async function deleteWorkManual(manualId, adminPassword) {
+export async function deleteWorkManual(manualId) {
   return request(`/work-manuals/${manualId}`, {
     method: "DELETE",
-    body: { admin_password: adminPassword },
+    headers: getAdminAuthHeaders(),
     timeoutMs: 8000,
+  });
+}
+
+export async function uploadWorkManualImage(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  return requestFormData("/work-manuals/images", formData, {
+    headers: getAdminAuthHeaders(),
+    timeoutMs: 30000,
   });
 }
 
@@ -730,4 +741,27 @@ function buildInstallFileFormData(payload) {
     }
   });
   return formData;
+}
+
+function getAdminAuthHeaders() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const storedValue = window.sessionStorage.getItem("assetManager.adminAuth");
+    if (!storedValue) {
+      return {};
+    }
+    const parsedValue = JSON.parse(storedValue);
+    const expiresAt = Date.parse(parsedValue?.expires_at || "");
+    if (!parsedValue?.token || !String(parsedValue.token).includes(".") || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      window.sessionStorage.removeItem("assetManager.adminAuth");
+      return {};
+    }
+    return { "X-Admin-Auth": parsedValue.token };
+  } catch {
+    window.sessionStorage.removeItem("assetManager.adminAuth");
+    return {};
+  }
 }

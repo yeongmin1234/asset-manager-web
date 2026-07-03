@@ -12198,6 +12198,16 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   box-shadow: none !important;
 }
 
+.work-manual-admin-notice {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
 .work-manual-heading {
   align-items: center;
   display: flex;
@@ -12333,8 +12343,10 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 .work-manual-title-cell button {
   appearance: none;
   background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
   box-shadow: none !important;
-  color: #172033;
+  color: #111827;
   display: block;
   font-size: 0.88rem;
   font-weight: 800;
@@ -12352,6 +12364,17 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 .work-manual-title-cell button:hover {
   background: transparent !important;
   box-shadow: none !important;
+  color: #374151;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.work-manual-title-cell button:focus,
+.work-manual-title-cell button:focus-visible {
+  box-shadow: none !important;
+  outline: 1px solid rgba(17, 24, 39, 0.16);
+  outline-offset: 2px;
 }
 
 .work-manual-table-compact .work-manual-table th:nth-child(1),
@@ -12435,7 +12458,48 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   line-height: 1.7;
   min-height: 280px;
   overflow-wrap: anywhere;
+}
+
+.work-manual-preview-content p {
+  color: #172033;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  margin: 0 0 12px;
   white-space: pre-wrap;
+}
+
+.work-manual-content-image-button {
+  appearance: none;
+  background: transparent !important;
+  border: 0;
+  box-shadow: none !important;
+  display: block;
+  margin: 14px 0 18px;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  transform: none !important;
+}
+
+.work-manual-content-image-button img {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.work-manual-content-image-button:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.work-manual-content-image-button:focus-visible {
+  outline: 1px solid rgba(17, 24, 39, 0.18);
+  outline-offset: 3px;
 }
 
 .work-manual-preview-actions {
@@ -12445,6 +12509,13 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   gap: 8px;
   justify-content: flex-end;
   padding-top: 12px;
+}
+
+.work-manual-admin-inline {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-right: auto;
 }
 
 .work-manual-modal-backdrop {
@@ -12535,6 +12606,60 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   width: auto;
 }
 
+.work-manual-image-upload {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px 10px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px 12px;
+}
+
+.work-manual-image-upload.dragging {
+  background: #f8fbff;
+  border-color: #94a3b8;
+}
+
+.work-manual-image-upload strong,
+.work-manual-image-upload span {
+  display: block;
+}
+
+.work-manual-image-upload strong {
+  color: #172033;
+  font-size: 0.86rem;
+}
+
+.work-manual-image-upload span,
+.work-manual-image-upload em {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.work-manual-image-upload p {
+  color: #b42318;
+  font-size: 0.8rem;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.work-manual-image-upload-button {
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  margin: 0;
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.work-manual-image-upload-button input {
+  display: none;
+}
+
 .work-manual-form-error {
   background: #fef3f2;
   border: 1px solid #fecdca;
@@ -12552,6 +12677,45 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   gap: 8px;
   justify-content: flex-end;
   padding-top: 12px;
+}
+
+.work-manual-image-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.48);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 18px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 110;
+}
+
+.work-manual-image-modal {
+  background: #ffffff;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  box-shadow: none;
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 36px);
+  max-width: min(1040px, 100%);
+  overflow: auto;
+  padding: 12px;
+}
+
+.work-manual-image-modal .icon-button {
+  justify-self: end;
+}
+
+.work-manual-image-modal img {
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  max-height: calc(100vh - 110px);
+  max-width: 100%;
 }
 
 @media (max-width: 1100px) {
@@ -12573,6 +12737,10 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
   .work-manual-controls,
   .work-manual-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .work-manual-image-upload {
     grid-template-columns: 1fr;
   }
 

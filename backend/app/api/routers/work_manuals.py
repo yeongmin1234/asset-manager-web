@@ -1,19 +1,22 @@
-from typing import List
+from pathlib import Path
+from typing import List, Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.database import get_db
 from app.schemas.work_manual import (
     WorkManualCreate,
-    WorkManualDeleteRequest,
+    WorkManualImageUploadResponse,
     WorkManualRead,
     WorkManualUpdate,
 )
 from app.services.admin_service import (
     is_admin_password_configured,
-    verify_admin_password,
+    verify_admin_auth_token,
 )
 from app.services.work_manual_service import (
     WorkManualNotFoundError,
@@ -26,18 +29,21 @@ from app.services.work_manual_service import (
 
 
 router = APIRouter(prefix="/work-manuals", tags=["work-manuals"])
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+WORK_MANUAL_IMAGE_DIR = "work_manuals/images"
 
 
-def verify_admin_guard(db: Session, admin_password: str) -> None:
+def verify_admin_guard(db: Session, admin_token: Optional[str]) -> None:
     if not is_admin_password_configured(db):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="관리자 비밀번호가 설정되지 않았습니다.",
         )
-    if not verify_admin_password(db, admin_password):
+    if not verify_admin_auth_token(db, admin_token or ""):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="관리자 비밀번호를 확인해 주세요.",
+            detail="관리자 권한이 필요합니다.",
         )
 
 
@@ -50,6 +56,69 @@ def read_work_manuals(db: Session = Depends(get_db)) -> List[WorkManualRead]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="업무설명서 목록을 불러오는 중 DB 연결에 실패했습니다.",
         ) from exc
+
+
+@router.post("/images", response_model=WorkManualImageUploadResponse)
+async def upload_work_manual_image(
+    image: UploadFile = File(...),
+    x_admin_auth: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+) -> WorkManualImageUploadResponse:
+    verify_admin_guard(db, x_admin_auth)
+    extension = Path(image.filename or "").suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="jpg, png, webp, gif 이미지만 업로드할 수 있습니다.",
+        )
+
+    upload_root = Path(settings.upload_dir).resolve()
+    image_dir = (upload_root / WORK_MANUAL_IMAGE_DIR).resolve()
+    if upload_root not in image_dir.parents and image_dir != upload_root:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 저장 경로가 올바르지 않습니다.",
+        )
+    image_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = "{}{}".format(uuid4().hex, extension)
+    destination = (image_dir / filename).resolve()
+    if image_dir not in destination.parents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미지 파일명이 올바르지 않습니다.",
+        )
+
+    written_bytes = 0
+    try:
+        with destination.open("wb") as output:
+            while True:
+                chunk = await image.read(1024 * 1024)
+                if not chunk:
+                    break
+                written_bytes += len(chunk)
+                if written_bytes > MAX_IMAGE_SIZE_BYTES:
+                    output.close()
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="이미지는 10MB 이하만 업로드할 수 있습니다.",
+                    )
+                output.write(chunk)
+    except HTTPException:
+        raise
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="이미지 업로드에 실패했습니다.",
+        ) from exc
+    finally:
+        await image.close()
+
+    return WorkManualImageUploadResponse(
+        url="/uploads/{}/{}".format(WORK_MANUAL_IMAGE_DIR, filename),
+        filename=filename,
+    )
 
 
 @router.get("/{manual_id}", response_model=WorkManualRead)
@@ -72,9 +141,10 @@ def read_work_manual(manual_id: int, db: Session = Depends(get_db)) -> WorkManua
 @router.post("", response_model=WorkManualRead, status_code=status.HTTP_201_CREATED)
 def create_new_work_manual(
     payload: WorkManualCreate,
+    x_admin_auth: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> WorkManualRead:
-    verify_admin_guard(db, payload.admin_password)
+    verify_admin_guard(db, x_admin_auth)
     try:
         return create_work_manual(db, payload)
     except SQLAlchemyError as exc:
@@ -89,9 +159,10 @@ def create_new_work_manual(
 def update_existing_work_manual(
     manual_id: int,
     payload: WorkManualUpdate,
+    x_admin_auth: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> WorkManualRead:
-    verify_admin_guard(db, payload.admin_password)
+    verify_admin_guard(db, x_admin_auth)
     try:
         return update_work_manual(db, manual_id, payload)
     except WorkManualNotFoundError as exc:
@@ -110,10 +181,10 @@ def update_existing_work_manual(
 @router.delete("/{manual_id}", response_model=WorkManualRead)
 def delete_existing_work_manual(
     manual_id: int,
-    payload: WorkManualDeleteRequest,
+    x_admin_auth: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> WorkManualRead:
-    verify_admin_guard(db, payload.admin_password)
+    verify_admin_guard(db, x_admin_auth)
     try:
         return delete_work_manual(db, manual_id)
     except WorkManualNotFoundError as exc:
