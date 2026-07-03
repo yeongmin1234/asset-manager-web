@@ -356,8 +356,9 @@ function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
 function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClose, onSubmit }) {
   const [form, setForm] = useState(EMPTY_MANUAL_FORM);
   const [uploadState, setUploadState] = useState({ error: "", isDragging: false, isUploading: false });
-  const textareaRef = useRef(null);
+  const editorRef = useRef(null);
   const fileInputRef = useRef(null);
+  const savedRangeRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -373,93 +374,98 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     });
   }, [initialManual, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !editorRef.current) {
+      return;
+    }
+    editorRef.current.innerHTML = normalizeContentForEditor(initialManual?.content || "");
+  }, [initialManual, isOpen]);
+
   if (!isOpen) {
     return null;
   }
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSubmit?.(form);
+    const content = sanitizeManualHtml(editorRef.current?.innerHTML || "");
+    onSubmit?.({ ...form, content });
   };
 
-  const replaceTextareaSelection = (formatter) => {
-    const textarea = textareaRef.current;
-    setForm((current) => {
-      const content = current.content || "";
-      const start = textarea?.selectionStart || 0;
-      const end = textarea?.selectionEnd || 0;
-      const selectedText = content.slice(start, end);
-      const result = formatter({ content, start, end, selectedText });
-      window.setTimeout(() => {
-        textarea?.focus();
-        textarea?.setSelectionRange(result.cursorStart, result.cursorEnd);
-      }, 0);
-      return { ...current, content: result.content };
-    });
-  };
-
-  const wrapSelection = (beforeText, afterText, fallbackText) => {
-    replaceTextareaSelection(({ content, start, end, selectedText }) => {
-      const body = selectedText || fallbackText;
-      const inserted = `${beforeText}${body}${afterText}`;
-      return {
-        content: `${content.slice(0, start)}${inserted}${content.slice(end)}`,
-        cursorStart: start + beforeText.length,
-        cursorEnd: start + beforeText.length + body.length,
-      };
-    });
-  };
-
-  const prefixSelectedLines = (prefix, fallbackText) => {
-    replaceTextareaSelection(({ content, start, end, selectedText }) => {
-      const body = selectedText || fallbackText;
-      const prefixed = body
-        .split("\n")
-        .map((line, index) => {
-          if (!line.trim()) {
-            return line;
-          }
-          return typeof prefix === "function" ? `${prefix(index)}${line}` : `${prefix}${line}`;
-        })
-        .join("\n");
-      return {
-        content: `${content.slice(0, start)}${prefixed}${content.slice(end)}`,
-        cursorStart: start,
-        cursorEnd: start + prefixed.length,
-      };
-    });
-  };
-
-  const insertPlainText = (text) => {
-    replaceTextareaSelection(({ content, start, end }) => ({
-      content: `${content.slice(0, start)}${text}${content.slice(end)}`,
-      cursorStart: start + text.length,
-      cursorEnd: start + text.length,
+  const syncEditorContent = () => {
+    setForm((current) => ({
+      ...current,
+      content: sanitizeManualHtml(editorRef.current?.innerHTML || ""),
     }));
   };
 
-  const insertImageMarkdown = (image) => {
-    const markdown = `![이미지 설명](${image.url})`;
-    const textarea = textareaRef.current;
-    setForm((current) => {
-      const content = current.content || "";
-      if (!textarea) {
-        return { ...current, content: content ? `${content}\n\n${markdown}` : markdown };
-      }
-      const start = textarea.selectionStart || 0;
-      const end = textarea.selectionEnd || 0;
-      const before = content.slice(0, start);
-      const after = content.slice(end);
-      const prefix = before && !before.endsWith("\n") ? "\n" : "";
-      const suffix = after && !after.startsWith("\n") ? "\n" : "";
-      const nextContent = `${before}${prefix}${markdown}${suffix}${after}`;
-      window.setTimeout(() => {
-        textarea.focus();
-        const cursorPosition = before.length + prefix.length + markdown.length;
-        textarea.setSelectionRange(cursorPosition, cursorPosition);
-      }, 0);
-      return { ...current, content: nextContent };
-    });
+  const saveSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !editorRef.current?.contains(selection.anchorNode)) {
+      return;
+    }
+    savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+  };
+
+  const restoreSelection = () => {
+    editorRef.current?.focus();
+    const selection = window.getSelection();
+    if (!selection) {
+      return;
+    }
+    selection.removeAllRanges();
+    if (savedRangeRef.current && editorRef.current?.contains(savedRangeRef.current.commonAncestorContainer)) {
+      selection.addRange(savedRangeRef.current);
+      return;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(editorRef.current);
+    range.collapse(false);
+    selection.addRange(range);
+  };
+
+  const runEditorCommand = (command, value = null) => {
+    restoreSelection();
+    document.execCommand(command, false, value);
+    syncEditorContent();
+    saveSelection();
+  };
+
+  const insertHtmlAtCursor = (html) => {
+    restoreSelection();
+    document.execCommand("insertHTML", false, html);
+    syncEditorContent();
+    saveSelection();
+  };
+
+  const handleToolbarMouseDown = (event) => {
+    event.preventDefault();
+    saveSelection();
+  };
+
+  const handleEditorKeyDown = (event) => {
+    if (!event.ctrlKey && !event.metaKey) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    if (key === "b") {
+      event.preventDefault();
+      runEditorCommand("bold");
+    }
+    if (key === "u") {
+      event.preventDefault();
+      runEditorCommand("underline");
+    }
+    if (key === "i") {
+      event.preventDefault();
+      runEditorCommand("italic");
+    }
+  };
+
+  const insertUploadedImage = (image) => {
+    if (!isSafeManualImageUrl(image?.url)) {
+      return;
+    }
+    insertHtmlAtCursor(`<img src="${image.url}" alt="이미지 설명"><p><br></p>`);
   };
 
   const uploadImageFile = async (file) => {
@@ -473,7 +479,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
     setUploadState({ error: "", isDragging: false, isUploading: true });
     try {
       const uploadedImage = await uploadWorkManualImage(imageFile);
-      insertImageMarkdown(uploadedImage);
+      insertUploadedImage(uploadedImage);
       setUploadState({ error: "", isDragging: false, isUploading: false });
     } catch {
       setUploadState({ error: "이미지 업로드에 실패했습니다.", isDragging: false, isUploading: false });
@@ -490,6 +496,7 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
 
   const handleDrop = (event) => {
     event.preventDefault();
+    restoreSelection();
     const file = event.dataTransfer.files?.[0];
     if (file) {
       uploadImageFile(file);
@@ -501,13 +508,18 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
   const handlePaste = (event) => {
     const items = Array.from(event.clipboardData?.items || []);
     const imageItem = items.find((item) => item.type.startsWith("image/"));
-    if (!imageItem) {
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      event.preventDefault();
+      if (file) {
+        uploadImageFile(file);
+      }
       return;
     }
-    const file = imageItem.getAsFile();
-    if (file) {
+    const text = event.clipboardData?.getData("text/plain") || "";
+    if (text) {
       event.preventDefault();
-      uploadImageFile(file);
+      insertHtmlAtCursor(escapeHtml(text).replace(/\n/g, "<br>"));
     }
   };
 
@@ -570,23 +582,28 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
             <label className="field work-manual-wide-field">
               <span>본문</span>
               <div className="work-manual-format-toolbar" aria-label="본문 서식 도구">
-                <button type="button" onClick={() => wrapSelection("**", "**", "굵게")}>굵게</button>
-                <button type="button" onClick={() => wrapSelection("<u>", "</u>", "밑줄")}>밑줄</button>
-                <button type="button" onClick={() => wrapSelection("*", "*", "기울임")}>기울임</button>
-                <button type="button" onClick={() => prefixSelectedLines("## ", "제목")}>제목</button>
-                <button type="button" onClick={() => prefixSelectedLines("- ", "글머리")}>글머리</button>
-                <button type="button" onClick={() => prefixSelectedLines((index) => `${index + 1}. `, "번호 목록")}>번호</button>
-                <button type="button" onClick={() => insertPlainText("\n---\n")}>구분선</button>
-                <button type="button" onClick={() => fileInputRef.current?.click()}>이미지</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("bold")}>굵게</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("underline")}>밑줄</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("italic")}>기울임</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("formatBlock", "h3")}>제목</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("insertUnorderedList")}>글머리</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("insertOrderedList")}>번호</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => insertHtmlAtCursor("<hr>")}>구분선</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => fileInputRef.current?.click()}>이미지</button>
               </div>
-              <textarea
-                ref={textareaRef}
-                value={form.content}
-                rows={10}
-                maxLength={10000}
-                disabled={isSubmitting}
+              <div
+                ref={editorRef}
+                className="work-manual-rich-editor"
+                contentEditable={!isSubmitting}
+                role="textbox"
+                aria-multiline="true"
+                suppressContentEditableWarning
+                onBlur={syncEditorContent}
+                onInput={syncEditorContent}
+                onKeyDown={handleEditorKeyDown}
+                onKeyUp={saveSelection}
+                onMouseUp={saveSelection}
                 onPaste={handlePaste}
-                onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
               />
             </label>
             <div
@@ -642,24 +659,10 @@ function WorkManualFormModal({ error, initialManual, isOpen, isSubmitting, onClo
 }
 
 function ManualContent({ content, onImageClick }) {
-  const nodes = parseManualContent(formatText(content));
+  const nodes = renderSanitizedManualHtml(normalizeContentForRender(formatText(content)), onImageClick);
   return (
     <div className="work-manual-preview-content">
-      {nodes.map((node, index) => {
-        if (node.type === "image") {
-          return (
-            <button
-              type="button"
-              className="work-manual-content-image-button"
-              key={`${node.url}-${index}`}
-              onClick={() => onImageClick?.(node)}
-            >
-              <img src={node.url} alt={node.alt || "업무설명서 이미지"} loading="lazy" />
-            </button>
-          );
-        }
-        return renderManualTextBlocks(node.text, `text-${index}`);
-      })}
+      {nodes.length ? nodes : <p className="work-manual-blank-line" />}
     </div>
   );
 }
@@ -729,6 +732,228 @@ function formatText(value) {
   return String(value);
 }
 
+function normalizeContentForEditor(content) {
+  return normalizeContentForRender(content || "");
+}
+
+function normalizeContentForRender(content) {
+  const value = String(content || "");
+  if (hasHtmlMarkup(value)) {
+    return sanitizeManualHtml(value);
+  }
+  return sanitizeManualHtml(markdownToHtml(value));
+}
+
+function hasHtmlMarkup(value) {
+  return /<\/?(p|br|strong|b|em|i|u|h2|h3|ul|ol|li|hr|img|div|span)\b/i.test(String(value || ""));
+}
+
+function sanitizeManualHtml(html) {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return "";
+  }
+  const parser = new DOMParser();
+  const documentValue = parser.parseFromString(`<div>${html || ""}</div>`, "text/html");
+  return Array.from(documentValue.body.firstChild?.childNodes || [])
+    .map((node) => sanitizeManualNodeToHtml(node))
+    .join("");
+}
+
+function sanitizeManualNodeToHtml(node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escapeHtml(node.textContent || "");
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return "";
+  }
+
+  const tagName = node.tagName.toLowerCase();
+  const childrenHtml = Array.from(node.childNodes)
+    .map((child) => sanitizeManualNodeToHtml(child))
+    .join("");
+
+  if (tagName === "br") {
+    return "<br>";
+  }
+  if (tagName === "hr") {
+    return "<hr>";
+  }
+  if (tagName === "img") {
+    const src = node.getAttribute("src") || "";
+    if (!isSafeManualImageUrl(src)) {
+      return "";
+    }
+    const alt = escapeHtml(node.getAttribute("alt") || "업무설명서 이미지");
+    return `<img src="${src}" alt="${alt}">`;
+  }
+
+  const tagMap = {
+    b: "strong",
+    strong: "strong",
+    i: "em",
+    em: "em",
+    u: "u",
+    h2: "h2",
+    h3: "h3",
+    ul: "ul",
+    ol: "ol",
+    li: "li",
+    p: "p",
+    div: "p",
+  };
+  const safeTagName = tagMap[tagName];
+  if (!safeTagName) {
+    return childrenHtml;
+  }
+  return `<${safeTagName}>${childrenHtml}</${safeTagName}>`;
+}
+
+function markdownToHtml(content) {
+  const lines = String(content || "").split("\n");
+  const html = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      html.push("<p><br></p>");
+      index += 1;
+      continue;
+    }
+    if (line.trim() === "---") {
+      html.push("<hr>");
+      index += 1;
+      continue;
+    }
+    if (line.startsWith("## ")) {
+      html.push(`<h3>${renderInlineMarkdownToHtml(line.slice(3))}</h3>`);
+      index += 1;
+      continue;
+    }
+    if (/^\s*-\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*-\s+/.test(lines[index])) {
+        items.push(`<li>${renderInlineMarkdownToHtml(lines[index].replace(/^\s*-\s+/, ""))}</li>`);
+        index += 1;
+      }
+      html.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
+        items.push(`<li>${renderInlineMarkdownToHtml(lines[index].replace(/^\s*\d+\.\s+/, ""))}</li>`);
+        index += 1;
+      }
+      html.push(`<ol>${items.join("")}</ol>`);
+      continue;
+    }
+    html.push(`<p>${renderInlineMarkdownToHtml(line)}</p>`);
+    index += 1;
+  }
+
+  return html.join("");
+}
+
+function renderInlineMarkdownToHtml(text) {
+  const parts = [];
+  const pattern = /(!\[([^\]]*)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|<u>([^<]+)<\/u>|\*([^*]+)\*)/g;
+  let lastIndex = 0;
+  let match = pattern.exec(text);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      parts.push(escapeHtml(text.slice(lastIndex, match.index)));
+    }
+    if (match[1]?.startsWith("![")) {
+      const alt = escapeHtml(match[2] || "업무설명서 이미지");
+      const url = match[3] || "";
+      parts.push(isSafeManualImageUrl(url) ? `<img src="${url}" alt="${alt}">` : escapeHtml(match[0]));
+    } else if (match[4]) {
+      parts.push(`<strong>${escapeHtml(match[4])}</strong>`);
+    } else if (match[5]) {
+      parts.push(`<u>${escapeHtml(match[5])}</u>`);
+    } else if (match[6]) {
+      parts.push(`<em>${escapeHtml(match[6])}</em>`);
+    }
+    lastIndex = pattern.lastIndex;
+    match = pattern.exec(text);
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(escapeHtml(text.slice(lastIndex)));
+  }
+  return parts.join("");
+}
+
+function renderSanitizedManualHtml(html, onImageClick) {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return [];
+  }
+  const sanitizedHtml = sanitizeManualHtml(html);
+  const parser = new DOMParser();
+  const documentValue = parser.parseFromString(`<div>${sanitizedHtml}</div>`, "text/html");
+  return Array.from(documentValue.body.firstChild?.childNodes || []).map((node, index) =>
+    renderManualDomNode(node, `manual-${index}`, onImageClick),
+  ).filter(Boolean);
+}
+
+function renderManualDomNode(node, key, onImageClick) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return null;
+  }
+
+  const tagName = node.tagName.toLowerCase();
+  if (tagName === "br") {
+    return <br key={key} />;
+  }
+  if (tagName === "hr") {
+    return <hr key={key} />;
+  }
+  if (tagName === "img") {
+    const src = node.getAttribute("src") || "";
+    if (!isSafeManualImageUrl(src)) {
+      return null;
+    }
+    const alt = node.getAttribute("alt") || "업무설명서 이미지";
+    return (
+      <button
+        type="button"
+        className="work-manual-content-image-button"
+        key={key}
+        onClick={() => onImageClick?.({ alt, url: src })}
+      >
+        <img src={src} alt={alt} loading="lazy" />
+      </button>
+    );
+  }
+
+  const children = Array.from(node.childNodes).map((child, index) =>
+    renderManualDomNode(child, `${key}-${index}`, onImageClick),
+  );
+  const props = { key };
+  if (tagName === "p" && !node.textContent && node.querySelector("br")) {
+    props.className = "work-manual-blank-line";
+  }
+  const allowedTags = ["p", "strong", "b", "em", "i", "u", "h2", "h3", "ul", "ol", "li"];
+  if (!allowedTags.includes(tagName)) {
+    return <React.Fragment key={key}>{children}</React.Fragment>;
+  }
+  return React.createElement(tagName, props, children);
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function validateImageFile(file) {
   if (!file) {
     return "이미지 업로드에 실패했습니다.";
@@ -766,118 +991,6 @@ function getFileExtension(filename) {
     return "";
   }
   return String(filename).slice(dotIndex).toLowerCase();
-}
-
-function parseManualContent(content) {
-  const nodes = [];
-  const imagePattern = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
-  let lastIndex = 0;
-  let match = imagePattern.exec(content);
-
-  while (match) {
-    if (match.index > lastIndex) {
-      nodes.push({ type: "text", text: content.slice(lastIndex, match.index) });
-    }
-    const alt = match[1] || "";
-    const url = match[2] || "";
-    if (isSafeManualImageUrl(url)) {
-      nodes.push({ type: "image", alt, url });
-    } else {
-      nodes.push({ type: "text", text: match[0] });
-    }
-    lastIndex = imagePattern.lastIndex;
-    match = imagePattern.exec(content);
-  }
-
-  if (lastIndex < content.length) {
-    nodes.push({ type: "text", text: content.slice(lastIndex) });
-  }
-
-  return nodes.length ? nodes : [{ type: "text", text: "" }];
-}
-
-function renderManualTextBlocks(text, keyPrefix) {
-  const lines = String(text || "").split("\n");
-  const blocks = [];
-  let index = 0;
-
-  while (index < lines.length) {
-    const line = lines[index];
-    if (!line.trim()) {
-      blocks.push(<p className="work-manual-blank-line" key={`${keyPrefix}-blank-${index}`} />);
-      index += 1;
-      continue;
-    }
-    if (line.trim() === "---") {
-      blocks.push(<hr key={`${keyPrefix}-hr-${index}`} />);
-      index += 1;
-      continue;
-    }
-    if (line.startsWith("## ")) {
-      blocks.push(<h4 key={`${keyPrefix}-heading-${index}`}>{renderInlineManualText(line.slice(3))}</h4>);
-      index += 1;
-      continue;
-    }
-    if (/^\s*-\s+/.test(line)) {
-      const items = [];
-      while (index < lines.length && /^\s*-\s+/.test(lines[index])) {
-        items.push(lines[index].replace(/^\s*-\s+/, ""));
-        index += 1;
-      }
-      blocks.push(
-        <ul key={`${keyPrefix}-ul-${index}`}>
-          {items.map((item, itemIndex) => <li key={itemIndex}>{renderInlineManualText(item)}</li>)}
-        </ul>,
-      );
-      continue;
-    }
-    if (/^\s*\d+\.\s+/.test(line)) {
-      const items = [];
-      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
-        items.push(lines[index].replace(/^\s*\d+\.\s+/, ""));
-        index += 1;
-      }
-      blocks.push(
-        <ol key={`${keyPrefix}-ol-${index}`}>
-          {items.map((item, itemIndex) => <li key={itemIndex}>{renderInlineManualText(item)}</li>)}
-        </ol>,
-      );
-      continue;
-    }
-    blocks.push(<p key={`${keyPrefix}-p-${index}`}>{renderInlineManualText(line)}</p>);
-    index += 1;
-  }
-
-  return blocks;
-}
-
-function renderInlineManualText(text) {
-  const parts = [];
-  const pattern = /(\*\*[^*]+\*\*|<u>[^<]+<\/u>|\*[^*]+\*)/g;
-  let lastIndex = 0;
-  let match = pattern.exec(text);
-
-  while (match) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    const token = match[0];
-    if (token.startsWith("**") && token.endsWith("**")) {
-      parts.push(<strong key={parts.length}>{token.slice(2, -2)}</strong>);
-    } else if (token.startsWith("<u>") && token.endsWith("</u>")) {
-      parts.push(<u key={parts.length}>{token.slice(3, -4)}</u>);
-    } else if (token.startsWith("*") && token.endsWith("*")) {
-      parts.push(<em key={parts.length}>{token.slice(1, -1)}</em>);
-    }
-    lastIndex = pattern.lastIndex;
-    match = pattern.exec(text);
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts;
 }
 
 function isSafeManualImageUrl(url) {

@@ -12573,7 +12573,11 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   white-space: pre-wrap;
 }
 
-.work-manual-preview-content h4 {
+.work-manual-preview-content h2,
+.work-manual-preview-content h3,
+.work-manual-preview-content h4,
+.work-manual-rich-editor h2,
+.work-manual-rich-editor h3 {
   color: #111827;
   font-size: 1.06rem;
   line-height: 1.45;
@@ -12602,7 +12606,8 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   font-weight: 900;
 }
 
-.work-manual-preview-content u {
+.work-manual-preview-content u,
+.work-manual-rich-editor u {
   text-underline-offset: 3px;
 }
 
@@ -12772,6 +12777,49 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border-color: #cbd5e1 !important;
   box-shadow: none !important;
   color: #111827 !important;
+}
+
+.work-manual-rich-editor {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #172033;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  min-height: 260px;
+  outline: none;
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.work-manual-rich-editor:focus {
+  border-color: #94a3b8;
+}
+
+.work-manual-rich-editor p {
+  margin: 0 0 10px;
+}
+
+.work-manual-rich-editor ul,
+.work-manual-rich-editor ol {
+  margin: 0 0 12px 20px;
+  padding: 0;
+}
+
+.work-manual-rich-editor hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 16px 0;
+}
+
+.work-manual-rich-editor img {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  margin: 12px 0;
+  max-height: 360px;
+  max-width: 100%;
 }
 
 .work-manual-image-upload {
