@@ -16,6 +16,7 @@ from app.models.network_credential import (
 from app.models.paju_fire_insurance import PajuFireInsuranceContract
 from app.models.software_item import SoftwareItem, SoftwareLicenseType
 from app.models.vehicle_insurance_history import VehicleInsuranceHistory
+from app.models.work_manual import WorkManual
 
 __all__ = [
     "Asset",
@@ -39,4 +40,5 @@ __all__ = [
     "SoftwareLicenseType",
     "VehicleInsuranceHistory",
     "VehicleOwnershipType",
+    "WorkManual",
 ]

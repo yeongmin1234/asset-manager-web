@@ -21,6 +21,7 @@ from app.api.routers import (
     stats,
     vehicle_insurance_histories,
     visitors,
+    work_manuals,
 )
 from app.routers import assets, categories, departments, health
 
@@ -70,3 +71,4 @@ app.include_router(network_credentials.router)
 app.include_router(server_operations.router)
 app.include_router(visitors.router)
 app.include_router(activity_logs.router)
+app.include_router(work_manuals.router)

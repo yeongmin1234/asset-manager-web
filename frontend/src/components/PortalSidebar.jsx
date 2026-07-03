@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 const MENU_ITEMS = [
   { id: "dashboard", label: "대시보드", icon: "⌂" },
   { id: "beverage-orders", label: "음료주문기록", icon: "▥" },
+  { id: "work-manuals", label: "업무설명서", icon: "▤" },
   { id: "assets", label: "자산 관리", icon: "▣" },
   { id: "software", label: "SW 현황", icon: "▧" },
   { id: "vehicles", label: "법인차량 관리", icon: "▦" },
@@ -19,7 +20,7 @@ const MENU_ITEMS = [
 const MENU_GROUPS = [
   {
     title: "업무",
-    itemIds: ["dashboard", "beverage-orders"],
+    itemIds: ["dashboard", "beverage-orders", "work-manuals"],
   },
   {
     title: "자산",

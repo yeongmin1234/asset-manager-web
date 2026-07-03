@@ -394,7 +394,6 @@ function DashboardPage({ onNavigate }) {
                         </strong>
                         <span>{formatDate(notice.created_at)}</span>
                       </div>
-                      <p title={formatText(notice.content)}>{formatText(notice.content)}</p>
                     </div>
                   </button>
                   {noticeAdminUnlocked ? (

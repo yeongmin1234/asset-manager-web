@@ -401,6 +401,40 @@ export async function deleteDashboardNotice(noticeId, adminPassword) {
   });
 }
 
+export async function getWorkManuals() {
+  return normalizeCollection(await request("/work-manuals"));
+}
+
+export async function getWorkManual(manualId) {
+  return request(`/work-manuals/${manualId}`, {
+    timeoutMs: 8000,
+  });
+}
+
+export async function createWorkManual(manual) {
+  return request("/work-manuals", {
+    method: "POST",
+    body: manual,
+    timeoutMs: 8000,
+  });
+}
+
+export async function updateWorkManual(manualId, manual) {
+  return request(`/work-manuals/${manualId}`, {
+    method: "PUT",
+    body: manual,
+    timeoutMs: 8000,
+  });
+}
+
+export async function deleteWorkManual(manualId, adminPassword) {
+  return request(`/work-manuals/${manualId}`, {
+    method: "DELETE",
+    body: { admin_password: adminPassword },
+    timeoutMs: 8000,
+  });
+}
+
 export async function getStatsSummary() {
   return request("/stats/summary");
 }
