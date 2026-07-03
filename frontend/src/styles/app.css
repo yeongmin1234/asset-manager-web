@@ -12749,14 +12749,30 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   margin: 18px 0;
 }
 
-.work-manual-preview-content strong {
+.work-manual-content strong,
+.work-manual-content b,
+.work-manual-preview-content strong,
+.work-manual-preview-content b,
+.work-manual-rich-editor strong,
+.work-manual-rich-editor b {
   color: #111827;
-  font-weight: 900;
+  font-weight: 700;
 }
 
+.work-manual-content u,
 .work-manual-preview-content u,
 .work-manual-rich-editor u {
+  text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.work-manual-content em,
+.work-manual-content i,
+.work-manual-preview-content em,
+.work-manual-preview-content i,
+.work-manual-rich-editor em,
+.work-manual-rich-editor i {
+  font-style: italic;
 }
 
 .work-manual-blank-line {

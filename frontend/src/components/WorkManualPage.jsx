@@ -526,20 +526,56 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
 
   const saveSelection = () => {
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || !editorRef.current?.contains(selection.anchorNode)) {
+    if (
+      !selection ||
+      selection.rangeCount === 0 ||
+      !editorRef.current?.contains(selection.anchorNode) ||
+      !editorRef.current?.contains(selection.focusNode)
+    ) {
       return;
     }
     savedRangeRef.current = selection.getRangeAt(0).cloneRange();
   };
 
-  const restoreSelection = () => {
-    editorRef.current?.focus();
+  const focusEditor = () => {
+    if (!editorRef.current) {
+      return;
+    }
+    try {
+      editorRef.current.focus({ preventScroll: true });
+    } catch {
+      editorRef.current.focus();
+    }
+  };
+
+  const hasEditorSelection = () => {
+    const selection = window.getSelection();
+    return Boolean(
+      selection &&
+      selection.rangeCount > 0 &&
+      editorRef.current?.contains(selection.anchorNode) &&
+      editorRef.current?.contains(selection.focusNode),
+    );
+  };
+
+  const hasSavedSelection = () =>
+    Boolean(
+      savedRangeRef.current &&
+      editorRef.current?.contains(savedRangeRef.current.commonAncestorContainer),
+    );
+
+  const restoreSelection = ({ preferCurrent = false } = {}) => {
+    const shouldKeepCurrentSelection = preferCurrent && hasEditorSelection();
+    focusEditor();
     const selection = window.getSelection();
     if (!selection) {
       return;
     }
+    if (shouldKeepCurrentSelection) {
+      return;
+    }
     selection.removeAllRanges();
-    if (savedRangeRef.current && editorRef.current?.contains(savedRangeRef.current.commonAncestorContainer)) {
+    if (hasSavedSelection()) {
       selection.addRange(savedRangeRef.current);
       return;
     }
@@ -574,8 +610,23 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
     savedRangeRef.current = range.cloneRange();
   };
 
+  const applyFormat = (command) => {
+    if (!editorRef.current) {
+      return;
+    }
+    if (!hasEditorSelection()) {
+      focusEditor();
+      if (hasSavedSelection()) {
+        restoreSelection();
+      }
+    }
+    document.execCommand(command, false, null);
+    syncEditorContent();
+    saveSelection();
+  };
+
   const runEditorCommand = (command, value = null) => {
-    restoreSelection();
+    restoreSelection({ preferCurrent: true });
     document.execCommand(command, false, value);
     syncEditorContent();
     saveSelection();
@@ -620,15 +671,17 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
     const key = event.key.toLowerCase();
     if (key === "b") {
       event.preventDefault();
-      runEditorCommand("bold");
+      applyFormat("bold");
+      return;
     }
     if (key === "u") {
       event.preventDefault();
-      runEditorCommand("underline");
+      applyFormat("underline");
+      return;
     }
     if (key === "i") {
       event.preventDefault();
-      runEditorCommand("italic");
+      applyFormat("italic");
     }
   };
 
@@ -814,9 +867,9 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
             <label className="field work-manual-wide-field">
               <span>본문</span>
               <div className="work-manual-format-toolbar" aria-label="본문 서식 도구">
-                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("bold")}>굵게</button>
-                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("underline")}>밑줄</button>
-                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("italic")}>기울임</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat("bold")}>굵게</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat("underline")}>밑줄</button>
+                <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat("italic")}>기울임</button>
                 <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("formatBlock", "h3")}>제목</button>
                 <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("insertUnorderedList")}>글머리</button>
                 <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => runEditorCommand("insertOrderedList")}>번호</button>
