@@ -415,7 +415,6 @@ export async function createWorkManual(manual) {
   return request("/work-manuals", {
     method: "POST",
     body: manual,
-    headers: getAdminAuthHeaders(),
     timeoutMs: 8000,
   });
 }
@@ -424,7 +423,6 @@ export async function updateWorkManual(manualId, manual) {
   return request(`/work-manuals/${manualId}`, {
     method: "PUT",
     body: manual,
-    headers: getAdminAuthHeaders(),
     timeoutMs: 8000,
   });
 }
@@ -432,7 +430,6 @@ export async function updateWorkManual(manualId, manual) {
 export async function deleteWorkManual(manualId) {
   return request(`/work-manuals/${manualId}`, {
     method: "DELETE",
-    headers: getAdminAuthHeaders(),
     timeoutMs: 8000,
   });
 }
@@ -441,7 +438,6 @@ export async function uploadWorkManualImage(file) {
   const formData = new FormData();
   formData.append("image", file);
   return requestFormData("/work-manuals/images", formData, {
-    headers: getAdminAuthHeaders(),
     timeoutMs: 30000,
   });
 }

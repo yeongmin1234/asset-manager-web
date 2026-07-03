@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -13,10 +13,6 @@ from app.schemas.work_manual import (
     WorkManualImageUploadResponse,
     WorkManualRead,
     WorkManualUpdate,
-)
-from app.services.admin_service import (
-    is_admin_password_configured,
-    verify_admin_auth_token,
 )
 from app.services.work_manual_service import (
     WorkManualNotFoundError,
@@ -34,19 +30,6 @@ MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 WORK_MANUAL_IMAGE_DIR = "work_manuals/images"
 
 
-def verify_admin_guard(db: Session, admin_token: Optional[str]) -> None:
-    if not is_admin_password_configured(db):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="관리자 비밀번호가 설정되지 않았습니다.",
-        )
-    if not verify_admin_auth_token(db, admin_token or ""):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="관리자 권한이 필요합니다.",
-        )
-
-
 @router.get("", response_model=List[WorkManualRead])
 def read_work_manuals(db: Session = Depends(get_db)) -> List[WorkManualRead]:
     try:
@@ -61,10 +44,7 @@ def read_work_manuals(db: Session = Depends(get_db)) -> List[WorkManualRead]:
 @router.post("/images", response_model=WorkManualImageUploadResponse)
 async def upload_work_manual_image(
     image: UploadFile = File(...),
-    x_admin_auth: Optional[str] = Header(default=None),
-    db: Session = Depends(get_db),
 ) -> WorkManualImageUploadResponse:
-    verify_admin_guard(db, x_admin_auth)
     extension = Path(image.filename or "").suffix.lower()
     if extension not in ALLOWED_IMAGE_EXTENSIONS:
         raise HTTPException(
@@ -141,10 +121,8 @@ def read_work_manual(manual_id: int, db: Session = Depends(get_db)) -> WorkManua
 @router.post("", response_model=WorkManualRead, status_code=status.HTTP_201_CREATED)
 def create_new_work_manual(
     payload: WorkManualCreate,
-    x_admin_auth: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> WorkManualRead:
-    verify_admin_guard(db, x_admin_auth)
     try:
         return create_work_manual(db, payload)
     except SQLAlchemyError as exc:
@@ -159,10 +137,8 @@ def create_new_work_manual(
 def update_existing_work_manual(
     manual_id: int,
     payload: WorkManualUpdate,
-    x_admin_auth: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> WorkManualRead:
-    verify_admin_guard(db, x_admin_auth)
     try:
         return update_work_manual(db, manual_id, payload)
     except WorkManualNotFoundError as exc:
@@ -181,10 +157,8 @@ def update_existing_work_manual(
 @router.delete("/{manual_id}", response_model=WorkManualRead)
 def delete_existing_work_manual(
     manual_id: int,
-    x_admin_auth: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> WorkManualRead:
-    verify_admin_guard(db, x_admin_auth)
     try:
         return delete_work_manual(db, manual_id)
     except WorkManualNotFoundError as exc:

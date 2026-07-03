@@ -16,7 +16,6 @@ const EMPTY_MANUAL_FORM = {
   is_pinned: false,
 };
 
-const ADMIN_AUTH_STORAGE_KEY = "assetManager.adminAuth";
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -38,7 +37,6 @@ function WorkManualPage() {
     isSubmitting: false,
     manual: null,
   });
-  const [isAdminAuthorized, setIsAdminAuthorized] = useState(() => hasValidAdminAuth());
 
   const loadManuals = useCallback(async () => {
     setListState({ error: "", isLoading: true });
@@ -63,17 +61,6 @@ function WorkManualPage() {
   useEffect(() => {
     loadManuals();
   }, [loadManuals]);
-
-  useEffect(() => {
-    const refreshAdminState = () => setIsAdminAuthorized(hasValidAdminAuth());
-    refreshAdminState();
-    window.addEventListener("storage", refreshAdminState);
-    window.addEventListener("focus", refreshAdminState);
-    return () => {
-      window.removeEventListener("storage", refreshAdminState);
-      window.removeEventListener("focus", refreshAdminState);
-    };
-  }, []);
 
   const categories = useMemo(() => {
     const categorySet = new Set();
@@ -117,16 +104,10 @@ function WorkManualPage() {
   };
 
   const openCreateForm = () => {
-    if (!isAdminAuthorized) {
-      return;
-    }
     setFormState({ error: "", initialManual: null, isOpen: true, isSubmitting: false });
   };
 
   const openEditForm = (manual) => {
-    if (!isAdminAuthorized) {
-      return;
-    }
     setFormState({ error: "", initialManual: manual, isOpen: true, isSubmitting: false });
   };
 
@@ -151,9 +132,6 @@ function WorkManualPage() {
   };
 
   const openDelete = (manual) => {
-    if (!isAdminAuthorized) {
-      return;
-    }
     setDeleteState({
       error: "",
       isOpen: true,
@@ -196,16 +174,10 @@ function WorkManualPage() {
           <h2 id="work-manual-title">업무설명서</h2>
           <p>자주 사용하는 업무 절차와 내부 기준을 정리합니다.</p>
         </div>
-        {isAdminAuthorized ? (
-          <button type="button" onClick={openCreateForm}>
-            새 글 작성
-          </button>
-        ) : null}
+        <button type="button" onClick={openCreateForm}>
+          새 글 작성
+        </button>
       </div>
-
-      {!isAdminAuthorized ? (
-        <div className="work-manual-admin-notice">관리자 권한이 필요합니다. 목록과 상세 내용은 조회할 수 있습니다.</div>
-      ) : null}
 
       <section className="work-manual-controls" aria-label="업무설명서 검색 및 필터">
         <label>
@@ -254,7 +226,6 @@ function WorkManualPage() {
           <WorkManualPreview
             isLoading={detailState.isLoading}
             manual={selectedManual}
-            canManage={isAdminAuthorized}
             onClose={() => setSelectedManual(null)}
             onDelete={openDelete}
             onEdit={openEditForm}
@@ -342,7 +313,7 @@ function WorkManualTable({
   );
 }
 
-function WorkManualPreview({ canManage, isLoading, manual, onClose, onDelete, onEdit }) {
+function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
   const [previewImage, setPreviewImage] = useState(null);
 
   return (
@@ -367,18 +338,12 @@ function WorkManualPreview({ canManage, isLoading, manual, onClose, onDelete, on
         <ManualContent content={manual.content} onImageClick={setPreviewImage} />
       )}
       <div className="work-manual-preview-actions">
-        {canManage ? (
-          <>
-            <button type="button" className="secondary-button" onClick={() => onEdit?.(manual)}>
-              수정
-            </button>
-            <button type="button" className="danger-button" onClick={() => onDelete?.(manual)}>
-              삭제
-            </button>
-          </>
-        ) : (
-          <span className="work-manual-admin-inline">관리자 권한이 필요합니다.</span>
-        )}
+        <button type="button" className="secondary-button" onClick={() => onEdit?.(manual)}>
+          수정
+        </button>
+        <button type="button" className="danger-button" onClick={() => onDelete?.(manual)}>
+          삭제
+        </button>
         <button type="button" className="secondary-button" onClick={onClose}>
           닫기
         </button>
@@ -771,29 +736,6 @@ function isSafeManualImageUrl(url) {
     !normalizedUrl.includes("\\") &&
     /\.(jpe?g|png|webp|gif)$/i.test(normalizedUrl)
   );
-}
-
-function hasValidAdminAuth() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  try {
-    const storedValue = window.sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
-    if (!storedValue) {
-      return false;
-    }
-    const parsedValue = JSON.parse(storedValue);
-    const expiresAt = Date.parse(parsedValue?.expires_at || "");
-    if (!parsedValue?.token || !String(parsedValue.token).includes(".") || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      window.sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
-      return false;
-    }
-    return true;
-  } catch {
-    window.sessionStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
-    return false;
-  }
 }
 
 function formatDate(value) {

@@ -12198,16 +12198,6 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   box-shadow: none !important;
 }
 
-.work-manual-admin-notice {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  color: #64748b;
-  font-size: 0.84rem;
-  font-weight: 800;
-  padding: 10px 12px;
-}
-
 .work-manual-heading {
   align-items: center;
   display: flex;
@@ -12346,7 +12336,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border: 0 !important;
   border-radius: 0;
   box-shadow: none !important;
-  color: #111827;
+  color: #111827 !important;
   display: block;
   font-size: 0.88rem;
   font-weight: 800;
@@ -12364,7 +12354,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 .work-manual-title-cell button:hover {
   background: transparent !important;
   box-shadow: none !important;
-  color: #374151;
+  color: #374151 !important;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -12509,13 +12499,6 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   gap: 8px;
   justify-content: flex-end;
   padding-top: 12px;
-}
-
-.work-manual-admin-inline {
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 800;
-  margin-right: auto;
 }
 
 .work-manual-modal-backdrop {
