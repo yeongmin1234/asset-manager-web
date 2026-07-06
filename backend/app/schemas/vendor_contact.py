@@ -15,6 +15,7 @@ class VendorContactBase(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=100)
     email: Optional[str] = Field(default=None, max_length=200)
     memo: Optional[str] = Field(default=None, max_length=2000)
+    is_favorite: bool = False
 
     @field_validator("category")
     @classmethod

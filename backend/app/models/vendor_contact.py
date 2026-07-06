@@ -17,6 +17,12 @@ class VendorContact(Base):
     phone: Mapped[str] = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(String(200), nullable=True)
     memo: Mapped[str] = mapped_column(Text, nullable=True)
+    is_favorite: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
     is_deleted: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

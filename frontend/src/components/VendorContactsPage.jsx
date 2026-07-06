@@ -21,10 +21,16 @@ const REQUIRED_QUICK_FIELDS = [
   { key: "task_name", label: "담당업무" },
   { key: "phone", label: "연락처" },
 ];
+const VENDOR_CONTACT_SORT_OPTIONS = [
+  { value: "updated_desc", label: "최근 수정순" },
+  { value: "company_asc", label: "업체명순" },
+];
 
 function VendorContactsPage() {
   const [contacts, setContacts] = useState([]);
   const [filters, setFilters] = useState({ category: "", keyword: "" });
+  const [sortMode, setSortMode] = useState("updated_desc");
+  const [copyMessage, setCopyMessage] = useState("");
   const [quickForm, setQuickForm] = useState(EMPTY_VENDOR_CONTACT_FORM);
   const [quickState, setQuickState] = useState({ error: "", isSubmitting: false, message: "", missingFields: [] });
   const [listState, setListState] = useState({ error: "", isLoading: false });
@@ -55,6 +61,15 @@ function VendorContactsPage() {
     () => `${Number(contacts.length || 0).toLocaleString("ko-KR")}건`,
     [contacts.length],
   );
+  const visibleContacts = useMemo(() => sortVendorContacts(contacts, sortMode), [contacts, sortMode]);
+
+  useEffect(() => {
+    if (!copyMessage) {
+      return undefined;
+    }
+    const timerId = window.setTimeout(() => setCopyMessage(""), 1800);
+    return () => window.clearTimeout(timerId);
+  }, [copyMessage]);
 
   const openEditForm = (contact) => {
     setFormState({ contact, error: "", isOpen: true, isSubmitting: false });
@@ -136,11 +151,36 @@ function VendorContactsPage() {
   const handleEditSubmit = async (payload) => {
     setFormState((current) => ({ ...current, error: "", isSubmitting: true }));
     try {
-      await updateVendorContact(formState.contact.id, payload);
+      await updateVendorContact(formState.contact.id, {
+        ...payload,
+        is_favorite: Boolean(formState.contact?.is_favorite),
+      });
       closeForm();
       await loadContacts();
     } catch (error) {
       setFormState((current) => ({ ...current, error: error.message, isSubmitting: false }));
+    }
+  };
+
+  const handleToggleFavorite = async (contact) => {
+    try {
+      await updateVendorContact(contact.id, buildVendorContactPayload(contact, { is_favorite: !contact.is_favorite }));
+      await loadContacts();
+    } catch (error) {
+      setListState({ error: error.message, isLoading: false });
+    }
+  };
+
+  const handleCopyText = async (value, label) => {
+    const text = String(value || "").trim();
+    if (!text) {
+      return;
+    }
+    try {
+      await copyToClipboard(text);
+      setCopyMessage(`${label}을 복사했습니다.`);
+    } catch (error) {
+      setCopyMessage("복사하지 못했습니다. 다시 시도해 주세요.");
     }
   };
 
@@ -269,10 +309,19 @@ function VendorContactsPage() {
             placeholder="업체명, 담당업무, 담당자, 연락처, 이메일, 비고"
           />
         </label>
+        <label className="field">
+          <span>정렬</span>
+          <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+            {VENDOR_CONTACT_SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
         <button type="button" className="secondary-button" onClick={resetFilters}>
           초기화
         </button>
       </section>
+      {copyMessage ? <span className="inline-success vendor-contact-copy-message">{copyMessage}</span> : null}
 
       <section className="content-panel vendor-contact-table-panel">
         <div className="section-heading">
@@ -289,7 +338,7 @@ function VendorContactsPage() {
             <strong>업체연락처를 불러오지 못했습니다.</strong>
             <span className="state-detail">{listState.error}</span>
           </div>
-        ) : contacts.length === 0 ? (
+        ) : visibleContacts.length === 0 ? (
           <div className="state-panel">
             <strong>등록된 업체연락처가 없습니다.</strong>
             <span>빠른 등록으로 첫 연락처를 추가하세요.</span>
@@ -299,6 +348,7 @@ function VendorContactsPage() {
             <table className="asset-table vendor-contact-table">
               <thead>
                 <tr>
+                  <th>즐겨찾기</th>
                   <th>구분</th>
                   <th>업체명</th>
                   <th>담당업무</th>
@@ -311,14 +361,28 @@ function VendorContactsPage() {
                 </tr>
               </thead>
               <tbody>
-                {contacts.map((contact) => (
+                {visibleContacts.map((contact) => (
                   <tr key={contact.id}>
+                    <td>
+                      <button
+                        type="button"
+                        className={`vendor-contact-favorite-button${contact.is_favorite ? " is-active" : ""}`}
+                        aria-pressed={Boolean(contact.is_favorite)}
+                        onClick={() => handleToggleFavorite(contact)}
+                      >
+                        {contact.is_favorite ? "★" : "☆"}
+                      </button>
+                    </td>
                     <td><span className="vendor-contact-category">{formatText(contact.category)}</span></td>
                     <td><strong>{formatText(contact.company_name)}</strong></td>
                     <td>{formatText(contact.task_name)}</td>
                     <td>{formatText(contact.manager_name)}</td>
-                    <td className="vendor-contact-cell-clip">{formatText(contact.phone)}</td>
-                    <td className="vendor-contact-cell-clip">{formatText(contact.email)}</td>
+                    <td className="vendor-contact-cell-clip">
+                      <CopyableText value={contact.phone} label="연락처" onCopy={handleCopyText} />
+                    </td>
+                    <td className="vendor-contact-cell-clip">
+                      <CopyableText value={contact.email} label="이메일" onCopy={handleCopyText} />
+                    </td>
                     <td className="vendor-contact-cell-memo">{formatText(contact.memo)}</td>
                     <td>{formatDateTime(contact.updated_at)}</td>
                     <td>
@@ -473,6 +537,73 @@ function getMissingRequiredFields(form) {
   return REQUIRED_QUICK_FIELDS
     .filter((field) => !String(form[field.key] || "").trim())
     .map((field) => field.key);
+}
+
+function CopyableText({ value, label, onCopy }) {
+  const text = formatText(value);
+  if (text === "-") {
+    return <span>{text}</span>;
+  }
+  return (
+    <button type="button" className="vendor-contact-copy-button" onClick={() => onCopy(value, label)}>
+      {text}
+    </button>
+  );
+}
+
+function buildVendorContactPayload(contact, overrides = {}) {
+  return {
+    category: contact.category || "기타",
+    company_name: contact.company_name || "",
+    task_name: contact.task_name || "",
+    manager_name: contact.manager_name || "",
+    phone: contact.phone || "",
+    email: contact.email || "",
+    memo: contact.memo || "",
+    is_favorite: Boolean(contact.is_favorite),
+    ...overrides,
+  };
+}
+
+function sortVendorContacts(contacts, sortMode) {
+  return [...contacts].sort((first, second) => {
+    const favoriteCompare = Number(Boolean(second.is_favorite)) - Number(Boolean(first.is_favorite));
+    if (favoriteCompare !== 0) {
+      return favoriteCompare;
+    }
+    if (sortMode === "company_asc") {
+      const companyCompare = String(first.company_name || "").localeCompare(String(second.company_name || ""), "ko-KR");
+      if (companyCompare !== 0) {
+        return companyCompare;
+      }
+    } else {
+      const firstTime = new Date(first.updated_at || 0).getTime() || 0;
+      const secondTime = new Date(second.updated_at || 0).getTime() || 0;
+      if (secondTime !== firstTime) {
+        return secondTime - firstTime;
+      }
+    }
+    return Number(second.id || 0) - Number(first.id || 0);
+  });
+}
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error("copy failed");
+  }
 }
 
 function formatText(value) {

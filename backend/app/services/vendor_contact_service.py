@@ -38,7 +38,11 @@ def list_vendor_contacts(
             )
         )
 
-    statement = statement.order_by(VendorContact.updated_at.desc(), VendorContact.id.desc())
+    statement = statement.order_by(
+        VendorContact.is_favorite.desc(),
+        VendorContact.updated_at.desc(),
+        VendorContact.id.desc(),
+    )
     return list(db.scalars(statement).all())
 
 

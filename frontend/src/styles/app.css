@@ -13171,7 +13171,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   align-items: center;
   display: grid;
   gap: 8px 10px;
-  grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) minmax(140px, 180px) auto;
   padding: 14px 16px;
 }
 
@@ -13231,6 +13231,12 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.12) !important;
 }
 
+.vendor-contact-copy-message {
+  justify-self: start;
+  margin-left: 4px;
+  width: fit-content;
+}
+
 .vendor-contact-search input {
   width: 100%;
 }
@@ -13240,7 +13246,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .vendor-contact-table {
-  min-width: 1100px;
+  min-width: 1180px;
 }
 
 .vendor-contact-table-panel {
@@ -13288,6 +13294,54 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .vendor-contact-cell-memo {
   max-width: 240px;
+}
+
+.vendor-contact-copy-button {
+  background: transparent;
+  border: 0;
+  color: #1d4ed8;
+  cursor: pointer;
+  display: inline;
+  font: inherit;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.vendor-contact-copy-button:hover,
+.vendor-contact-copy-button:focus-visible {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+.vendor-contact-favorite-button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  width: 30px;
+}
+
+.vendor-contact-favorite-button:hover,
+.vendor-contact-favorite-button:focus-visible {
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.vendor-contact-favorite-button.is-active {
+  border-color: #facc15;
+  color: #ca8a04;
 }
 
 .vendor-contact-actions {
