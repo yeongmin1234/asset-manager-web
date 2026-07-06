@@ -25,12 +25,26 @@ const VENDOR_CONTACT_SORT_OPTIONS = [
   { value: "updated_desc", label: "최근 수정순" },
   { value: "company_asc", label: "업체명순" },
 ];
+const VENDOR_CONTACT_COLUMN_STORAGE_KEY = "vendorContactsColumnWidths";
+const VENDOR_CONTACT_COLUMNS = [
+  { key: "favorite", label: "즐겨찾기", defaultWidth: 80, minWidth: 70 },
+  { key: "category", label: "구분", defaultWidth: 90, minWidth: 80 },
+  { key: "company_name", label: "업체명", defaultWidth: 160, minWidth: 120 },
+  { key: "task_name", label: "담당업무", defaultWidth: 220, minWidth: 140 },
+  { key: "manager_name", label: "담당자", defaultWidth: 120, minWidth: 90 },
+  { key: "phone", label: "연락처", defaultWidth: 140, minWidth: 120 },
+  { key: "email", label: "이메일", defaultWidth: 180, minWidth: 140 },
+  { key: "memo", label: "비고", defaultWidth: 200, minWidth: 140 },
+  { key: "updated_at", label: "최종수정일", defaultWidth: 140, minWidth: 120 },
+  { key: "actions", label: "관리", defaultWidth: 120, minWidth: 100 },
+];
 
 function VendorContactsPage() {
   const [contacts, setContacts] = useState([]);
   const [filters, setFilters] = useState({ category: "", keyword: "" });
   const [sortMode, setSortMode] = useState("updated_desc");
   const [copyMessage, setCopyMessage] = useState("");
+  const [columnWidths, setColumnWidths] = useState(() => loadVendorContactColumnWidths());
   const [quickForm, setQuickForm] = useState(EMPTY_VENDOR_CONTACT_FORM);
   const [quickState, setQuickState] = useState({ error: "", isSubmitting: false, message: "", missingFields: [] });
   const [listState, setListState] = useState({ error: "", isLoading: false });
@@ -70,6 +84,14 @@ function VendorContactsPage() {
     const timerId = window.setTimeout(() => setCopyMessage(""), 1800);
     return () => window.clearTimeout(timerId);
   }, [copyMessage]);
+
+  useEffect(() => {
+    if (hasCustomVendorContactColumnWidths(columnWidths)) {
+      window.localStorage.setItem(VENDOR_CONTACT_COLUMN_STORAGE_KEY, JSON.stringify(columnWidths));
+      return;
+    }
+    window.localStorage.removeItem(VENDOR_CONTACT_COLUMN_STORAGE_KEY);
+  }, [columnWidths]);
 
   const openEditForm = (contact) => {
     setFormState({ contact, error: "", isOpen: true, isSubmitting: false });
@@ -184,6 +206,27 @@ function VendorContactsPage() {
     }
   };
 
+  const handleStartColumnResize = (event, column) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = columnWidths[column.key] || column.defaultWidth;
+    document.body.classList.add("vendor-contact-resizing");
+
+    const handleMouseMove = (moveEvent) => {
+      const nextWidth = Math.max(column.minWidth, startWidth + moveEvent.clientX - startX);
+      setColumnWidths((current) => ({ ...current, [column.key]: nextWidth }));
+    };
+
+    const handleMouseUp = () => {
+      document.body.classList.remove("vendor-contact-resizing");
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
   const handleDelete = async (contact) => {
     const confirmed = window.confirm(`${contact.company_name || "선택한 업체연락처"}를 삭제할까요?`);
     if (!confirmed) {
@@ -199,6 +242,11 @@ function VendorContactsPage() {
 
   const resetFilters = () => {
     setFilters({ category: "", keyword: "" });
+  };
+
+  const resetColumnWidths = () => {
+    window.localStorage.removeItem(VENDOR_CONTACT_COLUMN_STORAGE_KEY);
+    setColumnWidths(getDefaultVendorContactColumnWidths());
   };
 
   return (
@@ -329,6 +377,9 @@ function VendorContactsPage() {
             <h3>연락처 목록</h3>
             <p>현재 조건에 맞는 연락처 {contactCountLabel}</p>
           </div>
+          <button type="button" className="secondary-button" onClick={resetColumnWidths}>
+            컬럼 초기화
+          </button>
         </div>
 
         {listState.isLoading ? (
@@ -345,19 +396,29 @@ function VendorContactsPage() {
           </div>
         ) : (
           <div className="asset-table-wrap vendor-contact-table-wrap">
-            <table className="asset-table vendor-contact-table">
+            <table
+              className="asset-table vendor-contact-table"
+              style={{ width: getVendorContactTableWidthStyle(columnWidths) }}
+            >
+              <colgroup>
+                {VENDOR_CONTACT_COLUMNS.map((column) => (
+                  <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
-                  <th>즐겨찾기</th>
-                  <th>구분</th>
-                  <th>업체명</th>
-                  <th>담당업무</th>
-                  <th>담당자</th>
-                  <th>연락처</th>
-                  <th>이메일</th>
-                  <th>비고</th>
-                  <th>최종수정일</th>
-                  <th>관리</th>
+                  {VENDOR_CONTACT_COLUMNS.map((column) => (
+                    <th key={column.key} title={column.label}>
+                      <span>{column.label}</span>
+                      <span
+                        className="vendor-contact-resize-handle"
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label={`${column.label} 컬럼 폭 조절`}
+                        onMouseDown={(event) => handleStartColumnResize(event, column)}
+                      />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -373,18 +434,18 @@ function VendorContactsPage() {
                         {contact.is_favorite ? "★" : "☆"}
                       </button>
                     </td>
-                    <td><span className="vendor-contact-category">{formatText(contact.category)}</span></td>
-                    <td><strong>{formatText(contact.company_name)}</strong></td>
-                    <td>{formatText(contact.task_name)}</td>
-                    <td>{formatText(contact.manager_name)}</td>
-                    <td className="vendor-contact-cell-clip">
+                    <td title={formatText(contact.category)}><span className="vendor-contact-category">{formatText(contact.category)}</span></td>
+                    <td title={formatText(contact.company_name)}><strong>{formatText(contact.company_name)}</strong></td>
+                    <td title={formatText(contact.task_name)}>{formatText(contact.task_name)}</td>
+                    <td title={formatText(contact.manager_name)}>{formatText(contact.manager_name)}</td>
+                    <td title={formatText(contact.phone)}>
                       <CopyableText value={contact.phone} label="연락처" onCopy={handleCopyText} />
                     </td>
-                    <td className="vendor-contact-cell-clip">
+                    <td title={formatText(contact.email)}>
                       <CopyableText value={contact.email} label="이메일" onCopy={handleCopyText} />
                     </td>
-                    <td className="vendor-contact-cell-memo">{formatText(contact.memo)}</td>
-                    <td>{formatDateTime(contact.updated_at)}</td>
+                    <td title={formatText(contact.memo)}>{formatText(contact.memo)}</td>
+                    <td title={formatDateTime(contact.updated_at)}>{formatDateTime(contact.updated_at)}</td>
                     <td>
                       <div className="software-row-actions vendor-contact-actions">
                         <button type="button" className="secondary-button software-action-button" onClick={() => openEditForm(contact)}>
@@ -537,6 +598,44 @@ function getMissingRequiredFields(form) {
   return REQUIRED_QUICK_FIELDS
     .filter((field) => !String(form[field.key] || "").trim())
     .map((field) => field.key);
+}
+
+function getDefaultVendorContactColumnWidths() {
+  return VENDOR_CONTACT_COLUMNS.reduce((widths, column) => {
+    widths[column.key] = column.defaultWidth;
+    return widths;
+  }, {});
+}
+
+function loadVendorContactColumnWidths() {
+  const defaultWidths = getDefaultVendorContactColumnWidths();
+  try {
+    const savedWidths = JSON.parse(window.localStorage.getItem(VENDOR_CONTACT_COLUMN_STORAGE_KEY) || "{}");
+    return VENDOR_CONTACT_COLUMNS.reduce((widths, column) => {
+      const savedWidth = Number(savedWidths[column.key]);
+      widths[column.key] = Number.isFinite(savedWidth)
+        ? Math.max(column.minWidth, savedWidth)
+        : column.defaultWidth;
+      return widths;
+    }, {});
+  } catch (error) {
+    return defaultWidths;
+  }
+}
+
+function getVendorContactTableWidth(columnWidths) {
+  return VENDOR_CONTACT_COLUMNS.reduce(
+    (totalWidth, column) => totalWidth + (columnWidths[column.key] || column.defaultWidth),
+    0,
+  );
+}
+
+function getVendorContactTableWidthStyle(columnWidths) {
+  return hasCustomVendorContactColumnWidths(columnWidths) ? `${getVendorContactTableWidth(columnWidths)}px` : "100%";
+}
+
+function hasCustomVendorContactColumnWidths(columnWidths) {
+  return VENDOR_CONTACT_COLUMNS.some((column) => Number(columnWidths[column.key]) !== column.defaultWidth);
 }
 
 function CopyableText({ value, label, onCopy }) {

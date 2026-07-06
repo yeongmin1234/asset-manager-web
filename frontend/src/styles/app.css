@@ -13246,7 +13246,24 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .vendor-contact-table {
-  min-width: 1180px;
+  border-collapse: collapse;
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.vendor-contact-table th,
+.vendor-contact-table td {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.vendor-contact-table th {
+  position: relative;
+  user-select: none;
 }
 
 .vendor-contact-table-panel {
@@ -13299,7 +13316,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 .vendor-contact-copy-button {
   background: transparent;
   border: 0;
-  color: #1d4ed8;
+  color: inherit;
   cursor: pointer;
   display: inline;
   font: inherit;
@@ -13314,34 +13331,62 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .vendor-contact-copy-button:hover,
 .vendor-contact-copy-button:focus-visible {
-  color: #0f172a;
+  color: #111827;
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .vendor-contact-favorite-button {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #dbe3ee;
-  border-radius: 999px;
+  background: transparent;
+  border: 0;
   color: #94a3b8;
   cursor: pointer;
   display: inline-flex;
-  font-size: 1rem;
-  height: 30px;
+  font-size: 1.05rem;
+  height: 24px;
   justify-content: center;
   line-height: 1;
+  padding: 0;
   width: 30px;
 }
 
 .vendor-contact-favorite-button:hover,
 .vendor-contact-favorite-button:focus-visible {
-  border-color: #cbd5e1;
   color: #475569;
 }
 
 .vendor-contact-favorite-button.is-active {
-  border-color: #facc15;
   color: #ca8a04;
+}
+
+.vendor-contact-resize-handle {
+  bottom: 6px;
+  cursor: col-resize;
+  position: absolute;
+  right: 0;
+  top: 6px;
+  width: 7px;
+  z-index: 1;
+}
+
+.vendor-contact-resize-handle::after {
+  background: #dbe3ee;
+  bottom: 0;
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 0;
+  width: 1px;
+}
+
+.vendor-contact-resize-handle:hover::after {
+  background: #94a3b8;
+}
+
+.vendor-contact-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .vendor-contact-actions {
