@@ -27,6 +27,14 @@ const MENU_GROUPS = [
     itemIds: ["assets", "software", "vehicles", "paju-fire-insurance", "network"],
   },
   {
+    title: "온라인 Team",
+    itemIds: [],
+  },
+  {
+    title: "오프라인 Team",
+    itemIds: [],
+  },
+  {
     title: "관리",
     itemIds: ["excel", "stats", "history", "install-library", "scm", "settings"],
   },
@@ -201,10 +209,6 @@ function PortalSidebar({
           const groupItems = group.itemIds
             .map((itemId) => visibleMenuItemsById[itemId])
             .filter(Boolean);
-
-          if (groupItems.length === 0) {
-            return null;
-          }
 
           return (
             <div className="portal-nav-group" key={group.title}>

@@ -4,7 +4,6 @@ import {
   createBeverageOrder,
   deleteBeverageOrder,
   getBeverageOrder,
-  getBeverageOrderSummary,
   getBeverageOrders,
   updateBeverageOrder,
 } from "../api/client.js";
@@ -48,7 +47,7 @@ const BEVERAGE_COLUMNS = [
 
 function BeverageOrderPage() {
   const [orders, setOrders] = useState([]);
-  const [summary, setSummary] = useState(INITIAL_SUMMARY);
+  const [allOrders, setAllOrders] = useState([]);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
@@ -56,39 +55,29 @@ function BeverageOrderPage() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [listState, setListState] = useState({ isLoading: false, error: "" });
-  const [summaryState, setSummaryState] = useState({ isLoading: false, error: "" });
   const [detailState, setDetailState] = useState({ isLoading: false, error: "" });
   const [submitState, setSubmitState] = useState({ isSubmitting: false, message: "", error: "" });
 
   const loadOrders = useCallback(async () => {
     setListState({ isLoading: true, error: "" });
     try {
-      setOrders(await getBeverageOrders(filters));
+      const [nextAllOrders, nextOrders] = await Promise.all([
+        getBeverageOrders(),
+        getBeverageOrders(filters),
+      ]);
+      setAllOrders(nextAllOrders);
+      setOrders(nextOrders);
       setListState({ isLoading: false, error: "" });
     } catch (error) {
+      setAllOrders([]);
       setOrders([]);
       setListState({ isLoading: false, error: error.message });
     }
   }, [filters]);
 
-  const loadSummary = useCallback(async () => {
-    setSummaryState({ isLoading: true, error: "" });
-    try {
-      setSummary({ ...INITIAL_SUMMARY, ...(await getBeverageOrderSummary()) });
-      setSummaryState({ isLoading: false, error: "" });
-    } catch (error) {
-      setSummary(INITIAL_SUMMARY);
-      setSummaryState({ isLoading: false, error: error.message });
-    }
-  }, []);
-
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
-
-  useEffect(() => {
-    loadSummary();
-  }, [loadSummary]);
 
   useEffect(() => {
     return () => {
@@ -100,13 +89,13 @@ function BeverageOrderPage() {
 
   const monthOptions = useMemo(() => {
     const values = new Set();
-    orders.forEach((order) => {
+    allOrders.forEach((order) => {
       if (order.order_month) {
         values.add(order.order_month);
       }
     });
     return Array.from(values).sort().reverse();
-  }, [orders]);
+  }, [allOrders]);
 
   const expectedTitle = useMemo(() => {
     const today = new Date();
@@ -117,6 +106,15 @@ function BeverageOrderPage() {
   }, []);
 
   const expectedMonth = expectedTitle.slice(0, 7);
+  // Summary cards intentionally ignore keyword so search remains list-only.
+  const summary = useMemo(
+    () => buildBeverageOrderSummary(allOrders, {
+      currentMonth: expectedMonth,
+      orderMonth: filters.order_month,
+      orderType: filters.order_type,
+    }),
+    [allOrders, expectedMonth, filters.order_month, filters.order_type],
+  );
 
   const resetForm = () => {
     setForm(INITIAL_FORM);
@@ -205,7 +203,7 @@ function BeverageOrderPage() {
         message: editingOrder ? "게시글을 수정했습니다." : "게시글을 등록했습니다.",
         error: "",
       });
-      await Promise.all([loadOrders(), loadSummary()]);
+      await loadOrders();
     } catch (error) {
       setSubmitState({ isSubmitting: false, message: "", error: error.message });
     }
@@ -233,7 +231,7 @@ function BeverageOrderPage() {
     if (editingOrder?.id === order.id) {
       resetForm();
     }
-    await Promise.all([loadOrders(), loadSummary()]);
+    await loadOrders();
   };
 
   return (
@@ -249,8 +247,8 @@ function BeverageOrderPage() {
       </div>
 
       <BeverageOrderStats
-        error={summaryState.error}
-        isLoading={summaryState.isLoading}
+        error={listState.error}
+        isLoading={listState.isLoading}
         summary={summary}
       />
 
@@ -302,13 +300,14 @@ function BeverageOrderPage() {
 }
 
 function BeverageOrderStats({ summary, isLoading, error }) {
+  const periodLabel = summary.period_label || "이번 달";
   const cards = [
     { label: "전체 기록", value: Number(summary.total || 0).toLocaleString("ko-KR") },
-    { label: "이번 달 기록", value: Number(summary.this_month || 0).toLocaleString("ko-KR") },
+    { label: `${periodLabel} 기록`, value: Number(summary.this_month || 0).toLocaleString("ko-KR") },
     { label: "음료", value: Number(summary.beverage || 0).toLocaleString("ko-KR") },
     { label: "소모품", value: Number(summary.supplies || 0).toLocaleString("ko-KR") },
     { label: "전체 금액", value: formatCurrency(summary.total_amount_total) },
-    { label: "이번 달 금액", value: formatCurrency(summary.this_month_amount) },
+    { label: `${periodLabel} 금액`, value: formatCurrency(summary.this_month_amount) },
   ];
   return (
     <section className="beverage-stats beverage-stats-compact">
@@ -680,6 +679,72 @@ function normalizeOrderType(value) {
 
 function getOrderTypeLabel(value) {
   return normalizeOrderType(value) === "supplies" ? "소모품" : "음료";
+}
+
+function buildBeverageOrderSummary(orders, { currentMonth, orderMonth, orderType }) {
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const normalizedOrderType = orderType ? normalizeOrderType(orderType) : "";
+  const selectedMonth = normalizeOrderMonth(orderMonth, currentMonth);
+  const currentMonthValue = normalizeOrderMonth(currentMonth, currentMonth);
+  const periodMonth = selectedMonth || currentMonthValue;
+  const totalBaseOrders = safeOrders.filter((order) => matchesOrderType(order, normalizedOrderType));
+  const periodBaseOrders = totalBaseOrders.filter((order) => matchesOrderMonth(order, periodMonth, currentMonth));
+  const typeBreakdownOrders = selectedMonth ? periodBaseOrders : totalBaseOrders;
+
+  return {
+    ...INITIAL_SUMMARY,
+    total: totalBaseOrders.length,
+    this_month: periodBaseOrders.length,
+    total_amount_total: sumOrderAmounts(totalBaseOrders),
+    this_month_amount: sumOrderAmounts(periodBaseOrders),
+    beverage: typeBreakdownOrders.filter((order) => normalizeOrderType(order.order_type) === "beverage").length,
+    supplies: typeBreakdownOrders.filter((order) => normalizeOrderType(order.order_type) === "supplies").length,
+    period_label: selectedMonth ? formatOrderMonthLabel(selectedMonth) : "이번 달",
+  };
+}
+
+function matchesOrderType(order, normalizedOrderType) {
+  if (!normalizedOrderType) {
+    return true;
+  }
+  return normalizeOrderType(order?.order_type) === normalizedOrderType;
+}
+
+function matchesOrderMonth(order, targetMonth, fallbackCurrentMonth) {
+  if (!targetMonth) {
+    return true;
+  }
+  return normalizeOrderMonth(order?.order_month, fallbackCurrentMonth) === targetMonth;
+}
+
+function sumOrderAmounts(orders) {
+  return orders.reduce((total, order) => {
+    const amount = Number(order?.total_amount || 0);
+    return Number.isFinite(amount) ? total + amount : total;
+  }, 0);
+}
+
+function normalizeOrderMonth(value, fallbackCurrentMonth) {
+  const text = String(value || "").trim();
+  const fallbackYear = String(fallbackCurrentMonth || new Date().getFullYear()).slice(0, 4);
+  if (!text) {
+    return "";
+  }
+  const yearMonthMatch = text.match(/^(\d{4})[-/.년\s]*(\d{1,2})/);
+  if (yearMonthMatch) {
+    return `${yearMonthMatch[1]}-${yearMonthMatch[2].padStart(2, "0")}`;
+  }
+  const monthOnlyMatch = text.match(/^(\d{1,2})\s*월?$/);
+  if (monthOnlyMatch) {
+    return `${fallbackYear}-${monthOnlyMatch[1].padStart(2, "0")}`;
+  }
+  return text;
+}
+
+function formatOrderMonthLabel(value) {
+  const normalizedMonth = normalizeOrderMonth(value);
+  const month = normalizedMonth.match(/(?:^|[-/.년\s])(\d{1,2})$/)?.[1];
+  return month ? `${Number(month)}월` : String(value || "선택월");
 }
 
 function formatDateTime(value) {

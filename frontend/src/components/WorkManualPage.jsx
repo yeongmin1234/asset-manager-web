@@ -422,6 +422,7 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
   const [editorImageAction, setEditorImageAction] = useState(null);
   const [uploadState, setUploadState] = useState({ error: "", isDragging: false, isUploading: false });
   const editorRef = useRef(null);
+  const editorHydrationKeyRef = useRef("");
   const fileInputRef = useRef(null);
   const savedRangeRef = useRef(null);
   const selectedImageRef = useRef(null);
@@ -434,17 +435,28 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
     setForm({
       category: initialManual?.category || initialCategory || "다우오피스",
       title: initialManual?.title || "",
-      content: initialManual?.content || "",
+      content: normalizeContentForEditor(initialManual?.content || ""),
       author: initialManual?.author || "관리자",
       is_pinned: Boolean(initialManual?.is_pinned),
     });
   }, [initialCategory, initialManual, isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !editorRef.current) {
+    if (!isOpen) {
+      editorHydrationKeyRef.current = "";
       return;
     }
-    editorRef.current.innerHTML = normalizeContentForEditor(initialManual?.content || "");
+    if (!editorRef.current) {
+      return;
+    }
+    const hydrationKey = initialManual?.id ? `manual-${initialManual.id}` : "new-manual";
+    if (editorHydrationKeyRef.current === hydrationKey) {
+      return;
+    }
+    const nextContent = normalizeContentForEditor(initialManual?.content || "");
+    editorRef.current.innerHTML = nextContent;
+    editorHydrationKeyRef.current = hydrationKey;
+    setForm((current) => ({ ...current, content: nextContent }));
   }, [initialManual, isOpen]);
 
   useEffect(() => {
@@ -864,7 +876,7 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
                 onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
               />
             </label>
-            <label className="field work-manual-wide-field">
+            <div className="field work-manual-wide-field">
               <span>본문</span>
               <div className="work-manual-format-toolbar" aria-label="본문 서식 도구">
                 <button type="button" onMouseDown={handleToolbarMouseDown} onClick={() => applyFormat("bold")}>굵게</button>
@@ -880,9 +892,11 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
                 <div
                   ref={editorRef}
                   className={uploadState.isDragging ? "work-manual-rich-editor dragging" : "work-manual-rich-editor"}
-                  contentEditable={!isSubmitting}
+                  contentEditable={true}
                   role="textbox"
                   aria-multiline="true"
+                  aria-disabled={isSubmitting}
+                  tabIndex={0}
                   suppressContentEditableWarning
                   onBlur={syncEditorContent}
                   onClick={handleEditorClick}
@@ -915,7 +929,7 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
                   </button>
                 ) : null}
               </div>
-            </label>
+            </div>
             <div
               className={uploadState.isDragging ? "work-manual-image-upload dragging" : "work-manual-image-upload"}
               onDragEnter={(event) => {
