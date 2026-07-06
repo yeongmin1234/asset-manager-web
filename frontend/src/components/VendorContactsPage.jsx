@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createVendorContact,
   deleteVendorContact,
@@ -16,12 +16,17 @@ const EMPTY_VENDOR_CONTACT_FORM = {
   email: "",
   memo: "",
 };
+const REQUIRED_QUICK_FIELDS = [
+  { key: "company_name", label: "업체명" },
+  { key: "task_name", label: "담당업무" },
+  { key: "phone", label: "연락처" },
+];
 
 function VendorContactsPage() {
   const [contacts, setContacts] = useState([]);
   const [filters, setFilters] = useState({ category: "", keyword: "" });
   const [quickForm, setQuickForm] = useState(EMPTY_VENDOR_CONTACT_FORM);
-  const [quickState, setQuickState] = useState({ error: "", isSubmitting: false, message: "" });
+  const [quickState, setQuickState] = useState({ error: "", isSubmitting: false, message: "", missingFields: [] });
   const [listState, setListState] = useState({ error: "", isLoading: false });
   const [formState, setFormState] = useState({
     contact: null,
@@ -29,6 +34,7 @@ function VendorContactsPage() {
     isOpen: false,
     isSubmitting: false,
   });
+  const quickCompanyNameRef = useRef(null);
 
   const loadContacts = useCallback(async () => {
     setListState({ error: "", isLoading: true });
@@ -60,31 +66,72 @@ function VendorContactsPage() {
 
   const resetQuickForm = () => {
     setQuickForm(EMPTY_VENDOR_CONTACT_FORM);
-    setQuickState({ error: "", isSubmitting: false, message: "" });
+    setQuickState({ error: "", isSubmitting: false, message: "", missingFields: [] });
+    window.requestAnimationFrame(() => quickCompanyNameRef.current?.focus());
   };
 
   const handleQuickFormChange = (event) => {
     const { name, value } = event.target;
     setQuickForm((current) => ({ ...current, [name]: value }));
-    setQuickState((current) => ({ ...current, error: "", message: "" }));
+    setQuickState((current) => ({
+      ...current,
+      error: "",
+      message: "",
+      missingFields: current.missingFields.filter((fieldName) => fieldName !== name),
+    }));
   };
 
-  const handleQuickSubmit = async (event) => {
-    event.preventDefault();
-    if (!quickForm.company_name.trim()) {
-      setQuickState({ error: "업체명을 입력해 주세요.", isSubmitting: false, message: "" });
+  const submitQuickContact = async () => {
+    if (quickState.isSubmitting) {
       return;
     }
-    setQuickState({ error: "", isSubmitting: true, message: "" });
+    const missingFields = getMissingRequiredFields(quickForm);
+    if (missingFields.length > 0) {
+      const missingLabels = REQUIRED_QUICK_FIELDS
+        .filter((field) => missingFields.includes(field.key))
+        .map((field) => field.label)
+        .join(", ");
+      setQuickState({
+        error: `${missingLabels}를 입력해 주세요.`,
+        isSubmitting: false,
+        message: "",
+        missingFields,
+      });
+      return;
+    }
+    setQuickState({ error: "", isSubmitting: true, message: "", missingFields: [] });
     try {
       await createVendorContact(quickForm);
       setQuickForm(EMPTY_VENDOR_CONTACT_FORM);
-      setQuickState({ error: "", isSubmitting: false, message: "업체연락처를 등록했습니다." });
+      setQuickState({ error: "", isSubmitting: false, message: "업체연락처를 등록했습니다.", missingFields: [] });
       await loadContacts();
+      window.requestAnimationFrame(() => quickCompanyNameRef.current?.focus());
     } catch (error) {
-      setQuickState({ error: error.message, isSubmitting: false, message: "" });
+      setQuickState({ error: error.message, isSubmitting: false, message: "", missingFields: [] });
     }
   };
+
+  const handleQuickSubmit = (event) => {
+    event.preventDefault();
+    submitQuickContact();
+  };
+
+  const handleQuickKeyDown = (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    if (event.isComposing || event.nativeEvent?.isComposing) {
+      return;
+    }
+    if (event.target?.tagName?.toLowerCase() === "textarea" && !event.ctrlKey && !event.metaKey) {
+      return;
+    }
+    event.preventDefault();
+    submitQuickContact();
+  };
+
+  const getQuickInputClassName = (fieldName) =>
+    quickState.missingFields.includes(fieldName) ? "vendor-contact-input-error" : undefined;
 
   const handleEditSubmit = async (payload) => {
     setFormState((current) => ({ ...current, error: "", isSubmitting: true }));
@@ -130,7 +177,7 @@ function VendorContactsPage() {
             <p>현재 화면에서 바로 업체연락처를 추가합니다.</p>
           </div>
         </div>
-        <form className="vendor-contact-quick-form" onSubmit={handleQuickSubmit}>
+        <form className="vendor-contact-quick-form" onKeyDown={handleQuickKeyDown} onSubmit={handleQuickSubmit}>
           <label className="field">
             <span>구분</span>
             <select name="category" value={quickForm.category} disabled={quickState.isSubmitting} onChange={handleQuickFormChange}>
@@ -140,26 +187,45 @@ function VendorContactsPage() {
             </select>
           </label>
           <label className="field">
-            <span>업체명</span>
+            <span>업체명 *</span>
             <input
+              ref={quickCompanyNameRef}
               name="company_name"
               value={quickForm.company_name}
+              aria-invalid={quickState.missingFields.includes("company_name")}
+              className={getQuickInputClassName("company_name")}
               maxLength={200}
               disabled={quickState.isSubmitting}
               onChange={handleQuickFormChange}
             />
           </label>
           <label className="field">
-            <span>담당업무</span>
-            <input name="task_name" value={quickForm.task_name} maxLength={200} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+            <span>담당업무 *</span>
+            <input
+              name="task_name"
+              value={quickForm.task_name}
+              aria-invalid={quickState.missingFields.includes("task_name")}
+              className={getQuickInputClassName("task_name")}
+              maxLength={200}
+              disabled={quickState.isSubmitting}
+              onChange={handleQuickFormChange}
+            />
           </label>
           <label className="field">
             <span>담당자</span>
             <input name="manager_name" value={quickForm.manager_name} maxLength={100} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
           </label>
           <label className="field">
-            <span>연락처</span>
-            <input name="phone" value={quickForm.phone} maxLength={100} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+            <span>연락처 *</span>
+            <input
+              name="phone"
+              value={quickForm.phone}
+              aria-invalid={quickState.missingFields.includes("phone")}
+              className={getQuickInputClassName("phone")}
+              maxLength={100}
+              disabled={quickState.isSubmitting}
+              onChange={handleQuickFormChange}
+            />
           </label>
           <label className="field">
             <span>이메일</span>
@@ -401,6 +467,12 @@ function VendorContactFormModal({ contact, error, isOpen, isSubmitting, onClose,
       </section>
     </div>
   );
+}
+
+function getMissingRequiredFields(form) {
+  return REQUIRED_QUICK_FIELDS
+    .filter((field) => !String(form[field.key] || "").trim())
+    .map((field) => field.key);
 }
 
 function formatText(value) {

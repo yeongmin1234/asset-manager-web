@@ -13145,8 +13145,10 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .vendor-contacts-page {
+  align-content: start;
   display: grid;
   gap: 12px;
+  grid-auto-rows: max-content;
 }
 
 .vendor-contacts-heading {
@@ -13166,7 +13168,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .vendor-contact-controls {
-  align-items: end;
+  align-items: center;
   display: grid;
   gap: 8px 10px;
   grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto;
@@ -13174,11 +13176,13 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .vendor-contact-quick-create {
-  gap: 10px;
-  padding: 14px 16px 16px;
+  display: block;
+  padding: 14px 16px;
 }
 
 .vendor-contact-quick-heading {
+  border-bottom: 1px solid #edf2f7;
+  margin: 0 0 10px;
   padding-bottom: 8px;
 }
 
@@ -13218,6 +13222,15 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   width: fit-content;
 }
 
+.vendor-contact-input-error {
+  border-color: #f04438 !important;
+}
+
+.vendor-contact-input-error:focus {
+  border-color: #d92d20 !important;
+  box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.12) !important;
+}
+
 .vendor-contact-search input {
   width: 100%;
 }
@@ -13231,11 +13244,12 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .vendor-contact-table-panel {
-  gap: 10px;
-  padding: 14px 16px 16px;
+  display: block;
+  padding: 14px 16px;
 }
 
 .vendor-contact-table-panel .section-heading {
+  margin: 0 0 10px;
   padding-bottom: 8px;
 }
 
