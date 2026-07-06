@@ -46,6 +46,7 @@ import SettingsPage from "./components/SettingsPage.jsx";
 import SoftwarePage from "./components/SoftwarePage.jsx";
 import StatsSummary from "./components/StatsSummary.jsx";
 import VehiclePage from "./components/VehiclePage.jsx";
+import VendorContactsPage from "./components/VendorContactsPage.jsx";
 import WorkManualPage from "./components/WorkManualPage.jsx";
 import {
   ASSET_SORT_OPTIONS,
@@ -104,6 +105,7 @@ const MENU_LABELS = {
   "paju-fire-insurance": "파주화재보험",
   "beverage-orders": "음료주문기록",
   "work-manuals": "업무설명서",
+  "vendor-contacts": "업체연락처",
   network: "네트워크 현황",
   excel: "엑셀 관리",
   stats: "통계 / 리포트",
@@ -920,6 +922,10 @@ function App() {
       return <WorkManualPage />;
     }
 
+    if (activeSection === "vendor-contacts") {
+      return <VendorContactsPage />;
+    }
+
     if (activeSection === "excel") {
       return renderExcelManagement();
     }
@@ -1099,6 +1105,7 @@ function App() {
                 || activeSection === "dashboard"
                 || activeSection === "beverage-orders"
                 || activeSection === "work-manuals"
+                || activeSection === "vendor-contacts"
                 || activeSection === "software"
                 || activeSection === "vehicles"
                 || activeSection === "paju-fire-insurance"
@@ -1111,7 +1118,7 @@ function App() {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
