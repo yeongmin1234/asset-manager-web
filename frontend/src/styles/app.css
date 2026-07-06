@@ -13144,6 +13144,130 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   max-width: 100%;
 }
 
+.vendor-contacts-page {
+  display: grid;
+  gap: 14px;
+}
+
+.vendor-contacts-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.vendor-contact-controls {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto;
+}
+
+.vendor-contact-search input {
+  width: 100%;
+}
+
+.vendor-contact-table-wrap {
+  overflow-x: auto;
+}
+
+.vendor-contact-table {
+  min-width: 1100px;
+}
+
+.vendor-contact-category {
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  color: #334155;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.vendor-contact-cell-clip,
+.vendor-contact-cell-memo {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vendor-contact-cell-memo {
+  max-width: 240px;
+}
+
+.vendor-contact-actions {
+  justify-content: flex-start;
+}
+
+.vendor-contact-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.34);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 80;
+}
+
+.vendor-contact-modal {
+  background: #ffffff;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  max-height: 92vh;
+  max-width: 760px;
+  overflow: auto;
+  padding: 18px;
+  width: min(760px, 100%);
+}
+
+.vendor-contact-modal form {
+  display: grid;
+  gap: 14px;
+}
+
+.vendor-contact-modal-heading {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.vendor-contact-modal-heading h3 {
+  color: #172033;
+  font-size: 1.15rem;
+  margin: 3px 0 0;
+}
+
+.vendor-contact-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vendor-contact-wide-field {
+  grid-column: 1 / -1;
+}
+
+.vendor-contact-form-error {
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  color: #b42318;
+  font-size: 0.82rem;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.vendor-contact-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1100px) {
   .work-manual-layout-split {
     grid-template-columns: 1fr;
@@ -13155,6 +13279,21 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 @media (max-width: 760px) {
+  .vendor-contacts-heading,
+  .vendor-contact-modal-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vendor-contact-controls,
+  .vendor-contact-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vendor-contact-wide-field {
+    grid-column: auto;
+  }
+
   .work-manual-heading,
   .work-manual-preview-heading {
     align-items: stretch;

@@ -442,6 +442,36 @@ export async function uploadWorkManualImage(file) {
   });
 }
 
+export async function getVendorContacts(filters = {}) {
+  return normalizeCollection(await request("/vendor-contacts", {
+    query: filters,
+    timeoutMs: 8000,
+  }));
+}
+
+export async function createVendorContact(contact) {
+  return request("/vendor-contacts", {
+    method: "POST",
+    body: contact,
+    timeoutMs: 8000,
+  });
+}
+
+export async function updateVendorContact(contactId, contact) {
+  return request(`/vendor-contacts/${contactId}`, {
+    method: "PUT",
+    body: contact,
+    timeoutMs: 8000,
+  });
+}
+
+export async function deleteVendorContact(contactId) {
+  return request(`/vendor-contacts/${contactId}`, {
+    method: "DELETE",
+    timeoutMs: 8000,
+  });
+}
+
 export async function getStatsSummary() {
   return request("/stats/summary");
 }

@@ -19,6 +19,7 @@ from app.api.routers import (
     server_operations,
     software,
     stats,
+    vendor_contacts,
     vehicle_insurance_histories,
     visitors,
     work_manuals,
@@ -72,3 +73,4 @@ app.include_router(server_operations.router)
 app.include_router(visitors.router)
 app.include_router(activity_logs.router)
 app.include_router(work_manuals.router)
+app.include_router(vendor_contacts.router)
