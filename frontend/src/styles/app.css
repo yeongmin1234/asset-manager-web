@@ -13313,10 +13313,10 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   max-width: 240px;
 }
 
-.vendor-contact-copy-button {
+.vendor-contact-copy-text {
   background: transparent;
-  border: 0;
-  color: inherit;
+  border: none;
+  color: #0f172a;
   cursor: pointer;
   display: inline;
   font: inherit;
@@ -13329,34 +13329,34 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   white-space: nowrap;
 }
 
-.vendor-contact-copy-button:hover,
-.vendor-contact-copy-button:focus-visible {
-  color: #111827;
+.vendor-contact-copy-text:hover,
+.vendor-contact-copy-text:focus-visible {
+  color: #0f172a;
+  outline: none;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.vendor-contact-favorite-button {
-  align-items: center;
+.vendor-contact-star {
   background: transparent;
-  border: 0;
-  color: #94a3b8;
+  border: none;
+  color: #334155;
   cursor: pointer;
-  display: inline-flex;
-  font-size: 1.05rem;
-  height: 24px;
-  justify-content: center;
+  display: inline-block;
+  font-size: 16px;
   line-height: 1;
   padding: 0;
-  width: 30px;
+  text-align: center;
+  width: 18px;
 }
 
-.vendor-contact-favorite-button:hover,
-.vendor-contact-favorite-button:focus-visible {
-  color: #475569;
+.vendor-contact-star:hover,
+.vendor-contact-star:focus-visible {
+  color: #0f172a;
+  outline: none;
 }
 
-.vendor-contact-favorite-button.is-active {
+.vendor-contact-star.is-active {
   color: #ca8a04;
 }
 

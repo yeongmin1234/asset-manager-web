@@ -425,14 +425,16 @@ function VendorContactsPage() {
                 {visibleContacts.map((contact) => (
                   <tr key={contact.id}>
                     <td>
-                      <button
-                        type="button"
-                        className={`vendor-contact-favorite-button${contact.is_favorite ? " is-active" : ""}`}
+                      <span
+                        className={`vendor-contact-star${contact.is_favorite ? " is-active" : ""}`}
+                        role="button"
+                        tabIndex={0}
                         aria-pressed={Boolean(contact.is_favorite)}
                         onClick={() => handleToggleFavorite(contact)}
+                        onKeyDown={(event) => handleKeyboardAction(event, () => handleToggleFavorite(contact))}
                       >
                         {contact.is_favorite ? "★" : "☆"}
-                      </button>
+                      </span>
                     </td>
                     <td title={formatText(contact.category)}><span className="vendor-contact-category">{formatText(contact.category)}</span></td>
                     <td title={formatText(contact.company_name)}><strong>{formatText(contact.company_name)}</strong></td>
@@ -644,10 +646,24 @@ function CopyableText({ value, label, onCopy }) {
     return <span>{text}</span>;
   }
   return (
-    <button type="button" className="vendor-contact-copy-button" onClick={() => onCopy(value, label)}>
+    <span
+      className="vendor-contact-copy-text"
+      role="button"
+      tabIndex={0}
+      onClick={() => onCopy(value, label)}
+      onKeyDown={(event) => handleKeyboardAction(event, () => onCopy(value, label))}
+    >
       {text}
-    </button>
+    </span>
   );
+}
+
+function handleKeyboardAction(event, action) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+  event.preventDefault();
+  action();
 }
 
 function buildVendorContactPayload(contact, overrides = {}) {
