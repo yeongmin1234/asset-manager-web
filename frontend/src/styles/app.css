@@ -30,6 +30,13 @@ body {
 
 html {
   scroll-behavior: smooth;
+  width: 100%;
+}
+
+body,
+#root {
+  max-width: 100%;
+  width: 100%;
 }
 
 button,
@@ -112,7 +119,9 @@ p {
   color: var(--text);
   display: grid;
   grid-template-columns: 268px minmax(0, 1fr);
+  max-width: 100%;
   min-height: 100vh;
+  min-width: 0;
   transition: grid-template-columns 0.18s ease;
 }
 
@@ -305,6 +314,7 @@ p {
 .portal-workspace {
   display: grid;
   grid-template-rows: auto 1fr;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -315,7 +325,9 @@ p {
   display: grid;
   gap: 12px;
   grid-template-columns: auto minmax(260px, 460px) 1fr;
+  max-width: 100%;
   min-height: 66px;
+  min-width: 0;
   padding: 12px 22px;
   position: sticky;
   top: 0;
@@ -336,6 +348,7 @@ p {
   display: grid;
   gap: 8px;
   grid-template-columns: auto 1fr;
+  min-width: 0;
   padding: 0 12px;
 }
 
@@ -360,6 +373,7 @@ p {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  min-width: 0;
   position: relative;
 }
 
@@ -803,6 +817,8 @@ p {
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 1fr) 330px;
+  max-width: 100%;
+  min-width: 0;
   padding: 18px 22px 40px;
 }
 
@@ -813,6 +829,7 @@ p {
 .portal-main {
   display: grid;
   gap: 14px;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -2225,6 +2242,7 @@ p {
 .page-header {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   grid-column: 1 / -1;
   justify-content: space-between;
@@ -2250,6 +2268,18 @@ p {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.section-heading,
+.toolbar,
+.toolbar-actions,
+.quick-create-heading,
+.vehicle-main-heading,
+.vehicle-main-panel .vehicle-list-controls,
+.network-device-toolbar,
+.network-credential-toolbar {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .section-heading strong {
@@ -2299,7 +2329,26 @@ p {
   display: grid;
   gap: 14px;
   grid-column: 1 / -1;
+  max-width: 100%;
+  min-width: 0;
   padding: 16px;
+}
+
+.content-panel > *,
+.portal-main > *,
+.portal-screen-heading > *,
+.section-heading > *,
+.field,
+.toolbar > *,
+.toolbar-actions > * {
+  min-width: 0;
+}
+
+.field input,
+.field select,
+.field textarea {
+  max-width: 100%;
+  width: 100%;
 }
 
 .stats-summary {
@@ -2504,6 +2553,7 @@ p {
 .section-heading {
   align-items: flex-start;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
 }
@@ -4021,7 +4071,10 @@ input:disabled {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  width: 100%;
 }
 
 .asset-category-tabs {
@@ -7163,7 +7216,10 @@ textarea {
 .table-scroll,
 .network-table-scroll,
 .network-credential-table-scroll {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  width: 100%;
 }
 
 .data-table,
@@ -11762,6 +11818,119 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .portal-stats-page .monthly-bar-track {
   height: 7px;
+}
+
+@media (max-width: 1440px) {
+  .portal-shell {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+
+  .portal-topbar {
+    grid-template-columns: auto minmax(220px, 380px) minmax(0, 1fr);
+    padding: 10px 16px;
+  }
+
+  .portal-content,
+  .portal-content-stats {
+    gap: 12px;
+    padding: 14px 16px 32px;
+  }
+
+  .portal-main {
+    gap: 12px;
+  }
+
+  .content-panel,
+  .portal-screen-heading,
+  .quick-create,
+  .toolbar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .vehicle-main-panel .vehicle-list-controls,
+  .toolbar,
+  .network-device-toolbar,
+  .network-credential-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1200px) {
+  .portal-shell {
+    grid-template-columns: 228px minmax(0, 1fr);
+  }
+
+  .portal-topbar {
+    grid-template-columns: auto minmax(180px, 320px) minmax(0, 1fr);
+  }
+
+  .portal-content,
+  .portal-content-stats {
+    padding: 12px 12px 28px;
+  }
+
+  .quick-create-form,
+  .software-create-form,
+  .vehicle-create-form,
+  .vehicle-history-form,
+  .software-filter-grid,
+  .filter-grid,
+  .asset-form {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
+
+  .vendor-contact-controls {
+    grid-template-columns: minmax(150px, 0.75fr) minmax(220px, 1fr);
+  }
+
+  .vendor-contact-quick-form {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
+
+  .vendor-contact-quick-memo,
+  .quick-note-field,
+  .software-note-field,
+  .vehicle-tax-note-field,
+  .quick-create-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .portal-content,
+  .portal-content-stats {
+    padding: 12px 10px 26px;
+  }
+
+  .content-panel,
+  .portal-screen-heading,
+  .quick-create,
+  .toolbar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .quick-create-form,
+  .software-create-form,
+  .vehicle-create-form,
+  .vehicle-history-form,
+  .software-filter-grid,
+  .filter-grid,
+  .asset-form,
+  .vendor-contact-controls,
+  .vendor-contact-quick-form {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar,
+  .toolbar-actions,
+  .network-device-toolbar,
+  .network-credential-toolbar,
+  .vendor-contact-quick-actions {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 1120px) {
