@@ -20,6 +20,8 @@ const EMPTY_VENDOR_CONTACT_FORM = {
 function VendorContactsPage() {
   const [contacts, setContacts] = useState([]);
   const [filters, setFilters] = useState({ category: "", keyword: "" });
+  const [quickForm, setQuickForm] = useState(EMPTY_VENDOR_CONTACT_FORM);
+  const [quickState, setQuickState] = useState({ error: "", isSubmitting: false, message: "" });
   const [listState, setListState] = useState({ error: "", isLoading: false });
   const [formState, setFormState] = useState({
     contact: null,
@@ -48,10 +50,6 @@ function VendorContactsPage() {
     [contacts.length],
   );
 
-  const openCreateForm = () => {
-    setFormState({ contact: null, error: "", isOpen: true, isSubmitting: false });
-  };
-
   const openEditForm = (contact) => {
     setFormState({ contact, error: "", isOpen: true, isSubmitting: false });
   };
@@ -60,14 +58,38 @@ function VendorContactsPage() {
     setFormState({ contact: null, error: "", isOpen: false, isSubmitting: false });
   };
 
-  const handleSubmit = async (payload) => {
+  const resetQuickForm = () => {
+    setQuickForm(EMPTY_VENDOR_CONTACT_FORM);
+    setQuickState({ error: "", isSubmitting: false, message: "" });
+  };
+
+  const handleQuickFormChange = (event) => {
+    const { name, value } = event.target;
+    setQuickForm((current) => ({ ...current, [name]: value }));
+    setQuickState((current) => ({ ...current, error: "", message: "" }));
+  };
+
+  const handleQuickSubmit = async (event) => {
+    event.preventDefault();
+    if (!quickForm.company_name.trim()) {
+      setQuickState({ error: "업체명을 입력해 주세요.", isSubmitting: false, message: "" });
+      return;
+    }
+    setQuickState({ error: "", isSubmitting: true, message: "" });
+    try {
+      await createVendorContact(quickForm);
+      setQuickForm(EMPTY_VENDOR_CONTACT_FORM);
+      setQuickState({ error: "", isSubmitting: false, message: "업체연락처를 등록했습니다." });
+      await loadContacts();
+    } catch (error) {
+      setQuickState({ error: error.message, isSubmitting: false, message: "" });
+    }
+  };
+
+  const handleEditSubmit = async (payload) => {
     setFormState((current) => ({ ...current, error: "", isSubmitting: true }));
     try {
-      if (formState.contact) {
-        await updateVendorContact(formState.contact.id, payload);
-      } else {
-        await createVendorContact(payload);
-      }
+      await updateVendorContact(formState.contact.id, payload);
       closeForm();
       await loadContacts();
     } catch (error) {
@@ -99,10 +121,66 @@ function VendorContactsPage() {
           <h2 id="vendor-contacts-title">업체연락처</h2>
           <p>업체별 연락처를 관리합니다.</p>
         </div>
-        <button type="button" className="primary-action" onClick={openCreateForm}>
-          연락처 등록
-        </button>
       </div>
+
+      <section className="content-panel vendor-contact-quick-create" aria-label="업체연락처 빠른 등록">
+        <div className="section-heading vendor-contact-quick-heading">
+          <div>
+            <h3>빠른 등록</h3>
+            <p>현재 화면에서 바로 업체연락처를 추가합니다.</p>
+          </div>
+        </div>
+        <form className="vendor-contact-quick-form" onSubmit={handleQuickSubmit}>
+          <label className="field">
+            <span>구분</span>
+            <select name="category" value={quickForm.category} disabled={quickState.isSubmitting} onChange={handleQuickFormChange}>
+              {VENDOR_CONTACT_CATEGORIES.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>업체명</span>
+            <input
+              name="company_name"
+              value={quickForm.company_name}
+              maxLength={200}
+              disabled={quickState.isSubmitting}
+              onChange={handleQuickFormChange}
+            />
+          </label>
+          <label className="field">
+            <span>담당업무</span>
+            <input name="task_name" value={quickForm.task_name} maxLength={200} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+          </label>
+          <label className="field">
+            <span>담당자</span>
+            <input name="manager_name" value={quickForm.manager_name} maxLength={100} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+          </label>
+          <label className="field">
+            <span>연락처</span>
+            <input name="phone" value={quickForm.phone} maxLength={100} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+          </label>
+          <label className="field">
+            <span>이메일</span>
+            <input name="email" value={quickForm.email} maxLength={200} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+          </label>
+          <label className="field vendor-contact-quick-memo">
+            <span>비고</span>
+            <input name="memo" value={quickForm.memo} maxLength={2000} disabled={quickState.isSubmitting} onChange={handleQuickFormChange} />
+          </label>
+          <div className="vendor-contact-quick-actions">
+            <button type="submit" disabled={quickState.isSubmitting}>
+              {quickState.isSubmitting ? "등록 중" : "등록"}
+            </button>
+            <button type="button" className="secondary-button" disabled={quickState.isSubmitting} onClick={resetQuickForm}>
+              초기화
+            </button>
+          </div>
+        </form>
+        {quickState.message ? <span className="inline-success vendor-contact-quick-message">{quickState.message}</span> : null}
+        {quickState.error ? <span className="inline-alert vendor-contact-quick-message">{quickState.error}</span> : null}
+      </section>
 
       <section className="content-panel vendor-contact-controls" aria-label="업체연락처 검색 및 필터">
         <label className="field">
@@ -148,7 +226,7 @@ function VendorContactsPage() {
         ) : contacts.length === 0 ? (
           <div className="state-panel">
             <strong>등록된 업체연락처가 없습니다.</strong>
-            <span>연락처 등록 버튼으로 첫 연락처를 추가하세요.</span>
+            <span>빠른 등록으로 첫 연락처를 추가하세요.</span>
           </div>
         ) : (
           <div className="asset-table-wrap vendor-contact-table-wrap">
@@ -201,7 +279,7 @@ function VendorContactsPage() {
         isOpen={formState.isOpen}
         isSubmitting={formState.isSubmitting}
         onClose={closeForm}
-        onSubmit={handleSubmit}
+        onSubmit={handleEditSubmit}
       />
     </section>
   );

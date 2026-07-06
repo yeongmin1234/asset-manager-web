@@ -13146,20 +13146,76 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .vendor-contacts-page {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .vendor-contacts-heading {
   align-items: center;
   display: flex;
   justify-content: space-between;
+  min-height: 0;
+  padding: 16px 18px;
+}
+
+.vendor-contacts-heading h2 {
+  margin-bottom: 4px;
+}
+
+.vendor-contacts-heading p {
+  margin-top: 0;
 }
 
 .vendor-contact-controls {
   align-items: end;
   display: grid;
-  gap: 10px;
+  gap: 8px 10px;
   grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr) auto;
+  padding: 14px 16px;
+}
+
+.vendor-contact-quick-create {
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.vendor-contact-quick-heading {
+  padding-bottom: 8px;
+}
+
+.vendor-contact-quick-heading h3 {
+  margin: 0 0 3px;
+}
+
+.vendor-contact-quick-heading p {
+  margin: 0;
+}
+
+.vendor-contact-quick-form {
+  align-items: end;
+  display: grid;
+  gap: 8px 10px;
+  grid-template-columns:
+    minmax(110px, 0.65fr)
+    minmax(170px, 1.1fr)
+    minmax(150px, 1fr)
+    minmax(130px, 0.9fr)
+    minmax(140px, 0.9fr)
+    minmax(170px, 1.1fr);
+}
+
+.vendor-contact-quick-memo {
+  grid-column: span 4;
+}
+
+.vendor-contact-quick-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.vendor-contact-quick-message {
+  width: fit-content;
 }
 
 .vendor-contact-search input {
@@ -13172,6 +13228,28 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .vendor-contact-table {
   min-width: 1100px;
+}
+
+.vendor-contact-table-panel {
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.vendor-contact-table-panel .section-heading {
+  padding-bottom: 8px;
+}
+
+.vendor-contact-table-panel .section-heading h3 {
+  margin: 0 0 3px;
+}
+
+.vendor-contact-table-panel .section-heading p {
+  margin: 0;
+}
+
+.vendor-contact-table-panel .state-panel {
+  min-height: 0;
+  padding: 14px 16px;
 }
 
 .vendor-contact-category {
@@ -13286,8 +13364,17 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   }
 
   .vendor-contact-controls,
+  .vendor-contact-quick-form,
   .vendor-contact-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .vendor-contact-quick-memo {
+    grid-column: auto;
+  }
+
+  .vendor-contact-quick-actions {
+    justify-content: flex-start;
   }
 
   .vendor-contact-wide-field {
