@@ -30,6 +30,39 @@ check_url() {
   fi
 }
 
+get_frontend_bundle() {
+  index_file="$1"
+  sed -n 's/.*src="\/assets\/\([^"]*\.js\)".*/\1/p' "$index_file" | head -n 1
+}
+
+verify_frontend_bundle() {
+  expected_index="$ROOT_DIR/frontend/dist/index.html"
+  expected_bundle="$(get_frontend_bundle "$expected_index")"
+  if [ -z "$expected_bundle" ]; then
+    echo "Cannot find built frontend JS bundle in $expected_index"
+    return 1
+  fi
+
+  served_index="$LOG_DIR/frontend-served-index.$$.html"
+  if ! curl -fsS -H "Cache-Control: no-cache" "http://127.0.0.1:3010/" > "$served_index"; then
+    echo "Cannot fetch served frontend index from http://127.0.0.1:3010/"
+    rm -f "$served_index"
+    return 1
+  fi
+
+  if grep -q "$expected_bundle" "$served_index"; then
+    echo "OK  Frontend served bundle $expected_bundle"
+    rm -f "$served_index"
+    return 0
+  fi
+
+  echo "FAIL Frontend served index does not reference built bundle $expected_bundle"
+  echo "Served frontend bundle:"
+  get_frontend_bundle "$served_index" || true
+  rm -f "$served_index"
+  return 1
+}
+
 restore_package_lock_if_only_dirty() {
   reason="$1"
   current_dir="$(pwd)"
@@ -169,6 +202,7 @@ run_deploy() {
 
   echo "== Health check =="
   "$ROOT_DIR/deploy/health_check.sh" || return 1
+  verify_frontend_bundle || return 1
 
   echo "== Direct endpoint check =="
   check_url "Backend health" "http://127.0.0.1:8010/health" || return 1

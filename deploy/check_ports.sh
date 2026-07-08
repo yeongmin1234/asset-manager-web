@@ -13,5 +13,5 @@ check_port() {
 }
 
 check_port 3010
-check_port 8001
+check_port 8010
 check_port 5432
