@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { deleteAsset, disposeAsset, getAsset, updateAsset } from "../api/client.js";
+import { API_BASE_URL, deleteAsset, disposeAsset, getAsset, updateAsset } from "../api/client.js";
 import AssetForm from "./AssetForm.jsx";
 import AssetHistory from "./AssetHistory.jsx";
 import StatusBadge from "./StatusBadge.jsx";
@@ -395,7 +395,7 @@ function getUploadUrl(value) {
   if (/^https?:\/\//i.test(value)) {
     return value;
   }
-  return `${import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001"}${value}`;
+  return `${API_BASE_URL}${value}`;
 }
 
 export default AssetDetail;

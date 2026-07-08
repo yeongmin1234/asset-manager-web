@@ -1,4 +1,13 @@
 import React, { useMemo, useState } from "react";
+import { API_BASE_URL } from "../api/client.js";
+
+const currentFrontendUrl =
+  typeof window !== "undefined" && window.location?.origin
+    ? window.location.origin
+    : "";
+
+const backendHealthUrl = API_BASE_URL ? `${API_BASE_URL}/health` : "";
+const backendDbHealthUrl = API_BASE_URL ? `${API_BASE_URL}/health/db` : "";
 
 const SETTINGS_SECTIONS = [
   {
@@ -448,7 +457,7 @@ function SettingsPage({
           <SettingsCard title="인수인계 메모" description="담당자 변경 시 가장 먼저 확인할 정보입니다." important>
             <InfoList
               items={[
-                { label: "앱 접속 주소", value: "http://192.168.222.210:3010", href: "http://192.168.222.210:3010/" },
+                { label: "앱 접속 주소", value: currentFrontendUrl || "프론트 접속 주소 기준", href: currentFrontendUrl || undefined },
                 { label: "NAS 프로젝트 경로", value: "/volume6/총무/서버/자산관리 프로젝트/asset-manager-web" },
                 { label: "DB 컨테이너", value: "asset-postgres" },
                 { label: "DB 데이터 폴더", value: "/volume6/총무/서버/자산관리 프로젝트/postgres-data" },
@@ -580,10 +589,10 @@ function SettingsPage({
             <SettingsCard title="기본 접속 정보" description="운영 화면과 상태 점검 URL입니다.">
               <InfoList
                 items={[
-                  { label: "Frontend URL", value: "http://192.168.222.210:3010", href: "http://192.168.222.210:3010/" },
-                  { label: "Backend API URL", value: "http://192.168.222.210:8010", href: "http://192.168.222.210:8010/" },
-                  { label: "Backend Health", value: "http://127.0.0.1:8010/health", href: "http://127.0.0.1:8010/health" },
-                  { label: "DB Health", value: "http://127.0.0.1:8010/health/db", href: "http://127.0.0.1:8010/health/db" },
+                  { label: "Frontend URL", value: currentFrontendUrl || "프론트 접속 주소 기준", href: currentFrontendUrl || undefined },
+                  { label: "Backend API URL", value: API_BASE_URL || "VITE_API_BASE_URL 기준", href: API_BASE_URL || undefined },
+                  { label: "Backend Health", value: backendHealthUrl || "VITE_API_BASE_URL/health", href: backendHealthUrl || undefined },
+                  { label: "DB Health", value: backendDbHealthUrl || "VITE_API_BASE_URL/health/db", href: backendDbHealthUrl || undefined },
                 ]}
               />
             </SettingsCard>
