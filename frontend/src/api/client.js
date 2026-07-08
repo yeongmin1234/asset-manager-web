@@ -17,11 +17,13 @@ const API_BASE_URL = getApiBaseUrl();
 const REQUEST_TIMEOUT_MS = 6000;
 
 export class ApiError extends Error {
-  constructor(message, { status, detail } = {}) {
+  constructor(message, { status, detail, url, method } = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+    this.url = url;
+    this.method = method;
   }
 }
 
@@ -54,12 +56,15 @@ async function request(path, options = {}) {
   try {
     response = await fetch(url, fetchOptions);
   } catch (error) {
+    logApiFailure({ error, method: fetchOptions.method, path, url });
     const message =
       error.name === "AbortError"
         ? "Backend 응답 시간이 초과되었습니다."
         : "Backend에 연결할 수 없습니다.";
     throw new ApiError(message, {
       detail: error.message,
+      method: fetchOptions.method,
+      url: url.toString(),
     });
   } finally {
     window.clearTimeout(timeoutId);
@@ -76,9 +81,12 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    logApiFailure({ data, method: fetchOptions.method, path, response, url });
     throw new ApiError(getErrorMessage(data, response.status), {
       status: response.status,
       detail: data,
+      method: fetchOptions.method,
+      url: url.toString(),
     });
   }
 
@@ -110,12 +118,15 @@ async function requestBlob(path, options = {}) {
       },
     });
   } catch (error) {
+    logApiFailure({ error, method: options.method || "GET", path, url });
     const message =
       error.name === "AbortError"
         ? "Backend 응답 시간이 초과되었습니다."
         : "Backend에 연결할 수 없습니다.";
     throw new ApiError(message, {
       detail: error.message,
+      method: options.method || "GET",
+      url: url.toString(),
     });
   } finally {
     window.clearTimeout(timeoutId);
@@ -131,9 +142,12 @@ async function requestBlob(path, options = {}) {
     } catch {
       data = null;
     }
+    logApiFailure({ data, method: options.method || "GET", path, response, url });
     throw new ApiError(getErrorMessage(data, response.status), {
       status: response.status,
       detail: data,
+      method: options.method || "GET",
+      url: url.toString(),
     });
   }
 
@@ -161,12 +175,15 @@ async function requestFormData(path, formData, options = {}) {
       body: formData,
     });
   } catch (error) {
+    logApiFailure({ error, method: options.method || "POST", path, url });
     const message =
       error.name === "AbortError"
         ? "Backend 응답 시간이 초과되었습니다."
         : "Backend에 연결할 수 없습니다.";
     throw new ApiError(message, {
       detail: error.message,
+      method: options.method || "POST",
+      url: url.toString(),
     });
   } finally {
     window.clearTimeout(timeoutId);
@@ -183,9 +200,12 @@ async function requestFormData(path, formData, options = {}) {
   }
 
   if (!response.ok) {
+    logApiFailure({ data, method: options.method || "POST", path, response, url });
     throw new ApiError(getErrorMessage(data, response.status), {
       status: response.status,
       detail: data,
+      method: options.method || "POST",
+      url: url.toString(),
     });
   }
 
@@ -206,6 +226,24 @@ function getErrorMessage(data, status) {
     return data;
   }
   return `API 요청에 실패했습니다. (${status})`;
+}
+
+function logApiFailure({ data, error, method, path, response, url }) {
+  if (typeof console === "undefined") {
+    return;
+  }
+
+  console.error("[AssetManager API] request failed", {
+    apiBaseUrl: API_BASE_URL,
+    method,
+    path,
+    requestUrl: url.toString(),
+    status: response?.status,
+    statusText: response?.statusText,
+    errorName: error?.name,
+    errorMessage: error?.message,
+    response: data,
+  });
 }
 
 export async function getHealth() {

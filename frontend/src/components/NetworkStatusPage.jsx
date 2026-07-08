@@ -69,25 +69,29 @@ function NetworkDeviceStatusPanel() {
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [publicIp, setPublicIp] = useState(null);
   const [recentChecks, setRecentChecks] = useState([]);
-  const [statusState, setStatusState] = useState({ isLoading: false, error: "" });
+  const [statusState, setStatusState] = useState({ isLoading: false, error: "", requestUrl: "" });
   const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
 
   const loadStatus = useCallback(async () => {
-    setStatusState({ isLoading: true, error: "" });
+    setStatusState((currentState) => ({ ...currentState, isLoading: true, error: "", requestUrl: "" }));
     try {
       const data = await getNetworkStatus();
       setItems(Array.isArray(data?.items) ? data.items : []);
       setSummary({ ...EMPTY_SUMMARY, ...(data?.summary || {}) });
       setPublicIp(data?.public_ip || null);
       setRecentChecks(Array.isArray(data?.recent_checks) ? data.recent_checks : []);
-      setStatusState({ isLoading: false, error: "" });
+      setStatusState({ isLoading: false, error: "", requestUrl: "" });
     } catch (error) {
       setItems([]);
       setSummary(EMPTY_SUMMARY);
       setPublicIp(null);
       setRecentChecks([]);
-      setStatusState({ isLoading: false, error: error.message });
+      setStatusState({
+        isLoading: false,
+        error: error.message || "네트워크 상태를 불러오지 못했습니다.",
+        requestUrl: error.url || "",
+      });
     }
   }, []);
 
@@ -175,7 +179,12 @@ function NetworkDeviceStatusPanel() {
         </div>
 
         {statusState.error ? (
-          <div className="empty-state error-state">네트워크 상태를 불러오지 못했습니다. {statusState.error}</div>
+          <div className="empty-state error-state">
+            네트워크 상태를 불러오지 못했습니다. {statusState.error}
+            {statusState.requestUrl ? (
+              <small>요청 URL: {statusState.requestUrl}</small>
+            ) : null}
+          </div>
         ) : null}
 
         {!statusState.error && statusState.isLoading && displayedItems.length === 0 ? (
