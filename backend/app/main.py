@@ -34,7 +34,7 @@ LOCAL_DEV_CORS_ORIGINS = [
 
 
 def get_cors_origins() -> List[str]:
-    return list(dict.fromkeys([*settings.cors_origins, *LOCAL_DEV_CORS_ORIGINS]))
+    return list(dict.fromkeys([*settings.cors_origin_list, *LOCAL_DEV_CORS_ORIGINS]))
 
 
 app = FastAPI(title=settings.app_name)

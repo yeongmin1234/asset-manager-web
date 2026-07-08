@@ -1,7 +1,6 @@
 from functools import lru_cache
-from typing import List, Union
+from typing import List
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +10,13 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://asset_user:change_me@localhost:5432/asset_manager"
     )
-    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3010"]
+    cors_origins: str = (
+        "http://localhost:5173,"
+        "http://localhost:3010,"
+        "http://192.168.222.210:3010,"
+        "http://112.216.230.162:3010,"
+        "http://thelimo.asuscomm.com:3010"
+    )
     upload_dir: str = "../uploads"
     install_file_upload_dir: str = "../uploads/install_files"
     install_file_max_size_mb: int = 2048
@@ -32,12 +37,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, value: Union[str, List[str]]) -> List[str]:
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    @property
+    def cors_origin_list(self) -> List[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

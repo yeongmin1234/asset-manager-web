@@ -1,4 +1,19 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001";
+const DEFAULT_API_PORT = "8010";
+
+function getApiBaseUrl() {
+  const configuredUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configuredUrl && configuredUrl.toLowerCase() !== "auto") {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_API_PORT}`;
+  }
+
+  return "";
+}
+
+const API_BASE_URL = getApiBaseUrl();
 const REQUEST_TIMEOUT_MS = 6000;
 
 export class ApiError extends Error {
