@@ -32,10 +32,11 @@ check_url() {
 
 get_frontend_bundle() {
   index_file="$1"
-  sed -n 's/.*src="\/assets\/\([^"]*\.js\)".*/\1/p' "$index_file" | head -n 1
+  sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' "$index_file" | head -n 1
 }
 
 verify_frontend_bundle() {
+  frontend_port="${FRONTEND_PORT:-3010}"
   expected_index="$ROOT_DIR/frontend/dist/index.html"
   expected_bundle="$(get_frontend_bundle "$expected_index")"
   if [ -z "$expected_bundle" ]; then
@@ -44,11 +45,16 @@ verify_frontend_bundle() {
   fi
 
   served_index="$LOG_DIR/frontend-served-index.$$.html"
-  if ! curl -fsS -H "Cache-Control: no-cache" "http://127.0.0.1:3010/" > "$served_index"; then
-    echo "Cannot fetch served frontend index from http://127.0.0.1:3010/"
+  served_url="http://127.0.0.1:$frontend_port/"
+  if ! curl -fsS -H "Cache-Control: no-cache" "$served_url" > "$served_index"; then
+    echo "Cannot fetch served frontend index from $served_url"
     rm -f "$served_index"
     return 1
   fi
+
+  served_bundle="$(get_frontend_bundle "$served_index")"
+  echo "Built frontend bundle:  $expected_bundle"
+  echo "Served frontend bundle: $served_bundle"
 
   if grep -q "$expected_bundle" "$served_index"; then
     echo "OK  Frontend served bundle $expected_bundle"
@@ -57,8 +63,6 @@ verify_frontend_bundle() {
   fi
 
   echo "FAIL Frontend served index does not reference built bundle $expected_bundle"
-  echo "Served frontend bundle:"
-  get_frontend_bundle "$served_index" || true
   rm -f "$served_index"
   return 1
 }
@@ -155,6 +159,8 @@ run_deploy() {
   git status --short
   restore_package_lock_if_only_dirty "Checking working tree before deploy." || return 1
   git pull --ff-only || return 1
+  echo "Current commit:"
+  git log -1 --oneline || return 1
 
   echo "== Database backup =="
   BACKUP_SCRIPT="$ROOT_DIR/deploy/backup_db.sh"
@@ -194,6 +200,8 @@ run_deploy() {
     npm install || return 1
   fi
   run_frontend_build || return 1
+  echo "Built frontend bundle:"
+  get_frontend_bundle "$ROOT_DIR/frontend/dist/index.html" || return 1
 
   echo "== Restart services =="
   "$ROOT_DIR/deploy/stop_all.sh" || return 1

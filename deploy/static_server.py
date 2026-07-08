@@ -4,6 +4,10 @@ import os
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+
 class AssetManagerStaticHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         request_path = self.path.split("?", 1)[0]
@@ -38,7 +42,7 @@ def main():
         AssetManagerStaticHandler,
         directory=os.path.abspath(args.directory),
     )
-    server = ThreadingHTTPServer((args.host, args.port), handler)
+    server = ReusableThreadingHTTPServer((args.host, args.port), handler)
     server.serve_forever()
 
 
