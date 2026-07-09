@@ -46,6 +46,7 @@ function PortalSidebar({
   activeSection = "dashboard",
   collapsed = false,
   menuVisibility = {},
+  allowedMenuIds = null,
   onNavigate,
 }) {
   const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
@@ -54,7 +55,9 @@ function PortalSidebar({
   const [draggedMenuItem, setDraggedMenuItem] = useState(null);
   const [dragOverMenuItem, setDragOverMenuItem] = useState(null);
   const visibleMenuItems = MENU_ITEMS.filter(
-    (item) => menuVisibility[item.id] !== false,
+    (item) =>
+      menuVisibility[item.id] !== false &&
+      (!allowedMenuIds || allowedMenuIds.includes(item.id)),
   );
   const visibleMenuItemsById = visibleMenuItems.reduce(
     (itemsById, item) => ({ ...itemsById, [item.id]: item }),

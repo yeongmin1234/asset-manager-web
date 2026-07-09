@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     export_dir: str = "../exports"
     admin_auth_minutes: int = 60
     admin_reset_code: str = ""
+    auth_jwt_secret: str = ""
+    auth_token_minutes: int = 480
     network_credential_secret_key: str = ""
     scm_reboot_host: str = ""
     scm_reboot_port: int = 22

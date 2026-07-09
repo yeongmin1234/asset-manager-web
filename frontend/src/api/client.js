@@ -1,4 +1,5 @@
 const DEFAULT_API_PORT = "8010";
+const AUTH_TOKEN_STORAGE_KEY = "assetManager.accessToken";
 
 function getApiBaseUrl() {
   const configuredUrl = import.meta.env?.VITE_API_BASE_URL?.trim();
@@ -96,6 +97,7 @@ async function request(path, options = {}) {
     signal: controller.signal,
     headers: {
       Accept: "application/json",
+      ...getAuthHeaders(),
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...options.headers,
     },
@@ -131,6 +133,7 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    handleUnauthorized(response);
     logApiFailure({ data, method: fetchOptions.method, path, response, url });
     throw new ApiError(getErrorMessage(data, response.status), {
       status: response.status,
@@ -164,6 +167,7 @@ async function requestBlob(path, options = {}) {
       signal: controller.signal,
       headers: {
         Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ...getAuthHeaders(),
         ...options.headers,
       },
     });
@@ -183,6 +187,7 @@ async function requestBlob(path, options = {}) {
   }
 
   if (!response.ok) {
+    handleUnauthorized(response);
     const contentType = response.headers.get("content-type") || "";
     let data = null;
     try {
@@ -220,6 +225,7 @@ async function requestFormData(path, formData, options = {}) {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
+        ...getAuthHeaders(),
         ...options.headers,
       },
       body: formData,
@@ -250,6 +256,7 @@ async function requestFormData(path, formData, options = {}) {
   }
 
   if (!response.ok) {
+    handleUnauthorized(response);
     logApiFailure({ data, method: options.method || "POST", path, response, url });
     throw new ApiError(getErrorMessage(data, response.status), {
       status: response.status,
@@ -298,6 +305,38 @@ function logApiFailure({ data, error, method, path, response, url }) {
 
 export async function getHealth() {
   return request("/health");
+}
+
+export async function login(username, password) {
+  const result = await request("/auth/login", {
+    method: "POST",
+    body: { username, password },
+  });
+  saveAuthToken(result.access_token);
+  return result;
+}
+
+export async function getCurrentUser() {
+  return request("/auth/me");
+}
+
+export function getAuthToken() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "";
+}
+
+export function saveAuthToken(token) {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  }
+}
+
+export function clearAuthToken() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  }
 }
 
 export async function getDatabaseHealth() {
@@ -893,4 +932,17 @@ function getAdminAuthHeaders() {
     window.sessionStorage.removeItem("assetManager.adminAuth");
     return {};
   }
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function handleUnauthorized(response) {
+  if (response.status !== 401 || typeof window === "undefined") {
+    return;
+  }
+  clearAuthToken();
+  window.dispatchEvent(new CustomEvent("asset-manager-auth-expired"));
 }

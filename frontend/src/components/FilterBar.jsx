@@ -29,6 +29,7 @@ function FilterBar({
   isExporting,
   hasActiveFilters,
   sortControl,
+  canManage = true,
 }) {
   const handleChange = (event) => {
     onFilterChange({
@@ -133,9 +134,11 @@ function FilterBar({
         >
           {isExporting ? "다운로드 중..." : "엑셀 내보내기"}
         </button>
-        <button type="button" className="primary-action" onClick={onOpenCreate}>
-          상세 등록
-        </button>
+        {canManage ? (
+          <button type="button" className="primary-action" onClick={onOpenCreate}>
+            상세 등록
+          </button>
+        ) : null}
       </div>
     </form>
   );

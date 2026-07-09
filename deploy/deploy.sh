@@ -244,8 +244,6 @@ run_deploy() {
   echo "== Direct endpoint check =="
   check_url "Backend health" "http://127.0.0.1:8010/health" || return 1
   check_url "Backend DB health" "http://127.0.0.1:8010/health/db" || return 1
-  check_url "Software list" "http://127.0.0.1:8010/software" || return 1
-  check_url "Software summary" "http://127.0.0.1:8010/software/summary" || return 1
   check_url "Frontend" "http://127.0.0.1:3010" || return 1
 }
 

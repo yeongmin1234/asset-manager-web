@@ -11,3 +11,5 @@ Pillow
 pytesseract
 cryptography>=42,<45
 paramiko>=3.4,<4
+bcrypt>=4,<5
+PyJWT>=2.8,<3

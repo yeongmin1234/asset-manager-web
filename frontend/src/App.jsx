@@ -114,8 +114,16 @@ const MENU_LABELS = {
   scm: "SCM",
   settings: "설정",
 };
+const USER_ALLOWED_SECTIONS = new Set([
+  "dashboard",
+  "assets",
+  "beverage-orders",
+  "work-manuals",
+  "vendor-contacts",
+]);
 
-function App() {
+function App({ currentUser, onLogout }) {
+  const isAdmin = currentUser?.role === "admin";
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [isSplashExiting, setIsSplashExiting] = useState(false);
   const [backendStatus, setBackendStatus] = useState({
@@ -202,6 +210,7 @@ function App() {
   const [selectedAssetId, setSelectedAssetId] = useState(null);
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [accessDeniedSection, setAccessDeniedSection] = useState("");
 
   const activeFilters = useMemo(
     () => ({
@@ -620,6 +629,12 @@ function App() {
       activity: "history",
     };
     const nextSection = sectionMap[sectionId] || sectionId;
+    if (!isAdmin && !USER_ALLOWED_SECTIONS.has(nextSection)) {
+      setAccessDeniedSection(nextSection);
+      setActiveSection(nextSection);
+      return;
+    }
+    setAccessDeniedSection("");
     if (adminStatus.configured && protectedMenus[nextSection] && !hasValidAdminAuth()) {
       setAdminAuthModal({
         error: "",
@@ -818,7 +833,7 @@ function App() {
         )}
       </div>
 
-      <QuickAssetForm
+      {isAdmin ? <QuickAssetForm
         categories={categories}
         departments={departments}
         isCategoryDisabled={
@@ -831,9 +846,10 @@ function App() {
           setFormError("");
           setIsFormOpen(true);
         }}
-      />
+      /> : null}
 
       <FilterBar
+        canManage={isAdmin}
         filters={filters}
         categories={categories}
         departments={departments}
@@ -910,6 +926,15 @@ function App() {
   );
 
   const renderActiveSection = () => {
+    if (accessDeniedSection) {
+      return (
+        <section className="access-denied-card">
+          <h2>접근 권한이 없습니다.</h2>
+          <p>이 메뉴는 관리자만 사용할 수 있습니다.</p>
+          <button type="button" onClick={() => handleNavigate("dashboard")}>대시보드로 이동</button>
+        </section>
+      );
+    }
     if (activeSection === "assets") {
       return renderAssetManagement();
     }
@@ -1036,6 +1061,7 @@ function App() {
         activeSection={activeSection}
         collapsed={isSidebarCollapsed}
         menuVisibility={menuVisibility}
+        allowedMenuIds={isAdmin ? null : Array.from(USER_ALLOWED_SECTIONS)}
         onNavigate={handleNavigate}
       />
 
@@ -1090,8 +1116,9 @@ function App() {
               ) : null}
             </div>
             <div className="portal-user">
-              <strong>관리자</strong>
-              <span>Asset Admin</span>
+              <strong>{currentUser?.name}</strong>
+              <span>{isAdmin ? "Administrator" : "User"}</span>
+              <button type="button" className="portal-logout-button" onClick={onLogout}>로그아웃</button>
             </div>
           </div>
         </header>
@@ -1138,7 +1165,7 @@ function App() {
         />
       )}
 
-      <AssetForm
+      {isAdmin ? <AssetForm
         categories={categories}
         departments={departments}
         lookupState={lookupState}
@@ -1147,9 +1174,9 @@ function App() {
         error={formError}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleCreateAsset}
-      />
+      /> : null}
 
-      <CategoryCreateModal
+      {isAdmin ? <CategoryCreateModal
         isOpen={categoryCreateState.isOpen}
         error={categoryCreateState.error}
         isSubmitting={categoryCreateState.isSubmitting}
@@ -1157,7 +1184,7 @@ function App() {
           setCategoryCreateState({ isOpen: false, isSubmitting: false, error: "" })
         }
         onSubmit={handleCreateCategory}
-      />
+      /> : null}
       <AdminAuthModal
         error={adminAuthModal.error}
         isOpen={adminAuthModal.isOpen}

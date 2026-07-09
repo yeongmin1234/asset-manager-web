@@ -2,14 +2,16 @@ import logging
 from typing import List
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core.auth import get_current_user, require_admin, require_authenticated_access
 from app.core.config import REQUIRED_CORS_ORIGINS, settings
 from app.api.routers import (
     activity_logs,
     admin,
+    auth,
     beverage_orders,
     company_vehicles,
     dashboard_notices,
@@ -59,22 +61,31 @@ app.mount(
 )
 
 app.include_router(health.router)
-app.include_router(categories.router)
-app.include_router(departments.router)
-app.include_router(assets.router)
-app.include_router(stats.router)
-app.include_router(software.router)
-app.include_router(admin.router)
-app.include_router(beverage_orders.router)
-app.include_router(company_vehicles.router)
-app.include_router(dashboard_notices.router)
-app.include_router(install_files.router)
-app.include_router(vehicle_insurance_histories.router)
-app.include_router(paju_fire_insurance.router)
-app.include_router(network_status.router)
-app.include_router(network_credentials.router)
-app.include_router(server_operations.router)
-app.include_router(visitors.router)
-app.include_router(activity_logs.router)
-app.include_router(work_manuals.router)
-app.include_router(vendor_contacts.router)
+app.include_router(auth.router)
+
+authenticated_access = [Depends(require_authenticated_access)]
+authenticated_user = [Depends(get_current_user)]
+admin_only = [Depends(require_admin)]
+
+# User-facing read routes. Non-safe methods require the admin role.
+app.include_router(categories.router, dependencies=authenticated_access)
+app.include_router(departments.router, dependencies=authenticated_access)
+app.include_router(assets.router, dependencies=authenticated_access)
+app.include_router(stats.router, dependencies=authenticated_access)
+app.include_router(beverage_orders.router, dependencies=authenticated_access)
+app.include_router(dashboard_notices.router, dependencies=authenticated_access)
+app.include_router(work_manuals.router, dependencies=authenticated_access)
+app.include_router(vendor_contacts.router, dependencies=authenticated_access)
+app.include_router(visitors.router, dependencies=authenticated_user)
+
+# Management and operational surfaces are admin-only.
+app.include_router(software.router, dependencies=admin_only)
+app.include_router(admin.router, dependencies=admin_only)
+app.include_router(company_vehicles.router, dependencies=admin_only)
+app.include_router(install_files.router, dependencies=admin_only)
+app.include_router(vehicle_insurance_histories.router, dependencies=admin_only)
+app.include_router(paju_fire_insurance.router, dependencies=admin_only)
+app.include_router(network_status.router, dependencies=admin_only)
+app.include_router(network_credentials.router, dependencies=admin_only)
+app.include_router(server_operations.router, dependencies=admin_only)
+app.include_router(activity_logs.router, dependencies=admin_only)

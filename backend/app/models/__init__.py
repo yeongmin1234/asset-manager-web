@@ -18,6 +18,7 @@ from app.models.software_item import SoftwareItem, SoftwareLicenseType
 from app.models.vendor_contact import VendorContact
 from app.models.vehicle_insurance_history import VehicleInsuranceHistory
 from app.models.work_manual import WorkManual
+from app.models.user import User
 
 __all__ = [
     "Asset",
@@ -43,4 +44,5 @@ __all__ = [
     "VehicleInsuranceHistory",
     "VehicleOwnershipType",
     "WorkManual",
+    "User",
 ]
