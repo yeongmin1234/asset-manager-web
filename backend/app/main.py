@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from pathlib import Path
 
@@ -5,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.core.config import settings
+from app.core.config import REQUIRED_CORS_ORIGINS, settings
 from app.api.routers import (
     activity_logs,
     admin,
@@ -27,21 +28,24 @@ from app.api.routers import (
 from app.routers import assets, categories, departments, health
 
 
-LOCAL_DEV_CORS_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3010",
-]
-
-
 def get_cors_origins() -> List[str]:
-    return list(dict.fromkeys([*settings.cors_origin_list, *LOCAL_DEV_CORS_ORIGINS]))
+    # Required origins remain available when CORS_ORIGINS is missing or empty
+    # in the NAS environment. Explicit env origins may safely add entries.
+    return list(
+        dict.fromkeys([*settings.cors_origin_list, *REQUIRED_CORS_ORIGINS])
+    )
 
 
 app = FastAPI(title=settings.app_name)
+cors_origins = get_cors_origins()
+logging.getLogger("uvicorn.error").info(
+    "CORS allow_origins=%s",
+    cors_origins,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins(),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

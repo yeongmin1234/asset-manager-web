@@ -1,6 +1,20 @@
 #!/usr/bin/env sh
 set -eu
 
+PULL_BEFORE_DEPLOY=false
+case "${1:-}" in
+  "")
+    ;;
+  --pull)
+    PULL_BEFORE_DEPLOY=true
+    ;;
+  *)
+    echo "Usage: $0 [--pull]"
+    echo "By default deploy uses the currently checked-out code without contacting GitHub."
+    exit 2
+    ;;
+esac
+
 DEFAULT_ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 ENV_FILE="${ASSET_MANAGER_ENV:-$DEFAULT_ROOT_DIR/deploy/.env}"
 
@@ -34,9 +48,7 @@ check_cors_origin() {
   origin="$1"
   url="http://127.0.0.1:${BACKEND_PORT:-8010}/network/status"
   headers="$LOG_DIR/cors-headers.$$.tmp"
-  # HEAD may legitimately return 405 for a GET-only FastAPI route; CORS
-  # middleware must still attach the allow-origin header to that response.
-  if ! curl -sSI -H "Origin: $origin" "$url" > "$headers"; then
+  if ! curl -sSi -H "Origin: $origin" "$url" > "$headers"; then
     echo "FAIL CORS request origin=$origin url=$url"
     rm -f "$headers"
     return 1
@@ -176,11 +188,22 @@ run_deploy() {
   date
   echo "Project: $ROOT_DIR"
 
-  echo "== Git update =="
+  echo "== Current checkout =="
   cd "$ROOT_DIR"
   git status --short
   restore_package_lock_if_only_dirty "Checking working tree before deploy." || return 1
-  git pull --ff-only || return 1
+  if [ "$PULL_BEFORE_DEPLOY" = true ]; then
+    echo "Pull requested: running git pull --ff-only."
+    if ! git pull --ff-only; then
+      echo "FAIL git pull --ff-only."
+      echo "GitHub authentication may not be available in the current sudo environment."
+      echo "Run git pull as the repository owner, then retry without --pull:"
+      echo "  sudo deploy/deploy.sh"
+      return 1
+    fi
+  else
+    echo "Skipping git pull; deploying the currently checked-out code."
+  fi
   echo "Current commit:"
   git log -1 --oneline || return 1
 

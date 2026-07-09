@@ -6,6 +6,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+REQUIRED_CORS_ORIGINS = [
+    "http://192.168.222.210:3010",
+    "http://112.216.230.162:3010",
+    "http://thelimo.asuscomm.com:3010",
+    "http://localhost:5173",
+    "http://localhost:3010",
+]
+
+
+def parse_cors_origins(value: str | None) -> List[str]:
+    """Parse a plain comma-separated value without JSON list decoding."""
+    if not value:
+        return []
+    return list(
+        dict.fromkeys(
+            origin.strip().rstrip("/")
+            for origin in value.split(",")
+            if origin.strip()
+        )
+    )
 
 
 class Settings(BaseSettings):
@@ -14,13 +34,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://asset_user:change_me@localhost:5432/asset_manager"
     )
-    cors_origins: str = (
-        "http://localhost:5173,"
-        "http://localhost:3010,"
-        "http://192.168.222.210:3010,"
-        "http://112.216.230.162:3010,"
-        "http://thelimo.asuscomm.com:3010"
-    )
+    # Keep this as str so pydantic-settings does not require JSON list syntax
+    # for the comma-separated CORS_ORIGINS value used by NAS shell env files.
+    cors_origins: str = ",".join(REQUIRED_CORS_ORIGINS)
     upload_dir: str = "../uploads"
     install_file_upload_dir: str = "../uploads/install_files"
     install_file_max_size_mb: int = 2048
@@ -45,13 +61,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> List[str]:
-        return list(
-            dict.fromkeys(
-                origin.strip().rstrip("/")
-                for origin in self.cors_origins.split(",")
-                if origin.strip()
-            )
-        )
+        return parse_cors_origins(self.cors_origins)
 
 
 @lru_cache

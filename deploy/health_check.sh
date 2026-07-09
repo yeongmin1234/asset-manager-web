@@ -52,7 +52,7 @@ check_env_origin() {
 check_cors_origin() {
   origin="$1"
   headers="$LOG_DIR/health-cors.$$.tmp"
-  if ! curl -sSI -H "Origin: $origin" \
+  if ! curl -sSi -H "Origin: $origin" \
     "http://127.0.0.1:$BACKEND_PORT/network/status" > "$headers"; then
     echo "FAIL CORS request origin=$origin"
     rm -f "$headers"
