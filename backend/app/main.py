@@ -22,6 +22,7 @@ from app.api.routers import (
     server_operations,
     software,
     stats,
+    users,
     vendor_contacts,
     vehicle_insurance_histories,
     visitors,
@@ -89,3 +90,4 @@ app.include_router(network_status.router, dependencies=admin_only)
 app.include_router(network_credentials.router, dependencies=admin_only)
 app.include_router(server_operations.router, dependencies=admin_only)
 app.include_router(activity_logs.router, dependencies=admin_only)
+app.include_router(users.router, dependencies=admin_only)

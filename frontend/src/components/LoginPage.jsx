@@ -17,7 +17,7 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
         <h1>자산관리 시스템</h1>
         <p>계속하려면 계정으로 로그인하세요.</p>
         <form onSubmit={handleSubmit}>
-          <label>아이디
+          <label>ID
             <input autoComplete="username" autoFocus value={username} onChange={(event) => setUsername(event.target.value)} required />
           </label>
           <label>비밀번호

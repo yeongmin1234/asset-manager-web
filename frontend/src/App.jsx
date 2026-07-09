@@ -48,6 +48,7 @@ import StatsSummary from "./components/StatsSummary.jsx";
 import VehiclePage from "./components/VehiclePage.jsx";
 import VendorContactsPage from "./components/VendorContactsPage.jsx";
 import WorkManualPage from "./components/WorkManualPage.jsx";
+import UserManagementPage from "./components/UserManagementPage.jsx";
 import {
   ASSET_SORT_OPTIONS,
   SORT_VALUES,
@@ -112,6 +113,7 @@ const MENU_LABELS = {
   history: "변경 이력",
   "install-library": "설치자료실",
   scm: "SCM",
+  users: "사용자 관리",
   settings: "설정",
 };
 const USER_ALLOWED_SECTIONS = new Set([
@@ -984,6 +986,12 @@ function App({ currentUser, onLogout }) {
       return <ScmPage />;
     }
 
+    if (activeSection === "users") {
+      return isAdmin ? <UserManagementPage /> : (
+        <section className="access-denied-card"><h2>접근 권한이 없습니다.</h2></section>
+      );
+    }
+
     if (activeSection === "settings") {
       return (
         <SettingsPage
@@ -1104,13 +1112,14 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "network"
                 || activeSection === "install-library"
                 || activeSection === "scm"
+                || activeSection === "users"
                 ? "portal-content portal-content-wide"
                 : "portal-content"
           }
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>

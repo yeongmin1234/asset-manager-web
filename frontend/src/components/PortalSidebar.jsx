@@ -15,6 +15,7 @@ const MENU_ITEMS = [
   { id: "history", label: "변경 이력", icon: "◷" },
   { id: "install-library", label: "설치자료실", icon: "▩" },
   { id: "scm", label: "SCM", icon: "S" },
+  { id: "users", label: "사용자 관리", icon: "♙" },
   { id: "settings", label: "설정", icon: "⚙" },
 ];
 
@@ -37,7 +38,7 @@ const MENU_GROUPS = [
   },
   {
     title: "관리",
-    itemIds: ["excel", "stats", "history", "install-library", "scm", "settings"],
+    itemIds: ["excel", "stats", "history", "install-library", "scm", "users", "settings"],
   },
 ];
 const SIDEBAR_MENU_ORDER_STORAGE_KEY = "sidebar-menu-order-v1";

@@ -273,6 +273,29 @@ export async function getCurrentUser() {
   return request("/auth/me");
 }
 
+export async function getUsers() {
+  return request("/users");
+}
+
+export async function createUser(payload) {
+  return request("/users", { method: "POST", body: payload });
+}
+
+export async function updateUser(userId, payload) {
+  return request(`/users/${userId}`, { method: "PUT", body: payload });
+}
+
+export async function resetUserPassword(userId, password) {
+  return request(`/users/${userId}/reset-password`, {
+    method: "POST",
+    body: { password },
+  });
+}
+
+export async function deactivateUser(userId) {
+  return request(`/users/${userId}`, { method: "DELETE" });
+}
+
 export function getAuthToken() {
   if (typeof window === "undefined") {
     return "";
