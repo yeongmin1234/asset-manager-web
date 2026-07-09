@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,7 +15,7 @@ REQUIRED_CORS_ORIGINS = [
 ]
 
 
-def parse_cors_origins(value: str | None) -> List[str]:
+def parse_cors_origins(value: Optional[str]) -> List[str]:
     """Parse a plain comma-separated value without JSON list decoding."""
     if not value:
         return []
