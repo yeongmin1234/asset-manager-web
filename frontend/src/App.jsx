@@ -124,8 +124,6 @@ const USER_ALLOWED_SECTIONS = new Set([
 
 function App({ currentUser, onLogout }) {
   const isAdmin = currentUser?.role === "admin";
-  const [isSplashVisible, setIsSplashVisible] = useState(true);
-  const [isSplashExiting, setIsSplashExiting] = useState(false);
   const [backendStatus, setBackendStatus] = useState({
     backendOk: null,
     checkedAt: null,
@@ -236,20 +234,6 @@ function App({ currentUser, onLogout }) {
     }),
     [assets, sortValue],
   );
-
-  useEffect(() => {
-    const exitTimerId = window.setTimeout(() => {
-      setIsSplashExiting(true);
-    }, 2000);
-    const hideTimerId = window.setTimeout(() => {
-      setIsSplashVisible(false);
-    }, 2300);
-
-    return () => {
-      window.clearTimeout(exitTimerId);
-      window.clearTimeout(hideTimerId);
-    };
-  }, []);
 
   const loadAdminStatus = useCallback(async () => {
     try {
@@ -1037,25 +1021,6 @@ function App({ currentUser, onLogout }) {
 
   return (
     <>
-    {isSplashVisible && (
-      <section
-        className={isSplashExiting ? "app-splash app-splash-exit" : "app-splash"}
-        aria-label="앱 로딩 화면"
-      >
-        <div className="app-splash-content">
-          <div className="app-splash-emotion">
-            <h1>BALMUDA</h1>
-            <p className="app-splash-subtitle">너의 목소리, 빛이 되어 나를 채운다</p>
-          </div>
-          <span className="app-splash-divider" aria-hidden="true" />
-          <div className="app-splash-system">
-            <strong>The Limo Asset Manager</strong>
-            <span>흩어진 정보를 하나의 흐름으로 정리합니다</span>
-          </div>
-        </div>
-      </section>
-    )}
-
     <div className={isSidebarCollapsed ? "portal-shell portal-shell-sidebar-collapsed" : "portal-shell"}>
       <PortalSidebar
         activeSection={activeSection}
