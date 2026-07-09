@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.user import (
     UserAdminRead,
     UserCreate,
+    UserDeleteResponse,
     UserPasswordReset,
     UserUpdate,
 )
@@ -93,12 +94,12 @@ def reset_user_password(
     return user
 
 
-@router.delete("/{user_id}", response_model=UserAdminRead)
-def deactivate_user(
+@router.delete("/{user_id}", response_model=UserDeleteResponse)
+def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_admin: User = Depends(require_admin),
-) -> User:
+) -> UserDeleteResponse:
     user = _get_user_or_404(db, user_id)
     if user.id == current_admin.id:
         raise HTTPException(
@@ -107,10 +108,21 @@ def deactivate_user(
         )
     if user.role == "admin" and user.is_active:
         _ensure_another_active_admin(db, user.id)
-    user.is_active = False
-    db.commit()
-    db.refresh(user)
-    return user
+    deleted_user = UserDeleteResponse(
+        id=user.id,
+        username=user.username,
+        message="사용자 계정을 완전히 삭제했습니다.",
+    )
+    db.delete(user)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="연관 데이터가 있어 사용자를 삭제할 수 없습니다.",
+        ) from exc
+    return deleted_user
 
 
 def _get_user_or_404(db: Session, user_id: int) -> User:

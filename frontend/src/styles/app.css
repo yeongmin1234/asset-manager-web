@@ -9526,13 +9526,23 @@ button:disabled,
 
 /* Compact user management */
 .user-management-page {
+  align-content: start;
+  align-items: start;
+  align-self: start;
+  flex: none;
   gap: 12px;
+  grid-auto-rows: max-content;
+  height: auto;
+  min-height: 0;
 }
 
 .user-management-page .portal-screen-heading {
+  align-self: start;
+  flex: none;
+  height: auto;
   margin-bottom: 0;
   min-height: 0;
-  padding-block: 4px;
+  padding: 12px 16px;
 }
 
 .user-management-page .portal-screen-heading h2 {
@@ -9544,8 +9554,16 @@ button:disabled,
 }
 
 .user-create-panel {
+  align-content: start;
+  align-items: start;
+  align-self: start;
+  flex: none;
   gap: 8px;
+  grid-auto-rows: max-content;
   grid-template-columns: 1.05fr 1fr 1.25fr 110px 110px;
+  height: auto;
+  justify-content: start;
+  min-height: 0;
   padding: 12px;
 }
 
@@ -9557,7 +9575,11 @@ button:disabled,
 }
 
 .user-create-permissions {
+  align-self: start;
   grid-column: 1 / -1;
+  margin: 0;
+  min-height: 0;
+  padding: 0;
 }
 
 .user-create-permissions summary {
@@ -9568,10 +9590,53 @@ button:disabled,
   padding: 2px 0;
 }
 
+.user-create-permissions[open] summary {
+  margin-bottom: 8px;
+}
+
+.user-create-permissions .user-permission-grid {
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.user-management-page .user-table-wrap {
+  align-self: start;
+  height: auto;
+  margin-top: 0;
+  min-height: 0;
+}
+
 .user-table th,
 .user-table td {
   padding: 8px 10px;
+  text-align: center;
   vertical-align: middle;
+}
+
+.user-management-page .user-table th,
+.user-management-page .user-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.user-management-page .user-table tbody td:nth-child(2) input {
+  display: block;
+  margin: 0 auto;
+}
+
+.user-role-control {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.user-role-control select {
+  margin: 0;
 }
 
 .user-table input:not([type="checkbox"]),
@@ -9592,12 +9657,17 @@ button:disabled,
   align-items: center;
   display: inline-flex;
   font-size: 0.78rem;
-  gap: 5px;
+  gap: 6px;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 .user-actions {
+  align-items: center;
   flex-wrap: nowrap;
-  gap: 5px;
+  gap: 6px;
+  justify-content: center;
+  vertical-align: middle;
 }
 
 .user-actions button {
@@ -9605,6 +9675,7 @@ button:disabled,
   border: 1px solid #cbd5e1;
   color: #475569;
   font-size: 0.72rem;
+  height: 32px;
   min-height: 32px;
   padding: 5px 8px;
   white-space: nowrap;
@@ -9674,8 +9745,11 @@ button:disabled,
 }
 
 .user-permission-grid {
+  align-content: start;
+  align-items: start;
   display: grid;
   gap: 8px;
+  grid-auto-rows: auto;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -9687,8 +9761,9 @@ button:disabled,
   display: flex;
   font-size: 0.78rem;
   gap: 7px;
-  min-height: 36px;
-  padding: 7px 9px;
+  height: 40px;
+  min-height: 40px;
+  padding: 6px 9px;
 }
 
 .user-permission-modal-actions {
@@ -9712,6 +9787,61 @@ button:disabled,
   border-radius: 8px;
   color: #475569;
   padding: 6px 10px;
+}
+
+.user-delete-modal {
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+  display: grid;
+  gap: 18px;
+  max-width: 460px;
+  padding: 20px;
+  width: 100%;
+}
+
+.user-delete-modal h3,
+.user-delete-modal p {
+  margin: 0;
+}
+
+.user-delete-modal h3 {
+  color: #991b1b;
+  font-size: 1rem;
+}
+
+.user-delete-modal p {
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  margin-top: 8px;
+}
+
+.user-delete-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.user-delete-modal-actions button {
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 7px 12px;
+}
+
+.user-delete-modal-actions .ghost-button {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.user-delete-modal-actions .danger-button {
+  background: #b91c1c;
+  border: 1px solid #b91c1c;
+  color: #ffffff;
 }
 
 @media (max-width: 1366px) {

@@ -983,7 +983,7 @@ function App({ currentUser, onLogout }) {
     }
 
     if (activeSection === "users") {
-      return isAdmin ? <UserManagementPage /> : (
+      return isAdmin ? <UserManagementPage currentUser={currentUser} /> : (
         <section className="access-denied-card"><h2>접근 권한이 없습니다.</h2></section>
       );
     }

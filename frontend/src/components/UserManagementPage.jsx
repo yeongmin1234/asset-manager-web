@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   createUser,
-  deactivateUser,
+  deleteUser,
   getUsers,
   resetUserPassword,
   updateUser,
@@ -30,12 +30,13 @@ const EMPTY_CREATE_FORM = {
 };
 
 
-function UserManagementPage() {
+function UserManagementPage({ currentUser }) {
   const [users, setUsers] = useState([]);
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
   const [drafts, setDrafts] = useState({});
   const [resetPasswords, setResetPasswords] = useState({});
   const [permissionUserId, setPermissionUserId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [state, setState] = useState({ error: "", loading: true, message: "", savingId: null });
 
   const loadUsers = async () => {
@@ -100,16 +101,18 @@ function UserManagementPage() {
     setResetPasswords((current) => ({ ...current, [userId]: "" }));
   };
 
-  const handleDeactivate = (user) => {
-    const confirmed = window.confirm(
-      `${user.username} 계정을 삭제(비활성화)하시겠습니까?`,
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const deletedId = deleteTarget.id;
+    const success = await runAction(
+      () => deleteUser(deletedId),
+      "사용자 계정을 완전히 삭제했습니다.",
+      deletedId,
     );
-    if (!confirmed) return;
-    runAction(
-      () => deactivateUser(user.id),
-      "사용자를 삭제(비활성화)했습니다.",
-      user.id,
-    );
+    if (success) {
+      setDeleteTarget(null);
+      setPermissionUserId((current) => current === deletedId ? null : current);
+    }
   };
 
   const updateDraft = (userId, field, value) => {
@@ -144,7 +147,7 @@ function UserManagementPage() {
     <section className="user-management-page">
       <div className="portal-screen-heading">
         <h2>사용자 관리</h2>
-        <p>계정을 생성하고 권한, 활성 상태와 비밀번호를 관리합니다.</p>
+        <p>계정을 생성하고 권한, 활성 상태, 비밀번호와 계정 삭제를 관리합니다.</p>
       </div>
 
       <form className="user-create-panel" onSubmit={handleCreate}>
@@ -185,13 +188,28 @@ function UserManagementPage() {
           <tbody>
             {state.loading ? <tr><td colSpan="7">불러오는 중...</td></tr> : users.map((user) => {
               const draft = drafts[user.id] || user;
+              const activeAdminCount = users.filter(
+                (item) => item.role === "admin" && item.is_active,
+              ).length;
+              const isCurrentUser = user.id === currentUser?.id;
+              const isLastActiveAdmin =
+                user.role === "admin" && user.is_active && activeAdminCount <= 1;
+              const deleteDisabled =
+                state.savingId !== null || isCurrentUser || isLastActiveAdmin;
+              const deleteTitle = isCurrentUser
+                ? "현재 로그인한 본인 계정은 삭제할 수 없습니다."
+                : isLastActiveAdmin
+                  ? "마지막 남은 관리자 계정은 삭제할 수 없습니다."
+                  : "계정을 완전히 삭제합니다.";
               return (
                 <tr key={user.id}>
                   <td>{user.username}</td>
                   <td><input value={draft.name} onChange={(event) => updateDraft(user.id, "name", event.target.value)} /></td>
                   <td>
-                    <select value={draft.role} onChange={(event) => updateDraft(user.id, "role", event.target.value)}><option value="user">user</option><option value="admin">admin</option></select>
-                    {draft.role === "admin" ? <span className="all-access-badge">전체 권한</span> : null}
+                    <div className="user-role-control">
+                      <select value={draft.role} onChange={(event) => updateDraft(user.id, "role", event.target.value)}><option value="user">user</option><option value="admin">admin</option></select>
+                      {draft.role === "admin" ? <span className="all-access-badge">전체 권한</span> : null}
+                    </div>
                   </td>
                   <td><label className="user-status-toggle"><input type="checkbox" checked={draft.is_active} onChange={(event) => updateDraft(user.id, "is_active", event.target.checked)} /> {draft.is_active ? "활성" : "비활성"}</label></td>
                   <td>{formatDate(user.created_at)}</td>
@@ -201,7 +219,7 @@ function UserManagementPage() {
                     <button type="button" className="outline-button" onClick={() => setPermissionUserId(user.id)}>메뉴 권한</button>
                     <input type="password" minLength={8} autoComplete="new-password" placeholder="새 비밀번호" value={resetPasswords[user.id] || ""} onChange={(event) => setResetPasswords({ ...resetPasswords, [user.id]: event.target.value })} />
                     <button type="button" onClick={() => handleResetPassword(user.id)} disabled={state.savingId !== null || (resetPasswords[user.id] || "").length < 8}>초기화</button>
-                    <button type="button" className="danger-button" onClick={() => handleDeactivate(user)} disabled={state.savingId !== null || !user.is_active}>삭제(비활성)</button>
+                    <button type="button" className="danger-button" onClick={() => setDeleteTarget(user)} disabled={deleteDisabled} title={deleteTitle}>삭제</button>
                   </td>
                 </tr>
               );
@@ -235,6 +253,26 @@ function UserManagementPage() {
           </div>
         );
       })() : null}
+      {deleteTarget ? (
+        <div className="user-permission-modal-backdrop" role="presentation" onMouseDown={() => setDeleteTarget(null)}>
+          <section className="user-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="user-delete-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div>
+              <h3 id="user-delete-title">사용자 계정 완전 삭제</h3>
+              <p>
+                ID ‘<strong>{deleteTarget.username}</strong>’ 계정을 완전히 삭제하시겠습니까?
+                <br />
+                삭제 후 복구할 수 없습니다.
+              </p>
+            </div>
+            <div className="user-delete-modal-actions">
+              <button type="button" className="ghost-button" onClick={() => setDeleteTarget(null)} disabled={state.savingId !== null}>취소</button>
+              <button type="button" className="danger-button" onClick={handleDelete} disabled={state.savingId !== null}>
+                {state.savingId === deleteTarget.id ? "삭제 중..." : "완전 삭제"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

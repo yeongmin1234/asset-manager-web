@@ -80,3 +80,9 @@ class UserAdminRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserDeleteResponse(BaseModel):
+    id: int
+    username: str
+    message: str

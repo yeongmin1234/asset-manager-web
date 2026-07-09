@@ -292,7 +292,7 @@ export async function resetUserPassword(userId, password) {
   });
 }
 
-export async function deactivateUser(userId) {
+export async function deleteUser(userId) {
   return request(`/users/${userId}`, { method: "DELETE" });
 }
 
