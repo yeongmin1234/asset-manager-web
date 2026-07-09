@@ -19,19 +19,29 @@ STATIC_SERVER_SCRIPT="$ROOT_DIR/deploy/static_server.py"
 
 mkdir -p "$LOG_DIR"
 
-if [ ! -d "$DIST_DIR" ]; then
+if [ ! -f "$DIST_DIR/index.html" ]; then
   echo "Frontend dist not found: $DIST_DIR"
   echo "Build it first: cd frontend && npm run build"
+  exit 1
+fi
+
+if ! find "$DIST_DIR/assets" -maxdepth 1 -type f -name 'index-*.js' -print -quit 2>/dev/null | grep -q .; then
+  echo "Frontend JS bundle not found: $DIST_DIR/assets/index-*.js"
   exit 1
 fi
 
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-3010}"
 
-if command -v python3 >/dev/null 2>&1; then
+if command -v python3 >/dev/null 2>&1 &&
+   python3 -c 'import sys' >/dev/null 2>&1; then
   PYTHON_BIN="python3"
-else
+elif command -v python >/dev/null 2>&1 &&
+     python -c 'import sys' >/dev/null 2>&1; then
   PYTHON_BIN="python"
+else
+  echo "Working Python interpreter not found (python3/python)."
+  exit 1
 fi
 
 is_pid_running() {
@@ -74,6 +84,16 @@ is_port_in_use() {
   fi
 }
 
+show_port_owner() {
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$FRONTEND_PORT" -sTCP:LISTEN 2>/dev/null || true
+  elif command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | grep ":$FRONTEND_PORT " || true
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null | grep ":$FRONTEND_PORT " || true
+  fi
+}
+
 stop_frontend_port_owners() {
   if ! is_port_in_use; then
     return 0
@@ -106,7 +126,7 @@ stop_frontend_port_owners() {
 
   if is_port_in_use; then
     echo "Frontend port $FRONTEND_PORT is still in use after cleanup."
-    echo "Check with: sudo lsof -i :$FRONTEND_PORT"
+    show_port_owner
     exit 1
   fi
 }
@@ -137,4 +157,16 @@ if ! kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   exit 1
 fi
 
-echo "Frontend static server started. pid=$(cat "$PID_FILE"), port=$FRONTEND_PORT, log=$LOG_FILE"
+attempt=0
+while [ "$attempt" -lt 10 ]; do
+  if curl -fsS "http://127.0.0.1:$FRONTEND_PORT/" >/dev/null; then
+    echo "Frontend static server started. pid=$(cat "$PID_FILE"), port=$FRONTEND_PORT, dist=$DIST_DIR, log=$LOG_FILE"
+    exit 0
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
+
+echo "Frontend process started but did not respond on port $FRONTEND_PORT."
+show_port_owner
+exit 1

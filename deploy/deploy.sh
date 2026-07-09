@@ -1,19 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
-PULL_BEFORE_DEPLOY=false
-case "${1:-}" in
-  "")
-    ;;
-  --pull)
-    PULL_BEFORE_DEPLOY=true
-    ;;
-  *)
-    echo "Usage: $0 [--pull]"
-    echo "By default deploy uses the currently checked-out code without contacting GitHub."
-    exit 2
-    ;;
-esac
+if [ "$#" -ne 0 ]; then
+  echo "Usage: $0"
+  echo "This script never runs git pull; update the checkout before deploying."
+  exit 2
+fi
 
 DEFAULT_ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 ENV_FILE="${ASSET_MANAGER_ENV:-$DEFAULT_ROOT_DIR/deploy/.env}"
@@ -32,6 +24,19 @@ mkdir -p "$LOG_DIR"
 TMP_LOG="$LOG_DIR/deploy.$$.tmp"
 BUILD_LOG="$LOG_DIR/frontend-build.$$.tmp"
 trap 'rm -f "$TMP_LOG" "$BUILD_LOG"' EXIT
+
+show_port_owner() {
+  port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true
+  elif command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | grep ":$port " || true
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null | grep ":$port " || true
+  else
+    echo "Port owner tools unavailable (lsof/ss/netstat)."
+  fi
+}
 
 check_url() {
   label="$1"
@@ -90,15 +95,50 @@ verify_frontend_bundle() {
   echo "Built frontend bundle:  $expected_bundle"
   echo "Served frontend bundle: $served_bundle"
 
-  if grep -q "$expected_bundle" "$served_index"; then
+  if [ -n "$served_bundle" ] && [ "$expected_bundle" = "$served_bundle" ]; then
     echo "OK  Frontend served bundle $expected_bundle"
     rm -f "$served_index"
     return 0
   fi
 
   echo "FAIL Frontend served index does not reference built bundle $expected_bundle"
+  echo "Frontend pid: $(cat "$LOG_DIR/frontend.pid" 2>/dev/null || echo missing)"
+  echo "Frontend dist: $ROOT_DIR/frontend/dist"
+  echo "Current commit: $(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  echo "Port ${FRONTEND_PORT:-3010} owner:"
+  show_port_owner "${FRONTEND_PORT:-3010}"
   rm -f "$served_index"
   return 1
+}
+
+check_frontend_artifacts() {
+  dist_dir="$ROOT_DIR/frontend/dist"
+  index_file="$dist_dir/index.html"
+  if [ ! -f "$index_file" ]; then
+    echo "FAIL Missing frontend build index: $index_file"
+    return 1
+  fi
+
+  bundle="$(get_frontend_bundle "$index_file")"
+  if [ -z "$bundle" ] || [ ! -f "$dist_dir/$bundle" ]; then
+    echo "FAIL Missing frontend JS bundle referenced by $index_file: $bundle"
+    return 1
+  fi
+
+  if grep -R -E "BALMUDA|app-splash|너의 목소리" "$dist_dir" >/dev/null 2>&1; then
+    echo "FAIL Removed intro content remains in frontend/dist."
+    grep -R -l -E "BALMUDA|app-splash|너의 목소리" "$dist_dir" || true
+    return 1
+  fi
+
+  if grep -R -F "192.168.222.210:8010" "$dist_dir" >/dev/null 2>&1; then
+    echo "FAIL Fixed internal API URL remains in frontend/dist."
+    grep -R -l -F "192.168.222.210:8010" "$dist_dir" || true
+    return 1
+  fi
+
+  echo "OK  Frontend artifact checks"
+  echo "Built frontend bundle: $bundle"
 }
 
 restore_package_lock_if_only_dirty() {
@@ -190,20 +230,14 @@ run_deploy() {
 
   echo "== Current checkout =="
   cd "$ROOT_DIR"
+  if [ ! -f "$ROOT_DIR/frontend/package.json" ] ||
+     [ ! -f "$ROOT_DIR/backend/app/main.py" ]; then
+    echo "FAIL Invalid project root: $ROOT_DIR"
+    return 1
+  fi
   git status --short
   restore_package_lock_if_only_dirty "Checking working tree before deploy." || return 1
-  if [ "$PULL_BEFORE_DEPLOY" = true ]; then
-    echo "Pull requested: running git pull --ff-only."
-    if ! git pull --ff-only; then
-      echo "FAIL git pull --ff-only."
-      echo "GitHub authentication may not be available in the current sudo environment."
-      echo "Run git pull as the repository owner, then retry without --pull:"
-      echo "  sudo deploy/deploy.sh"
-      return 1
-    fi
-  else
-    echo "Skipping git pull; deploying the currently checked-out code."
-  fi
+  echo "Git pull is disabled; deploying the currently checked-out code."
   echo "Current commit:"
   git log -1 --oneline || return 1
 
@@ -226,9 +260,15 @@ run_deploy() {
   else
     npm install || return 1
   fi
+  dist_dir="$ROOT_DIR/frontend/dist"
+  if [ "$dist_dir" != "$ROOT_DIR/frontend/dist" ]; then
+    echo "FAIL Unsafe frontend dist path: $dist_dir"
+    return 1
+  fi
+  echo "Removing previous frontend dist: $dist_dir"
+  rm -rf -- "$dist_dir" || return 1
   run_frontend_build || return 1
-  echo "Built frontend bundle:"
-  get_frontend_bundle "$ROOT_DIR/frontend/dist/index.html" || return 1
+  check_frontend_artifacts || return 1
 
   echo "== Restart services =="
   "$ROOT_DIR/deploy/stop_all.sh" || return 1
@@ -245,6 +285,9 @@ run_deploy() {
   check_url "Backend health" "http://127.0.0.1:8010/health" || return 1
   check_url "Backend DB health" "http://127.0.0.1:8010/health/db" || return 1
   check_url "Frontend" "http://127.0.0.1:3010" || return 1
+  echo "== Deployment complete =="
+  echo "Frontend: http://127.0.0.1:3010"
+  echo "Backend:  http://127.0.0.1:8010"
 }
 
 if run_deploy > "$TMP_LOG" 2>&1; then

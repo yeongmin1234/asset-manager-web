@@ -82,8 +82,33 @@ check_frontend_bundle() {
     echo "OK  Frontend bundle matches"
   else
     echo "FAIL Frontend is not serving the current dist"
+    echo "Frontend pid: $(cat "$LOG_DIR/frontend.pid" 2>/dev/null || echo missing)"
+    echo "Frontend dist: $ROOT_DIR/frontend/dist"
+    echo "Current commit: $(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    if command -v lsof >/dev/null 2>&1; then
+      lsof -nP -iTCP:"${FRONTEND_PORT:-3010}" -sTCP:LISTEN 2>/dev/null || true
+    elif command -v ss >/dev/null 2>&1; then
+      ss -ltnp 2>/dev/null | grep ":${FRONTEND_PORT:-3010} " || true
+    fi
     return 1
   fi
+}
+
+check_frontend_cache_headers() {
+  headers="$LOG_DIR/frontend-cache.$$.tmp"
+  if ! curl -sSI "$FRONTEND_URL/" > "$headers"; then
+    echo "FAIL Cannot inspect frontend cache headers"
+    rm -f "$headers"
+    return 1
+  fi
+  if tr -d '\r' < "$headers" | grep -i -q '^Cache-Control:.*no-store'; then
+    echo "OK  Frontend index cache disabled"
+    rm -f "$headers"
+    return 0
+  fi
+  echo "FAIL Frontend index.html is missing Cache-Control no-store"
+  rm -f "$headers"
+  return 1
 }
 
 run_checks() {
@@ -98,6 +123,7 @@ run_checks() {
   check_url "Backend" "$BACKEND_HEALTH_URL" || return 1
   check_url "Database" "$BACKEND_DB_HEALTH_URL" || return 1
   check_frontend_bundle || return 1
+  check_frontend_cache_headers || return 1
   check_cors_origin "http://192.168.222.210:3010" || return 1
   check_cors_origin "http://112.216.230.162:3010" || return 1
 }
