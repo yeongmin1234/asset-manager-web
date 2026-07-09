@@ -1,7 +1,11 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -31,7 +35,9 @@ class Settings(BaseSettings):
     scm_mariadb_restart_enabled: bool = False
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Resolve backend/.env independently of the directory uvicorn was
+        # launched from (project root, backend/, systemd, or a NAS script).
+        env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -39,11 +45,13 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> List[str]:
-        return [
-            origin.strip()
-            for origin in self.cors_origins.split(",")
-            if origin.strip()
-        ]
+        return list(
+            dict.fromkeys(
+                origin.strip().rstrip("/")
+                for origin in self.cors_origins.split(",")
+                if origin.strip()
+            )
+        )
 
 
 @lru_cache

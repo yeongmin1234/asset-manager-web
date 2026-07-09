@@ -26,11 +26,6 @@ BACKEND_DIR="$ROOT_DIR/backend"
 
 mkdir -p "$LOG_DIR"
 
-if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-  echo "Backend is already running. pid=$(cat "$PID_FILE")"
-  exit 0
-fi
-
 if [ ! -d "$BACKEND_DIR/.venv" ]; then
   echo "Backend venv not found: $BACKEND_DIR/.venv"
   echo "Create it first: cd backend && python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt"
@@ -40,9 +35,15 @@ fi
 BACKEND_HOST="${BACKEND_HOST:-${HOST:-0.0.0.0}}"
 BACKEND_PORT="${BACKEND_PORT:-${PORT:-8001}}"
 
+if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+  echo "Backend is already running. Restart it with deploy/stop_backend.sh before start."
+  exit 1
+fi
+
 cd "$BACKEND_DIR"
 . .venv/bin/activate
 
+echo "Backend CORS origins: ${CORS_ORIGINS:-<application defaults>}"
 nohup python -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" >> "$LOG_FILE" 2>&1 &
 echo "$!" > "$PID_FILE"
 echo "Backend started. pid=$(cat "$PID_FILE"), port=$BACKEND_PORT, log=$LOG_FILE"

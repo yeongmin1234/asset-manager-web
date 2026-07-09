@@ -30,6 +30,28 @@ check_url() {
   fi
 }
 
+check_cors_origin() {
+  origin="$1"
+  url="http://127.0.0.1:${BACKEND_PORT:-8010}/network/status"
+  headers="$LOG_DIR/cors-headers.$$.tmp"
+  # HEAD may legitimately return 405 for a GET-only FastAPI route; CORS
+  # middleware must still attach the allow-origin header to that response.
+  if ! curl -sSI -H "Origin: $origin" "$url" > "$headers"; then
+    echo "FAIL CORS request origin=$origin url=$url"
+    rm -f "$headers"
+    return 1
+  fi
+  if tr -d '\r' < "$headers" | grep -i -q "^access-control-allow-origin: $origin$"; then
+    echo "OK  CORS origin=$origin"
+    rm -f "$headers"
+    return 0
+  fi
+  echo "FAIL Missing access-control-allow-origin for $origin"
+  cat "$headers"
+  rm -f "$headers"
+  return 1
+}
+
 get_frontend_bundle() {
   index_file="$1"
   sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' "$index_file" | head -n 1
@@ -210,6 +232,8 @@ run_deploy() {
 
   echo "== Health check =="
   "$ROOT_DIR/deploy/health_check.sh" || return 1
+  check_cors_origin "http://192.168.222.210:3010" || return 1
+  check_cors_origin "http://112.216.230.162:3010" || return 1
   verify_frontend_bundle || return 1
 
   echo "== Direct endpoint check =="
