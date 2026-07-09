@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -12,6 +14,7 @@ class UserRead(BaseModel):
     name: str
     role: str
     is_active: bool
+    menu_permissions: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

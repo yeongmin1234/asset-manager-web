@@ -9524,6 +9524,213 @@ button:disabled,
   .user-create-panel { grid-template-columns: 1fr; }
 }
 
+/* Compact user management */
+.user-management-page {
+  gap: 12px;
+}
+
+.user-management-page .portal-screen-heading {
+  margin-bottom: 0;
+  min-height: 0;
+  padding-block: 4px;
+}
+
+.user-management-page .portal-screen-heading h2 {
+  margin-bottom: 3px;
+}
+
+.user-management-page .portal-screen-heading p {
+  margin: 0;
+}
+
+.user-create-panel {
+  gap: 8px;
+  grid-template-columns: 1.05fr 1fr 1.25fr 110px 110px;
+  padding: 12px;
+}
+
+.user-create-panel input,
+.user-create-panel select,
+.user-create-panel button {
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.user-create-permissions {
+  grid-column: 1 / -1;
+}
+
+.user-create-permissions summary {
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 0;
+}
+
+.user-table th,
+.user-table td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.user-table input:not([type="checkbox"]),
+.user-table select {
+  box-sizing: border-box;
+  height: 34px;
+  padding: 6px 8px;
+}
+
+.user-table input[type="checkbox"],
+.user-permission-grid input[type="checkbox"] {
+  height: 15px;
+  margin: 0;
+  width: 15px;
+}
+
+.user-status-toggle {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.78rem;
+  gap: 5px;
+}
+
+.user-actions {
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+
+.user-actions button {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 0.72rem;
+  min-height: 32px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.user-actions button:hover {
+  background: #f8fafc;
+}
+
+.user-actions .danger-button {
+  background: #fff;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.user-actions input {
+  max-width: 122px;
+}
+
+.all-access-badge {
+  background: #ecfdf5;
+  border-radius: 999px;
+  color: #047857;
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-left: 5px;
+  padding: 3px 6px;
+}
+
+.user-permission-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.user-permission-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+  max-width: 620px;
+  padding: 20px;
+  width: 100%;
+}
+
+.user-permission-modal-heading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.user-permission-modal-heading h3,
+.user-permission-modal-heading p {
+  margin: 0;
+}
+
+.user-permission-modal-heading p {
+  color: #64748b;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.user-permission-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.user-permission-grid label {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  font-size: 0.78rem;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 9px;
+}
+
+.user-permission-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.user-permission-modal-actions button {
+  background: #2563eb;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+  padding: 8px 13px;
+}
+
+.user-permission-modal .ghost-button {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  padding: 6px 10px;
+}
+
+@media (max-width: 1366px) {
+  .user-create-panel {
+    grid-template-columns: 1fr 1fr 1.2fr 100px 100px;
+  }
+
+  .user-actions input {
+    max-width: 108px;
+  }
+}
+
+@media (max-width: 900px) {
+  .user-create-panel,
+  .user-permission-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* Selection-control hardening: tabs/filters use lines, never filled primary blue. */
 .asset-location-tabs .asset-location-tab,
 .asset-category-tabs .category-tab,

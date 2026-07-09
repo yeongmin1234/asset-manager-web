@@ -116,16 +116,12 @@ const MENU_LABELS = {
   users: "사용자 관리",
   settings: "설정",
 };
-const USER_ALLOWED_SECTIONS = new Set([
-  "dashboard",
-  "assets",
-  "beverage-orders",
-  "work-manuals",
-  "vendor-contacts",
-]);
-
 function App({ currentUser, onLogout }) {
   const isAdmin = currentUser?.role === "admin";
+  const allowedSections = useMemo(
+    () => new Set(currentUser?.menu_permissions || []),
+    [currentUser?.menu_permissions],
+  );
   const [backendStatus, setBackendStatus] = useState({
     backendOk: null,
     checkedAt: null,
@@ -615,7 +611,7 @@ function App({ currentUser, onLogout }) {
       activity: "history",
     };
     const nextSection = sectionMap[sectionId] || sectionId;
-    if (!isAdmin && !USER_ALLOWED_SECTIONS.has(nextSection)) {
+    if (!isAdmin && !allowedSections.has(nextSection)) {
       setAccessDeniedSection(nextSection);
       setActiveSection(nextSection);
       return;
@@ -1034,7 +1030,7 @@ function App({ currentUser, onLogout }) {
         activeSection={activeSection}
         collapsed={isSidebarCollapsed}
         menuVisibility={menuVisibility}
-        allowedMenuIds={isAdmin ? null : Array.from(USER_ALLOWED_SECTIONS)}
+        allowedMenuIds={isAdmin ? null : Array.from(allowedSections)}
         onNavigate={handleNavigate}
       />
 

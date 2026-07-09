@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
 import bcrypt
 import jwt
@@ -82,6 +82,31 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
             detail="접근 권한이 없습니다.",
         )
     return user
+
+
+def require_menu_permission(*permissions: str):
+    required_permissions: Tuple[str, ...] = tuple(permissions)
+
+    def dependency(
+        request: Request,
+        user: User = Depends(get_current_user),
+    ) -> User:
+        if user.role == "admin":
+            return user
+        user_permissions = set(user.menu_permissions or [])
+        if not user_permissions.intersection(required_permissions):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="이 메뉴에 접근할 권한이 없습니다.",
+            )
+        if request.method.upper() not in SAFE_METHODS:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="관리자만 데이터를 변경할 수 있습니다.",
+            )
+        return user
+
+    return dependency
 
 
 def _get_jwt_secret() -> str:

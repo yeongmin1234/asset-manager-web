@@ -36,6 +36,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
         name=payload.name,
         password_hash=hash_password(payload.password),
         role=payload.role,
+        menu_permissions=payload.menu_permissions,
         is_active=True,
     )
     db.add(user)
@@ -67,6 +68,7 @@ def update_user(
     user.name = payload.name
     user.role = payload.role
     user.is_active = payload.is_active
+    user.menu_permissions = payload.menu_permissions
     db.commit()
     db.refresh(user)
     return user
