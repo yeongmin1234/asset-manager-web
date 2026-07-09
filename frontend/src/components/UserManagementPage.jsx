@@ -39,20 +39,24 @@ function UserManagementPage({ currentUser }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [state, setState] = useState({ error: "", loading: true, message: "", savingId: null });
 
+  const applyUsers = (items) => {
+    setUsers(items);
+    setDrafts(Object.fromEntries(items.map((user) => [
+      user.id,
+      {
+        name: user.name,
+        role: user.role,
+        is_active: user.is_active,
+        menu_permissions: user.menu_permissions || [],
+      },
+    ])));
+  };
+
   const loadUsers = async () => {
     setState((current) => ({ ...current, error: "", loading: true }));
     try {
       const items = await getUsers();
-      setUsers(items);
-      setDrafts(Object.fromEntries(items.map((user) => [
-        user.id,
-        {
-          name: user.name,
-          role: user.role,
-          is_active: user.is_active,
-          menu_permissions: user.menu_permissions || [],
-        },
-      ])));
+      applyUsers(items);
       setState((current) => ({ ...current, loading: false }));
     } catch (error) {
       setState((current) => ({ ...current, error: error.message, loading: false }));
@@ -104,15 +108,54 @@ function UserManagementPage({ currentUser }) {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     const deletedId = deleteTarget.id;
-    const success = await runAction(
-      () => deleteUser(deletedId),
-      "사용자 계정을 완전히 삭제했습니다.",
-      deletedId,
-    );
-    if (success) {
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    setState((current) => ({
+      ...current,
+      error: "",
+      message: "",
+      savingId: deletedId,
+    }));
+    try {
+      await deleteUser(deletedId);
+      setUsers((current) => current.filter((user) => user.id !== deletedId));
+      setDrafts((current) => omitKey(current, deletedId));
+      setResetPasswords((current) => omitKey(current, deletedId));
       setDeleteTarget(null);
       setPermissionUserId((current) => current === deletedId ? null : current);
+      setState((current) => ({
+        ...current,
+        loading: false,
+        message: "사용자 계정을 완전히 삭제했습니다.",
+        savingId: null,
+      }));
+      window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+
+      try {
+        const refreshedUsers = await getUsers();
+        applyUsers(refreshedUsers);
+      } catch (refreshError) {
+        setState((current) => ({
+          ...current,
+          error: `삭제는 완료됐지만 목록 재확인에 실패했습니다. ${formatApiError(refreshError)}`,
+        }));
+      }
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        error: formatApiError(error),
+        savingId: null,
+      }));
     }
+  };
+
+  const requestDelete = (user, protectionReason) => {
+    setState((current) => ({ ...current, error: "", message: "" }));
+    if (protectionReason) {
+      setState((current) => ({ ...current, error: protectionReason }));
+      return;
+    }
+    setDeleteTarget(user);
   };
 
   const updateDraft = (userId, field, value) => {
@@ -158,7 +201,7 @@ function UserManagementPage({ currentUser }) {
           <option value="user">user</option>
           <option value="admin">admin</option>
         </select>
-        <button type="submit" disabled={state.savingId !== null}>사용자 생성</button>
+        <button type="submit" className="user-create-submit" disabled={state.savingId !== null}>사용자 생성</button>
         <details className="user-create-permissions">
           <summary>기본 메뉴 권한</summary>
           <div className="user-permission-grid">
@@ -194,13 +237,12 @@ function UserManagementPage({ currentUser }) {
               const isCurrentUser = user.id === currentUser?.id;
               const isLastActiveAdmin =
                 user.role === "admin" && user.is_active && activeAdminCount <= 1;
-              const deleteDisabled =
-                state.savingId !== null || isCurrentUser || isLastActiveAdmin;
-              const deleteTitle = isCurrentUser
+              const deleteProtectionReason = isCurrentUser
                 ? "현재 로그인한 본인 계정은 삭제할 수 없습니다."
                 : isLastActiveAdmin
-                  ? "마지막 남은 관리자 계정은 삭제할 수 없습니다."
-                  : "계정을 완전히 삭제합니다.";
+                  ? "마지막 관리자 계정은 삭제할 수 없습니다."
+                  : "";
+              const deleteTitle = deleteProtectionReason || "계정을 완전히 삭제합니다.";
               return (
                 <tr key={user.id}>
                   <td>{user.username}</td>
@@ -219,7 +261,16 @@ function UserManagementPage({ currentUser }) {
                     <button type="button" className="outline-button" onClick={() => setPermissionUserId(user.id)}>메뉴 권한</button>
                     <input type="password" minLength={8} autoComplete="new-password" placeholder="새 비밀번호" value={resetPasswords[user.id] || ""} onChange={(event) => setResetPasswords({ ...resetPasswords, [user.id]: event.target.value })} />
                     <button type="button" onClick={() => handleResetPassword(user.id)} disabled={state.savingId !== null || (resetPasswords[user.id] || "").length < 8}>초기화</button>
-                    <button type="button" className="danger-button" onClick={() => setDeleteTarget(user)} disabled={deleteDisabled} title={deleteTitle}>삭제</button>
+                    <button
+                      type="button"
+                      className={`danger-button${deleteProtectionReason ? " is-protected" : ""}`}
+                      onClick={() => requestDelete(user, deleteProtectionReason)}
+                      disabled={state.savingId !== null}
+                      aria-disabled={Boolean(deleteProtectionReason)}
+                      title={deleteTitle}
+                    >
+                      {state.savingId === user.id ? "삭제 중..." : "삭제"}
+                    </button>
                   </td>
                 </tr>
               );
@@ -254,7 +305,9 @@ function UserManagementPage({ currentUser }) {
         );
       })() : null}
       {deleteTarget ? (
-        <div className="user-permission-modal-backdrop" role="presentation" onMouseDown={() => setDeleteTarget(null)}>
+        <div className="user-permission-modal-backdrop" role="presentation" onMouseDown={() => {
+          if (state.savingId === null) setDeleteTarget(null);
+        }}>
           <section className="user-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="user-delete-title" onMouseDown={(event) => event.stopPropagation()}>
             <div>
               <h3 id="user-delete-title">사용자 계정 완전 삭제</h3>
@@ -281,6 +334,17 @@ function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("ko-KR");
+}
+
+function formatApiError(error) {
+  const statusText = error?.status ? `HTTP ${error.status}: ` : "";
+  return `${statusText}${error?.message || "요청 처리 중 오류가 발생했습니다."}`;
+}
+
+function omitKey(object, key) {
+  const next = { ...object };
+  delete next[key];
+  return next;
 }
 
 export default UserManagementPage;

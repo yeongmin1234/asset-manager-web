@@ -104,10 +104,14 @@ def delete_user(
     if user.id == current_admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="현재 로그인한 관리자 계정은 삭제할 수 없습니다.",
+            detail="현재 로그인 중인 계정은 삭제할 수 없습니다.",
         )
     if user.role == "admin" and user.is_active:
-        _ensure_another_active_admin(db, user.id)
+        _ensure_another_active_admin(
+            db,
+            user.id,
+            "마지막 관리자 계정은 삭제할 수 없습니다.",
+        )
     deleted_user = UserDeleteResponse(
         id=user.id,
         username=user.username,
@@ -122,6 +126,11 @@ def delete_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="연관 데이터가 있어 사용자를 삭제할 수 없습니다.",
         ) from exc
+    if db.scalar(select(User.id).where(User.id == user_id)) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="사용자 삭제 결과를 확인할 수 없습니다.",
+        )
     return deleted_user
 
 
@@ -135,7 +144,11 @@ def _get_user_or_404(db: Session, user_id: int) -> User:
     return user
 
 
-def _ensure_another_active_admin(db: Session, excluded_user_id: int) -> None:
+def _ensure_another_active_admin(
+    db: Session,
+    excluded_user_id: int,
+    detail: str = "마지막 남은 관리자 계정은 삭제하거나 권한을 변경할 수 없습니다.",
+) -> None:
     remaining_admin_count = db.scalar(
         select(func.count(User.id)).where(
             User.role == "admin",
@@ -146,5 +159,5 @@ def _ensure_another_active_admin(db: Session, excluded_user_id: int) -> None:
     if not remaining_admin_count:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="마지막 남은 관리자 계정은 삭제하거나 권한을 변경할 수 없습니다.",
+            detail=detail,
         )

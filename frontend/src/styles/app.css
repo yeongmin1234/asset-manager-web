@@ -9560,7 +9560,12 @@ button:disabled,
   flex: none;
   gap: 8px;
   grid-auto-rows: max-content;
-  grid-template-columns: 1.05fr 1fr 1.25fr 110px 110px;
+  grid-template-columns:
+    minmax(0, 1.05fr)
+    minmax(0, 1fr)
+    minmax(120px, 1.25fr)
+    110px
+    112px;
   height: auto;
   justify-content: start;
   min-height: 0;
@@ -9572,6 +9577,20 @@ button:disabled,
 .user-create-panel button {
   box-sizing: border-box;
   height: 40px;
+}
+
+.user-create-panel .user-create-submit {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  height: 40px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 112px;
+  padding: 0 18px;
+  white-space: nowrap;
 }
 
 .user-create-permissions {
@@ -9689,6 +9708,13 @@ button:disabled,
   background: #fff;
   border-color: #fecaca;
   color: #b91c1c;
+}
+
+.user-actions .danger-button.is-protected {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 .user-actions input {
@@ -9846,7 +9872,12 @@ button:disabled,
 
 @media (max-width: 1366px) {
   .user-create-panel {
-    grid-template-columns: 1fr 1fr 1.2fr 100px 100px;
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1fr)
+      minmax(100px, 1.2fr)
+      100px
+      112px;
   }
 
   .user-actions input {
