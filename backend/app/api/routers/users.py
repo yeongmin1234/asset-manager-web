@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -65,6 +65,12 @@ def update_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="현재 로그인한 관리자 계정의 권한 또는 활성 상태는 변경할 수 없습니다.",
         )
+    if (
+        user.role == "admin"
+        and user.is_active
+        and (payload.role != "admin" or not payload.is_active)
+    ):
+        _ensure_another_active_admin(db, user.id)
     user.name = payload.name
     user.role = payload.role
     user.is_active = payload.is_active
@@ -97,8 +103,10 @@ def deactivate_user(
     if user.id == current_admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="현재 로그인한 관리자 계정은 비활성화할 수 없습니다.",
+            detail="현재 로그인한 관리자 계정은 삭제할 수 없습니다.",
         )
+    if user.role == "admin" and user.is_active:
+        _ensure_another_active_admin(db, user.id)
     user.is_active = False
     db.commit()
     db.refresh(user)
@@ -113,3 +121,18 @@ def _get_user_or_404(db: Session, user_id: int) -> User:
             detail="사용자를 찾을 수 없습니다.",
         )
     return user
+
+
+def _ensure_another_active_admin(db: Session, excluded_user_id: int) -> None:
+    remaining_admin_count = db.scalar(
+        select(func.count(User.id)).where(
+            User.role == "admin",
+            User.is_active.is_(True),
+            User.id != excluded_user_id,
+        )
+    )
+    if not remaining_admin_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="마지막 남은 관리자 계정은 삭제하거나 권한을 변경할 수 없습니다.",
+        )

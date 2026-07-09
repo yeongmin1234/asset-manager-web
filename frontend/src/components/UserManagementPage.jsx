@@ -100,8 +100,17 @@ function UserManagementPage() {
     setResetPasswords((current) => ({ ...current, [userId]: "" }));
   };
 
-  const handleDeactivate = (userId) =>
-    runAction(() => deactivateUser(userId), "사용자를 비활성화했습니다.", userId);
+  const handleDeactivate = (user) => {
+    const confirmed = window.confirm(
+      `${user.username} 계정을 삭제(비활성화)하시겠습니까?`,
+    );
+    if (!confirmed) return;
+    runAction(
+      () => deactivateUser(user.id),
+      "사용자를 삭제(비활성화)했습니다.",
+      user.id,
+    );
+  };
 
   const updateDraft = (userId, field, value) => {
     setDrafts((current) => ({
@@ -192,7 +201,7 @@ function UserManagementPage() {
                     <button type="button" className="outline-button" onClick={() => setPermissionUserId(user.id)}>메뉴 권한</button>
                     <input type="password" minLength={8} autoComplete="new-password" placeholder="새 비밀번호" value={resetPasswords[user.id] || ""} onChange={(event) => setResetPasswords({ ...resetPasswords, [user.id]: event.target.value })} />
                     <button type="button" onClick={() => handleResetPassword(user.id)} disabled={state.savingId !== null || (resetPasswords[user.id] || "").length < 8}>초기화</button>
-                    <button type="button" className="danger-button" onClick={() => handleDeactivate(user.id)} disabled={state.savingId !== null || !user.is_active}>비활성화</button>
+                    <button type="button" className="danger-button" onClick={() => handleDeactivate(user)} disabled={state.savingId !== null || !user.is_active}>삭제(비활성)</button>
                   </td>
                 </tr>
               );
