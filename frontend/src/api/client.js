@@ -2,66 +2,19 @@ const DEFAULT_API_PORT = "8010";
 const AUTH_TOKEN_STORAGE_KEY = "assetManager.accessToken";
 
 function getApiBaseUrl() {
-  const configuredUrl = import.meta.env?.VITE_API_BASE_URL?.trim();
   const browserLocation =
     typeof window !== "undefined" ? window.location : undefined;
 
-  return resolveApiBaseUrl(configuredUrl, browserLocation);
+  return resolveApiBaseUrl(browserLocation);
 }
 
-export function resolveApiBaseUrl(configuredUrl, browserLocation) {
+export function resolveApiBaseUrl(browserLocation) {
   const browserHostname = browserLocation?.hostname || "";
-
-  if (browserHostname) {
-    const dynamicUrl =
-      `${browserLocation.protocol}//${browserHostname}:${DEFAULT_API_PORT}`;
-
-    if (!configuredUrl || configuredUrl.toLowerCase() === "auto") {
-      return dynamicUrl;
-    }
-
-    try {
-      const configuredHostname = new URL(configuredUrl).hostname;
-      if (
-        isPrivateOrLoopbackHostname(browserHostname) ||
-        isPrivateOrLoopbackHostname(configuredHostname)
-      ) {
-        return dynamicUrl;
-      }
-    } catch {
-      console.warn(
-        "[AssetManager API] Invalid VITE_API_BASE_URL; using browser hostname.",
-      );
-      return dynamicUrl;
-    }
+  if (!browserHostname) {
+    return "";
   }
-
-  if (configuredUrl && configuredUrl.toLowerCase() !== "auto") {
-    return configuredUrl.replace(/\/+$/, "");
-  }
-
-  return "";
-}
-
-function isPrivateOrLoopbackHostname(hostname) {
-  if (hostname === "localhost" || hostname === "::1") {
-    return true;
-  }
-
-  const octets = hostname.split(".").map(Number);
-  if (
-    octets.length !== 4 ||
-    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
-  ) {
-    return false;
-  }
-
-  return (
-    octets[0] === 10 ||
-    octets[0] === 127 ||
-    (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-    (octets[0] === 192 && octets[1] === 168)
-  );
+  const protocol = browserLocation.protocol || "http:";
+  return `${protocol}//${browserHostname}:${DEFAULT_API_PORT}`;
 }
 
 const API_BASE_URL = getApiBaseUrl();
