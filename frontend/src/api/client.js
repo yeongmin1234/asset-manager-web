@@ -1,16 +1,66 @@
 const DEFAULT_API_PORT = "8010";
 
 function getApiBaseUrl() {
-  const configuredUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  const configuredUrl = import.meta.env?.VITE_API_BASE_URL?.trim();
+  const browserLocation =
+    typeof window !== "undefined" ? window.location : undefined;
+
+  return resolveApiBaseUrl(configuredUrl, browserLocation);
+}
+
+export function resolveApiBaseUrl(configuredUrl, browserLocation) {
+  const browserHostname = browserLocation?.hostname || "";
+
+  if (browserHostname) {
+    const dynamicUrl =
+      `${browserLocation.protocol}//${browserHostname}:${DEFAULT_API_PORT}`;
+
+    if (!configuredUrl || configuredUrl.toLowerCase() === "auto") {
+      return dynamicUrl;
+    }
+
+    try {
+      const configuredHostname = new URL(configuredUrl).hostname;
+      if (
+        isPrivateOrLoopbackHostname(browserHostname) ||
+        isPrivateOrLoopbackHostname(configuredHostname)
+      ) {
+        return dynamicUrl;
+      }
+    } catch {
+      console.warn(
+        "[AssetManager API] Invalid VITE_API_BASE_URL; using browser hostname.",
+      );
+      return dynamicUrl;
+    }
+  }
+
   if (configuredUrl && configuredUrl.toLowerCase() !== "auto") {
     return configuredUrl.replace(/\/+$/, "");
   }
 
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_API_PORT}`;
+  return "";
+}
+
+function isPrivateOrLoopbackHostname(hostname) {
+  if (hostname === "localhost" || hostname === "::1") {
+    return true;
   }
 
-  return "";
+  const octets = hostname.split(".").map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return false;
+  }
+
+  return (
+    octets[0] === 10 ||
+    octets[0] === 127 ||
+    (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+    (octets[0] === 192 && octets[1] === 168)
+  );
 }
 
 const API_BASE_URL = getApiBaseUrl();
