@@ -9368,6 +9368,114 @@ button:disabled,
   padding: 0;
   text-align: left;
 }
+
+/* Header account actions */
+.portal-topbar-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.portal-topbar-actions .portal-alert-button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  color: #475569;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 600;
+  height: 38px;
+  justify-content: center;
+  min-width: 58px;
+  padding: 0 13px;
+}
+
+.portal-topbar-actions .portal-alert-button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.portal-header-action-divider {
+  background: #e2e8f0;
+  height: 28px;
+  margin: 0 2px;
+  width: 1px;
+}
+
+.portal-header-profile {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  display: grid;
+  gap: 1px;
+  min-width: 132px;
+  padding: 7px 12px;
+}
+
+.portal-header-profile strong {
+  color: #1e293b;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portal-header-profile span {
+  color: #64748b;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.portal-header-logout-button {
+  background: transparent;
+  border: 1px solid #dbe2ea;
+  border-radius: 9px;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  height: 34px;
+  padding: 0 11px;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.portal-header-logout-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+@media (max-width: 1366px) {
+  .portal-topbar-actions {
+    gap: 7px;
+  }
+
+  .portal-header-profile {
+    min-width: 112px;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .portal-header-profile span {
+    display: none;
+  }
+
+  .portal-header-profile {
+    align-items: center;
+    min-width: 0;
+    padding-block: 10px;
+  }
+
+  .portal-header-action-divider {
+    margin-inline: 0;
+  }
+}
 .access-denied-card {
   background: #fff;
   border: 1px solid #fecaca;

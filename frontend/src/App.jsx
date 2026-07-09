@@ -1088,11 +1088,18 @@ function App({ currentUser, onLogout }) {
                 />
               ) : null}
             </div>
-            <div className="portal-user">
+            <span className="portal-header-action-divider" aria-hidden="true" />
+            <div className="portal-header-profile" aria-label="현재 사용자">
               <strong>{currentUser?.name}</strong>
               <span>{isAdmin ? "Administrator" : "User"}</span>
-              <button type="button" className="portal-logout-button" onClick={onLogout}>로그아웃</button>
             </div>
+            <button
+              type="button"
+              className="portal-header-logout-button"
+              onClick={onLogout}
+            >
+              로그아웃
+            </button>
           </div>
         </header>
 
