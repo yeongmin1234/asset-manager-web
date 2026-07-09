@@ -19,6 +19,9 @@ mkdir -p "$LOG_DIR"
 FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:3010}"
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://127.0.0.1:8001/health}"
 BACKEND_DB_HEALTH_URL="${BACKEND_DB_HEALTH_URL:-http://127.0.0.1:8001/health/db}"
+BACKEND_PORT="${BACKEND_PORT:-8010}"
+BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
+DIST_INDEX="$ROOT_DIR/frontend/dist/index.html"
 
 check_url() {
   label="$1"
@@ -31,9 +34,82 @@ check_url() {
   fi
 }
 
-{
+get_bundle() {
+  sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' | head -n 1
+}
+
+check_env_origin() {
+  origin="$1"
+  if [ -f "$BACKEND_ENV_FILE" ] &&
+     grep -F "CORS_ORIGINS=" "$BACKEND_ENV_FILE" | grep -F -q "$origin"; then
+    echo "OK  backend/.env contains required origin: $origin"
+  else
+    echo "FAIL backend/.env missing required origin: $origin"
+    return 1
+  fi
+}
+
+check_cors_origin() {
+  origin="$1"
+  headers="$LOG_DIR/health-cors.$$.tmp"
+  if ! curl -sSI -H "Origin: $origin" \
+    "http://127.0.0.1:$BACKEND_PORT/network/status" > "$headers"; then
+    echo "FAIL CORS request origin=$origin"
+    rm -f "$headers"
+    return 1
+  fi
+  if tr -d '\r' < "$headers" |
+    grep -F -i -q "access-control-allow-origin: $origin"; then
+    echo "OK  CORS origin=$origin"
+    rm -f "$headers"
+    return 0
+  fi
+  echo "FAIL CORS header missing origin=$origin"
+  rm -f "$headers"
+  return 1
+}
+
+check_frontend_bundle() {
+  if [ ! -f "$DIST_INDEX" ]; then
+    echo "FAIL Built frontend index missing: $DIST_INDEX"
+    return 1
+  fi
+  built_bundle="$(get_bundle < "$DIST_INDEX")"
+  served_bundle="$(curl -fsS "$FRONTEND_URL/" | get_bundle)"
+  echo "Built frontend bundle:  $built_bundle"
+  echo "Served frontend bundle: $served_bundle"
+  if [ -n "$built_bundle" ] && [ "$built_bundle" = "$served_bundle" ]; then
+    echo "OK  Frontend bundle matches"
+  else
+    echo "FAIL Frontend is not serving the current dist"
+    return 1
+  fi
+}
+
+run_checks() {
   date
-  check_url "Frontend" "$FRONTEND_URL"
-  check_url "Backend" "$BACKEND_HEALTH_URL"
-  check_url "Database" "$BACKEND_DB_HEALTH_URL"
-} 2>&1 | tee -a "$LOG_FILE"
+  git -C "$ROOT_DIR" log -1 --oneline || return 1
+  check_env_origin "http://192.168.222.210:3010" || return 1
+  check_env_origin "http://112.216.230.162:3010" || return 1
+  check_env_origin "http://thelimo.asuscomm.com:3010" || return 1
+  check_env_origin "http://localhost:5173" || return 1
+  check_env_origin "http://localhost:3010" || return 1
+  check_url "Frontend" "$FRONTEND_URL" || return 1
+  check_url "Backend" "$BACKEND_HEALTH_URL" || return 1
+  check_url "Database" "$BACKEND_DB_HEALTH_URL" || return 1
+  check_frontend_bundle || return 1
+  check_cors_origin "http://192.168.222.210:3010" || return 1
+  check_cors_origin "http://112.216.230.162:3010" || return 1
+}
+
+TMP_LOG="$LOG_DIR/health-check.$$.tmp"
+trap 'rm -f "$TMP_LOG"' EXIT
+
+if run_checks > "$TMP_LOG" 2>&1; then
+  CHECK_STATUS=0
+else
+  CHECK_STATUS=$?
+fi
+
+tee -a "$LOG_FILE" < "$TMP_LOG"
+exit "$CHECK_STATUS"

@@ -46,4 +46,12 @@ cd "$BACKEND_DIR"
 echo "Backend CORS origins: ${CORS_ORIGINS:-<application defaults>}"
 nohup python -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" >> "$LOG_FILE" 2>&1 &
 echo "$!" > "$PID_FILE"
+
+sleep 1
+if ! kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+  echo "Backend failed to stay running. Check log=$LOG_FILE"
+  rm -f "$PID_FILE"
+  exit 1
+fi
+
 echo "Backend started. pid=$(cat "$PID_FILE"), port=$BACKEND_PORT, log=$LOG_FILE"

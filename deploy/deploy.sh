@@ -184,20 +184,6 @@ run_deploy() {
   echo "Current commit:"
   git log -1 --oneline || return 1
 
-  echo "== Database backup =="
-  BACKUP_SCRIPT="$ROOT_DIR/deploy/backup_db.sh"
-  if [ ! -f "$BACKUP_SCRIPT" ]; then
-    echo "Database backup script not found: $BACKUP_SCRIPT"
-    return 1
-  fi
-  if [ ! -x "$BACKUP_SCRIPT" ]; then
-    echo "Database backup script is not executable: $BACKUP_SCRIPT"
-    return 1
-  fi
-  echo "Starting database backup before migration."
-  "$BACKUP_SCRIPT" || return 1
-  echo "Database backup completed."
-
   echo "== Backend dependency check =="
   unset DATABASE_URL
   cd "$ROOT_DIR/backend"
@@ -209,10 +195,6 @@ run_deploy() {
 
   echo "== Backend compile check =="
   python -m compileall app || return 1
-
-  echo "== Database migration =="
-  alembic upgrade head || return 1
-  alembic current || return 1
 
   echo "== Frontend build =="
   cd "$ROOT_DIR/frontend"
