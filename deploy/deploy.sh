@@ -1,11 +1,21 @@
 #!/usr/bin/env sh
 set -eu
 
-if [ "$#" -ne 0 ]; then
-  echo "Usage: $0"
-  echo "This script never runs git pull; update the checkout before deploying."
-  exit 2
-fi
+DEPLOY_MODE="pull"
+case "${1:-}" in
+  "")
+    ;;
+  --no-pull)
+    DEPLOY_MODE="no-pull"
+    ;;
+  --check)
+    DEPLOY_MODE="check"
+    ;;
+  *)
+    echo "Usage: $0 [--no-pull|--check]"
+    exit 2
+    ;;
+esac
 
 DEFAULT_ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 ENV_FILE="${ASSET_MANAGER_ENV:-$DEFAULT_ROOT_DIR/deploy/.env}"
@@ -23,7 +33,8 @@ LOG_FILE="$LOG_DIR/deploy.log"
 mkdir -p "$LOG_DIR"
 TMP_LOG="$LOG_DIR/deploy.$$.tmp"
 BUILD_LOG="$LOG_DIR/frontend-build.$$.tmp"
-trap 'rm -f "$TMP_LOG" "$BUILD_LOG"' EXIT
+PULL_LOG="$LOG_DIR/git-pull.$$.tmp"
+trap 'rm -f "$TMP_LOG" "$BUILD_LOG" "$PULL_LOG"' EXIT
 
 show_port_owner() {
   port="$1"
@@ -72,6 +83,82 @@ check_cors_origin() {
 get_frontend_bundle() {
   index_file="$1"
   sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' "$index_file" | head -n 1
+}
+
+validate_project_root() {
+  if [ ! -f "$ROOT_DIR/frontend/package.json" ] ||
+     [ ! -f "$ROOT_DIR/backend/app/main.py" ]; then
+    echo "FAIL Invalid project root: $ROOT_DIR"
+    return 1
+  fi
+}
+
+print_checkout_status() {
+  echo "Project: $ROOT_DIR"
+  echo "Current commit:"
+  git -C "$ROOT_DIR" log -1 --oneline || return 1
+  echo "Git status:"
+  git -C "$ROOT_DIR" status --short || return 1
+}
+
+ensure_tracked_checkout_clean() {
+  tracked_status="$(git -C "$ROOT_DIR" status --porcelain --untracked-files=no)"
+  if [ -n "$tracked_status" ]; then
+    echo "FAIL Tracked files have local changes; deployment will not overwrite them."
+    printf '%s\n' "$tracked_status"
+    echo "Commit or stash the changes, then retry."
+    return 1
+  fi
+}
+
+pull_checkout() {
+  echo "== Git pull --ff-only =="
+  if git -C "$ROOT_DIR" pull --ff-only > "$PULL_LOG" 2>&1; then
+    cat "$PULL_LOG"
+    echo "OK  Git pull completed."
+    return 0
+  fi
+
+  cat "$PULL_LOG"
+  echo "FAIL git pull --ff-only; deployment stopped before build/restart."
+  if grep -E -i "authentication|could not read Username|terminal prompts disabled|permission denied|403|401" "$PULL_LOG" >/dev/null 2>&1; then
+    echo "Cause hint: GitHub authentication is unavailable for the current user/sudo environment."
+  elif grep -E -i "local changes|would be overwritten|not possible to fast-forward|divergent|conflict" "$PULL_LOG" >/dev/null 2>&1; then
+    echo "Cause hint: local changes or branch divergence prevent a safe fast-forward pull."
+  else
+    echo "Cause hint: inspect the Git output above (network, remote, authentication, or branch state)."
+  fi
+  echo "No reset, checkout, merge, build, or service restart was performed."
+  return 1
+}
+
+run_check_mode() {
+  echo "== Asset Manager deployment check =="
+  date
+  validate_project_root || return 1
+  print_checkout_status || return 1
+  echo "Deploy mode: check only (no pull/build/restart)"
+  echo "Port status:"
+  "$ROOT_DIR/deploy/check_ports.sh" || true
+  echo "Port 3010 owner:"
+  show_port_owner 3010
+  echo "Port 8010 owner:"
+  show_port_owner 8010
+
+  index_file="$ROOT_DIR/frontend/dist/index.html"
+  if [ -f "$index_file" ]; then
+    built_bundle="$(get_frontend_bundle "$index_file")"
+  else
+    built_bundle=""
+  fi
+  served_bundle="$(curl -fsS "http://127.0.0.1:${FRONTEND_PORT:-3010}/" 2>/dev/null | get_bundle_from_stdin || true)"
+  echo "Built frontend bundle:  ${built_bundle:-missing}"
+  echo "Served frontend bundle: ${served_bundle:-unavailable}"
+  echo "Frontend dist: $ROOT_DIR/frontend/dist"
+}
+
+get_bundle_from_stdin() {
+  sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' | head -n 1
 }
 
 verify_frontend_bundle() {
@@ -134,6 +221,12 @@ check_frontend_artifacts() {
   if grep -R -F "192.168.222.210:8010" "$dist_dir" >/dev/null 2>&1; then
     echo "FAIL Fixed internal API URL remains in frontend/dist."
     grep -R -l -F "192.168.222.210:8010" "$dist_dir" || true
+    return 1
+  fi
+
+  if grep -R -F "http://192.168.222.210" "$dist_dir" >/dev/null 2>&1; then
+    echo "FAIL Fixed internal API host remains in frontend/dist."
+    grep -R -l -F "http://192.168.222.210" "$dist_dir" || true
     return 1
   fi
 
@@ -226,20 +319,20 @@ run_frontend_build() {
 run_deploy() {
   echo "== Asset Manager direct deploy =="
   date
-  echo "Project: $ROOT_DIR"
 
   echo "== Current checkout =="
   cd "$ROOT_DIR"
-  if [ ! -f "$ROOT_DIR/frontend/package.json" ] ||
-     [ ! -f "$ROOT_DIR/backend/app/main.py" ]; then
-    echo "FAIL Invalid project root: $ROOT_DIR"
-    return 1
+  validate_project_root || return 1
+  print_checkout_status || return 1
+  ensure_tracked_checkout_clean || return 1
+  if [ "$DEPLOY_MODE" = "pull" ]; then
+    pull_checkout || return 1
+    echo "Checkout after pull:"
+    git log -1 --oneline || return 1
+    git status --short || return 1
+  else
+    echo "Git pull skipped by --no-pull; deploying the current checkout."
   fi
-  git status --short
-  restore_package_lock_if_only_dirty "Checking working tree before deploy." || return 1
-  echo "Git pull is disabled; deploying the currently checked-out code."
-  echo "Current commit:"
-  git log -1 --oneline || return 1
 
   echo "== Backend dependency check =="
   unset DATABASE_URL
@@ -290,7 +383,13 @@ run_deploy() {
   echo "Backend:  http://127.0.0.1:8010"
 }
 
-if run_deploy > "$TMP_LOG" 2>&1; then
+if [ "$DEPLOY_MODE" = "check" ]; then
+  if run_check_mode > "$TMP_LOG" 2>&1; then
+    DEPLOY_STATUS=0
+  else
+    DEPLOY_STATUS=$?
+  fi
+elif run_deploy > "$TMP_LOG" 2>&1; then
   DEPLOY_STATUS=0
 else
   DEPLOY_STATUS=$?
