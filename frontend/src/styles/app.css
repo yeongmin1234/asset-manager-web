@@ -9337,16 +9337,42 @@ button:disabled,
   width: 100%;
 }
 
-.login-card img { max-width: 210px; }
-.login-card h1 { color: #172033; margin: 28px 0 8px; }
-.login-card > p { color: #64748b; margin: 0 0 24px; }
+.login-brand {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+}
+.login-brand img { display: block; max-width: 210px; margin: 0 auto; }
+.login-brand h1 { color: #172033; margin: 28px 0 8px; text-align: center; }
+.login-brand p { color: #64748b; margin: 0 0 24px; text-align: center; }
 .login-card form, .login-card label { display: grid; gap: 8px; }
 .login-card form { gap: 18px; }
-.login-card input {
+.login-card input:not([type="checkbox"]) {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   font: inherit;
   padding: 12px 14px;
+}
+.login-card .login-remember {
+  align-items: center;
+  color: #475569;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.9rem;
+  font-weight: 600;
+  gap: 9px;
+  justify-content: flex-start;
+  width: fit-content;
+}
+.login-card .login-remember input[type="checkbox"] {
+  accent-color: #2563eb;
+  cursor: pointer;
+  height: 18px;
+  margin: 0;
+  min-height: 18px;
+  padding: 0;
+  width: 18px;
 }
 .login-card button, .access-denied-card button {
   background: #2563eb;
@@ -14150,10 +14176,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .expiration-summary-card {
-  border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #fff;
-  color: #172033;
   height: 96px;
   min-height: 0;
   padding: 12px 14px;
@@ -14164,7 +14187,6 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .expiration-summary-card span {
-  color: #667085;
   font-size: 12px;
 }
 
@@ -14232,18 +14254,8 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .expiration-status-tabs button {
-  border: 1px solid #d8dee8;
   border-radius: 999px;
-  background: #fff;
-  color: #344054;
   padding: 7px 10px;
-}
-
-.expiration-status-tabs button.active {
-  border-color: #98a2b3;
-  color: #172033;
-  background: #f2f4f7;
-  box-shadow: inset 0 0 0 1px #d0d5dd;
 }
 
 .expiration-filter-bar {
@@ -14654,7 +14666,6 @@ button[type="submit"]:not(.secondary-button):not(.caution-button):not(.danger-bu
 .export-button,
 .btn-secondary,
 .sidebar-edit-button,
-.expiration-status-tabs button,
 .asset-location-tab,
 .category-tab,
 .software-tab,
@@ -14679,7 +14690,6 @@ button[type="submit"]:not(.secondary-button):not(.caution-button):not(.danger-bu
 .export-button:not(:disabled):hover,
 .btn-secondary:not(:disabled):hover,
 .sidebar-edit-button:not(:disabled):hover,
-.expiration-status-tabs button:not(:disabled):hover,
 .asset-location-tab:not(:disabled):hover,
 .category-tab:not(:disabled):hover,
 .software-tab:not(:disabled):hover,
@@ -14699,8 +14709,6 @@ button[type="submit"]:not(.secondary-button):not(.caution-button):not(.danger-bu
   transform: none;
 }
 
-.expiration-status-tabs button.active,
-.expiration-status-tabs button.active:hover,
 .asset-location-tab.active,
 .asset-location-tab.active:hover,
 .category-tab.active,
@@ -14800,18 +14808,56 @@ button:disabled,
   transform: none !important;
 }
 
-.expiration-summary-card:not(:disabled):hover {
-  background: #f8fbff;
-  border-color: #bfdbfe;
-  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.07);
-  color: #172033;
+button.expiration-summary-card {
+  background: #ffffff !important;
+  border: 1px solid #dbe4ef !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.045) !important;
+  color: #334155 !important;
+}
+
+button.expiration-summary-card span {
+  color: #334155;
+  font-weight: 700;
+}
+
+button.expiration-summary-card strong {
+  color: #2563eb;
+}
+
+button.expiration-summary-card:not(:disabled):hover {
+  background: #f8fbff !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.07) !important;
+  color: #334155 !important;
   transform: translateY(-1px);
 }
 
-.expiration-status-tabs button {
+.expiration-status-tabs > button {
+  background: #ffffff !important;
+  border: 1px solid #bfdbfe !important;
+  box-shadow: none !important;
+  color: #2563eb !important;
   min-height: 34px;
   min-width: auto;
   padding: 7px 12px;
+}
+
+.expiration-status-tabs > button:not(:disabled):hover {
+  background: #eff6ff !important;
+  border-color: #60a5fa !important;
+  box-shadow: none !important;
+  color: #1d4ed8 !important;
+  transform: none;
+}
+
+.expiration-status-tabs > button.active,
+.expiration-status-tabs > button.active:hover {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  box-shadow: inset 0 -2px 0 rgba(37, 99, 235, 0.2) !important;
+  color: #1d4ed8 !important;
+  font-weight: 800;
+  transform: none;
 }
 
 @media (max-width: 640px) {
