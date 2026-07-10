@@ -14607,3 +14607,219 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
     flex-wrap: wrap;
   }
 }
+
+/* Unified button hierarchy: filled primary actions, light secondary controls. */
+button,
+.primary-action,
+.primary-button,
+.secondary-button,
+.outline-button,
+.ghost-button,
+.danger-button,
+.danger-outline-button,
+.danger-ghost-button,
+.caution-button,
+.export-button {
+  transition:
+    background-color 0.17s ease,
+    border-color 0.17s ease,
+    color 0.17s ease,
+    box-shadow 0.17s ease,
+    transform 0.17s ease;
+}
+
+.primary-action,
+.primary-button,
+.user-create-submit,
+button[type="submit"]:not(.secondary-button):not(.caution-button):not(.danger-button) {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.primary-action:not(:disabled):hover,
+.primary-button:not(:disabled):hover,
+.user-create-submit:not(:disabled):hover,
+button[type="submit"]:not(.secondary-button):not(.caution-button):not(.danger-button):not(:disabled):hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 5px 12px rgba(37, 99, 235, 0.16);
+  transform: translateY(-1px);
+}
+
+.secondary-button,
+.outline-button,
+.ghost-button,
+.export-button,
+.btn-secondary,
+.sidebar-edit-button,
+.expiration-status-tabs button,
+.asset-location-tab,
+.category-tab,
+.software-tab,
+.vehicle-page-tab,
+.vehicle-form-tab,
+.paju-fire-location-tab,
+.network-page-tab,
+.network-credential-category-chip,
+.work-manual-category-tab,
+.settings-access-tab,
+.settings-nav-item,
+.history-filter-tabs .history-filter-button {
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  box-shadow: none;
+  color: #2563eb;
+}
+
+.secondary-button:not(:disabled):hover,
+.outline-button:not(:disabled):hover,
+.ghost-button:not(:disabled):hover,
+.export-button:not(:disabled):hover,
+.btn-secondary:not(:disabled):hover,
+.sidebar-edit-button:not(:disabled):hover,
+.expiration-status-tabs button:not(:disabled):hover,
+.asset-location-tab:not(:disabled):hover,
+.category-tab:not(:disabled):hover,
+.software-tab:not(:disabled):hover,
+.vehicle-page-tab:not(:disabled):hover,
+.vehicle-form-tab:not(:disabled):hover,
+.paju-fire-location-tab:not(:disabled):hover,
+.network-page-tab:not(:disabled):hover,
+.network-credential-category-chip:not(:disabled):hover,
+.work-manual-category-tab:not(:disabled):hover,
+.settings-access-tab:not(:disabled):hover,
+.settings-nav-item:not(:disabled):hover,
+.history-filter-tabs .history-filter-button:not(:disabled):hover {
+  background: #eff6ff !important;
+  border-color: #60a5fa !important;
+  box-shadow: none;
+  color: #1d4ed8 !important;
+  transform: none;
+}
+
+.expiration-status-tabs button.active,
+.expiration-status-tabs button.active:hover,
+.asset-location-tab.active,
+.asset-location-tab.active:hover,
+.category-tab.active,
+.category-tab.active:hover,
+.software-tab.active,
+.software-tab.active:hover,
+.vehicle-page-tab.active,
+.vehicle-page-tab.active:hover,
+.vehicle-form-tab.active,
+.vehicle-form-tab.active:hover,
+.paju-fire-location-tab.active,
+.paju-fire-location-tab.active:hover,
+.network-page-tab.active,
+.network-page-tab.active:hover,
+.network-credential-category-chip.active,
+.network-credential-category-chip.active:hover,
+.work-manual-category-tab.active,
+.work-manual-category-tab.active:hover,
+.settings-access-tab.active,
+.settings-access-tab.active:hover,
+.settings-nav-item.active,
+.settings-nav-item.active:hover,
+.history-filter-tabs .history-filter-button.history-filter-button-active,
+.history-filter-tabs .history-filter-button.history-filter-button-active:hover {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  box-shadow: inset 0 -2px 0 rgba(37, 99, 235, 0.22) !important;
+  color: #1d4ed8 !important;
+  font-weight: 800;
+  transform: none;
+  -webkit-text-fill-color: #1d4ed8 !important;
+}
+
+.danger-button,
+.danger-outline-button,
+.danger-ghost-button {
+  background: #ffffff !important;
+  border: 1px solid #fecaca !important;
+  box-shadow: none;
+  color: #b91c1c !important;
+}
+
+.danger-button:not(:disabled):hover,
+.danger-outline-button:not(:disabled):hover,
+.danger-ghost-button:not(:disabled):hover {
+  background: #fff1f2 !important;
+  border-color: #ef4444 !important;
+  box-shadow: none;
+  color: #991b1b !important;
+  transform: none;
+}
+
+.primary-action:not(:disabled):active,
+.primary-button:not(:disabled):active,
+.user-create-submit:not(:disabled):active,
+button[type="submit"]:not(:disabled):active,
+.secondary-button:not(:disabled):active,
+.outline-button:not(:disabled):active,
+.ghost-button:not(:disabled):active,
+.danger-button:not(:disabled):active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+button:focus-visible,
+.secondary-button:focus-visible,
+.outline-button:focus-visible,
+.ghost-button:focus-visible,
+.danger-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 2px;
+}
+
+.danger-button:focus-visible,
+.danger-outline-button:focus-visible,
+.danger-ghost-button:focus-visible {
+  outline-color: rgba(239, 68, 68, 0.2);
+}
+
+button:disabled,
+.primary-action:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.outline-button:disabled,
+.ghost-button:disabled,
+.danger-button:disabled,
+.danger-outline-button:disabled,
+.danger-ghost-button:disabled,
+.caution-button:disabled,
+.export-button:disabled {
+  background: #f1f5f9 !important;
+  border-color: #dbe3ec !important;
+  box-shadow: none !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed;
+  opacity: 0.78;
+  transform: none !important;
+}
+
+.expiration-summary-card:not(:disabled):hover {
+  background: #f8fbff;
+  border-color: #bfdbfe;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.07);
+  color: #172033;
+  transform: translateY(-1px);
+}
+
+.expiration-status-tabs button {
+  min-height: 34px;
+  min-width: auto;
+  padding: 7px 12px;
+}
+
+@media (max-width: 640px) {
+  .expiration-status-tabs {
+    align-items: stretch;
+  }
+
+  .expiration-status-tabs button {
+    flex: 1 1 calc(33.333% - 6px);
+  }
+}
