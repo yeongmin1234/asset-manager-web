@@ -110,20 +110,30 @@ function UserManagementPage({ currentUser }) {
     setState((current) => ({ ...current, error: "", message: "", savingId: userId }));
     try {
       const savedUser = await updateUser(userId, payload);
+      if (!savedUser || typeof savedUser !== "object" || Array.isArray(savedUser)) {
+        throw new Error("사용자 저장 API가 응답 객체를 반환하지 않았습니다.");
+      }
+      if (!Array.isArray(savedUser.menu_permissions)) {
+        throw new Error("사용자 저장 응답에 menu_permissions가 없습니다. Backend 배포 버전을 확인하세요.");
+      }
+
       const refreshedUsers = await getUsers();
+      if (!Array.isArray(refreshedUsers)) {
+        throw new Error("사용자 목록 API가 배열을 반환하지 않았습니다.");
+      }
       const persistedUser = refreshedUsers.find((user) => user.id === userId);
-      const putMatches = haveSameMenuPermissions(savedUser?.menu_permissions, payload.menu_permissions);
+      if (!persistedUser) {
+        throw new Error("저장 후 재조회한 사용자 목록에서 대상 사용자를 찾을 수 없습니다.");
+      }
+      if (!Array.isArray(persistedUser.menu_permissions)) {
+        throw new Error("사용자 목록 응답에 menu_permissions가 없습니다. Backend 배포 버전을 확인하세요.");
+      }
+
+      const putMatches = haveSameMenuPermissions(savedUser.menu_permissions, payload.menu_permissions);
       const getMatches = Boolean(
-        persistedUser
-        && haveSameMenuPermissions(persistedUser.menu_permissions, payload.menu_permissions),
+        haveSameMenuPermissions(persistedUser.menu_permissions, payload.menu_permissions),
       );
       if (!putMatches || !getMatches) {
-        console.error("[User menu permissions] persistence mismatch", {
-          userId,
-          request: payload.menu_permissions,
-          putResponse: savedUser?.menu_permissions,
-          getUsersResponse: persistedUser?.menu_permissions,
-        });
         throw new Error(
           !putMatches
             ? "저장 응답의 메뉴 권한이 요청값과 일치하지 않습니다."

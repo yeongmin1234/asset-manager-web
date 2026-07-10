@@ -75,6 +75,10 @@ async function request(path, options = {}) {
     window.clearTimeout(timeoutId);
   }
 
+  if (response.status === 204) {
+    return null;
+  }
+
   const contentType = response.headers.get("content-type") || "";
   let data = null;
   try {
@@ -196,6 +200,10 @@ async function requestFormData(path, formData, options = {}) {
     });
   } finally {
     window.clearTimeout(timeoutId);
+  }
+
+  if (response.status === 204) {
+    return null;
   }
 
   const contentType = response.headers.get("content-type") || "";
