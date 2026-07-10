@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -64,7 +64,7 @@ class UserUpdate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     role: UserRole
     is_active: bool
-    menu_permissions: List[str] = Field(default_factory=list)
+    menu_permissions: Optional[List[str]] = None
 
     @field_validator("name")
     @classmethod
@@ -76,7 +76,9 @@ class UserUpdate(BaseModel):
 
     @field_validator("menu_permissions")
     @classmethod
-    def validate_menu_permissions(cls, values: List[str]) -> List[str]:
+    def validate_menu_permissions(cls, values: Optional[List[str]]) -> Optional[List[str]]:
+        if values is None:
+            return None
         return normalize_menu_permissions(values)
 
 

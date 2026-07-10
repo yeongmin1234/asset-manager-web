@@ -77,7 +77,8 @@ def update_user(
     user.name = payload.name
     user.role = payload.role
     user.is_active = payload.is_active
-    user.menu_permissions = payload.menu_permissions
+    if payload.menu_permissions is not None:
+        user.menu_permissions = payload.menu_permissions
     db.commit()
     db.refresh(user)
     return user

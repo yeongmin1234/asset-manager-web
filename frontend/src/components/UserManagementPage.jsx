@@ -6,7 +6,11 @@ import {
   resetUserPassword,
   updateUser,
 } from "../api/client.js";
-import { haveSameMenuPermissions, MENU_PERMISSION_OPTIONS } from "../utils/menuPermissions.js";
+import {
+  haveSameMenuPermissions,
+  MENU_PERMISSION_OPTIONS,
+  normalizeMenuPermissions,
+} from "../utils/menuPermissions.js";
 
 const EMPTY_CREATE_FORM = {
   username: "",
@@ -34,7 +38,7 @@ function UserManagementPage({ currentUser }) {
         name: user.name,
         role: user.role,
         is_active: user.is_active,
-        menu_permissions: user.menu_permissions || [],
+        menu_permissions: normalizeMenuPermissions(user.menu_permissions) || [],
       },
     ])));
   };
@@ -91,36 +95,46 @@ function UserManagementPage({ currentUser }) {
     }
   };
 
-  const handleUpdate = async (userId) => {
-    const payload = drafts[userId];
+  const handleUpdate = async (userId, successMessage = "사용자 정보를 수정했습니다.") => {
+    const draft = drafts[userId];
+    const normalizedPermissions = normalizeMenuPermissions(draft?.menu_permissions);
+    if (normalizedPermissions === null) {
+      setState((current) => ({
+        ...current,
+        error: "메뉴 권한 요청값이 배열이 아닙니다.",
+        message: "",
+      }));
+      return false;
+    }
+    const payload = { ...draft, menu_permissions: normalizedPermissions };
     setState((current) => ({ ...current, error: "", message: "", savingId: userId }));
     try {
       const savedUser = await updateUser(userId, payload);
-      if (!haveSameMenuPermissions(savedUser?.menu_permissions, payload.menu_permissions)) {
-        throw new Error("저장 응답의 메뉴 권한이 요청값과 일치하지 않습니다.");
-      }
-
-      setUsers((current) => current.map((user) => user.id === userId ? savedUser : user));
-      setDrafts((current) => ({
-        ...current,
-        [userId]: {
-          name: savedUser.name,
-          role: savedUser.role,
-          is_active: savedUser.is_active,
-          menu_permissions: savedUser.menu_permissions || [],
-        },
-      }));
-
       const refreshedUsers = await getUsers();
       const persistedUser = refreshedUsers.find((user) => user.id === userId);
-      if (!persistedUser || !haveSameMenuPermissions(persistedUser.menu_permissions, payload.menu_permissions)) {
-        throw new Error("저장 후 재조회한 메뉴 권한이 요청값과 일치하지 않습니다.");
+      const putMatches = haveSameMenuPermissions(savedUser?.menu_permissions, payload.menu_permissions);
+      const getMatches = Boolean(
+        persistedUser
+        && haveSameMenuPermissions(persistedUser.menu_permissions, payload.menu_permissions),
+      );
+      if (!putMatches || !getMatches) {
+        console.error("[User menu permissions] persistence mismatch", {
+          userId,
+          request: payload.menu_permissions,
+          putResponse: savedUser?.menu_permissions,
+          getUsersResponse: persistedUser?.menu_permissions,
+        });
+        throw new Error(
+          !putMatches
+            ? "저장 응답의 메뉴 권한이 요청값과 일치하지 않습니다."
+            : "저장 후 재조회한 메뉴 권한이 요청값과 일치하지 않습니다.",
+        );
       }
       applyUsers(refreshedUsers);
       setState((current) => ({
         ...current,
         loading: false,
-        message: "사용자 정보를 수정했습니다.",
+        message: successMessage,
         savingId: null,
       }));
       return true;
@@ -342,7 +356,7 @@ function UserManagementPage({ currentUser }) {
               </div>
               <div className="user-permission-modal-actions">
                 <button type="button" disabled={state.savingId !== null} onClick={async () => {
-                  const saved = await handleUpdate(user.id);
+                  const saved = await handleUpdate(user.id, "메뉴 권한을 저장했습니다.");
                   if (saved) setPermissionUserId(null);
                 }}>권한 저장</button>
               </div>
