@@ -58,10 +58,10 @@ ENTITY_FOLDER_MAP = {
 }
 ENTITY_PERMISSION_MAP = {
     AttachmentEntityType.ASSET: "assets",
-    AttachmentEntityType.VENDOR_CONTACT: "vendor-contacts",
-    AttachmentEntityType.WORK_MANUAL: "work-manuals",
-    AttachmentEntityType.COMPANY_CAR: "vehicles",
-    AttachmentEntityType.FIRE_INSURANCE: "paju-fire-insurance",
+    AttachmentEntityType.VENDOR_CONTACT: "vendor_contacts",
+    AttachmentEntityType.WORK_MANUAL: "work_manual",
+    AttachmentEntityType.COMPANY_CAR: "company_cars",
+    AttachmentEntityType.FIRE_INSURANCE: "fire_insurance",
     AttachmentEntityType.EXPIRATION_SCHEDULE: "expiration_schedules",
 }
 ENTITY_MODEL_MAP = {

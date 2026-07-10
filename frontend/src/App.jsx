@@ -57,6 +57,7 @@ import {
   SortSelect,
   sortItems,
 } from "./utils/sortOptions.jsx";
+import { getAllowedSectionIds } from "./utils/menuPermissions.js";
 import "./styles/app.css";
 
 const INITIAL_FILTERS = {
@@ -124,7 +125,7 @@ const MENU_LABELS = {
 function App({ currentUser, onLogout }) {
   const isAdmin = currentUser?.role === "admin";
   const allowedSections = useMemo(
-    () => new Set(currentUser?.menu_permissions || []),
+    () => new Set(getAllowedSectionIds(currentUser?.menu_permissions || [])),
     [currentUser?.menu_permissions],
   );
   const [backendStatus, setBackendStatus] = useState({

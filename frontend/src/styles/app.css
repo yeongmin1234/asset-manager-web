@@ -14130,11 +14130,17 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .expiration-page {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  align-content: start;
+  align-self: start;
+  min-height: 0;
 }
 
 .expiration-heading {
   margin-bottom: 0;
+  height: auto;
+  min-height: 0;
+  padding: 14px 18px;
 }
 
 .expiration-summary-grid {
@@ -14148,6 +14154,8 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   border-radius: 8px;
   background: #fff;
   color: #172033;
+  height: 96px;
+  min-height: 0;
   padding: 12px 14px;
   text-align: left;
   display: grid;
@@ -14165,23 +14173,19 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 }
 
 .expiration-summary-overdue {
-  border-color: #fecaca;
-  background: #fff7f7;
+  border-left: 3px solid #ef4444;
 }
 
 .expiration-summary-within_7_days {
-  border-color: #fed7aa;
-  background: #fff8ed;
+  border-left: 3px solid #f97316;
 }
 
 .expiration-summary-within_30_days {
-  border-color: #fde68a;
-  background: #fffceb;
+  border-left: 3px solid #eab308;
 }
 
 .expiration-summary-normal {
-  border-color: #bbf7d0;
-  background: #f2fff6;
+  border-left: 3px solid #22c55e;
 }
 
 .expiration-form,
@@ -14190,7 +14194,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   grid-template-columns: 150px minmax(170px, 1.2fr) minmax(150px, 1fr) 150px 120px minmax(180px, 1fr) auto;
   gap: 8px;
   align-items: center;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid #d8dee8;
   border-radius: 8px;
   background: #fff;
@@ -14212,7 +14216,8 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 .expiration-form select,
 .expiration-filter-bar input,
 .expiration-filter-bar select {
-  min-height: 36px;
+  height: 40px;
+  min-height: 0;
   border: 1px solid #cfd6e1;
   border-radius: 6px;
   padding: 0 10px;
@@ -14228,16 +14233,17 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .expiration-status-tabs button {
   border: 1px solid #d8dee8;
-  border-radius: 6px;
+  border-radius: 999px;
   background: #fff;
   color: #344054;
   padding: 7px 10px;
 }
 
 .expiration-status-tabs button.active {
-  border-color: #2f6fed;
-  color: #174ea6;
-  background: #eff6ff;
+  border-color: #98a2b3;
+  color: #172033;
+  background: #f2f4f7;
+  box-shadow: inset 0 0 0 1px #d0d5dd;
 }
 
 .expiration-filter-bar {
@@ -14277,7 +14283,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
 
 .expiration-table th,
 .expiration-table td {
-  padding: 10px 9px;
+  padding: 7px 8px;
   border-bottom: 1px solid #edf1f7;
   text-align: center;
   vertical-align: middle;
@@ -14300,6 +14306,10 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.expiration-left-heading {
+  text-align: left !important;
 }
 
 .expiration-status-badge {

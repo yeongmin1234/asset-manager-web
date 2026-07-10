@@ -72,7 +72,7 @@ admin_only = [Depends(require_admin)]
 
 assets_access = [Depends(require_menu_permission("assets"))]
 dashboard_access = [Depends(require_menu_permission("dashboard"))]
-stats_access = [Depends(require_menu_permission("dashboard", "stats"))]
+stats_access = [Depends(require_menu_permission("dashboard", "statistics"))]
 
 # User-facing routes are readable only when the account has the matching menu permission.
 # Non-safe methods remain admin-only inside require_menu_permission.
@@ -80,22 +80,22 @@ app.include_router(categories.router, dependencies=assets_access)
 app.include_router(departments.router, dependencies=assets_access)
 app.include_router(assets.router, dependencies=assets_access)
 app.include_router(stats.router, dependencies=stats_access)
-app.include_router(beverage_orders.router, dependencies=[Depends(require_menu_permission("beverage-orders"))])
+app.include_router(beverage_orders.router, dependencies=[Depends(require_menu_permission("drink_orders"))])
 app.include_router(dashboard_notices.router, dependencies=dashboard_access)
 app.include_router(expiration_schedules.router, dependencies=[Depends(require_menu_permission("expiration_schedules"))])
-app.include_router(work_manuals.router, dependencies=[Depends(require_menu_permission("work-manuals"))])
-app.include_router(vendor_contacts.router, dependencies=[Depends(require_menu_permission("vendor-contacts"))])
+app.include_router(work_manuals.router, dependencies=[Depends(require_menu_permission("work_manual"))])
+app.include_router(vendor_contacts.router, dependencies=[Depends(require_menu_permission("vendor_contacts"))])
 app.include_router(visitors.router, dependencies=authenticated_user)
 
 # Management and operational surfaces are admin-only.
 app.include_router(software.router, dependencies=[Depends(require_menu_permission("software"))])
 app.include_router(admin.router, dependencies=admin_only)
-app.include_router(company_vehicles.router, dependencies=[Depends(require_menu_permission("vehicles"))])
+app.include_router(company_vehicles.router, dependencies=[Depends(require_menu_permission("company_cars"))])
 app.include_router(install_files.router, dependencies=admin_only)
-app.include_router(vehicle_insurance_histories.router, dependencies=[Depends(require_menu_permission("vehicles"))])
-app.include_router(paju_fire_insurance.router, dependencies=[Depends(require_menu_permission("paju-fire-insurance"))])
+app.include_router(vehicle_insurance_histories.router, dependencies=[Depends(require_menu_permission("company_cars"))])
+app.include_router(paju_fire_insurance.router, dependencies=[Depends(require_menu_permission("fire_insurance"))])
 app.include_router(network_status.router, dependencies=[Depends(require_menu_permission("network"))])
 app.include_router(network_credentials.router, dependencies=admin_only)
 app.include_router(server_operations.router, dependencies=admin_only)
-app.include_router(activity_logs.router, dependencies=[Depends(require_menu_permission("history"))])
+app.include_router(activity_logs.router, dependencies=[Depends(require_menu_permission("changelog"))])
 app.include_router(users.router, dependencies=admin_only)

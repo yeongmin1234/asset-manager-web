@@ -57,6 +57,7 @@ function ExpirationSchedulePage({ currentUser }) {
   const isAdmin = currentUser?.role === "admin";
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [summaryAvailable, setSummaryAvailable] = useState(false);
   const [filters, setFilters] = useState(() => getInitialFilters());
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
@@ -66,23 +67,33 @@ function ExpirationSchedulePage({ currentUser }) {
 
   const loadData = useCallback(async () => {
     setState((current) => ({ ...current, error: "", isLoading: true }));
-    try {
-      const query = {
-        status: filters.status,
-        category: filters.category,
-        keyword: filters.keyword.trim(),
-      };
-      const [itemsResult, summaryResult] = await Promise.all([
-        getExpirationSchedules(query),
-        getExpirationScheduleSummary(),
-      ]);
-      setItems(Array.isArray(itemsResult) ? itemsResult : []);
-      setSummary({ ...EMPTY_SUMMARY, ...(summaryResult || {}) });
-      setState((current) => ({ ...current, isLoading: false }));
-    } catch (error) {
+    const query = {
+      status: filters.status,
+      category: filters.category,
+      keyword: filters.keyword.trim(),
+    };
+    const [itemsResult, summaryResult] = await Promise.allSettled([
+      getExpirationSchedules(query),
+      getExpirationScheduleSummary(),
+    ]);
+    const errors = [];
+
+    if (itemsResult.status === "fulfilled") {
+      setItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
+    } else {
       setItems([]);
-      setState((current) => ({ ...current, error: error.message, isLoading: false }));
+      errors.push(`목록: ${formatApiError(itemsResult.reason)}`);
     }
+
+    if (summaryResult.status === "fulfilled") {
+      setSummary({ ...EMPTY_SUMMARY, ...(summaryResult.value || {}) });
+      setSummaryAvailable(true);
+    } else {
+      setSummaryAvailable(false);
+      errors.push(`요약: ${formatApiError(summaryResult.reason)}`);
+    }
+
+    setState((current) => ({ ...current, error: errors.join(" / "), isLoading: false }));
   }, [filters]);
 
   useEffect(() => {
@@ -194,7 +205,7 @@ function ExpirationSchedulePage({ currentUser }) {
             onClick={() => setFilters((current) => ({ ...current, status }))}
           >
             <span>{label}</span>
-            <strong>{Number(value || 0).toLocaleString("ko-KR")}</strong>
+            <strong>{summaryAvailable ? Number(value || 0).toLocaleString("ko-KR") : "—"}</strong>
           </button>
         ))}
       </section>
@@ -255,11 +266,11 @@ function ExpirationSchedulePage({ currentUser }) {
             <tr>
               <th>상태</th>
               <th>구분</th>
-              <th>제목</th>
-              <th>대상</th>
+              <th className="expiration-left-heading">제목</th>
+              <th className="expiration-left-heading">대상</th>
               <th>만료/점검일</th>
               <th>남은 기간</th>
-              <th>비고</th>
+              <th className="expiration-left-heading">비고</th>
               <th>관리</th>
             </tr>
           </thead>
@@ -273,7 +284,7 @@ function ExpirationSchedulePage({ currentUser }) {
                 <td><StatusBadge status={item.status} /></td>
                 <td>{getCategoryLabel(item.category)}</td>
                 <td className="expiration-text-cell">{item.title}</td>
-                <td>{item.target_name}</td>
+                <td className="expiration-text-cell">{item.target_name}</td>
                 <td>{formatDate(item.due_date)}</td>
                 <td>{formatDaysLeft(item)}</td>
                 <td className="expiration-text-cell">{item.memo || "-"}</td>
@@ -386,6 +397,12 @@ function formatDate(value) {
     return String(value);
   }
   return date.toLocaleDateString("ko-KR");
+}
+
+function formatApiError(error) {
+  const status = Number(error?.status);
+  const prefix = [401, 403, 404, 500].includes(status) ? `HTTP ${status} ` : status ? `HTTP ${status} ` : "";
+  return `${prefix}${error?.message || "API 요청에 실패했습니다."}`;
 }
 
 function getInitialFilters() {

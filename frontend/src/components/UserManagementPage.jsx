@@ -6,22 +6,8 @@ import {
   resetUserPassword,
   updateUser,
 } from "../api/client.js";
+import { MENU_PERMISSION_OPTIONS } from "../utils/menuPermissions.js";
 
-
-const MENU_OPTIONS = [
-  ["dashboard", "대시보드"],
-  ["beverage-orders", "음료주문기록"],
-  ["expiration_schedules", "점검·만료 관리"],
-  ["work-manuals", "업무설명서"],
-  ["vendor-contacts", "업체연락처"],
-  ["assets", "자산 관리"],
-  ["software", "SW 현황"],
-  ["vehicles", "법인차량 관리"],
-  ["paju-fire-insurance", "파주화재보험"],
-  ["network", "네트워크 현황"],
-  ["stats", "통계 / 리포트"],
-  ["history", "변경 이력"],
-];
 const EMPTY_CREATE_FORM = {
   username: "",
   name: "",
@@ -71,10 +57,22 @@ function UserManagementPage({ currentUser }) {
   const runAction = async (action, successMessage, savingId = "create") => {
     setState((current) => ({ ...current, error: "", message: "", savingId }));
     try {
-      await action();
+      const result = await action();
+      if (result?.id) {
+        setUsers((current) => current.map((user) => user.id === result.id ? result : user));
+        setDrafts((current) => ({
+          ...current,
+          [result.id]: {
+            name: result.name,
+            role: result.role,
+            is_active: result.is_active,
+            menu_permissions: result.menu_permissions || [],
+          },
+        }));
+      }
       await loadUsers();
       setState((current) => ({ ...current, loading: false, message: successMessage, savingId: null }));
-      return true;
+      return result || true;
     } catch (error) {
       setState((current) => ({ ...current, error: error.message, savingId: null }));
       return false;
@@ -93,8 +91,48 @@ function UserManagementPage({ currentUser }) {
     }
   };
 
-  const handleUpdate = (userId) =>
-    runAction(() => updateUser(userId, drafts[userId]), "사용자 정보를 수정했습니다.", userId);
+  const handleUpdate = async (userId) => {
+    const payload = drafts[userId];
+    setState((current) => ({ ...current, error: "", message: "", savingId: userId }));
+    try {
+      const savedUser = await updateUser(userId, payload);
+      if (!samePermissions(savedUser?.menu_permissions, payload.menu_permissions)) {
+        throw new Error("저장 응답의 메뉴 권한이 요청값과 일치하지 않습니다.");
+      }
+
+      setUsers((current) => current.map((user) => user.id === userId ? savedUser : user));
+      setDrafts((current) => ({
+        ...current,
+        [userId]: {
+          name: savedUser.name,
+          role: savedUser.role,
+          is_active: savedUser.is_active,
+          menu_permissions: savedUser.menu_permissions || [],
+        },
+      }));
+
+      const refreshedUsers = await getUsers();
+      const persistedUser = refreshedUsers.find((user) => user.id === userId);
+      if (!persistedUser || !samePermissions(persistedUser.menu_permissions, payload.menu_permissions)) {
+        throw new Error("저장 후 재조회한 메뉴 권한이 요청값과 일치하지 않습니다.");
+      }
+      applyUsers(refreshedUsers);
+      setState((current) => ({
+        ...current,
+        loading: false,
+        message: "사용자 정보를 수정했습니다.",
+        savingId: null,
+      }));
+      return true;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        error: formatApiError(error),
+        savingId: null,
+      }));
+      return false;
+    }
+  };
 
   const handleResetPassword = async (userId) => {
     const password = resetPasswords[userId] || "";
@@ -210,7 +248,7 @@ function UserManagementPage({ currentUser }) {
         <details className="user-create-permissions">
           <summary>기본 메뉴 권한</summary>
           <div className="user-permission-grid">
-            {MENU_OPTIONS.map(([id, label]) => (
+            {MENU_PERMISSION_OPTIONS.map(([id, label]) => (
               <label key={id}>
                 <input
                   type="checkbox"
@@ -295,7 +333,7 @@ function UserManagementPage({ currentUser }) {
                 <button type="button" className="ghost-button" onClick={() => setPermissionUserId(null)}>닫기</button>
               </div>
               <div className="user-permission-grid">
-                {MENU_OPTIONS.map(([id, label]) => (
+                {MENU_PERMISSION_OPTIONS.map(([id, label]) => (
                   <label key={id}>
                     <input type="checkbox" checked={draft.role === "admin" || draft.menu_permissions.includes(id)} disabled={draft.role === "admin"} onChange={() => togglePermission(user.id, id)} />
                     {label}
@@ -303,7 +341,10 @@ function UserManagementPage({ currentUser }) {
                 ))}
               </div>
               <div className="user-permission-modal-actions">
-                <button type="button" onClick={async () => { await handleUpdate(user.id); setPermissionUserId(null); }}>권한 저장</button>
+                <button type="button" disabled={state.savingId !== null} onClick={async () => {
+                  const saved = await handleUpdate(user.id);
+                  if (saved) setPermissionUserId(null);
+                }}>권한 저장</button>
               </div>
             </section>
           </div>
@@ -350,6 +391,11 @@ function omitKey(object, key) {
   const next = { ...object };
   delete next[key];
   return next;
+}
+
+function samePermissions(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export default UserManagementPage;

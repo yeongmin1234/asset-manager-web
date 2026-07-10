@@ -7,22 +7,36 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 UserRole = Literal["admin", "user"]
 ALLOWED_MENU_PERMISSIONS = {
     "dashboard",
-    "beverage-orders",
+    "drink_orders",
     "expiration_schedules",
-    "work-manuals",
-    "vendor-contacts",
+    "work_manual",
+    "vendor_contacts",
     "assets",
     "software",
-    "vehicles",
-    "paju-fire-insurance",
+    "company_cars",
+    "fire_insurance",
     "network",
-    "stats",
-    "history",
+    "statistics",
+    "changelog",
+}
+
+LEGACY_MENU_PERMISSION_MAP = {
+    "beverage-orders": "drink_orders",
+    "work-manuals": "work_manual",
+    "vendor-contacts": "vendor_contacts",
+    "vehicles": "company_cars",
+    "paju-fire-insurance": "fire_insurance",
+    "stats": "statistics",
+    "history": "changelog",
 }
 
 
 def normalize_menu_permissions(values: List[str]) -> List[str]:
-    return list(dict.fromkeys(value for value in values if value in ALLOWED_MENU_PERMISSIONS))
+    normalized_values = [LEGACY_MENU_PERMISSION_MAP.get(value, value) for value in values]
+    invalid_values = [value for value in normalized_values if value not in ALLOWED_MENU_PERMISSIONS]
+    if invalid_values:
+        raise ValueError(f"지원하지 않는 메뉴 권한입니다: {', '.join(invalid_values)}")
+    return list(dict.fromkeys(normalized_values))
 
 
 class UserCreate(BaseModel):
