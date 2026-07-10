@@ -38,3 +38,10 @@ export function getAllowedSectionIds(menuPermissions = []) {
     .filter(([, permission]) => permissionSet.has(permission))
     .map(([sectionId]) => sectionId);
 }
+
+export function haveSameMenuPermissions(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  return leftSet.size === rightSet.size && [...leftSet].every((permission) => rightSet.has(permission));
+}

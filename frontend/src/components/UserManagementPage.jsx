@@ -6,7 +6,7 @@ import {
   resetUserPassword,
   updateUser,
 } from "../api/client.js";
-import { MENU_PERMISSION_OPTIONS } from "../utils/menuPermissions.js";
+import { haveSameMenuPermissions, MENU_PERMISSION_OPTIONS } from "../utils/menuPermissions.js";
 
 const EMPTY_CREATE_FORM = {
   username: "",
@@ -96,7 +96,7 @@ function UserManagementPage({ currentUser }) {
     setState((current) => ({ ...current, error: "", message: "", savingId: userId }));
     try {
       const savedUser = await updateUser(userId, payload);
-      if (!samePermissions(savedUser?.menu_permissions, payload.menu_permissions)) {
+      if (!haveSameMenuPermissions(savedUser?.menu_permissions, payload.menu_permissions)) {
         throw new Error("저장 응답의 메뉴 권한이 요청값과 일치하지 않습니다.");
       }
 
@@ -113,7 +113,7 @@ function UserManagementPage({ currentUser }) {
 
       const refreshedUsers = await getUsers();
       const persistedUser = refreshedUsers.find((user) => user.id === userId);
-      if (!persistedUser || !samePermissions(persistedUser.menu_permissions, payload.menu_permissions)) {
+      if (!persistedUser || !haveSameMenuPermissions(persistedUser.menu_permissions, payload.menu_permissions)) {
         throw new Error("저장 후 재조회한 메뉴 권한이 요청값과 일치하지 않습니다.");
       }
       applyUsers(refreshedUsers);
@@ -391,11 +391,6 @@ function omitKey(object, key) {
   const next = { ...object };
   delete next[key];
   return next;
-}
-
-function samePermissions(left, right) {
-  if (!Array.isArray(left) || !Array.isArray(right)) return false;
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export default UserManagementPage;
