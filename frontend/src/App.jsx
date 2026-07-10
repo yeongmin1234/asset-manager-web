@@ -8,6 +8,7 @@ import {
   getCategories,
   getDatabaseHealth,
   getDepartments,
+  getExpirationScheduleSummary,
   getHealth,
   getRecentActivityLogs,
   getStatsByCategory,
@@ -30,6 +31,7 @@ import CategoryStats from "./components/CategoryStats.jsx";
 import BeverageOrderPage from "./components/BeverageOrderPage.jsx";
 import DashboardPage from "./components/DashboardPage.jsx";
 import DepartmentStats from "./components/DepartmentStats.jsx";
+import ExpirationSchedulePage, { formatDaysLeft, getCategoryLabel, openExpirationScheduleFilter } from "./components/ExpirationSchedulePage.jsx";
 import AssetExcelTools from "./components/AssetExcelTools.jsx";
 import FilterBar from "./components/FilterBar.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
@@ -85,6 +87,7 @@ const DEFAULT_MENU_VISIBILITY = {
   scm: true,
   network: true,
   "paju-fire-insurance": true,
+  expiration_schedules: true,
 };
 const DEFAULT_PROTECTED_MENUS = {
   software: false,
@@ -92,6 +95,7 @@ const DEFAULT_PROTECTED_MENUS = {
   "paju-fire-insurance": false,
   "beverage-orders": false,
   "work-manuals": false,
+  expiration_schedules: false,
   network: false,
   history: false,
   "install-library": false,
@@ -107,6 +111,7 @@ const MENU_LABELS = {
   "beverage-orders": "음료주문기록",
   "work-manuals": "업무설명서",
   "vendor-contacts": "업체연락처",
+  expiration_schedules: "점검·만료 관리",
   network: "네트워크 현황",
   excel: "엑셀 관리",
   stats: "통계 / 리포트",
@@ -448,14 +453,26 @@ function App({ currentUser, onLogout }) {
 
   const loadNotificationLogs = useCallback(async () => {
     setNotificationState({ error: "", isLoading: true });
-    try {
-      const data = await getRecentActivityLogs(8);
-      setNotificationLogs(Array.isArray(data) ? data.slice(0, 8) : []);
-      setNotificationState({ error: "", isLoading: false });
-    } catch (error) {
-      setNotificationLogs([]);
-      setNotificationState({ error: error.message, isLoading: false });
-    }
+    const [activityResult, expirationResult] = await Promise.allSettled([
+      getRecentActivityLogs(8),
+      getExpirationScheduleSummary(),
+    ]);
+    const activityLogs =
+      activityResult.status === "fulfilled" && Array.isArray(activityResult.value)
+        ? activityResult.value
+        : [];
+    const expirationItems =
+      expirationResult.status === "fulfilled"
+        ? buildExpirationNotificationItems(expirationResult.value?.upcoming_items)
+        : [];
+    setNotificationLogs([...expirationItems, ...activityLogs].slice(0, 8));
+    setNotificationState({
+      error:
+        activityResult.status === "rejected" && expirationResult.status === "rejected"
+          ? activityResult.reason.message
+          : "",
+      isLoading: false,
+    });
   }, []);
 
   useEffect(() => {
@@ -926,11 +943,15 @@ function App({ currentUser, onLogout }) {
     }
 
     if (activeSection === "work-manuals") {
-      return <WorkManualPage />;
+      return <WorkManualPage currentUser={currentUser} />;
     }
 
     if (activeSection === "vendor-contacts") {
-      return <VendorContactsPage />;
+      return <VendorContactsPage currentUser={currentUser} />;
+    }
+
+    if (activeSection === "expiration_schedules") {
+      return <ExpirationSchedulePage currentUser={currentUser} />;
     }
 
     if (activeSection === "excel") {
@@ -942,11 +963,11 @@ function App({ currentUser, onLogout }) {
     }
 
     if (activeSection === "vehicles") {
-      return <VehiclePage />;
+      return <VehiclePage currentUser={currentUser} />;
     }
 
     if (activeSection === "paju-fire-insurance") {
-      return <PajuFireInsurancePage />;
+      return <PajuFireInsurancePage currentUser={currentUser} />;
     }
 
     if (activeSection === "network") {
@@ -1081,6 +1102,11 @@ function App({ currentUser, onLogout }) {
                     setIsNotificationOpen(false);
                     handleNavigate("history");
                   }}
+                  onScheduleMore={(item) => {
+                    setIsNotificationOpen(false);
+                    openExpirationScheduleFilter(item?.status);
+                    handleNavigate("expiration_schedules");
+                  }}
                 />
               ) : null}
             </div>
@@ -1109,6 +1135,7 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "beverage-orders"
                 || activeSection === "work-manuals"
                 || activeSection === "vendor-contacts"
+                || activeSection === "expiration_schedules"
                 || activeSection === "software"
                 || activeSection === "vehicles"
                 || activeSection === "paju-fire-insurance"
@@ -1122,7 +1149,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
@@ -1139,6 +1166,7 @@ function App({ currentUser, onLogout }) {
           onClose={() => setSelectedAssetId(null)}
           onAssetUpdated={handleAssetUpdated}
           onAssetDeleted={handleAssetDeleted}
+          currentUser={currentUser}
         />
       )}
 
@@ -1184,7 +1212,7 @@ function App({ currentUser, onLogout }) {
   );
 }
 
-function NotificationPopover({ logs, onMore, state }) {
+function NotificationPopover({ logs, onMore, onScheduleMore, state }) {
   return (
     <section className="notification-popover" aria-label="최근 변경 이력 알림">
       <div className="notification-popover-heading">
@@ -1202,7 +1230,18 @@ function NotificationPopover({ logs, onMore, state }) {
       ) : (
         <div className="notification-list">
           {logs.map((log) => (
-            <button type="button" className="notification-item" key={log.id} onClick={onMore}>
+            <button
+              type="button"
+              className="notification-item"
+              key={log.id}
+              onClick={() => {
+                if (log.notification_type === "expiration") {
+                  onScheduleMore?.(log);
+                  return;
+                }
+                onMore?.();
+              }}
+            >
               <span className={`notification-action-badge notification-action-${getNotificationActionTone(log.action_type)}`}>
                 {getNotificationActionLabel(log.action_type)}
               </span>
@@ -1233,6 +1272,8 @@ function getNotificationActionLabel(actionType) {
     view: "조회",
     read: "조회",
     login: "접속",
+    expiration_overdue: "기한 초과",
+    expiration_due: "점검 예정",
     unknown: "기타",
   };
   return labelMap[normalizedType] || "기타";
@@ -1242,6 +1283,12 @@ function getNotificationActionTone(actionType) {
   const label = getNotificationActionLabel(actionType);
   if (label === "삭제" || label === "폐기") {
     return "danger";
+  }
+  if (label === "기한 초과") {
+    return "danger";
+  }
+  if (label === "점검 예정") {
+    return "warning";
   }
   if (label === "수정") {
     return "warning";
@@ -1253,12 +1300,43 @@ function getNotificationActionTone(actionType) {
 }
 
 function formatNotificationTitle(log) {
+  if (log?.notification_type === "expiration") {
+    return log.summary || log.target_name || "-";
+  }
   const summary = formatNotificationText(log?.summary || log?.target_name);
   const actionLabel = getNotificationActionLabel(log?.action_type);
   if (String(log?.action_type || "").toLowerCase().includes("reveal")) {
     return `접속정보 비밀번호 확인: ${summary}`;
   }
   return `${actionLabel}: ${summary}`;
+}
+
+function buildExpirationNotificationItems(items) {
+  const statusPriority = {
+    overdue: 0,
+    within_7_days: 1,
+    within_30_days: 2,
+  };
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => ["overdue", "within_7_days", "within_30_days"].includes(item.status))
+    .sort((left, right) => {
+      const leftPriority = statusPriority[left.status] ?? 9;
+      const rightPriority = statusPriority[right.status] ?? 9;
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+      return String(left.due_date || "").localeCompare(String(right.due_date || ""));
+    })
+    .slice(0, 5)
+    .map((item) => ({
+      id: `expiration-${item.id}`,
+      notification_type: "expiration",
+      action_type: item.status === "overdue" ? "expiration_overdue" : "expiration_due",
+      status: item.status,
+      summary: `${getCategoryLabel(item.category)} · ${formatNotificationText(item.target_name)} · ${formatDaysLeft(item)}`,
+      target_name: item.title,
+      created_at: item.due_date,
+    }));
 }
 
 function formatNotificationText(value) {

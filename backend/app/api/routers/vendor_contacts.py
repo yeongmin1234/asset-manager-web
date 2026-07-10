@@ -17,6 +17,7 @@ from app.services.vendor_contact_service import (
     list_vendor_contacts,
     update_vendor_contact,
 )
+from app.services.attachment_service import AttachmentValidationError
 
 
 router = APIRouter(prefix="/vendor-contacts", tags=["vendor-contacts"])
@@ -65,6 +66,9 @@ def update_existing_vendor_contact(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="업체연락처를 찾을 수 없습니다.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -85,6 +89,9 @@ def delete_existing_vendor_contact(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="업체연락처를 찾을 수 없습니다.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(

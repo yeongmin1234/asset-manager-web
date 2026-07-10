@@ -31,6 +31,7 @@ from app.services.asset_service import (
     soft_delete_asset,
     update_asset,
 )
+from app.services.attachment_service import AttachmentValidationError
 from app.services.asset_ocr_service import analyze_asset_image
 from app.services.history_service import get_asset_history
 
@@ -201,6 +202,9 @@ def read_asset(asset_id: int, db: Session = Depends(get_db)) -> AssetRead:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Asset not found.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

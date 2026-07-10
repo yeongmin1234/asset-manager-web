@@ -11,6 +11,7 @@ import {
 const MENU_OPTIONS = [
   ["dashboard", "대시보드"],
   ["beverage-orders", "음료주문기록"],
+  ["expiration_schedules", "점검·만료 관리"],
   ["work-manuals", "업무설명서"],
   ["vendor-contacts", "업체연락처"],
   ["assets", "자산 관리"],
@@ -117,27 +118,31 @@ function UserManagementPage({ currentUser }) {
       savingId: deletedId,
     }));
     try {
-      await deleteUser(deletedId);
+      const result = await deleteUser(deletedId);
       setUsers((current) => current.filter((user) => user.id !== deletedId));
       setDrafts((current) => omitKey(current, deletedId));
       setResetPasswords((current) => omitKey(current, deletedId));
       setDeleteTarget(null);
       setPermissionUserId((current) => current === deletedId ? null : current);
-      setState((current) => ({
-        ...current,
-        loading: false,
-        message: "사용자 계정을 완전히 삭제했습니다.",
-        savingId: null,
-      }));
       window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
 
       try {
         const refreshedUsers = await getUsers();
+        if (refreshedUsers.some((user) => user.id === deletedId)) {
+          throw new Error("삭제 API 호출 후에도 사용자 목록에 대상 계정이 남아 있습니다.");
+        }
         applyUsers(refreshedUsers);
+        setState((current) => ({
+          ...current,
+          loading: false,
+          message: result?.message || "사용자 계정을 완전히 삭제했습니다.",
+          savingId: null,
+        }));
       } catch (refreshError) {
         setState((current) => ({
           ...current,
-          error: `삭제는 완료됐지만 목록 재확인에 실패했습니다. ${formatApiError(refreshError)}`,
+          error: `삭제 후 목록 재확인에 실패했습니다. ${formatApiError(refreshError)}`,
+          savingId: null,
         }));
       }
     } catch (error) {
@@ -231,15 +236,15 @@ function UserManagementPage({ currentUser }) {
           <tbody>
             {state.loading ? <tr><td colSpan="7">불러오는 중...</td></tr> : users.map((user) => {
               const draft = drafts[user.id] || user;
-              const activeAdminCount = users.filter(
-                (item) => item.role === "admin" && item.is_active,
+              const adminCount = users.filter(
+                (item) => item.role === "admin",
               ).length;
               const isCurrentUser = user.id === currentUser?.id;
-              const isLastActiveAdmin =
-                user.role === "admin" && user.is_active && activeAdminCount <= 1;
+              const isLastAdmin =
+                user.role === "admin" && adminCount <= 1;
               const deleteProtectionReason = isCurrentUser
                 ? "현재 로그인한 본인 계정은 삭제할 수 없습니다."
-                : isLastActiveAdmin
+                : isLastAdmin
                   ? "마지막 관리자 계정은 삭제할 수 없습니다."
                   : "";
               const deleteTitle = deleteProtectionReason || "계정을 완전히 삭제합니다.";

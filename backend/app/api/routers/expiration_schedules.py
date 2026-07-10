@@ -1,0 +1,211 @@
+from datetime import date
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.core.auth import get_current_user
+from app.db.database import get_db
+from app.models.expiration_schedule import (
+    ExpirationScheduleCategory,
+    ExpirationScheduleStatus,
+)
+from app.models.user import User
+from app.schemas.expiration_schedule import (
+    ExpirationScheduleCompleteRequest,
+    ExpirationScheduleCreate,
+    ExpirationScheduleRead,
+    ExpirationScheduleSummary,
+    ExpirationScheduleUpdate,
+)
+from app.services.expiration_schedule_service import (
+    ExpirationScheduleNotFoundError,
+    complete_expiration_schedule,
+    create_expiration_schedule,
+    delete_expiration_schedule,
+    get_expiration_schedule,
+    get_expiration_schedule_summary,
+    get_expiration_schedules,
+    update_expiration_schedule,
+)
+from app.services.attachment_service import AttachmentValidationError
+
+
+router = APIRouter(prefix="/expiration-schedules", tags=["expiration-schedules"])
+
+
+@router.get("", response_model=List[ExpirationScheduleRead])
+def list_expiration_schedules(
+    category: Optional[ExpirationScheduleCategory] = Query(default=None),
+    schedule_status: Optional[ExpirationScheduleStatus] = Query(default=None, alias="status"),
+    keyword: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    is_completed: Optional[bool] = None,
+    db: Session = Depends(get_db),
+) -> List[ExpirationScheduleRead]:
+    try:
+        return get_expiration_schedules(
+            db,
+            category=category,
+            status=schedule_status,
+            keyword=keyword,
+            date_from=date_from,
+            date_to=date_to,
+            is_completed=is_completed,
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while loading expiration schedules.",
+        ) from exc
+
+
+@router.get("/summary", response_model=ExpirationScheduleSummary)
+def read_expiration_schedule_summary(
+    db: Session = Depends(get_db),
+) -> ExpirationScheduleSummary:
+    try:
+        return get_expiration_schedule_summary(db)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while loading expiration schedule summary.",
+        ) from exc
+
+
+@router.get("/{schedule_id}", response_model=ExpirationScheduleRead)
+def read_expiration_schedule(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+) -> ExpirationScheduleRead:
+    try:
+        return get_expiration_schedule(db, schedule_id)
+    except ExpirationScheduleNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Expiration schedule not found.",
+        ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while loading expiration schedule.",
+        ) from exc
+
+
+@router.post("", response_model=ExpirationScheduleRead, status_code=status.HTTP_201_CREATED)
+def create_new_expiration_schedule(
+    request: Request,
+    payload: ExpirationScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExpirationScheduleRead:
+    try:
+        return create_expiration_schedule(
+            db,
+            payload,
+            current_user=current_user,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while creating expiration schedule.",
+        ) from exc
+
+
+@router.put("/{schedule_id}", response_model=ExpirationScheduleRead)
+def update_existing_expiration_schedule(
+    request: Request,
+    schedule_id: int,
+    payload: ExpirationScheduleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExpirationScheduleRead:
+    try:
+        return update_expiration_schedule(
+            db,
+            schedule_id,
+            payload,
+            current_user=current_user,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except ExpirationScheduleNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Expiration schedule not found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while updating expiration schedule.",
+        ) from exc
+
+
+@router.patch("/{schedule_id}/complete", response_model=ExpirationScheduleRead)
+def complete_existing_expiration_schedule(
+    request: Request,
+    schedule_id: int,
+    payload: ExpirationScheduleCompleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExpirationScheduleRead:
+    try:
+        return complete_expiration_schedule(
+            db,
+            schedule_id,
+            payload,
+            current_user=current_user,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except ExpirationScheduleNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Expiration schedule not found.",
+        ) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while completing expiration schedule.",
+        ) from exc
+
+
+@router.delete("/{schedule_id}", response_model=ExpirationScheduleRead)
+def delete_existing_expiration_schedule(
+    request: Request,
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExpirationScheduleRead:
+    try:
+        return delete_expiration_schedule(
+            db,
+            schedule_id,
+            current_user=current_user,
+            actor_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except ExpirationScheduleNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Expiration schedule not found.",
+        ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed while deleting expiration schedule.",
+        ) from exc

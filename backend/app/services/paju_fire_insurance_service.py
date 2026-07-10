@@ -5,6 +5,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.paju_fire_insurance import PajuFireInsuranceContract
+from app.models.attachment import AttachmentEntityType
 from app.schemas.paju_fire_insurance import (
     PajuFireInsuranceContractCreate,
     PajuFireInsuranceContractRead,
@@ -15,6 +16,7 @@ from app.services.activity_log_service import (
     record_paju_fire_insurance_activity,
     serialize_paju_fire_insurance_activity_data,
 )
+from app.services.attachment_service import ensure_no_attachments
 
 
 class PajuFireInsuranceContractNotFoundError(Exception):
@@ -130,6 +132,7 @@ def delete_paju_fire_insurance_contract(
     user_agent: Optional[str] = None,
 ) -> PajuFireInsuranceContractRead:
     contract = get_paju_fire_insurance_contract(db, contract_id)
+    ensure_no_attachments(db, AttachmentEntityType.FIRE_INSURANCE, contract_id)
     before_data = serialize_paju_fire_insurance_activity_data(contract)
     target_name = format_paju_fire_insurance_target_name(contract)
     deleted_contract = PajuFireInsuranceContractRead.model_validate(contract)

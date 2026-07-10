@@ -3,6 +3,7 @@ import {
   createDashboardNotice,
   deleteDashboardNotice,
   getDashboardNotices,
+  getExpirationScheduleSummary,
   getNetworkStatus,
   getRecentActivityLogs,
   getSoftwareItems,
@@ -11,6 +12,7 @@ import {
   getVehicleSummary,
   updateDashboardNotice,
 } from "../api/client.js";
+import { formatDaysLeft, getCategoryLabel, openExpirationScheduleFilter } from "./ExpirationSchedulePage.jsx";
 import {
   BOARD_SORT_OPTIONS,
   SORT_VALUES,
@@ -55,6 +57,15 @@ const EMPTY_NETWORK_SUMMARY = {
   down: 0,
 };
 
+const EMPTY_EXPIRATION_SUMMARY = {
+  overdue_count: 0,
+  within_7_days_count: 0,
+  within_30_days_count: 0,
+  normal_count: 0,
+  completed_count: 0,
+  upcoming_items: [],
+};
+
 function DashboardPage({ onNavigate }) {
   const [assetSummary, setAssetSummary] = useState(EMPTY_ASSET_SUMMARY);
   const [softwareSummary, setSoftwareSummary] = useState(EMPTY_SOFTWARE_SUMMARY);
@@ -66,6 +77,7 @@ function DashboardPage({ onNavigate }) {
     checkedAt: "",
     error: "",
   });
+  const [expirationSummary, setExpirationSummary] = useState(EMPTY_EXPIRATION_SUMMARY);
   const [recentLogs, setRecentLogs] = useState([]);
   const [dashboardNotices, setDashboardNotices] = useState([]);
   const [noticeFormState, setNoticeFormState] = useState({
@@ -97,6 +109,7 @@ function DashboardPage({ onNavigate }) {
       networkResult,
       recentLogResult,
       noticesResult,
+      expirationResult,
     ] = await Promise.allSettled([
       getStatsSummary(),
       getSoftwareStatsSummary(),
@@ -105,6 +118,7 @@ function DashboardPage({ onNavigate }) {
       getNetworkStatus(),
       getRecentActivityLogs(30),
       getDashboardNotices(),
+      getExpirationScheduleSummary(),
     ]);
 
     if (assetResult.status === "fulfilled") {
@@ -161,6 +175,12 @@ function DashboardPage({ onNavigate }) {
       setDashboardNotices([]);
     }
 
+    if (expirationResult.status === "fulfilled") {
+      setExpirationSummary({ ...EMPTY_EXPIRATION_SUMMARY, ...(expirationResult.value || {}) });
+    } else {
+      setExpirationSummary(EMPTY_EXPIRATION_SUMMARY);
+    }
+
     setDashboardState({
       isLoading: false,
       error: getDashboardError([
@@ -170,6 +190,7 @@ function DashboardPage({ onNavigate }) {
         networkResult,
         recentLogResult,
         noticesResult,
+        expirationResult,
       ]),
     });
   }, []);
@@ -311,6 +332,17 @@ function DashboardPage({ onNavigate }) {
         ],
       },
       {
+        title: "점검·만료",
+        tone: expirationSummary.overdue_count ? "red" : expirationSummary.within_7_days_count ? "amber" : "green",
+        action: "expiration_schedules",
+        rows: [
+          ["기한 초과", expirationSummary.overdue_count],
+          ["7일 이내", expirationSummary.within_7_days_count],
+          ["30일 이내", expirationSummary.within_30_days_count],
+          ["정상", expirationSummary.normal_count],
+        ],
+      },
+      {
         title: "네트워크",
         tone: networkStatus.summary.down ? "red" : networkStatus.summary.warning ? "amber" : "green",
         action: "network",
@@ -322,7 +354,7 @@ function DashboardPage({ onNavigate }) {
         ],
       },
     ],
-    [assetSummary, networkStatus, softwareSummary, vehicleSummary],
+    [assetSummary, expirationSummary, networkStatus, softwareSummary, vehicleSummary],
   );
 
   return (
@@ -427,6 +459,40 @@ function DashboardPage({ onNavigate }) {
                 </li>
               ))}
             </ul>
+          )}
+        </section>
+
+        <section className="dashboard-panel dashboard-expiration-panel">
+          <div className="dashboard-panel-heading">
+            <h3>점검·만료 현황</h3>
+            <button type="button" className="link-button" onClick={() => onNavigate?.("expiration_schedules")}>
+              관리
+            </button>
+          </div>
+          <div className="dashboard-expiration-counts">
+            <span className="expiration-count-overdue">기한 초과 {formatCount(expirationSummary.overdue_count)}건</span>
+            <span className="expiration-count-week">7일 이내 {formatCount(expirationSummary.within_7_days_count)}건</span>
+            <span className="expiration-count-month">30일 이내 {formatCount(expirationSummary.within_30_days_count)}건</span>
+          </div>
+          {expirationSummary.upcoming_items.length === 0 ? (
+            <div className="dashboard-empty">임박한 점검·만료 일정이 없습니다.</div>
+          ) : (
+            <div className="dashboard-expiration-list">
+              {expirationSummary.upcoming_items.map((item) => (
+                <button
+                  type="button"
+                  className={`dashboard-expiration-item dashboard-expiration-${item.status}`}
+                  key={item.id}
+                  onClick={() => {
+                    openExpirationScheduleFilter(item.status);
+                    onNavigate?.("expiration_schedules");
+                  }}
+                >
+                  <strong>{getCategoryLabel(item.category)} · {item.target_name}</strong>
+                  <span>{formatDaysLeft(item)}</span>
+                </button>
+              ))}
+            </div>
           )}
         </section>
 

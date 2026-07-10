@@ -5,6 +5,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.company_vehicle import CompanyVehicle, VehicleOwnershipType
+from app.models.attachment import AttachmentEntityType
 from app.schemas.company_vehicle import (
     CompanyVehicleCreate,
     CompanyVehicleRead,
@@ -15,6 +16,7 @@ from app.services.activity_log_service import (
     record_vehicle_activity,
     serialize_vehicle_activity_data,
 )
+from app.services.attachment_service import ensure_no_attachments
 
 
 class CompanyVehicleNotFoundError(Exception):
@@ -103,6 +105,7 @@ def delete_company_vehicle(
     user_agent: Optional[str] = None,
 ) -> CompanyVehicleRead:
     vehicle = get_company_vehicle(db, vehicle_id)
+    ensure_no_attachments(db, AttachmentEntityType.COMPANY_CAR, vehicle_id)
     before_data = serialize_vehicle_activity_data(vehicle)
     target_name = format_vehicle_target_name(vehicle)
     deleted_vehicle = CompanyVehicleRead.model_validate(vehicle)

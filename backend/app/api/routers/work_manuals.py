@@ -25,6 +25,7 @@ from app.services.work_manual_service import (
     list_work_manuals,
     update_work_manual,
 )
+from app.services.attachment_service import AttachmentValidationError
 
 
 router = APIRouter(prefix="/work-manuals", tags=["work-manuals"])
@@ -124,6 +125,9 @@ def read_work_manual(manual_id: int, db: Session = Depends(get_db)) -> WorkManua
             status_code=status.HTTP_404_NOT_FOUND,
             detail="업무설명서를 찾을 수 없습니다.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(

@@ -1,5 +1,6 @@
 import React, { Fragment, useMemo, useRef, useState } from "react";
 import { SortSelect } from "../utils/sortOptions.jsx";
+import AttachmentPanel from "./AttachmentPanel.jsx";
 
 const COLUMN_WIDTH_STORAGE_KEY = "assetManager.vehicleTable.columnWidths";
 const VEHICLE_COLUMNS = [
@@ -33,6 +34,7 @@ function VehicleList({
   sortOptions,
   sortValue,
   tabs,
+  currentUser,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   const safeTabs = Array.isArray(tabs) ? tabs : [];
@@ -180,7 +182,7 @@ function VehicleList({
                   {isExpanded && (
                     <tr className="vehicle-detail-row">
                       <td colSpan="12">
-                        <VehicleLeaseDetail item={item} onClose={() => setExpandedItemId(null)} />
+                        <VehicleLeaseDetail currentUser={currentUser} item={item} onClose={() => setExpandedItemId(null)} />
                       </td>
                     </tr>
                   )}
@@ -261,7 +263,7 @@ function getInsuranceBadgeTone(company) {
   return "default";
 }
 
-function VehicleLeaseDetail({ item, onClose }) {
+function VehicleLeaseDetail({ currentUser, item, onClose }) {
   const details = [
     { label: "리스사", value: formatText(item.lease_company) },
     { label: "리스 시작일", value: formatText(item.lease_start_date) },
@@ -291,6 +293,12 @@ function VehicleLeaseDetail({ item, onClose }) {
           </div>
         ))}
       </dl>
+      <AttachmentPanel
+        canManage={currentUser?.role === "admin"}
+        entityId={item.id}
+        entityType="company_car"
+        title="첨부파일"
+      />
     </div>
   );
 }

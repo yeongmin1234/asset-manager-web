@@ -5,7 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.work_manual import WorkManual
+from app.models.attachment import AttachmentEntityType
 from app.schemas.work_manual import WorkManualCreate, WorkManualUpdate
+from app.services.attachment_service import ensure_no_attachments
 
 
 class WorkManualNotFoundError(Exception):
@@ -71,6 +73,7 @@ def update_work_manual(
 
 def delete_work_manual(db: Session, manual_id: int) -> WorkManual:
     manual = get_work_manual(db, manual_id)
+    ensure_no_attachments(db, AttachmentEntityType.WORK_MANUAL, manual_id)
     manual.is_active = False
     manual.updated_at = datetime.now(timezone.utc)
     db.add(manual)

@@ -273,6 +273,39 @@ export async function getCurrentUser() {
   return request("/auth/me");
 }
 
+export async function getAttachments(filters = {}) {
+  return normalizeCollection(await request("/attachments", { query: filters }));
+}
+
+export async function uploadAttachment({ entity_type, entity_id, file, description = "" }) {
+  const formData = new FormData();
+  formData.append("entity_type", entity_type);
+  formData.append("entity_id", String(entity_id));
+  formData.append("description", description || "");
+  formData.append("file", file);
+  return requestFormData("/attachments/upload", formData, {
+    timeoutMs: 60000,
+  });
+}
+
+export async function deleteAttachment(attachmentId) {
+  return request(`/attachments/${attachmentId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function downloadAttachment(attachmentId) {
+  return requestBlob(`/attachments/${attachmentId}/download`, {
+    timeoutMs: 60000,
+  });
+}
+
+export async function previewAttachment(attachmentId) {
+  return requestBlob(`/attachments/${attachmentId}/preview`, {
+    timeoutMs: 60000,
+  });
+}
+
 export async function getUsers() {
   return request("/users");
 }
@@ -516,6 +549,45 @@ export async function deleteDashboardNotice(noticeId, adminPassword) {
     method: "DELETE",
     body: { admin_password: adminPassword },
     timeoutMs: 8000,
+  });
+}
+
+export async function getExpirationSchedules(filters = {}) {
+  return normalizeCollection(await request("/expiration-schedules", { query: filters }));
+}
+
+export async function getExpirationSchedule(scheduleId) {
+  return request(`/expiration-schedules/${scheduleId}`);
+}
+
+export async function getExpirationScheduleSummary() {
+  return request("/expiration-schedules/summary");
+}
+
+export async function createExpirationSchedule(schedule) {
+  return request("/expiration-schedules", {
+    method: "POST",
+    body: schedule,
+  });
+}
+
+export async function updateExpirationSchedule(scheduleId, schedule) {
+  return request(`/expiration-schedules/${scheduleId}`, {
+    method: "PUT",
+    body: schedule,
+  });
+}
+
+export async function completeExpirationSchedule(scheduleId, isCompleted) {
+  return request(`/expiration-schedules/${scheduleId}/complete`, {
+    method: "PATCH",
+    body: { is_completed: isCompleted },
+  });
+}
+
+export async function deleteExpirationSchedule(scheduleId) {
+  return request(`/expiration-schedules/${scheduleId}`, {
+    method: "DELETE",
   });
 }
 

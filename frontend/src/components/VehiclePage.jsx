@@ -38,7 +38,7 @@ const VEHICLE_COMPANY_TABS = [
   { label: "한국리모텍", value: "한국리모텍" },
 ];
 
-function VehiclePage() {
+function VehiclePage({ currentUser }) {
   const [items, setItems] = useState([]);
   const [listState, setListState] = useState({ isLoading: false, error: "" });
   const [summary, setSummary] = useState(INITIAL_SUMMARY);
@@ -233,6 +233,7 @@ function VehiclePage() {
               sortOptions={VEHICLE_SORT_OPTIONS}
               sortValue={sortValue}
               tabs={VEHICLE_TABS}
+              currentUser={currentUser}
             />
           ) : activePageTab === "history" ? (
             <VehicleInsuranceHistory

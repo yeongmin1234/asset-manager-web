@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, deleteAsset, disposeAsset, getAsset, updateAsset } from "../api/client.js";
 import AssetForm from "./AssetForm.jsx";
 import AssetHistory from "./AssetHistory.jsx";
+import AttachmentPanel from "./AttachmentPanel.jsx";
 import StatusBadge from "./StatusBadge.jsx";
 
 function AssetDetail({
@@ -12,6 +13,7 @@ function AssetDetail({
   onClose,
   onAssetUpdated,
   onAssetDeleted,
+  currentUser,
 }) {
   const [asset, setAsset] = useState(null);
   const [detailState, setDetailState] = useState({ isLoading: false, error: "" });
@@ -293,6 +295,13 @@ function AssetDetail({
           <span>첨부된 사양 이미지가 없습니다.</span>
         )}
       </div>
+
+      <AttachmentPanel
+        canManage={currentUser?.role === "admin"}
+        entityId={asset.id}
+        entityType="asset"
+        title="첨부파일"
+      />
 
       <AssetHistory assetId={assetId} refreshKey={historyRefreshKey} />
 

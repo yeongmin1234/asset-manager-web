@@ -20,6 +20,7 @@ from app.services.company_vehicle_service import (
     get_company_vehicles,
     update_company_vehicle,
 )
+from app.services.attachment_service import AttachmentValidationError
 
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -80,6 +81,9 @@ def update_existing_company_vehicle(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Vehicle not found.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -106,6 +110,9 @@ def delete_existing_company_vehicle(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Vehicle not found.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(

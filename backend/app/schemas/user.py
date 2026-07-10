@@ -8,6 +8,7 @@ UserRole = Literal["admin", "user"]
 ALLOWED_MENU_PERMISSIONS = {
     "dashboard",
     "beverage-orders",
+    "expiration_schedules",
     "work-manuals",
     "vendor-contacts",
     "assets",

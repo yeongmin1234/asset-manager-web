@@ -5,7 +5,9 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.vendor_contact import VendorContact
+from app.models.attachment import AttachmentEntityType
 from app.schemas.vendor_contact import VendorContactCreate, VendorContactRead, VendorContactUpdate
+from app.services.attachment_service import ensure_no_attachments
 
 
 class VendorContactNotFoundError(Exception):
@@ -78,6 +80,7 @@ def update_vendor_contact(
 
 def delete_vendor_contact(db: Session, contact_id: int) -> VendorContactRead:
     contact = get_vendor_contact(db, contact_id)
+    ensure_no_attachments(db, AttachmentEntityType.VENDOR_CONTACT, contact_id)
     deleted_contact = VendorContactRead.model_validate(contact)
     contact.is_deleted = True
     contact.updated_at = datetime.now(timezone.utc)

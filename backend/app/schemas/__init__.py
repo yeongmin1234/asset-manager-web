@@ -4,6 +4,7 @@ from app.schemas.admin import (
     AdminPasswordResetResponse,
 )
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate
+from app.schemas.attachment import AttachmentRead
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from app.schemas.company_vehicle import (
     CompanyVehicleCreate,
@@ -18,6 +19,13 @@ from app.schemas.dashboard_notice import (
     DashboardNoticeUpdate,
 )
 from app.schemas.department import DepartmentCreate, DepartmentRead, DepartmentUpdate
+from app.schemas.expiration_schedule import (
+    ExpirationScheduleCompleteRequest,
+    ExpirationScheduleCreate,
+    ExpirationScheduleRead,
+    ExpirationScheduleSummary,
+    ExpirationScheduleUpdate,
+)
 from app.schemas.history import AssetHistoryCreate, AssetHistoryRead
 from app.schemas.install_file import (
     InstallFileDeleteRequest,
@@ -50,6 +58,7 @@ __all__ = [
     "AssetHistoryRead",
     "AssetRead",
     "AssetUpdate",
+    "AttachmentRead",
     "CategoryCreate",
     "CategoryRead",
     "CategoryUpdate",
@@ -64,6 +73,11 @@ __all__ = [
     "DepartmentCreate",
     "DepartmentRead",
     "DepartmentUpdate",
+    "ExpirationScheduleCompleteRequest",
+    "ExpirationScheduleCreate",
+    "ExpirationScheduleRead",
+    "ExpirationScheduleSummary",
+    "ExpirationScheduleUpdate",
     "InstallFileDeleteRequest",
     "InstallFileListResponse",
     "InstallFileRead",

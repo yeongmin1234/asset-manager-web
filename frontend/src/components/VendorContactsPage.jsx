@@ -5,6 +5,7 @@ import {
   getVendorContacts,
   updateVendorContact,
 } from "../api/client.js";
+import AttachmentPanel from "./AttachmentPanel.jsx";
 
 const VENDOR_CONTACT_CATEGORIES = ["전산", "시설", "소모품", "렌탈", "보험", "기타"];
 const EMPTY_VENDOR_CONTACT_FORM = {
@@ -39,7 +40,7 @@ const VENDOR_CONTACT_COLUMNS = [
   { key: "actions", label: "관리", defaultWidth: 120, minWidth: 100 },
 ];
 
-function VendorContactsPage() {
+function VendorContactsPage({ currentUser }) {
   const [contacts, setContacts] = useState([]);
   const [filters, setFilters] = useState({ category: "", keyword: "" });
   const [sortMode, setSortMode] = useState("updated_desc");
@@ -467,6 +468,7 @@ function VendorContactsPage() {
       </section>
 
       <VendorContactFormModal
+        canManage={currentUser?.role === "admin"}
         contact={formState.contact}
         error={formState.error}
         isOpen={formState.isOpen}
@@ -478,7 +480,7 @@ function VendorContactsPage() {
   );
 }
 
-function VendorContactFormModal({ contact, error, isOpen, isSubmitting, onClose, onSubmit }) {
+function VendorContactFormModal({ canManage, contact, error, isOpen, isSubmitting, onClose, onSubmit }) {
   const [form, setForm] = useState(EMPTY_VENDOR_CONTACT_FORM);
 
   useEffect(() => {
@@ -582,6 +584,14 @@ function VendorContactFormModal({ contact, error, isOpen, isSubmitting, onClose,
           </div>
 
           {error ? <p className="vendor-contact-form-error">{error}</p> : null}
+          {contact?.id ? (
+            <AttachmentPanel
+              canManage={canManage}
+              entityId={contact.id}
+              entityType="vendor_contact"
+              title="첨부파일"
+            />
+          ) : null}
           <div className="vendor-contact-modal-actions">
             <button type="button" className="secondary-button" disabled={isSubmitting} onClick={onClose}>
               취소

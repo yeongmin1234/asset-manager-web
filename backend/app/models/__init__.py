@@ -1,11 +1,17 @@
 from app.models.activity_log import SystemActivityLog
 from app.models.admin_setting import AdminSetting
 from app.models.asset import Asset, AssetStatus
+from app.models.attachment import Attachment, AttachmentEntityType
 from app.models.beverage_order_record import BeverageOrderRecord
 from app.models.category import Category
 from app.models.company_vehicle import CompanyVehicle, VehicleOwnershipType
 from app.models.dashboard_notice import DashboardNotice, DashboardNoticeType
 from app.models.department import Department
+from app.models.expiration_schedule import (
+    ExpirationSchedule,
+    ExpirationScheduleCategory,
+    ExpirationScheduleStatus,
+)
 from app.models.history import AssetActionType, AssetHistory
 from app.models.install_file import InstallFile
 from app.models.network_credential import (
@@ -25,6 +31,8 @@ __all__ = [
     "AssetActionType",
     "AssetHistory",
     "AssetStatus",
+    "Attachment",
+    "AttachmentEntityType",
     "AdminSetting",
     "BeverageOrderRecord",
     "Category",
@@ -32,6 +40,9 @@ __all__ = [
     "DashboardNotice",
     "DashboardNoticeType",
     "Department",
+    "ExpirationSchedule",
+    "ExpirationScheduleCategory",
+    "ExpirationScheduleStatus",
     "InstallFile",
     "NetworkCredential",
     "NetworkCredentialCategory",

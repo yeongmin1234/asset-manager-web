@@ -13,6 +13,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from app.models.asset import Asset, AssetStatus
+from app.models.attachment import AttachmentEntityType
 from app.models.category import Category
 from app.models.department import Department
 from app.core.config import settings
@@ -31,6 +32,7 @@ from app.services.history_service import (
     record_asset_disposed,
     record_asset_history,
 )
+from app.services.attachment_service import ensure_no_attachments
 from app.services.activity_log_service import (
     record_asset_activity,
     serialize_asset_activity_data,
@@ -664,6 +666,7 @@ def soft_delete_asset(
     user_agent: Optional[str] = None,
 ) -> Asset:
     asset = get_asset(db, asset_id)
+    ensure_no_attachments(db, AttachmentEntityType.ASSET, asset_id)
 
     try:
         before_data = serialize_asset_activity_data(asset)

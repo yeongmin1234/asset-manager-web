@@ -11,10 +11,12 @@ from app.core.config import REQUIRED_CORS_ORIGINS, settings
 from app.api.routers import (
     activity_logs,
     admin,
+    attachments,
     auth,
     beverage_orders,
     company_vehicles,
     dashboard_notices,
+    expiration_schedules,
     install_files,
     network_credentials,
     network_status,
@@ -63,6 +65,7 @@ app.mount(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(attachments.router)
 
 authenticated_user = [Depends(get_current_user)]
 admin_only = [Depends(require_admin)]
@@ -79,6 +82,7 @@ app.include_router(assets.router, dependencies=assets_access)
 app.include_router(stats.router, dependencies=stats_access)
 app.include_router(beverage_orders.router, dependencies=[Depends(require_menu_permission("beverage-orders"))])
 app.include_router(dashboard_notices.router, dependencies=dashboard_access)
+app.include_router(expiration_schedules.router, dependencies=[Depends(require_menu_permission("expiration_schedules"))])
 app.include_router(work_manuals.router, dependencies=[Depends(require_menu_permission("work-manuals"))])
 app.include_router(vendor_contacts.router, dependencies=[Depends(require_menu_permission("vendor-contacts"))])
 app.include_router(visitors.router, dependencies=authenticated_user)

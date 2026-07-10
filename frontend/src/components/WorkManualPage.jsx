@@ -13,6 +13,7 @@ import {
   SortSelect,
   sortItems,
 } from "../utils/sortOptions.jsx";
+import AttachmentPanel from "./AttachmentPanel.jsx";
 
 const EMPTY_MANUAL_FORM = {
   category: "다우오피스",
@@ -29,7 +30,7 @@ const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const BASE64_IMAGE_PATTERN = /data:image\/[a-z0-9.+-]+;base64,[^\s"'<)]+/gi;
 
-function WorkManualPage() {
+function WorkManualPage({ currentUser }) {
   const [manuals, setManuals] = useState([]);
   const [listState, setListState] = useState({ error: "", isLoading: false });
   const [filters, setFilters] = useState({ keyword: "", category: "다우오피스" });
@@ -292,6 +293,7 @@ function WorkManualPage() {
             onClose={() => setSelectedManual(null)}
             onDelete={openDelete}
             onEdit={openEditForm}
+            currentUser={currentUser}
           />
         ) : null}
       </div>
@@ -377,7 +379,7 @@ function WorkManualTable({
   );
 }
 
-function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
+function WorkManualPreview({ currentUser, isLoading, manual, onClose, onDelete, onEdit }) {
   const [previewImage, setPreviewImage] = useState(null);
 
   return (
@@ -401,6 +403,12 @@ function WorkManualPreview({ isLoading, manual, onClose, onDelete, onEdit }) {
       ) : (
         <ManualContent content={manual.content} onImageClick={setPreviewImage} />
       )}
+      <AttachmentPanel
+        canManage={currentUser?.role === "admin"}
+        entityId={manual.id}
+        entityType="work_manual"
+        title="일반 첨부파일"
+      />
       <div className="work-manual-preview-actions">
         <button type="button" className="secondary-button" onClick={() => onEdit?.(manual)}>
           수정

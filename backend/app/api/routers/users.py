@@ -66,10 +66,12 @@ def update_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="현재 로그인한 관리자 계정의 권한 또는 활성 상태는 변경할 수 없습니다.",
         )
+    if user.role == "admin" and payload.role != "admin":
+        _ensure_another_admin(db, user.id)
     if (
         user.role == "admin"
         and user.is_active
-        and (payload.role != "admin" or not payload.is_active)
+        and not payload.is_active
     ):
         _ensure_another_active_admin(db, user.id)
     user.name = payload.name
@@ -100,24 +102,21 @@ def delete_user(
     db: Session = Depends(get_db),
     current_admin: User = Depends(require_admin),
 ) -> UserDeleteResponse:
-    user = _get_user_or_404(db, user_id)
-    if user.id == current_admin.id:
+    target_user = _get_user_or_404(db, user_id)
+    deleted_id = target_user.id
+    deleted_username = target_user.username
+    if target_user.id == current_admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="현재 로그인 중인 계정은 삭제할 수 없습니다.",
         )
-    if user.role == "admin" and user.is_active:
-        _ensure_another_active_admin(
+    if target_user.role == "admin":
+        _ensure_another_admin(
             db,
-            user.id,
+            target_user.id,
             "마지막 관리자 계정은 삭제할 수 없습니다.",
         )
-    deleted_user = UserDeleteResponse(
-        id=user.id,
-        username=user.username,
-        message="사용자 계정을 완전히 삭제했습니다.",
-    )
-    db.delete(user)
+    db.delete(target_user)
     try:
         db.commit()
     except IntegrityError as exc:
@@ -126,12 +125,16 @@ def delete_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="연관 데이터가 있어 사용자를 삭제할 수 없습니다.",
         ) from exc
-    if db.scalar(select(User.id).where(User.id == user_id)) is not None:
+    if db.scalar(select(User.id).where(User.id == deleted_id)) is not None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="사용자 삭제 결과를 확인할 수 없습니다.",
         )
-    return deleted_user
+    return UserDeleteResponse(
+        id=deleted_id,
+        username=deleted_username,
+        message="사용자 계정을 완전히 삭제했습니다.",
+    )
 
 
 def _get_user_or_404(db: Session, user_id: int) -> User:
@@ -153,6 +156,24 @@ def _ensure_another_active_admin(
         select(func.count(User.id)).where(
             User.role == "admin",
             User.is_active.is_(True),
+            User.id != excluded_user_id,
+        )
+    )
+    if not remaining_admin_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
+
+
+def _ensure_another_admin(
+    db: Session,
+    excluded_user_id: int,
+    detail: str = "마지막 남은 관리자 계정은 삭제하거나 권한을 변경할 수 없습니다.",
+) -> None:
+    remaining_admin_count = db.scalar(
+        select(func.count(User.id)).where(
+            User.role == "admin",
             User.id != excluded_user_id,
         )
     )

@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # for the comma-separated CORS_ORIGINS value used by NAS shell env files.
     cors_origins: str = ",".join(REQUIRED_CORS_ORIGINS)
     upload_dir: str = "../uploads"
+    attachment_upload_dir: str = "attachments"
+    attachment_max_size_mb: int = 20
     install_file_upload_dir: str = "../uploads/install_files"
     install_file_max_size_mb: int = 2048
     export_dir: str = "../exports"

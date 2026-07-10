@@ -12,6 +12,7 @@ import {
   SortSelect,
   sortItems,
 } from "../utils/sortOptions.jsx";
+import AttachmentPanel from "./AttachmentPanel.jsx";
 
 const INITIAL_FORM = {
   location_group: "송촌동",
@@ -67,7 +68,7 @@ const PAJU_FIRE_COLUMNS = [
   { key: "actions", label: "관리", initialWidth: 120, minWidth: 110 },
 ];
 
-function PajuFireInsurancePage() {
+function PajuFireInsurancePage({ currentUser }) {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(INITIAL_SUMMARY);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
@@ -244,6 +245,7 @@ function PajuFireInsurancePage() {
 
       <PajuFireInsuranceList
         items={displayedItems}
+        currentUser={currentUser}
         isLoading={listState.isLoading}
         error={listState.error}
         filters={filters}
@@ -283,6 +285,7 @@ function PajuFireInsuranceStats({ summary, isLoading, error }) {
 
 function PajuFireInsuranceList({
   items,
+  currentUser,
   isLoading,
   error,
   filters,
@@ -498,6 +501,9 @@ function PajuFireInsuranceList({
                           <button type="button" className="secondary-button software-action-button" onClick={() => onEdit(item)}>
                             수정
                           </button>
+                          <button type="button" className="secondary-button software-action-button" onClick={() => setSelectedNoteContract(item)}>
+                            첨부
+                          </button>
                           <button type="button" className="danger-button software-action-button" onClick={() => onDelete(item)}>
                             삭제
                           </button>
@@ -567,6 +573,12 @@ function PajuFireInsuranceList({
             <div className="paju-note-modal-content">
               {formatText(selectedNoteContract.note)}
             </div>
+            <AttachmentPanel
+              canManage={currentUser?.role === "admin"}
+              entityId={selectedNoteContract.id}
+              entityType="fire_insurance"
+              title="첨부파일"
+            />
             <div className="paju-note-modal-actions">
               {noteCopyMessage && <span>{noteCopyMessage}</span>}
               <button type="button" className="secondary-button" onClick={handleNoteCopy}>

@@ -19,6 +19,7 @@ from app.services.paju_fire_insurance_service import (
     get_paju_fire_insurance_summary,
     update_paju_fire_insurance_contract,
 )
+from app.services.attachment_service import AttachmentValidationError
 
 
 router = APIRouter(prefix="/paju-fire-insurance", tags=["paju-fire-insurance"])
@@ -101,6 +102,9 @@ def update_existing_paju_fire_insurance_contract(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Paju fire insurance contract not found.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -127,6 +131,9 @@ def delete_existing_paju_fire_insurance_contract(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Paju fire insurance contract not found.",
         ) from exc
+    except AttachmentValidationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
