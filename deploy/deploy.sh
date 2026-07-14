@@ -60,6 +60,65 @@ check_url() {
   fi
 }
 
+show_backend_failure() {
+  stage="$1"
+  pid="$(cat "$LOG_DIR/backend.pid" 2>/dev/null || echo missing)"
+  if health_status="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${BACKEND_PORT:-8010}/health" 2>/dev/null)"; then
+    :
+  else
+    health_status="unreachable"
+  fi
+  echo "FAIL stage=$stage"
+  echo "Backend PID: $pid"
+  echo "Backend health status: $health_status"
+  echo "Backend restart attempted: ${BACKEND_RECOVERY_ATTEMPTED:-no}"
+  echo "Recent backend.log:"
+  tail -n 80 "$LOG_DIR/backend.log" 2>/dev/null || echo "backend.log unavailable"
+}
+
+check_backend_pid_running() {
+  pid="$(cat "$LOG_DIR/backend.pid" 2>/dev/null || true)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    echo "OK  Backend PID running: $pid"
+    return 0
+  fi
+  echo "FAIL Backend PID is not running: ${pid:-missing}"
+  return 1
+}
+
+verify_backend_stability() {
+  label="$1"
+  check_backend_pid_running || return 1
+  check_url "$label" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || return 1
+  echo "Waiting 10 seconds to confirm backend process stability."
+  sleep 10
+  check_backend_pid_running || return 1
+  check_url "$label after 10s" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || return 1
+}
+
+start_backend_with_recovery() {
+  BACKEND_RECOVERY_ATTEMPTED="no"
+  if "$ROOT_DIR/deploy/start_backend.sh" &&
+     verify_backend_stability "Backend health after start"; then
+    return 0
+  fi
+
+  BACKEND_RECOVERY_ATTEMPTED="yes"
+  echo "Backend health failed; attempting one automatic recovery."
+  "$ROOT_DIR/deploy/stop_backend.sh" || {
+    show_backend_failure "backend recovery stop"
+    return 1
+  }
+  if "$ROOT_DIR/deploy/start_backend.sh" &&
+     verify_backend_stability "Backend health after recovery"; then
+    echo "Backend automatic recovery succeeded."
+    return 0
+  fi
+
+  show_backend_failure "backend recovery start"
+  return 1
+}
+
 check_cors_origin() {
   origin="$1"
   url="http://127.0.0.1:${BACKEND_PORT:-8010}/network/status"
@@ -343,6 +402,9 @@ run_deploy() {
   . .venv/bin/activate
   python -m pip install -r requirements.txt || return 1
 
+  echo "== Alembic migration =="
+  alembic upgrade head || return 1
+
   echo "== Backend compile check =="
   python -m compileall app || return 1
 
@@ -365,7 +427,11 @@ run_deploy() {
 
   echo "== Restart services =="
   "$ROOT_DIR/deploy/stop_all.sh" || return 1
-  "$ROOT_DIR/deploy/start_backend.sh" || return 1
+  start_backend_with_recovery || return 1
+  check_url "Backend health before frontend start" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || {
+    show_backend_failure "backend pre-frontend health"
+    return 1
+  }
   "$ROOT_DIR/deploy/start_frontend.sh" || return 1
 
   echo "== Health check =="

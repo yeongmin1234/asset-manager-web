@@ -34,6 +34,21 @@ check_url() {
   fi
 }
 
+check_backend_pid() {
+  pid_file="$LOG_DIR/backend.pid"
+  if [ ! -f "$pid_file" ]; then
+    echo "FAIL Backend PID file missing: $pid_file"
+    return 1
+  fi
+  pid="$(cat "$pid_file" 2>/dev/null || true)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    echo "OK  Backend PID running: $pid"
+    return 0
+  fi
+  echo "FAIL Backend PID is not running: ${pid:-invalid}"
+  return 1
+}
+
 check_openapi_path() {
   path="$1"
   openapi_url="http://127.0.0.1:$BACKEND_PORT/openapi.json"
@@ -134,6 +149,8 @@ run_checks() {
   check_url "Frontend" "$FRONTEND_URL" || return 1
   check_url "Backend" "$BACKEND_HEALTH_URL" || return 1
   check_url "Database" "$BACKEND_DB_HEALTH_URL" || return 1
+  check_backend_pid || return 1
+  check_url "OpenAPI" "http://127.0.0.1:$BACKEND_PORT/openapi.json" || return 1
   check_openapi_path "/hr/accounts" || return 1
   check_frontend_bundle || return 1
   check_frontend_cache_headers || return 1

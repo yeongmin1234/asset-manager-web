@@ -49,14 +49,27 @@ is_port_in_use() {
   fi
 }
 
-if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-  echo "Backend is already running. Restart it with deploy/stop_backend.sh before start."
-  exit 1
+if [ -f "$PID_FILE" ]; then
+  EXISTING_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
+  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+    echo "Existing backend process found. Restarting pid=$EXISTING_PID"
+    "$ROOT_DIR/deploy/stop_backend.sh"
+  else
+    echo "Removing stale backend pid file. pid=${EXISTING_PID:-unknown}"
+    rm -f "$PID_FILE"
+  fi
 fi
 
-if is_port_in_use; then
-  echo "Backend port $BACKEND_PORT is already in use. Run deploy/stop_backend.sh first."
-  exit 1
+if command -v ss >/dev/null 2>&1 ||
+   command -v netstat >/dev/null 2>&1 ||
+   command -v lsof >/dev/null 2>&1 ||
+   command -v fuser >/dev/null 2>&1; then
+  if is_port_in_use; then
+    echo "Backend port $BACKEND_PORT is already in use. Run deploy/stop_backend.sh first."
+    exit 1
+  fi
+else
+  echo "Port check skipped: no supported port inspection tool"
 fi
 
 cd "$BACKEND_DIR"
@@ -66,13 +79,28 @@ echo "Backend CORS origins: ${CORS_ORIGINS:-<application defaults>}"
 nohup python -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" >> "$LOG_FILE" 2>&1 &
 NEW_PID="$!"
 
-sleep 2
-if ! kill -0 "$NEW_PID" 2>/dev/null || ! is_port_in_use; then
-  echo "Backend failed to stay running. Check log=$LOG_FILE"
-  kill "$NEW_PID" 2>/dev/null || true
-  exit 1
-fi
+attempt=1
+while [ "$attempt" -le 15 ]; do
+  sleep 1
 
-echo "$NEW_PID" > "$PID_FILE"
+  if ! kill -0 "$NEW_PID" 2>/dev/null; then
+    echo "Backend process exited during startup."
+    tail -n 50 "$LOG_FILE" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    exit 1
+  fi
 
-echo "Backend started. pid=$(cat "$PID_FILE"), port=$BACKEND_PORT, log=$LOG_FILE"
+  if curl -fsS "http://127.0.0.1:$BACKEND_PORT/health" >/dev/null 2>&1; then
+    echo "$NEW_PID" > "$PID_FILE"
+    echo "Backend started. pid=$NEW_PID, port=$BACKEND_PORT, log=$LOG_FILE"
+    exit 0
+  fi
+
+  attempt=$((attempt + 1))
+done
+
+echo "Backend health check timed out."
+tail -n 50 "$LOG_FILE" 2>/dev/null || true
+kill "$NEW_PID" 2>/dev/null || true
+rm -f "$PID_FILE"
+exit 1

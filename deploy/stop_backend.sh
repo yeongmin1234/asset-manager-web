@@ -93,12 +93,10 @@ elif command -v fuser >/dev/null 2>&1; then
   fi
 fi
 
-if is_port_in_use; then
-  pids="$(find_backend_processes || true)"
-  for pid in $pids; do
-    stop_pid "$pid" "uvicorn app.main:app port $BACKEND_PORT process"
-  done
-fi
+pids="$(find_backend_processes || true)"
+for pid in $pids; do
+  stop_pid "$pid" "uvicorn app.main:app port $BACKEND_PORT process"
+done
 
 if is_port_in_use; then
   echo "Backend port $BACKEND_PORT is still in use; refusing to report a successful stop."
