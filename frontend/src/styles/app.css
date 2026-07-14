@@ -14871,22 +14871,31 @@ button.expiration-summary-card:not(:disabled):hover {
 }
 
 /* HR account list */
-.hr-account-page { display: grid; gap: 16px; }
-.hr-account-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.hr-account-toolbar { display: flex; justify-content: space-between; gap: 12px; padding: 14px; background: #fff; border: 1px solid #e5e7eb; }
-.hr-account-toolbar form { display: flex; gap: 8px; flex: 1; }
-.hr-account-toolbar input { width: min(460px, 100%); padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 6px; }
-.hr-account-toolbar button, .hr-account-actions button, .hr-account-modal button { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; }
-.hr-account-toolbar button:hover, .hr-account-actions button:hover, .hr-account-modal button:hover { background: #f8fafc; }
+.hr-account-page { display: grid; gap: 10px; width: 100%; }
+.hr-account-page .hr-account-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: auto; min-height: 0; padding: 12px 16px; box-shadow: none; }
+.hr-account-page .hr-account-heading h2 { margin: 0 0 3px; }
+.hr-account-page .hr-account-heading p { margin: 0; }
+.hr-account-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 0; padding: 10px 12px; background: #fff; border: 1px solid #e5e7eb; box-shadow: none; }
+.hr-account-toolbar form { display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; }
+.hr-account-toolbar input { flex: 1 1 480px; width: 100%; height: 36px; min-width: 180px; padding: 0 11px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }
+.hr-account-toolbar button, .hr-account-actions button, .hr-account-modal button { height: 36px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; white-space: nowrap; box-shadow: none; }
+.hr-account-toolbar button:hover, .hr-account-actions button:hover, .hr-account-modal button:hover { border-color: #93b4df; background: #f5f9ff; color: #1e4f8a; }
 .hr-primary-button { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
-.hr-account-table-panel { padding: 0; overflow: hidden; border: 1px solid #e5e7eb; background: #fff; }
-.hr-account-table-wrap { max-height: calc(100vh - 310px); min-height: 280px; overflow: auto; }
-.hr-account-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 100%; }
-.hr-account-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: #475569; text-align: left; border-bottom: 1px solid #dfe3e8; }
-.hr-account-table th, .hr-account-table td { padding: 11px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #eef0f3; border-bottom: 1px solid #eef0f3; }
+.hr-primary-button:hover { background: #1d4ed8 !important; border-color: #1d4ed8 !important; }
+.hr-account-table-panel { display: block; width: 100%; padding: 0; overflow: hidden; border: 1px solid #e5e7eb; background: #fff; box-shadow: none; }
+.hr-account-table-wrap { width: 100%; overflow-x: auto; overflow-y: visible; }
+.hr-account-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 100%; margin: 0 auto; }
+.hr-account-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: #475569; text-align: center; border-bottom: 1px solid #dfe3e8; }
+.hr-account-table th, .hr-account-table td { height: 44px; padding: 8px 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #eef0f3; border-bottom: 1px solid #eef0f3; }
+.hr-account-table th:last-child, .hr-account-table td:last-child { border-right: 0; }
 .hr-account-table tbody tr:hover td { background: #f8fafc; }
-.hr-account-actions { display: flex; gap: 6px; }
-.hr-account-actions button { padding: 5px 8px; }
+.hr-account-table .resizable-table-heading { justify-content: center; min-height: 28px; padding: 0 4px; }
+.hr-account-table .table-column-resize-handle { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent !important; box-shadow: none; cursor: col-resize; }
+.hr-account-table .table-column-resize-handle::after { content: ""; position: absolute; top: 4px; right: 2px; width: 1px; height: calc(100% - 8px); border-radius: 0; background: #d7dde5; opacity: 1; transition: background-color .14s ease; }
+.hr-account-table .table-column-resize-handle:hover::after, body.hr-column-resizing .hr-account-table .table-column-resize-handle::after { width: 1px; background: #55789f; opacity: 1; }
+.hr-account-actions { display: flex; justify-content: center; gap: 6px; }
+.hr-account-actions button { height: 30px; padding: 0 8px; }
+.hr-account-empty-row td { height: auto; padding: 28px 16px; color: #64748b; text-align: center; }
 .hr-account-message { color: #166534; margin: 0; }
 .hr-account-error { color: #b91c1c; margin: 0; }
 .hr-account-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .35); }
@@ -14898,4 +14907,4 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-form-grid input { padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 6px; }
 .hr-account-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 body.hr-column-resizing { cursor: col-resize; user-select: none; }
-@media (max-width: 700px) { .hr-account-heading, .hr-account-toolbar { align-items: stretch; flex-direction: column; } .hr-account-form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .hr-account-page .hr-account-heading { align-items: stretch; flex-direction: column; } .hr-account-page .hr-account-heading .hr-primary-button { align-self: flex-end; } .hr-account-toolbar { align-items: stretch; flex-wrap: wrap; } .hr-account-toolbar form { flex: 1 1 100%; flex-wrap: wrap; } .hr-account-toolbar input { flex-basis: 100%; } .hr-account-toolbar > button { margin-left: auto; } .hr-account-form-grid { grid-template-columns: 1fr; } }

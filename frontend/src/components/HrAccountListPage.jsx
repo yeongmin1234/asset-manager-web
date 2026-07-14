@@ -94,14 +94,14 @@ export default function HrAccountListPage({ currentUser }) {
       {state.error ? <p className="hr-account-error">{state.error}</p> : null}
       <div className="content-panel hr-account-table-panel">
         <div className="hr-account-table-wrap">
-          <table className="hr-account-table" style={{ width: tableWidth + (isAdmin ? 120 : 0) }}>
+          <table className="hr-account-table" style={{ width: `max(100%, ${tableWidth + (isAdmin ? 120 : 0)}px)` }}>
             <colgroup>{colgroup}{isAdmin ? <col style={{ width: 120 }} /> : null}</colgroup>
             <thead><tr>{COLUMNS.map((column) => (
               <th key={column.key}><div className="resizable-table-heading"><span>{column.label}</span><button type="button" className="table-column-resize-handle" aria-label={`${column.label} 너비 조절`} onMouseDown={(event) => handleColumnResizeStart(event, column)} /></div></th>
             ))}{isAdmin ? <th>관리</th> : null}</tr></thead>
             <tbody>
               {state.loading ? <tr><td colSpan={COLUMNS.length + (isAdmin ? 1 : 0)}>불러오는 중...</td></tr> : null}
-              {!state.loading && items.length === 0 ? <tr><td colSpan={COLUMNS.length + (isAdmin ? 1 : 0)}>등록된 계정 현황이 없습니다.</td></tr> : null}
+              {!state.loading && items.length === 0 ? <tr className="hr-account-empty-row"><td colSpan={COLUMNS.length + (isAdmin ? 1 : 0)}>등록된 계정 현황이 없습니다.</td></tr> : null}
               {!state.loading && items.map((item) => <tr key={item.id}>
                 <td>{item.department}</td><td>{item.name}</td><td>{item.dowoffice || "-"}</td><td>{item.erp || "-"}</td><td>{item.scm || "-"}</td><td>{item.nas || "-"}</td><td>{formatDate(item.created_at)}</td>
                 {isAdmin ? <td><div className="hr-account-actions"><button type="button" onClick={() => openForm(item)}>수정</button><button type="button" className="danger-button" onClick={() => remove(item)}>삭제</button></div></td> : null}
