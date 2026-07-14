@@ -66,7 +66,7 @@ async function request(path, options = {}) {
     const message =
       error.name === "AbortError"
         ? "Backend 응답 시간이 초과되었습니다."
-        : "Backend에 연결할 수 없습니다.";
+        : "백엔드 서버에 연결할 수 없습니다.";
     throw new ApiError(message, {
       detail: error.message,
       method: fetchOptions.method,
@@ -134,7 +134,7 @@ async function requestBlob(path, options = {}) {
     const message =
       error.name === "AbortError"
         ? "Backend 응답 시간이 초과되었습니다."
-        : "Backend에 연결할 수 없습니다.";
+        : "백엔드 서버에 연결할 수 없습니다.";
     throw new ApiError(message, {
       detail: error.message,
       method: options.method || "GET",
@@ -193,7 +193,7 @@ async function requestFormData(path, formData, options = {}) {
     const message =
       error.name === "AbortError"
         ? "Backend 응답 시간이 초과되었습니다."
-        : "Backend에 연결할 수 없습니다.";
+        : "백엔드 서버에 연결할 수 없습니다.";
     throw new ApiError(message, {
       detail: error.message,
       method: options.method || "POST",
@@ -232,8 +232,14 @@ async function requestFormData(path, formData, options = {}) {
 }
 
 function getErrorMessage(data, status) {
+  if (status === 401) return "로그인이 만료되었습니다.";
+  if (status === 403) return "권한이 없습니다.";
+  if (status === 404) return "요청한 기능을 찾을 수 없습니다.";
+  if (status >= 500) return "서버 처리 중 오류가 발생했습니다.";
+
   if (Array.isArray(data?.detail)) {
-    return data.detail.map((item) => item.msg).join(" ");
+    const validationMessage = data.detail.map((item) => item.msg).filter(Boolean).join(" ");
+    return validationMessage || (status === 422 ? "입력값을 확인해주세요." : `API 요청에 실패했습니다. (${status})`);
   }
   if (typeof data?.detail === "string") {
     return data.detail;
@@ -244,6 +250,8 @@ function getErrorMessage(data, status) {
   if (typeof data === "string" && data) {
     return data;
   }
+  if (status === 409) return "중복되거나 충돌하는 데이터가 있습니다.";
+  if (status === 422) return "입력값을 확인해주세요.";
   return `API 요청에 실패했습니다. (${status})`;
 }
 

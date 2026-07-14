@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user
 from app.db.database import get_db
+from app.models.user import User
 from app.schemas.vehicle_insurance_history import (
     VehicleInsuranceHistoryCreate,
     VehicleInsuranceHistoryRead,
@@ -16,11 +18,14 @@ from app.services.vehicle_insurance_history_service import (
     create_vehicle_insurance_history,
     delete_vehicle_insurance_history,
     get_vehicle_insurance_histories,
+    get_vehicle_insurance_history,
     update_vehicle_insurance_history,
 )
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 
 
 router = APIRouter(tags=["vehicle-insurance-histories"])
+INSURANCE_AUDIT_FIELDS = ("vehicle_id", "start_date", "end_date", "insurance_type", "driver_name", "amount", "payment_method", "note")
 
 
 @router.get(
@@ -55,15 +60,18 @@ def create_new_vehicle_insurance_history(
     vehicle_id: int,
     payload: VehicleInsuranceHistoryCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> VehicleInsuranceHistoryRead:
     try:
-        return create_vehicle_insurance_history(
+        result = create_vehicle_insurance_history(
             db,
             vehicle_id,
             payload,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="create", menu_key="company_cars", menu_name="법인차량 관리", target_type="vehicle_insurance_history", target_id=result.id, target_name="차량 보험 이력 #{}".format(result.id), action_summary="차량 보험 이력을 등록했습니다.", after_data=audit_snapshot(result, INSURANCE_AUDIT_FIELDS))
+        return result
     except VehicleInsuranceHistoryVehicleNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -86,15 +94,20 @@ def update_existing_vehicle_insurance_history(
     history_id: int,
     payload: VehicleInsuranceHistoryUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> VehicleInsuranceHistoryRead:
     try:
-        return update_vehicle_insurance_history(
+        before = audit_snapshot(get_vehicle_insurance_history(db, history_id), INSURANCE_AUDIT_FIELDS)
+        result = update_vehicle_insurance_history(
             db,
             history_id,
             payload,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, INSURANCE_AUDIT_FIELDS))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="company_cars", menu_name="법인차량 관리", target_type="vehicle_insurance_history", target_id=result.id, target_name="차량 보험 이력 #{}".format(result.id), action_summary="차량 보험 이력을 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
+        return result
     except VehicleInsuranceHistoryNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,14 +129,18 @@ def delete_existing_vehicle_insurance_history(
     request: Request,
     history_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> VehicleInsuranceHistoryRead:
     try:
-        return delete_vehicle_insurance_history(
+        before = audit_snapshot(get_vehicle_insurance_history(db, history_id), INSURANCE_AUDIT_FIELDS)
+        result = delete_vehicle_insurance_history(
             db,
             history_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="company_cars", menu_name="법인차량 관리", target_type="vehicle_insurance_history", target_id=result.id, target_name="차량 보험 이력 #{}".format(result.id), action_summary="차량 보험 이력을 삭제했습니다.", before_data=before)
+        return result
     except VehicleInsuranceHistoryNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
