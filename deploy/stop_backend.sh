@@ -19,6 +19,32 @@ is_pid_running() {
   [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
 }
 
+is_port_in_use() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -q ":$BACKEND_PORT "
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | grep -q ":$BACKEND_PORT "
+  elif command -v lsof >/dev/null 2>&1; then
+    lsof -ti tcp:"$BACKEND_PORT" -sTCP:LISTEN >/dev/null 2>&1
+  elif command -v fuser >/dev/null 2>&1; then
+    fuser "$BACKEND_PORT/tcp" >/dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
+find_backend_processes() {
+  ps 2>/dev/null | awk -v port="$BACKEND_PORT" '
+    /[u]vicorn/ && /app\.main:app/ {
+      for (index = 1; index <= NF; index += 1) {
+        if ($index == "--port" && $(index + 1) == port) {
+          print $1
+        }
+      }
+    }
+  '
+}
+
 stop_pid() {
   pid="$1"
   label="$2"
@@ -65,6 +91,23 @@ elif command -v fuser >/dev/null 2>&1; then
     echo "Stopping processes with fuser on $BACKEND_PORT/tcp"
     fuser -k "$BACKEND_PORT/tcp" 2>/dev/null || true
   fi
+fi
+
+if is_port_in_use; then
+  pids="$(find_backend_processes || true)"
+  for pid in $pids; do
+    stop_pid "$pid" "uvicorn app.main:app port $BACKEND_PORT process"
+  done
+fi
+
+if is_port_in_use; then
+  echo "Backend port $BACKEND_PORT is still in use; refusing to report a successful stop."
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | grep ":$BACKEND_PORT " || true
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp 2>/dev/null | grep ":$BACKEND_PORT " || true
+  fi
+  exit 1
 fi
 
 echo "Backend stopped. port=$BACKEND_PORT"
