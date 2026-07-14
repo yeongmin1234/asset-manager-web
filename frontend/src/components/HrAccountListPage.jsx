@@ -85,10 +85,10 @@ export default function HrAccountListPage({ currentUser }) {
       <div className="content-panel hr-account-toolbar">
         <form onSubmit={(event) => { event.preventDefault(); setAppliedKeyword(keyword.trim()); }}>
           <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="부서, 이름, 시스템 계정 검색" aria-label="계정 현황 검색" />
-          <button type="submit">검색</button>
-          <button type="button" onClick={() => { setKeyword(""); setAppliedKeyword(""); }}>초기화</button>
+          <button type="submit" className="secondary-button">검색</button>
+          <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); }}>초기화</button>
         </form>
-        <button type="button" onClick={resetColumnWidths}>컬럼 너비 초기화</button>
+        <button type="button" className="secondary-button" onClick={resetColumnWidths}>컬럼 너비 초기화</button>
       </div>
       {state.message ? <p className="hr-account-message">{state.message}</p> : null}
       {state.error ? <p className="hr-account-error">{state.error}</p> : null}
