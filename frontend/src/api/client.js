@@ -1,5 +1,6 @@
 const DEFAULT_API_PORT = "8010";
 const AUTH_TOKEN_STORAGE_KEY = "assetManager.accessToken";
+const HR_ACCOUNTS_API_PATH = "/hr/accounts";
 
 function getApiBaseUrl() {
   const browserLocation =
@@ -991,19 +992,19 @@ function getAdminAuthHeaders() {
 }
 
 export async function getHrAccounts(filters = {}) {
-  return normalizeCollection(await request("/hr/accounts", { query: filters }));
+  return normalizeCollection(await request(HR_ACCOUNTS_API_PATH, { query: filters }));
 }
 
 export async function createHrAccount(payload) {
-  return request("/hr/accounts", { method: "POST", body: payload });
+  return request(HR_ACCOUNTS_API_PATH, { method: "POST", body: payload });
 }
 
 export async function updateHrAccount(accountId, payload) {
-  return request(`/hr/accounts/${accountId}`, { method: "PUT", body: payload });
+  return request(`${HR_ACCOUNTS_API_PATH}/${accountId}`, { method: "PUT", body: payload });
 }
 
 export async function deleteHrAccount(accountId) {
-  return request(`/hr/accounts/${accountId}`, { method: "DELETE" });
+  return request(`${HR_ACCOUNTS_API_PATH}/${accountId}`, { method: "DELETE" });
 }
 
 function getAuthHeaders() {

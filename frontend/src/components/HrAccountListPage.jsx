@@ -36,7 +36,7 @@ export default function HrAccountListPage({ currentUser }) {
       setItems(await getHrAccounts({ keyword: appliedKeyword }));
       setState((value) => ({ ...value, loading: false }));
     } catch (error) {
-      setState((value) => ({ ...value, loading: false, error: error.message }));
+      setState((value) => ({ ...value, loading: false, error: formatHrApiError(error, "목록을 불러오지 못했습니다.") }));
     }
   }, [appliedKeyword]);
 
@@ -66,7 +66,7 @@ export default function HrAccountListPage({ currentUser }) {
       if (editing) await loadItems();
       setState((value) => ({ ...value, saving: false, message: editing ? "수정했습니다." : "등록했습니다." }));
     } catch (error) {
-      setState((value) => ({ ...value, saving: false, error: error.message }));
+      setState((value) => ({ ...value, saving: false, error: formatHrApiError(error, editing ? "수정에 실패했습니다." : "계정 등록에 실패했습니다.") }));
     }
   };
 
@@ -109,7 +109,7 @@ export default function HrAccountListPage({ currentUser }) {
       await loadItems();
       setState((value) => ({ ...value, message: "삭제했습니다.", error: "" }));
     } catch (error) {
-      setState((value) => ({ ...value, error: error.message }));
+      setState((value) => ({ ...value, error: formatHrApiError(error, "삭제에 실패했습니다.") }));
     }
   };
 
@@ -202,5 +202,12 @@ function formatDate(value) {
 function formatQuickError(error) {
   if (error?.status === 409) return "이미 등록된 계정 정보입니다.";
   if (error?.status >= 500) return "서버 오류로 등록하지 못했습니다. 잠시 후 다시 시도해주세요.";
-  return error?.message || "등록하지 못했습니다. 입력값을 확인해주세요.";
+  return formatHrApiError(error, "계정 등록에 실패했습니다.");
+}
+
+function formatHrApiError(error, fallbackMessage) {
+  if (error?.status === 404) return `${fallbackMessage} 백엔드 배포 상태를 확인해주세요.`;
+  if (error?.status === 403) return "이 작업을 수행할 권한이 없습니다.";
+  if (error?.status >= 500) return `${fallbackMessage} 잠시 후 다시 시도해주세요.`;
+  return error?.message && error.message !== "Not Found" ? error.message : fallbackMessage;
 }
