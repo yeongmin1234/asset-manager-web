@@ -6,6 +6,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import require_admin
+from app.models.user import User
+from app.services.audit_log_service import record_audit_log
 from app.schemas.install_file import (
     InstallFileDeleteRequest,
     InstallFileListResponse,
@@ -140,8 +143,8 @@ async def create_new_install_file(
     admin_password: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
 ) -> InstallFileRead:
-    del request
     verify_admin_guard(db, admin_password)
     try:
         file_data = build_file_data(
@@ -156,7 +159,9 @@ async def create_new_install_file(
             install_order,
         )
         upload_data = await save_install_upload(file)
-        return create_install_file(db, file_data, upload_data)
+        result = create_install_file(db, file_data, upload_data)
+        record_audit_log(db, request, current_admin, action_type="create", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료를 등록했습니다.")
+        return result
     except InstallFileValidationError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -184,8 +189,8 @@ async def update_existing_install_file(
     admin_password: str = Form(...),
     file: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
 ) -> InstallFileRead:
-    del request
     verify_admin_guard(db, admin_password)
     try:
         file_data = build_file_data(
@@ -202,7 +207,9 @@ async def update_existing_install_file(
         upload_data = None
         if file is not None and file.filename:
             upload_data = await save_install_upload(file)
-        return update_install_file(db, file_id, file_data, upload_data)
+        result = update_install_file(db, file_id, file_data, upload_data)
+        record_audit_log(db, request, current_admin, action_type="update", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료 정보를 수정했습니다.")
+        return result
     except InstallFileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -221,13 +228,17 @@ async def update_existing_install_file(
 
 @router.delete("/{file_id}", response_model=InstallFileRead)
 def delete_existing_install_file(
+    request: Request,
     file_id: int,
     payload: InstallFileDeleteRequest,
     db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
 ) -> InstallFileRead:
     verify_admin_guard(db, payload.admin_password)
     try:
-        return delete_install_file(db, file_id)
+        result = delete_install_file(db, file_id)
+        record_audit_log(db, request, current_admin, action_type="delete", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료를 삭제했습니다.")
+        return result
     except InstallFileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

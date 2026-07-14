@@ -30,6 +30,7 @@ from app.services.expiration_schedule_service import (
     update_expiration_schedule,
 )
 from app.services.attachment_service import AttachmentValidationError
+from app.services.audit_log_service import record_audit_log
 
 
 router = APIRouter(prefix="/expiration-schedules", tags=["expiration-schedules"])
@@ -105,13 +106,15 @@ def create_new_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
-        return create_expiration_schedule(
+        result = create_expiration_schedule(
             db,
             payload,
             current_user=current_user,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="create", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 등록했습니다.")
+        return result
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -129,7 +132,7 @@ def update_existing_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
-        return update_expiration_schedule(
+        result = update_expiration_schedule(
             db,
             schedule_id,
             payload,
@@ -137,6 +140,8 @@ def update_existing_expiration_schedule(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="update", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 수정했습니다.")
+        return result
     except ExpirationScheduleNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -159,7 +164,7 @@ def complete_existing_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
-        return complete_expiration_schedule(
+        result = complete_expiration_schedule(
             db,
             schedule_id,
             payload,
@@ -167,6 +172,8 @@ def complete_existing_expiration_schedule(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="update", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 완료 처리했습니다.")
+        return result
     except ExpirationScheduleNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -188,13 +195,15 @@ def delete_existing_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
-        return delete_expiration_schedule(
+        result = delete_expiration_schedule(
             db,
             schedule_id,
             current_user=current_user,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 삭제했습니다.")
+        return result
     except ExpirationScheduleNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -350,6 +350,10 @@ export async function getMenuAccessLogs(filters = {}) {
   return request("/admin/menu-access-logs", { query: filters });
 }
 
+export async function getAuditLogs(filters = {}) {
+  return request("/admin/audit-logs", { query: filters });
+}
+
 export async function recordMenuAccess(payload) {
   return request("/access-logs/menu", { method: "POST", body: payload });
 }

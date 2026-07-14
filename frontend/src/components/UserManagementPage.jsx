@@ -12,6 +12,7 @@ import {
   normalizeMenuPermissions,
 } from "../utils/menuPermissions.js";
 import LoginAccessLogTab from "./LoginAccessLogTab.jsx";
+import AuditLogTab from "./AuditLogTab.jsx";
 
 const EMPTY_CREATE_FORM = {
   username: "",
@@ -265,6 +266,7 @@ function UserManagementPage({ currentUser }) {
       <div className="user-management-tabs" role="tablist" aria-label="사용자 관리 화면">
         <button type="button" role="tab" aria-selected={activeTab === "users"} className={activeTab === "users" ? "is-active" : ""} onClick={() => setActiveTab("users")}>사용자 목록</button>
         <button type="button" role="tab" aria-selected={activeTab === "access-logs"} className={activeTab === "access-logs" ? "is-active" : ""} onClick={() => setActiveTab("access-logs")}>접속기록</button>
+        <button type="button" role="tab" aria-selected={activeTab === "audit-logs"} className={activeTab === "audit-logs" ? "is-active" : ""} onClick={() => setActiveTab("audit-logs")}>감사로그</button>
       </div>
 
       {activeTab === "users" ? <>
@@ -404,7 +406,7 @@ function UserManagementPage({ currentUser }) {
           </section>
         </div>
       ) : null}
-      </> : <LoginAccessLogTab />}
+      </> : activeTab === "access-logs" ? <LoginAccessLogTab /> : <AuditLogTab />}
     </section>
   );
 }

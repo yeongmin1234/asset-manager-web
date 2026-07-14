@@ -5,12 +5,15 @@ from pathlib import Path
 from typing import List
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.services.audit_log_service import record_audit_log
 from app.schemas.work_manual import (
     WorkManualCreate,
     WorkManualImageUploadResponse,
@@ -138,12 +141,16 @@ def read_work_manual(manual_id: int, db: Session = Depends(get_db)) -> WorkManua
 
 @router.post("", response_model=WorkManualRead, status_code=status.HTTP_201_CREATED)
 def create_new_work_manual(
+    request: Request,
     payload: WorkManualCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WorkManualRead:
     try:
         sanitized_payload = payload.model_copy(update={"content": sanitize_work_manual_content(payload.content)})
-        return create_work_manual(db, sanitized_payload)
+        result = create_work_manual(db, sanitized_payload)
+        record_audit_log(db, request, current_user, action_type="create", menu_key="work_manual", menu_name="업무설명서", target_type="work_manual", target_id=result.id, target_name=result.title, action_summary="업무설명서를 등록했습니다.")
+        return result
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -154,13 +161,17 @@ def create_new_work_manual(
 
 @router.put("/{manual_id}", response_model=WorkManualRead)
 def update_existing_work_manual(
+    request: Request,
     manual_id: int,
     payload: WorkManualUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WorkManualRead:
     try:
         sanitized_payload = payload.model_copy(update={"content": sanitize_work_manual_content(payload.content)})
-        return update_work_manual(db, manual_id, sanitized_payload)
+        result = update_work_manual(db, manual_id, sanitized_payload)
+        record_audit_log(db, request, current_user, action_type="update", menu_key="work_manual", menu_name="업무설명서", target_type="work_manual", target_id=result.id, target_name=result.title, action_summary="업무설명서를 수정했습니다.")
+        return result
     except WorkManualNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -176,11 +187,15 @@ def update_existing_work_manual(
 
 @router.delete("/{manual_id}", response_model=WorkManualRead)
 def delete_existing_work_manual(
+    request: Request,
     manual_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WorkManualRead:
     try:
-        return delete_work_manual(db, manual_id)
+        result = delete_work_manual(db, manual_id)
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="work_manual", menu_name="업무설명서", target_type="work_manual", target_id=result.id, target_name=result.title, action_summary="업무설명서를 삭제했습니다.")
+        return result
     except WorkManualNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

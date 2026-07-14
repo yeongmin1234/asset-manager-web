@@ -15082,6 +15082,30 @@ button.expiration-summary-card:not(:disabled):hover {
   -webkit-text-fill-color: #1f2937 !important;
   font-weight: 800;
 }
+.audit-log-tab { display: grid; gap: 10px; min-width: 0; }
+.audit-log-filter-row { display: grid; grid-template-columns: minmax(150px,.8fr) minmax(210px,1fr) 160px 135px 145px auto auto; gap: 7px; align-items: end; }
+.audit-log-filter-row > input, .audit-log-filter-row select, .audit-log-filter-row label input { width: 100%; height: 35px; padding: 0 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #334155; font: inherit; outline: none; }
+.audit-log-filter-row button { height: 35px; padding: 0 11px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #475569; font-weight: 700; cursor: pointer; }
+.audit-log-filter-row label { display: grid; gap: 3px; color: #64748b; font-size: 11px; }
+.audit-log-date-row { grid-template-columns: 155px 155px 1fr; }
+.audit-log-table { min-width: 1450px; }
+.audit-log-table th:nth-child(1) { width: 100px; }
+.audit-log-table th:nth-child(2) { width: 120px; }
+.audit-log-table th:nth-child(3), .audit-log-table th:nth-child(4) { width: 125px; }
+.audit-log-table th:nth-child(5) { width: 155px; }
+.audit-log-table th:nth-child(6) { width: 170px; }
+.audit-log-table th:nth-child(7) { width: 300px; }
+.audit-log-table th:nth-child(8) { width: 145px; }
+.audit-log-table th:nth-child(9) { width: 95px; }
+.audit-log-table th:nth-child(10) { width: 175px; }
+.audit-summary-cell { text-align: left !important; }
+.audit-action-badge { display: inline-flex; justify-content: center; min-width: 62px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+.audit-action-badge.is-create, .audit-action-badge.is-activate { background: #ecfdf3; color: #166534; }
+.audit-action-badge.is-update { background: #f1f5f9; color: #334155; }
+.audit-action-badge.is-delete, .audit-action-badge.is-deactivate { background: #fff1f2; color: #9f1239; }
+.audit-action-badge.is-permission_change { background: #faf5ff; color: #6b21a8; }
+.audit-action-badge.is-excel_import { background: #ecfeff; color: #155e75; }
+@media (max-width: 1000px) { .audit-log-filter-row { grid-template-columns: repeat(2, minmax(150px, 1fr)); } .audit-log-date-row { grid-template-columns: 1fr 1fr; } .audit-log-date-row .access-log-quick-filters { grid-column: 1 / -1; } }
 .hr-account-filter-value-list label { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 8px; border-bottom: 1px solid #f1f3f5; color: #475569; font-size: 12px; cursor: pointer; }
 .hr-account-filter-value-list label:last-of-type { border-bottom: 0; }
 .hr-account-filter-value-list label:hover { background: #f8fafc; }

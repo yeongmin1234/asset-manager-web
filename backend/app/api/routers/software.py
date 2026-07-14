@@ -5,6 +5,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.services.audit_log_service import record_audit_log
 from app.models.software_item import SoftwareLicenseType
 from app.schemas.software import (
     SoftwareItemCreate,
@@ -45,14 +48,17 @@ def create_new_software_item(
     request: Request,
     payload: SoftwareItemCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> SoftwareItemRead:
     try:
-        return create_software_item(
+        result = create_software_item(
             db,
             payload,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="create", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 등록했습니다.")
+        return result
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -67,15 +73,18 @@ def update_existing_software_item(
     software_id: int,
     payload: SoftwareItemUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> SoftwareItemRead:
     try:
-        return update_software_item(
+        result = update_software_item(
             db,
             software_id,
             payload,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="update", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 수정했습니다.")
+        return result
     except SoftwareItemNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -94,14 +103,17 @@ def delete_existing_software_item(
     request: Request,
     software_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> SoftwareItemRead:
     try:
-        return delete_software_item(
+        result = delete_software_item(
             db,
             software_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 삭제했습니다.")
+        return result
     except SoftwareItemNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

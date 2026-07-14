@@ -1,10 +1,13 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.services.audit_log_service import record_audit_log
 from app.schemas.vendor_contact import (
     VendorContactCreate,
     VendorContactRead,
@@ -40,11 +43,15 @@ def read_vendor_contacts(
 
 @router.post("", response_model=VendorContactRead, status_code=status.HTTP_201_CREATED)
 def create_new_vendor_contact(
+    request: Request,
     payload: VendorContactCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> VendorContactRead:
     try:
-        return create_vendor_contact(db, payload)
+        result = create_vendor_contact(db, payload)
+        record_audit_log(db, request, current_user, action_type="create", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 등록했습니다.")
+        return result
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -55,12 +62,16 @@ def create_new_vendor_contact(
 
 @router.put("/{contact_id}", response_model=VendorContactRead)
 def update_existing_vendor_contact(
+    request: Request,
     contact_id: int,
     payload: VendorContactUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> VendorContactRead:
     try:
-        return update_vendor_contact(db, contact_id, payload)
+        result = update_vendor_contact(db, contact_id, payload)
+        record_audit_log(db, request, current_user, action_type="update", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 수정했습니다.")
+        return result
     except VendorContactNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -79,11 +90,15 @@ def update_existing_vendor_contact(
 
 @router.delete("/{contact_id}", response_model=VendorContactRead)
 def delete_existing_vendor_contact(
+    request: Request,
     contact_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> VendorContactRead:
     try:
-        return delete_vendor_contact(db, contact_id)
+        result = delete_vendor_contact(db, contact_id)
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 삭제했습니다.")
+        return result
     except VendorContactNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -8,7 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user
 from app.models.asset import AssetStatus
+from app.models.user import User
+from app.services.audit_log_service import record_audit_log
 from app.schemas.asset import AssetCreate, AssetOcrAnalysisResponse, AssetRead, AssetUpdate
 from app.schemas.asset import AssetImportCommitRequest, AssetImportCommitResponse
 from app.schemas.asset import AssetImportPreviewResponse
@@ -237,14 +240,17 @@ def create_new_asset(
     request: Request,
     asset_create: AssetCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     try:
-        return create_asset(
+        result = create_asset(
             db,
             asset_create,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="create", menu_key="assets", menu_name="자산 관리", target_type="asset", target_id=result.id, target_name=result.name, action_summary="자산을 등록했습니다.")
+        return result
     except AssetConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -280,6 +286,7 @@ async def create_new_asset_with_image(
     note: Optional[str] = Form(default=None),
     spec_image: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     spec_image_path = None
     try:
@@ -304,12 +311,14 @@ async def create_new_asset_with_image(
             note=note,
             spec_image_path=spec_image_path,
         )
-        return create_asset(
+        result = create_asset(
             db,
             payload,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="create", menu_key="assets", menu_name="자산 관리", target_type="asset", target_id=result.id, target_name=result.name, action_summary="자산을 등록했습니다.")
+        return result
     except AssetImageError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except AssetConflictError as exc:
@@ -342,15 +351,18 @@ def update_existing_asset(
     asset_id: int,
     asset_update: AssetUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     try:
-        return update_asset(
+        result = update_asset(
             db,
             asset_id,
             asset_update,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="update", menu_key="assets", menu_name="자산 관리", target_type="asset", target_id=result.id, target_name=result.name, action_summary="자산을 수정했습니다.")
+        return result
     except AssetNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -393,6 +405,7 @@ async def update_existing_asset_with_image(
     delete_spec_image: Optional[str] = Form(default=None),
     spec_image: Optional[UploadFile] = File(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     spec_image_path = None
     try:
@@ -420,13 +433,15 @@ async def update_existing_asset_with_image(
         elif is_truthy_form_value(delete_spec_image):
             update_fields["spec_image_path"] = None
 
-        return update_asset(
+        result = update_asset(
             db,
             asset_id,
             AssetUpdate(**update_fields),
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="update", menu_key="assets", menu_name="자산 관리", target_type="asset", target_id=result.id, target_name=result.name, action_summary="자산을 수정했습니다.")
+        return result
     except AssetImageError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except AssetNotFoundError as exc:
@@ -465,14 +480,17 @@ def dispose_existing_asset(
     request: Request,
     asset_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     try:
-        return dispose_asset(
+        result = dispose_asset(
             db,
             asset_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="update", menu_key="assets", menu_name="자산 관리", target_type="asset", target_id=result.id, target_name=result.name, action_summary="자산을 폐기 처리했습니다.")
+        return result
     except AssetNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -490,14 +508,17 @@ def delete_existing_asset(
     request: Request,
     asset_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssetRead:
     try:
-        return soft_delete_asset(
+        result = soft_delete_asset(
             db,
             asset_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="assets", menu_name="자산 관리", target_type="asset", target_id=result.id, target_name=result.name, action_summary="자산을 삭제했습니다.")
+        return result
     except AssetNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

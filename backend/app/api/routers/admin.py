@@ -19,8 +19,10 @@ from app.schemas.admin import (
 )
 from app.services.activity_log_service import record_activity_log
 from app.schemas.login_access_log import LoginAccessLogPage
+from app.schemas.audit_log import AuditLogPage
 from app.schemas.menu_access_log import MenuAccessLogPage
 from app.services.login_access_log_service import get_access_logs
+from app.services.audit_log_service import get_audit_logs
 from app.services.menu_access_log_service import get_menu_access_logs
 from app.services.admin_service import (
     AdminPasswordInvalidError,
@@ -104,6 +106,31 @@ def list_menu_access_logs(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="메뉴 접근 기록을 불러오는 중 DB 연결에 실패했습니다.",
         ) from exc
+
+
+@router.get("/audit-logs", response_model=AuditLogPage)
+def list_audit_logs(
+    keyword: Optional[str] = Query(default=None),
+    username: Optional[str] = Query(default=None),
+    action_type: Optional[Literal["create", "update", "delete", "activate", "deactivate", "permission_change", "excel_import"]] = Query(default=None),
+    menu_key: Optional[str] = Query(default=None),
+    target_type: Optional[str] = Query(default=None),
+    access_type: Optional[Literal["internal", "external"]] = Query(default=None),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> AuditLogPage:
+    try:
+        return get_audit_logs(
+            db, keyword=keyword, username=username, action_type=action_type,
+            menu_key=menu_key, target_type=target_type, access_type=access_type,
+            start_date=start_date, end_date=end_date, page=page, page_size=page_size,
+        )
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to load audit logs")
+        raise HTTPException(status_code=503, detail="감사로그를 불러오는 중 DB 연결에 실패했습니다.") from exc
 
 
 @router.get("/status", response_model=AdminStatusResponse)

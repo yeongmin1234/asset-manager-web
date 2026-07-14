@@ -1,4 +1,5 @@
 from app.models.activity_log import SystemActivityLog
+from app.models.audit_log import AuditLog
 from app.models.admin_setting import AdminSetting
 from app.models.asset import Asset, AssetStatus
 from app.models.attachment import Attachment, AttachmentEntityType
@@ -31,6 +32,7 @@ from app.models.user import User
 
 __all__ = [
     "Asset",
+    "AuditLog",
     "AssetActionType",
     "AssetHistory",
     "AssetStatus",
