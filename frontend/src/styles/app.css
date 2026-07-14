@@ -14869,3 +14869,33 @@ button.expiration-summary-card:not(:disabled):hover {
     flex: 1 1 calc(33.333% - 6px);
   }
 }
+
+/* HR account list */
+.hr-account-page { display: grid; gap: 16px; }
+.hr-account-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.hr-account-toolbar { display: flex; justify-content: space-between; gap: 12px; padding: 14px; background: #fff; border: 1px solid #e5e7eb; }
+.hr-account-toolbar form { display: flex; gap: 8px; flex: 1; }
+.hr-account-toolbar input { width: min(460px, 100%); padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 6px; }
+.hr-account-toolbar button, .hr-account-actions button, .hr-account-modal button { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; }
+.hr-account-toolbar button:hover, .hr-account-actions button:hover, .hr-account-modal button:hover { background: #f8fafc; }
+.hr-primary-button { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
+.hr-account-table-panel { padding: 0; overflow: hidden; border: 1px solid #e5e7eb; background: #fff; }
+.hr-account-table-wrap { max-height: calc(100vh - 310px); min-height: 280px; overflow: auto; }
+.hr-account-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 100%; }
+.hr-account-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: #475569; text-align: left; border-bottom: 1px solid #dfe3e8; }
+.hr-account-table th, .hr-account-table td { padding: 11px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #eef0f3; border-bottom: 1px solid #eef0f3; }
+.hr-account-table tbody tr:hover td { background: #f8fafc; }
+.hr-account-actions { display: flex; gap: 6px; }
+.hr-account-actions button { padding: 5px 8px; }
+.hr-account-message { color: #166534; margin: 0; }
+.hr-account-error { color: #b91c1c; margin: 0; }
+.hr-account-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .35); }
+.hr-account-modal { width: min(620px, 100%); padding: 22px; border-radius: 10px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .2); }
+.hr-account-modal-heading { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.hr-account-modal-heading h3, .hr-account-modal-heading p { margin: 0 0 4px; }
+.hr-account-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.hr-account-form-grid label { display: grid; gap: 6px; color: #475569; font-size: 13px; }
+.hr-account-form-grid input { padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 6px; }
+.hr-account-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+body.hr-column-resizing { cursor: col-resize; user-select: none; }
+@media (max-width: 700px) { .hr-account-heading, .hr-account-toolbar { align-items: stretch; flex-direction: column; } .hr-account-form-grid { grid-template-columns: 1fr; } }

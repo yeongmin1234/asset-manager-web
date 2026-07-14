@@ -18,6 +18,7 @@ ALLOWED_MENU_PERMISSIONS = {
     "network",
     "statistics",
     "changelog",
+    "hr_list",
 }
 
 LEGACY_MENU_PERMISSION_MAP = {

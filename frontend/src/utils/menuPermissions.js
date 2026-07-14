@@ -11,6 +11,7 @@ export const MENU_PERMISSION_OPTIONS = [
   ["network", "네트워크 현황"],
   ["statistics", "통계 / 리포트"],
   ["changelog", "변경 이력"],
+  ["hr_list", "인사업무 리스트"],
 ];
 
 const MENU_PERMISSION_KEYS = new Set(MENU_PERMISSION_OPTIONS.map(([id]) => id));
@@ -23,6 +24,7 @@ const LEGACY_PERMISSION_MAP = {
   "paju-fire-insurance": "fire_insurance",
   stats: "statistics",
   history: "changelog",
+  "hr-list": "hr_list",
 };
 
 const SECTION_PERMISSION_MAP = {
@@ -38,6 +40,7 @@ const SECTION_PERMISSION_MAP = {
   network: "network",
   stats: "statistics",
   history: "changelog",
+  "hr-list": "hr_list",
 };
 
 export function getPermissionForSection(sectionId) {

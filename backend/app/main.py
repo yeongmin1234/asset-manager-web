@@ -18,6 +18,7 @@ from app.api.routers import (
     dashboard_notices,
     expiration_schedules,
     install_files,
+    hr_accounts,
     network_credentials,
     network_status,
     paju_fire_insurance,
@@ -85,6 +86,7 @@ app.include_router(dashboard_notices.router, dependencies=dashboard_access)
 app.include_router(expiration_schedules.router, dependencies=[Depends(require_menu_permission("expiration_schedules"))])
 app.include_router(work_manuals.router, dependencies=[Depends(require_menu_permission("work_manual"))])
 app.include_router(vendor_contacts.router, dependencies=[Depends(require_menu_permission("vendor_contacts"))])
+app.include_router(hr_accounts.router, dependencies=[Depends(require_menu_permission("hr_list"))])
 app.include_router(visitors.router, dependencies=authenticated_user)
 
 # Management and operational surfaces are admin-only.

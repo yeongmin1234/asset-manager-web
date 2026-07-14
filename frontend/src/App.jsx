@@ -35,6 +35,7 @@ import ExpirationSchedulePage, { formatDaysLeft, getCategoryLabel, openExpiratio
 import AssetExcelTools from "./components/AssetExcelTools.jsx";
 import FilterBar from "./components/FilterBar.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
+import HrAccountListPage from "./components/HrAccountListPage.jsx";
 import InstallLibraryPage from "./components/InstallLibraryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
@@ -85,6 +86,7 @@ const DEFAULT_MENU_VISIBILITY = {
   stats: true,
   history: true,
   "install-library": true,
+  "hr-list": true,
   scm: true,
   network: true,
   "paju-fire-insurance": true,
@@ -100,6 +102,7 @@ const DEFAULT_PROTECTED_MENUS = {
   network: false,
   history: false,
   "install-library": false,
+  "hr-list": false,
   scm: true,
   settings: false,
 };
@@ -118,6 +121,7 @@ const MENU_LABELS = {
   stats: "통계 / 리포트",
   history: "변경 이력",
   "install-library": "설치자료실",
+  "hr-list": "인사업무 리스트",
   scm: "SCM",
   users: "사용자 관리",
   settings: "설정",
@@ -211,7 +215,9 @@ function App({ currentUser, onLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState(null);
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState(() =>
+    typeof window !== "undefined" && window.location.pathname === "/hr/list" ? "hr-list" : "dashboard",
+  );
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
 
   const activeFilters = useMemo(
@@ -650,6 +656,10 @@ function App({ currentUser, onLogout }) {
 
   const navigateToSection = (nextSection) => {
     setActiveSection(nextSection);
+    if (typeof window !== "undefined") {
+      const nextPath = nextSection === "hr-list" ? "/hr/list" : "/";
+      if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -926,7 +936,7 @@ function App({ currentUser, onLogout }) {
   );
 
   const renderActiveSection = () => {
-    if (accessDeniedSection) {
+    if (accessDeniedSection || (!isAdmin && !allowedSections.has(activeSection))) {
       return (
         <section className="access-denied-card">
           <h2>접근 권한이 없습니다.</h2>
@@ -998,6 +1008,10 @@ function App({ currentUser, onLogout }) {
 
     if (activeSection === "install-library") {
       return <InstallLibraryPage />;
+    }
+
+    if (activeSection === "hr-list") {
+      return <HrAccountListPage currentUser={currentUser} />;
     }
 
     if (activeSection === "scm") {
@@ -1142,6 +1156,7 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "paju-fire-insurance"
                 || activeSection === "network"
                 || activeSection === "install-library"
+                || activeSection === "hr-list"
                 || activeSection === "scm"
                 || activeSection === "users"
                 ? "portal-content portal-content-wide"
@@ -1150,7 +1165,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "scm" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>

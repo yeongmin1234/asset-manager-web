@@ -15,6 +15,7 @@ const MENU_ITEMS = [
   { id: "stats", label: "통계 / 리포트", icon: "▥" },
   { id: "history", label: "변경 이력", icon: "◷" },
   { id: "install-library", label: "설치자료실", icon: "▩" },
+  { id: "hr-list", label: "리스트", icon: "♙" },
   { id: "scm", label: "SCM", icon: "S" },
   { id: "users", label: "사용자 관리", icon: "♙" },
   { id: "settings", label: "설정", icon: "⚙" },
@@ -23,11 +24,15 @@ const MENU_ITEMS = [
 const MENU_GROUPS = [
   {
     title: "업무",
-    itemIds: ["dashboard", "beverage-orders", "work-manuals", "vendor-contacts", "expiration_schedules"],
+    itemIds: ["dashboard", "beverage-orders", "work-manuals", "vendor-contacts", "expiration_schedules", "install-library"],
   },
   {
     title: "자산",
     itemIds: ["assets", "software", "vehicles", "paju-fire-insurance", "network"],
+  },
+  {
+    title: "인사업무",
+    itemIds: ["hr-list"],
   },
   {
     title: "온라인 Team",
@@ -39,7 +44,7 @@ const MENU_GROUPS = [
   },
   {
     title: "관리",
-    itemIds: ["excel", "stats", "history", "install-library", "scm", "users", "settings"],
+    itemIds: ["excel", "stats", "history", "scm", "users", "settings"],
   },
 ];
 const SIDEBAR_MENU_ORDER_STORAGE_KEY = "sidebar-menu-order-v1";

@@ -990,6 +990,22 @@ function getAdminAuthHeaders() {
   }
 }
 
+export async function getHrAccounts(filters = {}) {
+  return normalizeCollection(await request("/hr/accounts", { query: filters }));
+}
+
+export async function createHrAccount(payload) {
+  return request("/hr/accounts", { method: "POST", body: payload });
+}
+
+export async function updateHrAccount(accountId, payload) {
+  return request(`/hr/accounts/${accountId}`, { method: "PUT", body: payload });
+}
+
+export async function deleteHrAccount(accountId) {
+  return request(`/hr/accounts/${accountId}`, { method: "DELETE" });
+}
+
 function getAuthHeaders() {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
