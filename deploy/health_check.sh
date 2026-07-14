@@ -34,6 +34,18 @@ check_url() {
   fi
 }
 
+check_openapi_path() {
+  path="$1"
+  openapi_url="http://127.0.0.1:$BACKEND_PORT/openapi.json"
+  if curl -fsS "$openapi_url" | grep -F -q "\"$path\""; then
+    echo "OK  OpenAPI path=$path"
+    return 0
+  fi
+  echo "FAIL OpenAPI path missing: $path ($openapi_url)"
+  echo "Backend process is not running the current application code."
+  return 1
+}
+
 get_bundle() {
   sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' | head -n 1
 }
@@ -122,6 +134,7 @@ run_checks() {
   check_url "Frontend" "$FRONTEND_URL" || return 1
   check_url "Backend" "$BACKEND_HEALTH_URL" || return 1
   check_url "Database" "$BACKEND_DB_HEALTH_URL" || return 1
+  check_openapi_path "/hr/accounts" || return 1
   check_frontend_bundle || return 1
   check_frontend_cache_headers || return 1
   check_cors_origin "http://192.168.222.210:3010" || return 1
