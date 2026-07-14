@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createHrAccount, deleteHrAccount, getHrAccounts, updateHrAccount } from "../api/client.js";
 import useResizableColumns from "../hooks/useResizableColumns.js";
 
@@ -22,7 +22,11 @@ export default function HrAccountListPage({ currentUser }) {
   const [editing, setEditing] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const { columnWidths, handleColumnResizeStart, resetColumnWidths, tableWidth } = useResizableColumns(
+  const [quickForm, setQuickForm] = useState(EMPTY_FORM);
+  const [quickState, setQuickState] = useState({ saving: false, error: "", message: "", missingFields: [] });
+  const quickDepartmentRef = useRef(null);
+  const quickSavingRef = useRef(false);
+  const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
     COLUMNS, "assetManager.hrAccounts.columnWidths", "hr-column-resizing",
   );
 
@@ -38,6 +42,11 @@ export default function HrAccountListPage({ currentUser }) {
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
+  const createAccountAndReload = useCallback(async (payload) => {
+    await createHrAccount(payload);
+    await loadItems();
+  }, [loadItems]);
+
   const openForm = (item = null) => {
     setIsFormOpen(true);
     setEditing(item);
@@ -50,14 +59,46 @@ export default function HrAccountListPage({ currentUser }) {
     setState((value) => ({ ...value, saving: true, error: "", message: "" }));
     try {
       if (editing) await updateHrAccount(editing.id, form);
-      else await createHrAccount(form);
+      else await createAccountAndReload(form);
       setEditing(null);
       setIsFormOpen(false);
       setForm(EMPTY_FORM);
-      await loadItems();
+      if (editing) await loadItems();
       setState((value) => ({ ...value, saving: false, message: editing ? "수정했습니다." : "등록했습니다." }));
     } catch (error) {
       setState((value) => ({ ...value, saving: false, error: error.message }));
+    }
+  };
+
+  const submitQuickForm = async (event) => {
+    event.preventDefault();
+    if (quickSavingRef.current) return;
+
+    const normalizedForm = Object.fromEntries(
+      Object.entries(quickForm).map(([key, value]) => [key, value.trim()]),
+    );
+    const missingFields = ["department", "name"].filter((key) => !normalizedForm[key]);
+    if (missingFields.length) {
+      setQuickState({ saving: false, error: "부서와 이름을 입력해주세요.", message: "", missingFields });
+      return;
+    }
+
+    quickSavingRef.current = true;
+    setQuickState({ saving: true, error: "", message: "", missingFields: [] });
+    try {
+      await createAccountAndReload(normalizedForm);
+      setQuickForm(EMPTY_FORM);
+      setQuickState({ saving: false, error: "", message: "등록했습니다.", missingFields: [] });
+      window.requestAnimationFrame(() => quickDepartmentRef.current?.focus());
+    } catch (error) {
+      setQuickState({
+        saving: false,
+        error: formatQuickError(error),
+        message: "",
+        missingFields: [],
+      });
+    } finally {
+      quickSavingRef.current = false;
     }
   };
 
@@ -88,8 +129,39 @@ export default function HrAccountListPage({ currentUser }) {
           <button type="submit" className="secondary-button">검색</button>
           <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); }}>초기화</button>
         </form>
-        <button type="button" className="secondary-button" onClick={resetColumnWidths}>컬럼 너비 초기화</button>
       </div>
+      {isAdmin ? (
+        <div className="content-panel hr-account-quick-panel">
+          <form
+            className="hr-account-quick-form"
+            onSubmit={submitQuickForm}
+            onKeyDown={(event) => { if (event.nativeEvent.isComposing) event.preventDefault(); }}
+          >
+            {Object.entries({ department: "부서", name: "이름", dowoffice: "다우오피스", erp: "ERP", scm: "SCM", nas: "NAS" }).map(([key, label], index) => (
+              <input
+                key={key}
+                ref={index === 0 ? quickDepartmentRef : undefined}
+                value={quickForm[key]}
+                maxLength={key === "department" || key === "name" ? 100 : 200}
+                placeholder={`${label}${key === "department" || key === "name" ? " *" : ""}`}
+                aria-label={`${label} 간편등록`}
+                aria-invalid={quickState.missingFields.includes(key)}
+                className={quickState.missingFields.includes(key) ? "is-invalid" : ""}
+                disabled={quickState.saving}
+                onChange={(event) => {
+                  setQuickForm((value) => ({ ...value, [key]: event.target.value }));
+                  setQuickState((value) => ({ ...value, error: "", message: "", missingFields: value.missingFields.filter((field) => field !== key) }));
+                }}
+              />
+            ))}
+            <button type="submit" className="hr-primary-button" disabled={quickState.saving}>
+              {quickState.saving ? "등록 중..." : "등록"}
+            </button>
+          </form>
+          {quickState.message ? <p className="hr-account-quick-message is-success">{quickState.message}</p> : null}
+          {quickState.error ? <p className="hr-account-quick-message is-error">{quickState.error}</p> : null}
+        </div>
+      ) : null}
       {state.message ? <p className="hr-account-message">{state.message}</p> : null}
       {state.error ? <p className="hr-account-error">{state.error}</p> : null}
       <div className="content-panel hr-account-table-panel">
@@ -125,4 +197,10 @@ function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("ko-KR");
+}
+
+function formatQuickError(error) {
+  if (error?.status === 409) return "이미 등록된 계정 정보입니다.";
+  if (error?.status >= 500) return "서버 오류로 등록하지 못했습니다. 잠시 후 다시 시도해주세요.";
+  return error?.message || "등록하지 못했습니다. 입력값을 확인해주세요.";
 }
