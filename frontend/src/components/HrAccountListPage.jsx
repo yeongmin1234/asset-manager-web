@@ -7,6 +7,7 @@ import {
 import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const EMPTY_FORM = { department: "", name: "", dowoffice: "", erp: "", scm: "", nas: "" };
+const EMPTY_COLUMN_FILTERS = { ...EMPTY_FORM, createdFrom: "", createdTo: "" };
 const COLUMNS = [
   { key: "department", label: "부서", initialWidth: 144, minWidth: 100 },
   { key: "name", label: "이름", initialWidth: 132, minWidth: 90 },
@@ -31,13 +32,16 @@ export default function HrAccountListPage({ currentUser }) {
   const [appliedKeyword, setAppliedKeyword] = useState("");
   const [state, setState] = useState({ loading: true, saving: false, error: "", message: "" });
   const [editing, setEditing] = useState(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [columnFilters, setColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
+  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
+  const [inlineState, setInlineState] = useState({ saving: false, error: "", missingFields: [] });
   const [quickForm, setQuickForm] = useState(EMPTY_FORM);
   const [quickState, setQuickState] = useState({ saving: false, error: "", message: "", missingFields: [] });
   const [excelState, setExcelState] = useState(EMPTY_EXCEL_STATE);
   const quickDepartmentRef = useRef(null);
   const quickSavingRef = useRef(false);
+  const inlineSavingRef = useRef(false);
   const excelFileInputRef = useRef(null);
   const tableColumns = isAdmin ? ADMIN_COLUMNS : COLUMNS;
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
@@ -56,31 +60,64 @@ export default function HrAccountListPage({ currentUser }) {
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedColumnFilters(columnFilters), 250);
+    return () => window.clearTimeout(timer);
+  }, [columnFilters]);
+
   const createAccountAndReload = useCallback(async (payload) => {
     await createHrAccount(payload);
     await loadItems();
   }, [loadItems]);
 
-  const openForm = (item = null) => {
-    setIsFormOpen(true);
+  const beginInlineEdit = (item) => {
+    if (inlineSavingRef.current || editing?.id === item.id) return;
+    if (editing && hasInlineChanges(editing, form) && !window.confirm("수정 중인 내용이 있습니다. 취소하고 다른 행을 수정하시겠습니까?")) return;
     setEditing(item);
-    setForm(item ? Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, item[key] || ""])) : EMPTY_FORM);
+    setForm(Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, item[key] || ""])));
+    setInlineState({ saving: false, error: "", missingFields: [] });
     setState((value) => ({ ...value, error: "", message: "" }));
   };
 
-  const submit = async (event) => {
-    event.preventDefault();
-    setState((value) => ({ ...value, saving: true, error: "", message: "" }));
+  const cancelInlineEdit = () => {
+    if (inlineSavingRef.current) return;
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setInlineState({ saving: false, error: "", missingFields: [] });
+  };
+
+  const saveInlineEdit = async () => {
+    if (!editing || inlineSavingRef.current) return;
+    const normalizedForm = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, value.trim()]));
+    const missingFields = ["department", "name"].filter((key) => !normalizedForm[key]);
+    if (missingFields.length) {
+      setInlineState({ saving: false, error: "부서와 이름을 입력해주세요.", missingFields });
+      return;
+    }
+    inlineSavingRef.current = true;
+    setInlineState({ saving: true, error: "", missingFields: [] });
     try {
-      if (editing) await updateHrAccount(editing.id, form);
-      else await createAccountAndReload(form);
+      const updated = await updateHrAccount(editing.id, normalizedForm);
+      setItems((value) => value.map((item) => item.id === updated.id ? updated : item));
       setEditing(null);
-      setIsFormOpen(false);
       setForm(EMPTY_FORM);
-      if (editing) await loadItems();
-      setState((value) => ({ ...value, saving: false, message: editing ? "수정했습니다." : "등록했습니다." }));
+      setInlineState({ saving: false, error: "", missingFields: [] });
+      setState((value) => ({ ...value, error: "", message: "수정했습니다." }));
     } catch (error) {
-      setState((value) => ({ ...value, saving: false, error: formatHrApiError(error, editing ? "수정에 실패했습니다." : "계정 등록에 실패했습니다.") }));
+      setInlineState({ saving: false, error: formatHrApiError(error, "수정에 실패했습니다."), missingFields: [] });
+    } finally {
+      inlineSavingRef.current = false;
+    }
+  };
+
+  const handleInlineKeyDown = (event) => {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveInlineEdit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancelInlineEdit();
     }
   };
 
@@ -177,6 +214,17 @@ export default function HrAccountListPage({ currentUser }) {
     }
   };
 
+  const resetSearchAndFilters = () => {
+    setKeyword("");
+    setAppliedKeyword("");
+    setColumnFilters(EMPTY_COLUMN_FILTERS);
+    setDebouncedColumnFilters(EMPTY_COLUMN_FILTERS);
+  };
+
+  const visibleItems = useMemo(() => items.filter((item) => (
+    item.id === editing?.id || matchesColumnFilters(item, debouncedColumnFilters)
+  )), [debouncedColumnFilters, editing?.id, items]);
+
   const colgroup = useMemo(() => tableColumns.map((column) => (
     <col key={column.key} style={{ width: columnWidths[column.key] }} />
   )), [columnWidths, tableColumns]);
@@ -207,7 +255,7 @@ export default function HrAccountListPage({ currentUser }) {
         <form onSubmit={(event) => { event.preventDefault(); setAppliedKeyword(keyword.trim()); }}>
           <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="부서, 이름, 시스템 계정 검색" aria-label="계정 현황 검색" />
           <button type="submit" className="secondary-button">검색</button>
-          <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); }}>초기화</button>
+          <button type="button" className="secondary-button" onClick={resetSearchAndFilters}>초기화</button>
         </form>
       </div>
       {isAdmin ? (
@@ -248,27 +296,67 @@ export default function HrAccountListPage({ currentUser }) {
         <div className="hr-account-table-wrap">
           <table className="hr-account-table" style={{ width: `max(100%, ${tableWidth}px)` }}>
             <colgroup>{colgroup}</colgroup>
-            <thead><tr>{tableColumns.map((column) => (
-              <th key={column.key}><div className="resizable-table-heading"><span>{column.label}</span><button type="button" className="table-column-resize-handle" aria-label={`${column.label} 너비 조절`} onMouseDown={(event) => handleColumnResizeStart(event, column)} /></div></th>
-            ))}</tr></thead>
+            <thead>
+              <tr className="hr-account-header-row">{tableColumns.map((column) => (
+                <th key={column.key}><div className="resizable-table-heading"><span>{column.label}</span><button type="button" className="table-column-resize-handle" aria-label={`${column.label} 너비 조절`} onMouseDown={(event) => handleColumnResizeStart(event, column)} /></div></th>
+              ))}</tr>
+              <tr className="hr-account-filter-row">{tableColumns.map((column) => {
+                if (column.key === "actions") return <th key={column.key} aria-label="관리 컬럼 필터 없음" />;
+                if (column.key === "created_at") return (
+                  <th key={column.key}>
+                    <div className="hr-account-date-filters">
+                      <input type="date" value={columnFilters.createdFrom} max={columnFilters.createdTo || undefined} onChange={(event) => setColumnFilters((value) => ({ ...value, createdFrom: event.target.value }))} aria-label="생성날짜 시작일" />
+                      <input type="date" value={columnFilters.createdTo} min={columnFilters.createdFrom || undefined} onChange={(event) => setColumnFilters((value) => ({ ...value, createdTo: event.target.value }))} aria-label="생성날짜 종료일" />
+                    </div>
+                  </th>
+                );
+                return (
+                  <th key={column.key}>
+                    <input
+                      type="search"
+                      value={columnFilters[column.key]}
+                      placeholder="검색"
+                      aria-label={`${column.label} 컬럼 필터`}
+                      onChange={(event) => setColumnFilters((value) => ({ ...value, [column.key]: event.target.value }))}
+                    />
+                  </th>
+                );
+              })}</tr>
+            </thead>
             <tbody>
               {state.loading ? <tr><td colSpan={tableColumns.length}>불러오는 중...</td></tr> : null}
-              {!state.loading && items.length === 0 ? <tr className="hr-account-empty-row"><td colSpan={tableColumns.length}>등록된 계정 현황이 없습니다.</td></tr> : null}
-              {!state.loading && items.map((item) => <tr key={item.id}>
-                <td>{item.department}</td><td>{item.name}</td><td>{item.dowoffice || "-"}</td><td>{item.erp || "-"}</td><td>{item.scm || "-"}</td><td>{item.nas || "-"}</td><td>{formatDate(item.created_at)}</td>
-                {isAdmin ? <td className="hr-account-actions-cell"><div className="hr-account-actions"><button type="button" className="hr-account-edit-button" onClick={() => openForm(item)}>수정</button><button type="button" className="danger-button" onClick={() => remove(item)}>삭제</button></div></td> : null}
-              </tr>)}
+              {!state.loading && visibleItems.length === 0 ? <tr className="hr-account-empty-row"><td colSpan={tableColumns.length}>{items.length ? "필터 조건에 맞는 계정 현황이 없습니다." : "등록된 계정 현황이 없습니다."}</td></tr> : null}
+              {!state.loading && visibleItems.map((item) => {
+                const isEditing = editing?.id === item.id;
+                return <React.Fragment key={item.id}>
+                  <tr className={isEditing ? "hr-account-editing-row" : undefined}>
+                    {Object.keys(EMPTY_FORM).map((key) => <td key={key}>{isEditing ? (
+                      <input
+                        className={`hr-account-inline-input${inlineState.missingFields.includes(key) ? " is-invalid" : ""}`}
+                        value={form[key]}
+                        maxLength={key === "department" || key === "name" ? 100 : 200}
+                        aria-label={`${COLUMNS.find((column) => column.key === key)?.label || key} 수정`}
+                        aria-invalid={inlineState.missingFields.includes(key)}
+                        disabled={inlineState.saving}
+                        onKeyDown={handleInlineKeyDown}
+                        onChange={(event) => {
+                          setForm((value) => ({ ...value, [key]: event.target.value }));
+                          setInlineState((value) => ({ ...value, error: "", missingFields: value.missingFields.filter((field) => field !== key) }));
+                        }}
+                      />
+                    ) : (item[key] || "-")}</td>)}
+                    <td>{formatDate(item.created_at)}</td>
+                    {isAdmin ? <td className="hr-account-actions-cell"><div className="hr-account-actions">
+                      {isEditing ? <><button type="button" className="hr-account-save-button" onClick={saveInlineEdit} disabled={inlineState.saving}>{inlineState.saving ? "저장 중" : "저장"}</button><button type="button" onClick={cancelInlineEdit} disabled={inlineState.saving}>취소</button></> : <><button type="button" className="hr-account-edit-button" onClick={() => beginInlineEdit(item)}>수정</button><button type="button" className="danger-button" onClick={() => remove(item)}>삭제</button></>}
+                    </div></td> : null}
+                  </tr>
+                  {isEditing && inlineState.error ? <tr className="hr-account-inline-error-row"><td colSpan={tableColumns.length}>{inlineState.error}</td></tr> : null}
+                </React.Fragment>;
+              })}
             </tbody>
           </table>
         </div>
       </div>
-      {isFormOpen ? <div className="hr-account-modal-backdrop" role="presentation" onMouseDown={() => { setIsFormOpen(false); setEditing(null); setForm(EMPTY_FORM); }}>
-        <form className="hr-account-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
-          <div className="hr-account-modal-heading"><div><h3>{editing ? "계정 현황 수정" : "계정 현황 등록"}</h3><p>생성날짜는 저장 시 자동으로 기록됩니다.</p></div><button type="button" onClick={() => { setIsFormOpen(false); setEditing(null); setForm(EMPTY_FORM); }}>닫기</button></div>
-          <div className="hr-account-form-grid">{Object.entries({ department: "부서", name: "이름", dowoffice: "다우오피스", erp: "ERP", scm: "SCM", nas: "NAS" }).map(([key, label]) => <label key={key}><span>{label}{["department", "name"].includes(key) ? " *" : ""}</span><input value={form[key]} required={["department", "name"].includes(key)} maxLength={key === "department" || key === "name" ? 100 : 200} onChange={(event) => setForm({ ...form, [key]: event.target.value })} /></label>)}</div>
-          <div className="hr-account-modal-actions"><button type="button" onClick={() => { setIsFormOpen(false); setEditing(null); setForm(EMPTY_FORM); }}>취소</button><button type="submit" className="hr-primary-button" disabled={state.saving}>{state.saving ? "저장 중..." : "저장"}</button></div>
-        </form>
-      </div> : null}
       {excelState.isOpen ? (
         <div className="hr-account-modal-backdrop hr-account-import-backdrop" role="presentation" onMouseDown={closeExcelModal}>
           <section className="hr-account-modal hr-account-import-modal" role="dialog" aria-modal="true" aria-labelledby="hr-import-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -349,6 +437,30 @@ function formatDate(value) {
 
 function padDatePart(value) {
   return String(value).padStart(2, "0");
+}
+
+function matchesColumnFilters(item, filters) {
+  const textColumns = Object.keys(EMPTY_FORM);
+  const matchesText = textColumns.every((key) => {
+    const filter = String(filters[key] || "").trim().toLocaleLowerCase();
+    return !filter || String(item[key] || "").toLocaleLowerCase().includes(filter);
+  });
+  if (!matchesText) return false;
+  if (!filters.createdFrom && !filters.createdTo) return true;
+  const createdDate = toLocalDateKey(item.created_at);
+  if (!createdDate) return false;
+  return (!filters.createdFrom || createdDate >= filters.createdFrom)
+    && (!filters.createdTo || createdDate <= filters.createdTo);
+}
+
+function toLocalDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+}
+
+function hasInlineChanges(item, form) {
+  return Object.keys(EMPTY_FORM).some((key) => String(item[key] || "") !== String(form[key] || ""));
 }
 
 function formatQuickError(error) {
