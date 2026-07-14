@@ -366,6 +366,17 @@ export async function recordMenuAccess(payload) {
   return request("/access-logs/menu", { method: "POST", body: payload });
 }
 
+export async function getSidebarMenuLabels() {
+  return request("/sidebar-menu-labels");
+}
+
+export async function updateSidebarMenuLabel(menuKey, menuName) {
+  return request(`/sidebar-menu-labels/${encodeURIComponent(menuKey)}`, {
+    method: "PATCH",
+    body: { menu_name: menuName },
+  });
+}
+
 export function getAuthToken() {
   if (typeof window === "undefined") {
     return "";

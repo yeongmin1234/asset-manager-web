@@ -1069,6 +1069,7 @@ function App({ currentUser, onLogout }) {
         collapsed={isSidebarCollapsed}
         menuVisibility={menuVisibility}
         allowedMenuIds={isAdmin ? null : Array.from(allowedSections)}
+        isAdmin={isAdmin}
         onNavigate={handleNavigate}
       />
 

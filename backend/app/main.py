@@ -24,6 +24,7 @@ from app.api.routers import (
     network_status,
     paju_fire_insurance,
     server_operations,
+    sidebar_menu_labels,
     software,
     stats,
     users,
@@ -72,6 +73,8 @@ app.include_router(attachments.router)
 
 authenticated_user = [Depends(get_current_user)]
 admin_only = [Depends(require_admin)]
+
+app.include_router(sidebar_menu_labels.router, dependencies=authenticated_user)
 
 assets_access = [Depends(require_menu_permission("assets"))]
 dashboard_access = [Depends(require_menu_permission("dashboard"))]

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { getSidebarMenuLabels, updateSidebarMenuLabel } from "../api/client.js";
 
 export const MENU_ITEMS = [
   { id: "dashboard", label: "대시보드", icon: "⌂", menuKey: "dashboard", routePath: "/dashboard" },
@@ -54,6 +55,7 @@ function PortalSidebar({
   collapsed = false,
   menuVisibility = {},
   allowedMenuIds = null,
+  isAdmin = false,
   onNavigate,
 }) {
   const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
@@ -61,6 +63,17 @@ function PortalSidebar({
   const [isEditingMenuOrder, setIsEditingMenuOrder] = useState(false);
   const [draggedMenuItem, setDraggedMenuItem] = useState(null);
   const [dragOverMenuItem, setDragOverMenuItem] = useState(null);
+  const [menuLabels, setMenuLabels] = useState({});
+  const [draftMenuLabels, setDraftMenuLabels] = useState({});
+  const [menuEditError, setMenuEditError] = useState("");
+  const [isSavingMenuLabels, setIsSavingMenuLabels] = useState(false);
+  useEffect(() => {
+    let active = true;
+    getSidebarMenuLabels()
+      .then((response) => { if (active) setMenuLabels(response?.labels || {}); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
   const visibleMenuItems = MENU_ITEMS.filter(
     (item) =>
       menuVisibility[item.id] !== false &&
@@ -77,16 +90,48 @@ function PortalSidebar({
   );
 
   const handleStartEdit = () => {
+    if (!isAdmin) return;
     setDraftMenuOrder(menuOrder);
+    setDraftMenuLabels(menuLabels);
+    setMenuEditError("");
     setIsEditingMenuOrder(true);
   };
 
-  const handleSaveOrder = () => {
+  const handleSaveOrder = async () => {
+    if (!isAdmin || isSavingMenuLabels) return;
+    const changedItems = MENU_ITEMS.filter((item) => {
+      const nextName = (draftMenuLabels[item.menuKey] ?? menuLabels[item.menuKey] ?? item.label).trim();
+      const currentName = menuLabels[item.menuKey] ?? item.label;
+      return nextName !== currentName;
+    });
+    const invalidItem = changedItems.find((item) => {
+      const name = (draftMenuLabels[item.menuKey] || "").trim();
+      return !name || name.length > 30 || /<[^>]*>|javascript\s*:|script/i.test(name);
+    });
+    if (invalidItem) {
+      setMenuEditError("메뉴 이름은 HTML 없이 1~30자로 입력해주세요.");
+      return;
+    }
+    setIsSavingMenuLabels(true);
+    setMenuEditError("");
+    try {
+      let labels = menuLabels;
+      for (const item of changedItems) {
+        const response = await updateSidebarMenuLabel(item.menuKey, draftMenuLabels[item.menuKey].trim());
+        labels = response?.labels || labels;
+      }
+      setMenuLabels(labels);
+    } catch (error) {
+      setMenuEditError(error?.message || "메뉴 이름을 저장하지 못했습니다.");
+      setIsSavingMenuLabels(false);
+      return;
+    }
     const normalizedOrder = normalizeMenuOrder(draftMenuOrder);
     setMenuOrder(normalizedOrder);
     setDraftMenuOrder(normalizedOrder);
     saveMenuOrder(normalizedOrder);
     setIsEditingMenuOrder(false);
+    setIsSavingMenuLabels(false);
   };
 
   const handleCancelOrder = () => {
@@ -194,16 +239,16 @@ function PortalSidebar({
       <div className={isEditingMenuOrder ? "sidebar-edit-panel editing" : "sidebar-edit-panel"}>
         <div className="sidebar-edit-heading">
           <span>{isEditingMenuOrder ? "메뉴 편집 중" : "사이드바 메뉴"}</span>
-          {!isEditingMenuOrder && (
+          {isAdmin && !isEditingMenuOrder && (
             <button type="button" className="sidebar-edit-button" onClick={handleStartEdit}>
               편집
             </button>
           )}
         </div>
-        {isEditingMenuOrder && (
+        {isAdmin && isEditingMenuOrder && (
           <div className="sidebar-edit-actions">
-            <button type="button" className="sidebar-save-button" onClick={handleSaveOrder}>
-              저장
+            <button type="button" className="sidebar-save-button" onClick={handleSaveOrder} disabled={isSavingMenuLabels}>
+              {isSavingMenuLabels ? "저장 중" : "저장"}
             </button>
             <button type="button" className="sidebar-edit-button" onClick={handleResetOrder}>
               초기화
@@ -213,6 +258,7 @@ function PortalSidebar({
             </button>
           </div>
         )}
+        {isAdmin && menuEditError ? <p className="sidebar-edit-error">{menuEditError}</p> : null}
       </div>
 
       <nav className="portal-nav">
@@ -268,7 +314,15 @@ function PortalSidebar({
                             ⋮⋮
                           </span>
                           <span aria-hidden="true">{item.icon}</span>
-                          <strong>{item.label}</strong>
+                          <input
+                            className="sidebar-menu-label-input"
+                            value={draftMenuLabels[item.menuKey] ?? menuLabels[item.menuKey] ?? item.label}
+                            maxLength={30}
+                            onChange={(event) => setDraftMenuLabels((current) => ({ ...current, [item.menuKey]: event.target.value }))}
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                            aria-label={`${item.label} 메뉴 이름`}
+                          />
                         </button>
                       </div>
                     );
@@ -282,7 +336,7 @@ function PortalSidebar({
                       onClick={() => onNavigate?.(item.id)}
                     >
                       <span aria-hidden="true">{item.icon}</span>
-                      <strong>{item.label}</strong>
+                      <strong>{menuLabels[item.menuKey] ?? item.label}</strong>
                     </button>
                   );
                 })}
