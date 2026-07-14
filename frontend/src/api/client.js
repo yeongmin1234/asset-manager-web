@@ -1007,6 +1007,24 @@ export async function deleteHrAccount(accountId) {
   return request(`${HR_ACCOUNTS_API_PATH}/${accountId}`, { method: "DELETE" });
 }
 
+export async function previewHrAccountExcelImport(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestFormData(`${HR_ACCOUNTS_API_PATH}/import/preview`, formData, { timeoutMs: 60000 });
+}
+
+export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
+  return request(`${HR_ACCOUNTS_API_PATH}/import`, {
+    method: "POST",
+    body: { rows, duplicate_policy: duplicatePolicy },
+    timeoutMs: 60000,
+  });
+}
+
+export async function downloadHrAccountImportTemplate() {
+  return requestBlob(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000 });
+}
+
 function getAuthHeaders() {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

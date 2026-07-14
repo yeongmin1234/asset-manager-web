@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -43,3 +43,40 @@ class HrAccountRead(HrAccountBase):
     deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HrAccountImportData(BaseModel):
+    department: Optional[str] = None
+    name: Optional[str] = None
+    dowoffice: Optional[str] = None
+    erp: Optional[str] = None
+    scm: Optional[str] = None
+    nas: Optional[str] = None
+
+
+class HrAccountImportPreviewRow(BaseModel):
+    row_number: int
+    status: Literal["valid", "duplicate", "error"]
+    data: HrAccountImportData
+    errors: List[str] = Field(default_factory=list)
+
+
+class HrAccountImportPreviewResponse(BaseModel):
+    matched_columns: Dict[str, str]
+    total_count: int
+    valid_count: int
+    duplicate_count: int
+    error_count: int
+    rows: List[HrAccountImportPreviewRow]
+
+
+class HrAccountImportRequest(BaseModel):
+    rows: List[HrAccountImportPreviewRow] = Field(..., max_length=5000)
+    duplicate_policy: Literal["skip", "update"] = "skip"
+
+
+class HrAccountImportResponse(BaseModel):
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    failed_count: int

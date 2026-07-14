@@ -14875,6 +14875,53 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-page .hr-account-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: auto; min-height: 0; padding: 12px 16px; box-shadow: none; }
 .hr-account-page .hr-account-heading h2 { margin: 0 0 3px; }
 .hr-account-page .hr-account-heading p { margin: 0; }
+.hr-account-excel-attachment { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 9px; min-width: 0; }
+.hr-account-excel-attachment input[type="file"] { display: none; }
+.hr-account-excel-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 13px; border: 1px solid #a7d7b5; border-radius: 6px; background: #fff; color: #27643a; cursor: pointer; font-weight: 700; white-space: nowrap; box-shadow: none; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+.hr-account-excel-button:hover { border-color: #65a878; background: #f2faf4; color: #174d2a; }
+.hr-account-excel-button:focus-visible { outline: 2px solid rgba(39, 100, 58, .22); outline-offset: 2px; }
+.hr-account-excel-button svg { width: 17px; height: 17px; fill: currentColor; flex: 0 0 auto; }
+.hr-account-excel-file-name { max-width: 240px; overflow: hidden; color: #475569; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.hr-account-excel-error { flex-basis: 100%; color: #b91c1c; font-size: 12px; text-align: right; }
+.hr-account-import-backdrop { padding: 20px; }
+.hr-account-import-modal { display: flex; flex-direction: column; gap: 12px; width: min(1240px, calc(100vw - 40px)); max-width: 1240px; max-height: calc(100vh - 40px); padding: 18px; overflow: hidden; background: #fff; }
+.hr-account-import-heading { flex: 0 0 auto; gap: 16px; }
+.hr-account-import-heading-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.hr-account-import-heading-actions button { background: #fff; border-color: #cbd5e1; color: #334155; transition: background-color .15s ease, border-color .15s ease; }
+.hr-account-import-heading-actions button:hover:not(:disabled) { background: #f8fafc; border-color: #94a3b8; }
+.hr-account-import-loading { padding: 28px 16px; border: 1px solid #e5e7eb; border-radius: 7px; color: #475569; text-align: center; }
+.hr-account-import-error { margin: 0; padding: 9px 11px; border: 1px solid #fecaca; border-radius: 6px; background: #fff7f7; color: #b91c1c; font-size: 13px; }
+.hr-account-import-summary { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 8px; }
+.hr-account-import-summary span { padding: 9px 11px; border: 1px solid #e5e7eb; border-radius: 7px; background: #fafafa; color: #475569; }
+.hr-account-import-summary span.is-valid { border-color: #bbdfc6; background: #f2faf4; color: #27643a; }
+.hr-account-import-summary span.is-duplicate { border-color: #fed7aa; background: #fff8ed; color: #9a5412; }
+.hr-account-import-summary span.is-error { border-color: #fecaca; background: #fff5f5; color: #b91c1c; }
+.hr-account-import-mapping { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 12px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 7px; background: #fff; color: #64748b; font-size: 12px; }
+.hr-account-import-mapping strong { color: #334155; }
+.hr-account-import-policy { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 8px 11px 9px; border: 1px solid #e5e7eb; border-radius: 7px; }
+.hr-account-import-policy legend { padding: 0 5px; color: #334155; font-size: 12px; font-weight: 800; }
+.hr-account-import-policy label { display: inline-flex; align-items: center; gap: 6px; color: #475569; font-size: 13px; cursor: pointer; }
+.hr-account-import-policy input { accent-color: #367a4b; }
+.hr-account-import-table-wrap { flex: 1 1 auto; min-height: 180px; max-height: 48vh; overflow: auto; border: 1px solid #e5e7eb; border-radius: 7px; }
+.hr-account-import-table { width: 100%; min-width: 1050px; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.hr-account-import-table th { position: sticky; top: 0; z-index: 1; padding: 9px 8px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #d7dce2; background: #f8fafc; color: #475569; font-size: 12px; text-align: center; white-space: nowrap; }
+.hr-account-import-table td { padding: 8px; border-right: 1px solid #eef0f3; border-bottom: 1px solid #eef0f3; color: #334155; font-size: 12px; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.hr-account-import-table th:first-child { width: 70px; }
+.hr-account-import-table th:nth-last-child(2) { width: 80px; }
+.hr-account-import-table th:last-child { width: 190px; }
+.hr-account-import-table tr.is-valid td { background: #fbfefc; }
+.hr-account-import-table tr.is-duplicate td { background: #fffaf2; }
+.hr-account-import-table tr.is-error td { background: #fff7f7; }
+.hr-account-import-table td.hr-account-import-errors { color: #b91c1c; text-align: left; }
+.hr-account-import-status { display: inline-flex; justify-content: center; min-width: 44px; padding: 3px 6px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.hr-account-import-status.is-valid { background: #dcfce7; color: #166534; }
+.hr-account-import-status.is-duplicate { background: #ffedd5; color: #9a3412; }
+.hr-account-import-status.is-error { background: #fee2e2; color: #991b1b; }
+.hr-account-import-result { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 14px; padding: 9px 11px; border: 1px solid #bbdfc6; border-radius: 7px; background: #f2faf4; color: #27643a; font-size: 13px; }
+.hr-account-import-actions { display: flex; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
+.hr-account-import-actions .hr-account-import-submit { background: #367a4b; border-color: #367a4b; color: #fff; }
+.hr-account-import-actions .hr-account-import-submit:hover:not(:disabled) { background: #28653b; border-color: #28653b; color: #fff; }
+.hr-account-import-actions button:disabled, .hr-account-import-heading-actions button:disabled { cursor: not-allowed; opacity: .6; }
 .hr-account-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 0; padding: 10px 12px; background: #fff; border: 1px solid #e5e7eb; box-shadow: none; }
 .hr-account-toolbar form { display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; }
 .hr-account-toolbar input { flex: 1 1 480px; width: 100%; height: 36px; min-width: 180px; padding: 0 11px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }
@@ -14925,4 +14972,5 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 body.hr-column-resizing { cursor: col-resize; user-select: none; }
 @media (max-width: 1000px) { .hr-account-quick-form { grid-template-columns: repeat(3, minmax(140px, 1fr)); } .hr-account-quick-form button { justify-self: end; min-width: 86px; } }
-@media (max-width: 760px) { .hr-account-page .hr-account-heading { align-items: stretch; flex-direction: column; } .hr-account-page .hr-account-heading .hr-primary-button { align-self: flex-end; } .hr-account-toolbar { align-items: stretch; flex-wrap: wrap; } .hr-account-toolbar form { flex: 1 1 100%; flex-wrap: wrap; } .hr-account-toolbar input { flex-basis: 100%; } .hr-account-quick-form { grid-template-columns: repeat(2, minmax(120px, 1fr)); } .hr-account-form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .hr-account-page .hr-account-heading { align-items: stretch; flex-direction: column; } .hr-account-page .hr-account-heading .hr-primary-button { align-self: flex-end; } .hr-account-excel-attachment { justify-content: flex-end; } .hr-account-excel-error { text-align: right; } .hr-account-toolbar { align-items: stretch; flex-wrap: wrap; } .hr-account-toolbar form { flex: 1 1 100%; flex-wrap: wrap; } .hr-account-toolbar input { flex-basis: 100%; } .hr-account-quick-form { grid-template-columns: repeat(2, minmax(120px, 1fr)); } .hr-account-form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .hr-account-import-backdrop { padding: 10px; } .hr-account-import-modal { width: calc(100vw - 20px); max-height: calc(100vh - 20px); padding: 12px; } .hr-account-import-heading { align-items: stretch; flex-direction: column; } .hr-account-import-heading-actions { justify-content: stretch; } .hr-account-import-heading-actions button { flex: 1 1 auto; } .hr-account-import-summary { grid-template-columns: repeat(2, minmax(100px, 1fr)); } }
