@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.services.audit_log_service import record_audit_log
-from app.models.software_item import SoftwareLicenseType
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
+from app.models.software_item import SoftwareItem, SoftwareLicenseType
 from app.schemas.software import (
     SoftwareItemCreate,
     SoftwareItemRead,
@@ -57,7 +57,7 @@ def create_new_software_item(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="create", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 등록했습니다.")
+        record_audit_log(db, request, current_user, action_type="create", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 등록했습니다.", after_data=audit_snapshot(result, ("name", "owner_name", "license_type", "quantity", "expire_date", "note")))
         return result
     except SQLAlchemyError as exc:
         db.rollback()
@@ -76,6 +76,8 @@ def update_existing_software_item(
     current_user: User = Depends(get_current_user),
 ) -> SoftwareItemRead:
     try:
+        fields = ("name", "owner_name", "license_type", "quantity", "price_amount", "expire_date", "note")
+        before = audit_snapshot(db.get(SoftwareItem, software_id), fields)
         result = update_software_item(
             db,
             software_id,
@@ -83,7 +85,8 @@ def update_existing_software_item(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="update", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 수정했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except SoftwareItemNotFoundError as exc:
         raise HTTPException(
@@ -106,13 +109,14 @@ def delete_existing_software_item(
     current_user: User = Depends(get_current_user),
 ) -> SoftwareItemRead:
     try:
+        before = audit_snapshot(db.get(SoftwareItem, software_id), ("name", "owner_name", "license_type", "quantity", "expire_date", "note"))
         result = delete_software_item(
             db,
             software_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="delete", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 삭제했습니다.")
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="software", menu_name="SW 현황", target_type="software", target_id=result.id, target_name=result.name, action_summary="SW를 삭제했습니다.", before_data=before)
         return result
     except SoftwareItemNotFoundError as exc:
         raise HTTPException(

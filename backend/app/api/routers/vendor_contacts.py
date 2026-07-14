@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.services.audit_log_service import record_audit_log
+from app.models.vendor_contact import VendorContact
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 from app.schemas.vendor_contact import (
     VendorContactCreate,
     VendorContactRead,
@@ -50,7 +51,7 @@ def create_new_vendor_contact(
 ) -> VendorContactRead:
     try:
         result = create_vendor_contact(db, payload)
-        record_audit_log(db, request, current_user, action_type="create", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 등록했습니다.")
+        record_audit_log(db, request, current_user, action_type="create", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 등록했습니다.", after_data=audit_snapshot(result, ("category", "company_name", "task_name", "manager_name", "phone", "email")))
         return result
     except SQLAlchemyError as exc:
         db.rollback()
@@ -69,8 +70,11 @@ def update_existing_vendor_contact(
     current_user: User = Depends(get_current_user),
 ) -> VendorContactRead:
     try:
+        fields = ("category", "company_name", "task_name", "manager_name", "phone", "email", "memo", "is_favorite")
+        before = audit_snapshot(db.get(VendorContact, contact_id), fields)
         result = update_vendor_contact(db, contact_id, payload)
-        record_audit_log(db, request, current_user, action_type="update", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 수정했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except VendorContactNotFoundError as exc:
         raise HTTPException(
@@ -96,8 +100,9 @@ def delete_existing_vendor_contact(
     current_user: User = Depends(get_current_user),
 ) -> VendorContactRead:
     try:
+        before = audit_snapshot(db.get(VendorContact, contact_id), ("category", "company_name", "task_name", "manager_name", "phone", "email"))
         result = delete_vendor_contact(db, contact_id)
-        record_audit_log(db, request, current_user, action_type="delete", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 삭제했습니다.")
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="vendor_contacts", menu_name="업체연락처", target_type="vendor_contact", target_id=result.id, target_name=result.company_name, action_summary="업체연락처를 삭제했습니다.", before_data=before)
         return result
     except VendorContactNotFoundError as exc:
         raise HTTPException(

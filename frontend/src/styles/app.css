@@ -15013,9 +15013,9 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-table th:last-child, .hr-account-table td:last-child { border-right: 0; }
 .hr-account-table tbody tr:hover td { background: #f8fafc; }
 .hr-account-table .resizable-table-heading { justify-content: center; gap: 4px; min-height: 28px; padding: 0 10px 0 4px; }
-.hr-account-filter-button { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; width: 22px; height: 22px; min-width: 0; padding: 0; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #94a3b8; cursor: pointer; font-size: 9px; line-height: 1; box-shadow: none; transition: background-color .14s ease, border-color .14s ease, color .14s ease; }
-.hr-account-filter-button:hover, .hr-account-filter-button[aria-expanded="true"] { border-color: #d1d5db; background: #f1f3f5; color: #374151; }
-.hr-account-filter-button.is-filtered { border-color: #a7d7b5; color: #27643a; }
+.hr-account-filter-button { appearance: none; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; width: 22px; height: 22px; min-width: 0; padding: 0; box-sizing: border-box; border: 1px solid #d1d5db !important; border-radius: 4px; background: #fff !important; color: #4b5563 !important; -webkit-text-fill-color: #4b5563 !important; cursor: pointer; font-size: 9px; line-height: 1; box-shadow: none !important; transition: background-color .14s ease, border-color .14s ease, color .14s ease; }
+.hr-account-filter-button:hover { border-color: #94a3b8 !important; background: #f5f8fc !important; color: #1f2937 !important; -webkit-text-fill-color: #1f2937 !important; }
+.hr-account-filter-button[aria-expanded="true"], .hr-account-filter-button.is-filtered { border-color: #93a9c2 !important; background: #f3f7fb !important; color: #365979 !important; -webkit-text-fill-color: #365979 !important; box-shadow: none !important; }
 .hr-account-filter-button.is-filtered::after { content: ""; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: #367a4b; }
 .hr-account-filter-button.is-sorted { color: #374151; font-weight: 900; }
 .hr-account-table .table-column-resize-handle { appearance: none; position: absolute; top: 0; right: -3px; width: 7px; height: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent !important; box-shadow: none !important; cursor: col-resize; }
@@ -15038,17 +15038,20 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-inline-input.is-invalid { border-color: #dc2626; background: #fffafa; }
 .hr-account-inline-input:disabled { background: #f8fafc; color: #64748b; }
 .hr-account-inline-error-row td { height: auto; padding: 6px 10px; border-right: 0; background: #fff7f7; color: #b91c1c; font-size: 12px; text-align: center; }
-.hr-account-filter-popover { position: fixed; z-index: 1200; display: grid; gap: 9px; width: 280px; max-height: min(425px, calc(100vh - 16px)); padding: 12px; overflow: hidden; border: 1px solid #d7dce2; border-radius: 8px; background: #fff; color: #334155; box-shadow: 0 8px 24px rgba(15, 23, 42, .14); }
-.hr-account-filter-popover-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.hr-account-filter-popover-title strong { color: #1f2937; font-size: 13px; }
-.hr-account-filter-popover-title span { color: #94a3b8; font-size: 11px; }
+.hr-account-filter-popover { position: fixed; z-index: 1200; display: grid; gap: 7px; width: 260px; max-width: calc(100vw - 16px); max-height: min(360px, calc(100vh - 16px)); padding: 8px; box-sizing: border-box; overflow: hidden; border: 1px solid #d7dce2; border-radius: 6px; background: #fff; color: #334155; font-size: 12px; box-shadow: 0 6px 18px rgba(15, 23, 42, .12); }
+.hr-account-filter-popover *, .hr-account-filter-popover *::before, .hr-account-filter-popover *::after { box-sizing: border-box; }
+.hr-account-filter-popover-title { display: grid; gap: 1px; min-width: 0; padding: 0 1px; }
+.hr-account-filter-popover-title strong { overflow: hidden; color: #1f2937; font-size: 13px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.hr-account-filter-popover-title span { color: #94a3b8; font-size: 11px; line-height: 15px; }
 .hr-account-filter-sort-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.hr-account-filter-sort-actions button, .hr-account-filter-popover-actions button { height: 30px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 5px; background: #fff; color: #475569; cursor: pointer; font-size: 12px; transition: background-color .14s ease, border-color .14s ease; }
-.hr-account-filter-sort-actions button:hover, .hr-account-filter-popover-actions button:hover { border-color: #9ca3af; background: #f8fafc; }
-.hr-account-filter-sort-actions button.is-active { border-color: #9fbea9; background: #f2faf4; color: #27643a; font-weight: 800; }
-.hr-account-filter-value-search { width: 100%; height: 32px; padding: 0 9px; border: 1px solid #d1d5db; border-radius: 5px; background: #fff; color: #334155; font-size: 12px; outline: none; }
+.hr-account-filter-sort-actions button, .hr-account-filter-popover-actions button { appearance: none; width: 100%; height: 30px; min-height: 0; padding: 0 8px; border: 1px solid #d1d5db !important; border-radius: 5px; background: #fff !important; color: #475569 !important; -webkit-text-fill-color: #475569 !important; box-shadow: none !important; cursor: pointer; font-size: 12px; transition: background-color .14s ease, border-color .14s ease, color .14s ease; }
+.hr-account-filter-sort-actions button:hover, .hr-account-filter-popover-actions button:hover:not(:disabled) { border-color: #9ca3af !important; background: #f8fafc !important; color: #1f2937 !important; -webkit-text-fill-color: #1f2937 !important; }
+.hr-account-filter-sort-actions button.is-active { border-color: #93a9c2 !important; background: #f3f7fb !important; color: #365979 !important; -webkit-text-fill-color: #365979 !important; box-shadow: none !important; font-weight: 700; }
+.hr-account-filter-value-search { display: block; width: 100%; max-width: 100%; height: 32px; min-width: 0; padding: 0 9px; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 5px; background: #fff; color: #334155; font-size: 12px; outline: none; }
 .hr-account-filter-value-search:focus { border-color: #64748b; }
-.hr-account-filter-value-list { min-height: 70px; max-height: 220px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 5px; background: #fff; }
+.hr-account-filter-value-list { width: 100%; min-width: 0; min-height: 58px; max-height: 196px; overflow-x: hidden; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 5px; background: #fff; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.hr-account-filter-value-list::-webkit-scrollbar { width: 6px; }
+.hr-account-filter-value-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #cbd5e1; }
 
 /* User/access-log controls stay outlined even when global active/primary rules load later. */
 .user-management-tabs button,
@@ -15083,7 +15086,7 @@ button.expiration-summary-card:not(:disabled):hover {
   font-weight: 800;
 }
 .audit-log-tab { display: grid; gap: 10px; min-width: 0; }
-.audit-log-filter-row { display: grid; grid-template-columns: minmax(150px,.8fr) minmax(210px,1fr) 160px 135px 145px auto auto; gap: 7px; align-items: end; }
+.audit-log-filter-row { display: grid; grid-template-columns: minmax(150px,.8fr) minmax(210px,1fr) 150px 130px 140px 150px auto auto; gap: 7px; align-items: end; }
 .audit-log-filter-row > input, .audit-log-filter-row select, .audit-log-filter-row label input { width: 100%; height: 35px; padding: 0 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #334155; font: inherit; outline: none; }
 .audit-log-filter-row button { height: 35px; padding: 0 11px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #475569; font-weight: 700; cursor: pointer; }
 .audit-log-filter-row label { display: grid; gap: 3px; color: #64748b; font-size: 11px; }
@@ -15098,32 +15101,58 @@ button.expiration-summary-card:not(:disabled):hover {
 .audit-log-table th:nth-child(8) { width: 145px; }
 .audit-log-table th:nth-child(9) { width: 95px; }
 .audit-log-table th:nth-child(10) { width: 175px; }
+.audit-log-table th:nth-child(11) { width: 100px; }
 .audit-summary-cell { text-align: left !important; }
+.audit-summary-cell small { display: block; margin-top: 3px; color: #64748b; font-size: 10px; }
+.audit-log-summary-row { display: flex; align-items: center; justify-content: space-between; color: #64748b; font-size: 12px; }
+.audit-export-button, .audit-detail-button, .audit-detail-modal header button { min-height: 31px; padding: 0 10px; border: 1px solid #b8cfc0; border-radius: 6px; background: #fff; color: #27643a; font: inherit; font-weight: 700; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+.audit-export-button:hover, .audit-detail-button:hover, .audit-detail-modal header button:hover { border-color: #7fa88b; background: #f3faf5; }
+.audit-export-button:disabled { cursor: not-allowed; opacity: .55; }
 .audit-action-badge { display: inline-flex; justify-content: center; min-width: 62px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; }
 .audit-action-badge.is-create, .audit-action-badge.is-activate { background: #ecfdf3; color: #166534; }
 .audit-action-badge.is-update { background: #f1f5f9; color: #334155; }
 .audit-action-badge.is-delete, .audit-action-badge.is-deactivate { background: #fff1f2; color: #9f1239; }
 .audit-action-badge.is-permission_change { background: #faf5ff; color: #6b21a8; }
 .audit-action-badge.is-excel_import { background: #ecfeff; color: #155e75; }
+.audit-action-badge.is-export { background: #f0fdf4; color: #166534; }
+.audit-detail-backdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(15,23,42,.35); }
+.audit-detail-modal { width: min(920px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 18px 45px rgba(15,23,42,.16); }
+.audit-detail-modal header { display: flex; align-items: start; justify-content: space-between; gap: 15px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+.audit-detail-modal h3, .audit-detail-modal h4, .audit-detail-modal p { margin: 0; }
+.audit-detail-modal header p { margin-top: 4px; color: #64748b; font-size: 12px; }
+.audit-detail-modal h4 { margin: 18px 0 8px; color: #334155; }
+.audit-detail-meta { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 18px; margin: 15px 0 0; }
+.audit-detail-meta div { display: grid; grid-template-columns: 90px 1fr; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #f1f5f9; }
+.audit-detail-meta dt { color: #64748b; font-size: 11px; font-weight: 800; }
+.audit-detail-meta dd { margin: 0; color: #334155; font-size: 12px; overflow-wrap: anywhere; }
+.audit-detail-table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 7px; }
+.audit-detail-table-wrap table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.audit-detail-table-wrap th, .audit-detail-table-wrap td { padding: 9px 11px; border-right: 1px solid #edf0f3; border-bottom: 1px solid #edf0f3; color: #475569; font-size: 12px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.audit-detail-table-wrap thead th { background: #f8fafc; }
+.audit-detail-table-wrap tbody tr { background: #fffdf8; }
+.audit-detail-table-wrap th:first-child { width: 145px; }
+.audit-detail-empty { padding: 22px; border: 1px dashed #cbd5e1; border-radius: 7px; color: #94a3b8; text-align: center; }
 @media (max-width: 1000px) { .audit-log-filter-row { grid-template-columns: repeat(2, minmax(150px, 1fr)); } .audit-log-date-row { grid-template-columns: 1fr 1fr; } .audit-log-date-row .access-log-quick-filters { grid-column: 1 / -1; } }
-.hr-account-filter-value-list label { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 8px; border-bottom: 1px solid #f1f3f5; color: #475569; font-size: 12px; cursor: pointer; }
+.hr-account-filter-value-list label { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; min-height: 28px; padding: 4px 6px; border-bottom: 1px solid #f1f3f5; color: #475569; font-size: 12px; line-height: 18px; cursor: pointer; }
 .hr-account-filter-value-list label:last-of-type { border-bottom: 0; }
 .hr-account-filter-value-list label:hover { background: #f8fafc; }
-.hr-account-filter-value-list label.hr-account-filter-select-all { position: sticky; top: 0; z-index: 1; background: #f8fafc; color: #334155; font-weight: 800; }
-.hr-account-filter-value-list input, .hr-account-date-filter-options input { accent-color: #367a4b; }
-.hr-account-filter-value-list label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-account-filter-value-list label.hr-account-filter-select-all { position: sticky; top: 0; z-index: 1; min-height: 30px; background: #fafbfc; color: #334155; font-weight: 600; }
+.hr-account-filter-value-list input[type="checkbox"], .hr-account-date-filter-options input[type="radio"] { appearance: auto; flex: 0 0 15px; width: 15px !important; height: 15px !important; min-width: 15px; max-width: 15px; min-height: 15px; max-height: 15px; margin: 0; padding: 0; accent-color: #64748b; box-shadow: none; }
+.hr-account-filter-value-list label span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hr-account-filter-no-values { margin: 0; padding: 18px 8px; color: #94a3b8; font-size: 12px; text-align: center; }
 .hr-account-date-filter-options { display: grid; gap: 2px; overflow-y: auto; }
-.hr-account-date-filter-options > label { display: flex; align-items: center; gap: 7px; min-height: 29px; padding: 4px 6px; border-radius: 4px; color: #475569; font-size: 12px; cursor: pointer; }
+.hr-account-date-filter-options > label { display: flex; align-items: center; gap: 7px; min-height: 28px; padding: 4px 6px; border-radius: 4px; color: #475569; font-size: 12px; cursor: pointer; }
 .hr-account-date-filter-options > label:hover { background: #f8fafc; }
 .hr-account-custom-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 7px; border: 1px solid #e5e7eb; border-radius: 5px; background: #fafafa; }
 .hr-account-custom-date-range label { display: grid; gap: 4px; color: #64748b; font-size: 10px; }
 .hr-account-custom-date-range input { width: 100%; min-width: 0; height: 29px; padding: 0 4px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; color: #334155; font-size: 10px; }
 .hr-account-custom-date-range p { grid-column: 1 / -1; margin: 0; color: #b91c1c; font-size: 11px; }
-.hr-account-filter-popover-actions { display: flex; justify-content: flex-end; gap: 6px; }
-.hr-account-filter-popover-actions .hr-account-filter-apply { border-color: #367a4b; background: #367a4b; color: #fff; }
-.hr-account-filter-popover-actions .hr-account-filter-apply:hover:not(:disabled) { border-color: #28653b; background: #28653b; color: #fff; }
+.hr-account-filter-popover-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.hr-account-filter-popover-actions .hr-account-filter-apply { border-color: #7fa88b !important; background: #fff !important; color: #27643a !important; -webkit-text-fill-color: #27643a !important; box-shadow: none !important; }
+.hr-account-filter-popover-actions .hr-account-filter-apply:hover:not(:disabled) { border-color: #4f7f5d !important; background: #f3faf5 !important; color: #1f5a31 !important; -webkit-text-fill-color: #1f5a31 !important; }
 .hr-account-filter-popover-actions button:disabled { cursor: not-allowed; opacity: .55; }
+.hr-account-actions .hr-account-edit-button { background: #fff !important; border-color: #94a3b8 !important; color: #334155 !important; -webkit-text-fill-color: #334155 !important; box-shadow: none !important; }
+.hr-account-actions .hr-account-edit-button:hover { background: #f8fafc !important; border-color: #64748b !important; color: #1f2937 !important; -webkit-text-fill-color: #1f2937 !important; }
 .hr-account-empty-row td { height: auto; padding: 28px 16px; color: #64748b; text-align: center; }
 .hr-account-message { color: #166534; margin: 0; }
 .hr-account-error { color: #b91c1c; margin: 0; }

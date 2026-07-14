@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.db.database import get_db
 from app.models.expiration_schedule import (
+    ExpirationSchedule,
     ExpirationScheduleCategory,
     ExpirationScheduleStatus,
 )
@@ -30,7 +31,7 @@ from app.services.expiration_schedule_service import (
     update_expiration_schedule,
 )
 from app.services.attachment_service import AttachmentValidationError
-from app.services.audit_log_service import record_audit_log
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 
 
 router = APIRouter(prefix="/expiration-schedules", tags=["expiration-schedules"])
@@ -113,7 +114,7 @@ def create_new_expiration_schedule(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="create", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 등록했습니다.")
+        record_audit_log(db, request, current_user, action_type="create", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 등록했습니다.", after_data=audit_snapshot(result, ("category", "title", "target_name", "due_date", "status", "is_completed", "memo")))
         return result
     except SQLAlchemyError as exc:
         db.rollback()
@@ -132,6 +133,8 @@ def update_existing_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
+        fields = ("category", "title", "target_name", "due_date", "status", "is_completed", "memo")
+        before = audit_snapshot(db.get(ExpirationSchedule, schedule_id), fields)
         result = update_expiration_schedule(
             db,
             schedule_id,
@@ -140,7 +143,8 @@ def update_existing_expiration_schedule(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="update", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 수정했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except ExpirationScheduleNotFoundError as exc:
         raise HTTPException(
@@ -164,6 +168,8 @@ def complete_existing_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
+        fields = ("status", "is_completed", "completed_at")
+        before = audit_snapshot(db.get(ExpirationSchedule, schedule_id), fields)
         result = complete_expiration_schedule(
             db,
             schedule_id,
@@ -172,7 +178,8 @@ def complete_existing_expiration_schedule(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="update", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 완료 처리했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 완료 처리했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except ExpirationScheduleNotFoundError as exc:
         raise HTTPException(
@@ -195,6 +202,7 @@ def delete_existing_expiration_schedule(
     current_user: User = Depends(get_current_user),
 ) -> ExpirationScheduleRead:
     try:
+        before = audit_snapshot(db.get(ExpirationSchedule, schedule_id), ("category", "title", "target_name", "due_date", "status", "is_completed"))
         result = delete_expiration_schedule(
             db,
             schedule_id,
@@ -202,7 +210,7 @@ def delete_existing_expiration_schedule(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="delete", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 삭제했습니다.")
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="expiration_schedules", menu_name="점검·만료 관리", target_type="expiration_schedule", target_id=result.id, target_name=result.title, action_summary="점검·만료 일정을 삭제했습니다.", before_data=before)
         return result
     except ExpirationScheduleNotFoundError as exc:
         raise HTTPException(

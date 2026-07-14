@@ -21,6 +21,7 @@ class AuditLogRead(BaseModel):
     browser: Optional[str] = None
     operating_system: Optional[str] = None
     occurred_at: datetime
+    changed_fields: Optional[List[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,3 +34,8 @@ class AuditLogPage(BaseModel):
     total_pages: int
     menu_options: List[dict] = Field(default_factory=list)
     target_type_options: List[str] = Field(default_factory=list)
+
+
+class AuditLogDetail(AuditLogRead):
+    before_data: Optional[dict] = None
+    after_data: Optional[dict] = None

@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.auth import require_admin
 from app.models.user import User
-from app.services.audit_log_service import record_audit_log
+from app.models.install_file import InstallFile
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 from app.schemas.install_file import (
     InstallFileDeleteRequest,
     InstallFileListResponse,
@@ -147,6 +148,8 @@ async def create_new_install_file(
 ) -> InstallFileRead:
     verify_admin_guard(db, admin_password)
     try:
+        fields = ("title", "category", "os_type", "version", "is_required", "install_order", "original_filename")
+        before = audit_snapshot(db.get(InstallFile, file_id), fields)
         file_data = build_file_data(
             title,
             category,
@@ -160,7 +163,7 @@ async def create_new_install_file(
         )
         upload_data = await save_install_upload(file)
         result = create_install_file(db, file_data, upload_data)
-        record_audit_log(db, request, current_admin, action_type="create", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료를 등록했습니다.")
+        record_audit_log(db, request, current_admin, action_type="create", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료를 등록했습니다.", after_data=audit_snapshot(result, ("title", "category", "os_type", "version", "is_required", "original_filename")))
         return result
     except InstallFileValidationError as exc:
         db.rollback()
@@ -208,7 +211,8 @@ async def update_existing_install_file(
         if file is not None and file.filename:
             upload_data = await save_install_upload(file)
         result = update_install_file(db, file_id, file_data, upload_data)
-        record_audit_log(db, request, current_admin, action_type="update", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료 정보를 수정했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_admin, action_type="update", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료 정보를 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except InstallFileNotFoundError as exc:
         raise HTTPException(
@@ -236,8 +240,9 @@ def delete_existing_install_file(
 ) -> InstallFileRead:
     verify_admin_guard(db, payload.admin_password)
     try:
+        before = audit_snapshot(db.get(InstallFile, file_id), ("title", "category", "os_type", "version", "is_required", "original_filename"))
         result = delete_install_file(db, file_id)
-        record_audit_log(db, request, current_admin, action_type="delete", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료를 삭제했습니다.")
+        record_audit_log(db, request, current_admin, action_type="delete", menu_key="install_files", menu_name="설치자료실", target_type="install_file", target_id=result.id, target_name=result.title, action_summary="설치자료를 삭제했습니다.", before_data=before)
         return result
     except InstallFileNotFoundError as exc:
         raise HTTPException(

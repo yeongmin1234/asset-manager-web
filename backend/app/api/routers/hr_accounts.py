@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.services.audit_log_service import record_audit_log
+from app.models.hr_account import HrAccount
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 from app.schemas.hr_account import (
     HrAccountCreate, HrAccountImportPreviewResponse, HrAccountImportRequest,
     HrAccountImportResponse, HrAccountRead, HrAccountUpdate,
@@ -39,7 +40,7 @@ def read_hr_accounts(keyword: Optional[str] = Query(default=None), db: Session =
 def create_new_hr_account(request: Request, payload: HrAccountCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         result = create_hr_account(db, payload)
-        record_audit_log(db, request, current_user, action_type="create", menu_key="hr_list", menu_name="인사업무 > 리스트", target_type="hr_account", target_id=result.id, target_name=result.name, action_summary="인사업무 계정을 등록했습니다.")
+        record_audit_log(db, request, current_user, action_type="create", menu_key="hr_list", menu_name="인사업무 > 리스트", target_type="hr_account", target_id=result.id, target_name=result.name, action_summary="인사업무 계정을 등록했습니다.", after_data=audit_snapshot(result, ("department", "name", "dowoffice", "erp", "scm", "nas")))
         return result
     except SQLAlchemyError as exc:
         db.rollback()
@@ -98,8 +99,11 @@ def commit_hr_account_import(
 @router.put("/{account_id}", response_model=HrAccountRead)
 def update_existing_hr_account(request: Request, account_id: int, payload: HrAccountUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        fields = ("department", "name", "dowoffice", "erp", "scm", "nas")
+        before = audit_snapshot(db.get(HrAccount, account_id), fields)
         result = update_hr_account(db, account_id, payload)
-        record_audit_log(db, request, current_user, action_type="update", menu_key="hr_list", menu_name="인사업무 > 리스트", target_type="hr_account", target_id=result.id, target_name=result.name, action_summary="인사업무 계정을 수정했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="hr_list", menu_name="인사업무 > 리스트", target_type="hr_account", target_id=result.id, target_name=result.name, action_summary="인사업무 계정을 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except HrAccountNotFoundError as exc:
         raise HTTPException(status_code=404, detail="계정 현황을 찾을 수 없습니다.") from exc
@@ -111,8 +115,9 @@ def update_existing_hr_account(request: Request, account_id: int, payload: HrAcc
 @router.delete("/{account_id}", response_model=HrAccountRead)
 def delete_existing_hr_account(request: Request, account_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        before = audit_snapshot(db.get(HrAccount, account_id), ("department", "name", "dowoffice", "erp", "scm", "nas"))
         result = delete_hr_account(db, account_id)
-        record_audit_log(db, request, current_user, action_type="delete", menu_key="hr_list", menu_name="인사업무 > 리스트", target_type="hr_account", target_id=result.id, target_name=result.name, action_summary="인사업무 계정을 삭제했습니다.")
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="hr_list", menu_name="인사업무 > 리스트", target_type="hr_account", target_id=result.id, target_name=result.name, action_summary="인사업무 계정을 삭제했습니다.", before_data=before)
         return result
     except HrAccountNotFoundError as exc:
         raise HTTPException(status_code=404, detail="계정 현황을 찾을 수 없습니다.") from exc

@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.services.audit_log_service import record_audit_log
-from app.models.company_vehicle import VehicleOwnershipType
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
+from app.models.company_vehicle import CompanyVehicle, VehicleOwnershipType
 from app.schemas.company_vehicle import (
     CompanyVehicleCreate,
     CompanyVehicleRead,
@@ -51,13 +51,15 @@ def create_new_company_vehicle(
     db: Session = Depends(get_db),
 ) -> CompanyVehicleRead:
     try:
+        fields = ("company_name", "vehicle_number", "vehicle_name", "driver_name", "ownership_type", "insurance_company", "insurance_start_date", "insurance_end_date", "lease_company", "lease_start_date", "lease_end_date", "monthly_lease_amount")
+        before = audit_snapshot(db.get(CompanyVehicle, vehicle_id), fields)
         result = create_company_vehicle(
             db,
             payload,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="create", menu_key="company_cars", menu_name="법인차량 관리", target_type="company_vehicle", target_id=result.id, target_name=result.vehicle_number, action_summary="법인차량을 등록했습니다.")
+        record_audit_log(db, request, current_user, action_type="create", menu_key="company_cars", menu_name="법인차량 관리", target_type="company_vehicle", target_id=result.id, target_name=result.vehicle_number, action_summary="법인차량을 등록했습니다.", after_data=audit_snapshot(result, ("company_name", "vehicle_number", "vehicle_name", "driver_name", "ownership_type")))
         return result
     except SQLAlchemyError as exc:
         db.rollback()
@@ -83,7 +85,8 @@ def update_existing_company_vehicle(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="update", menu_key="company_cars", menu_name="법인차량 관리", target_type="company_vehicle", target_id=result.id, target_name=result.vehicle_number, action_summary="법인차량을 수정했습니다.")
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(result, fields))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="company_cars", menu_name="법인차량 관리", target_type="company_vehicle", target_id=result.id, target_name=result.vehicle_number, action_summary="법인차량을 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return result
     except CompanyVehicleNotFoundError as exc:
         raise HTTPException(
@@ -109,13 +112,14 @@ def delete_existing_company_vehicle(
     current_user: User = Depends(get_current_user),
 ) -> CompanyVehicleRead:
     try:
+        before = audit_snapshot(db.get(CompanyVehicle, vehicle_id), ("company_name", "vehicle_number", "vehicle_name", "driver_name", "ownership_type"))
         result = delete_company_vehicle(
             db,
             vehicle_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        record_audit_log(db, request, current_user, action_type="delete", menu_key="company_cars", menu_name="법인차량 관리", target_type="company_vehicle", target_id=result.id, target_name=result.vehicle_number, action_summary="법인차량을 삭제했습니다.")
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="company_cars", menu_name="법인차량 관리", target_type="company_vehicle", target_id=result.id, target_name=result.vehicle_number, action_summary="법인차량을 삭제했습니다.", before_data=before)
         return result
     except CompanyVehicleNotFoundError as exc:
         raise HTTPException(

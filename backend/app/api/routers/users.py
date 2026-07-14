@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import hash_password, require_admin
 from app.db.database import get_db
 from app.models.user import User
-from app.services.audit_log_service import record_audit_log
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 from app.schemas.user import (
     UserAdminRead,
     UserCreate,
@@ -51,7 +51,7 @@ def create_user(request: Request, payload: UserCreate, db: Session = Depends(get
             detail="이미 사용 중인 아이디입니다.",
         ) from exc
     db.refresh(user)
-    record_audit_log(db, request, current_admin, action_type="create", menu_key="user_management", menu_name="사용자 관리", target_type="user", target_id=user.id, target_name="사용자 {}".format(user.username), action_summary="사용자 계정을 생성했습니다.")
+    record_audit_log(db, request, current_admin, action_type="create", menu_key="user_management", menu_name="사용자 관리", target_type="user", target_id=user.id, target_name="사용자 {}".format(user.username), action_summary="사용자 계정을 생성했습니다.", after_data=audit_snapshot(user, ("username", "name", "role", "is_active", "menu_permissions")))
     return user
 
 
@@ -67,6 +67,7 @@ def update_user(
     previous_role = user.role
     previous_active = user.is_active
     previous_permissions = set(user.menu_permissions or [])
+    before = audit_snapshot(user, ("name", "role", "is_active", "menu_permissions"))
     if user.id == current_admin.id and (not payload.is_active or payload.role != "admin"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -97,7 +98,8 @@ def update_user(
         summary = "사용자 계정을 활성화했습니다." if user.is_active else "사용자 계정을 비활성화했습니다."
     elif previous_role != user.role:
         summary = "사용자 역할을 변경했습니다."
-    record_audit_log(db, request, current_admin, action_type=action_type, menu_key="user_management", menu_name="사용자 관리", target_type=target_type, target_id=user.id, target_name="사용자 {}".format(user.username), action_summary=summary)
+    before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(user, ("name", "role", "is_active", "menu_permissions")))
+    record_audit_log(db, request, current_admin, action_type=action_type, menu_key="user_management", menu_name="사용자 관리", target_type=target_type, target_id=user.id, target_name="사용자 {}".format(user.username), action_summary=summary, before_data=before_changed, after_data=after_changed, changed_fields=changed)
     return user
 
 
@@ -124,6 +126,7 @@ def delete_user(
     target_user = _get_user_or_404(db, user_id)
     deleted_id = target_user.id
     deleted_username = target_user.username
+    before = audit_snapshot(target_user, ("username", "name", "role", "is_active", "menu_permissions"))
     if target_user.id == current_admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -149,7 +152,7 @@ def delete_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="사용자 삭제 결과를 확인할 수 없습니다.",
         )
-    record_audit_log(db, request, current_admin, action_type="delete", menu_key="user_management", menu_name="사용자 관리", target_type="user", target_id=deleted_id, target_name="사용자 {}".format(deleted_username), action_summary="사용자 계정을 삭제했습니다.")
+    record_audit_log(db, request, current_admin, action_type="delete", menu_key="user_management", menu_name="사용자 관리", target_type="user", target_id=deleted_id, target_name="사용자 {}".format(deleted_username), action_summary="사용자 계정을 삭제했습니다.", before_data=before)
     return UserDeleteResponse(
         id=deleted_id,
         username=deleted_username,

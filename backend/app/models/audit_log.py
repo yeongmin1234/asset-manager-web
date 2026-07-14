@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,6 +21,9 @@ class AuditLog(Base):
     target_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     target_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     action_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    before_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    after_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    changed_fields: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     access_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

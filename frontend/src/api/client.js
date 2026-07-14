@@ -354,6 +354,14 @@ export async function getAuditLogs(filters = {}) {
   return request("/admin/audit-logs", { query: filters });
 }
 
+export async function getAuditLog(auditLogId) {
+  return request(`/admin/audit-logs/${auditLogId}`);
+}
+
+export async function downloadAuditLogs(filters = {}) {
+  return requestBlob("/admin/audit-logs/export", { query: filters, timeoutMs: 60000 });
+}
+
 export async function recordMenuAccess(payload) {
   return request("/access-logs/menu", { method: "POST", body: payload });
 }

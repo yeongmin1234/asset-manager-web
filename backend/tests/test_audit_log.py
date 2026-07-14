@@ -1,4 +1,7 @@
 import unittest
+from datetime import date, datetime
+from decimal import Decimal
+from enum import Enum
 
 from fastapi import Request
 from sqlalchemy import create_engine
@@ -7,7 +10,10 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.models.audit_log import AuditLog
 from app.models.user import User
-from app.services.audit_log_service import ALLOWED_ACTION_TYPES, get_audit_logs, record_audit_log
+from app.services.audit_log_service import (
+    ALLOWED_ACTION_TYPES, build_audit_changes, get_audit_logs,
+    query_audit_logs_for_export, record_audit_log, sanitize_audit_data,
+)
 
 
 def request(ip="192.168.10.20"):
@@ -63,6 +69,50 @@ class AuditLogTest(unittest.TestCase):
         self.assertEqual(result.total, 1)
         self.assertEqual(result.total_pages, 1)
         self.assertEqual(result.items[0].username, "admin")
+
+    def test_changed_fields_only_and_sensitive_values_are_removed(self):
+        before, after, fields = build_audit_changes(
+            {"department": "총무팀", "erp": "old", "password_hash": "never"},
+            {"department": "총무팀", "erp": "new", "password_hash": "still-never"},
+        )
+        self.assertEqual(fields, ["erp"])
+        self.assertEqual(before, {"erp": "old"})
+        self.assertEqual(after, {"erp": "new"})
+        self.assertNotIn("password_hash", sanitize_audit_data({"password_hash": "x", "name": "홍길동"}))
+        create_before, create_after, create_fields = build_audit_changes(None, {"name": "신규"})
+        self.assertIsNone(create_before)
+        self.assertEqual(create_after, {"name": "신규"})
+        self.assertEqual(create_fields, ["name"])
+        delete_before, delete_after, _ = build_audit_changes({"name": "삭제"}, None)
+        self.assertEqual(delete_before, {"name": "삭제"})
+        self.assertIsNone(delete_after)
+
+    def test_dates_decimal_enum_and_empty_values_are_serializable(self):
+        class State(Enum):
+            ACTIVE = "활성"
+        value = sanitize_audit_data({"date": date(2026, 7, 14), "time": datetime(2026, 7, 14, 10, 0), "amount": Decimal("12.50"), "status": State.ACTIVE})
+        self.assertEqual(value, {"date": "2026-07-14", "time": "2026-07-14T10:00:00", "amount": "12.50", "status": "활성"})
+
+    def test_changed_field_filter_and_export_keep_detail_data(self):
+        self.assertTrue(record_audit_log(
+            self.db, request(), user(), action_type="update", menu_key="hr_list",
+            menu_name="인사업무 > 리스트", target_type="hr_account", target_id=1,
+            target_name="홍길동", action_summary="계정을 수정했습니다.",
+            before_data={"erp": "old", "scm": "same"}, after_data={"erp": "new", "scm": "same"},
+        ))
+        filtered = get_audit_logs(
+            self.db, keyword=None, username=None, action_type=None, menu_key=None,
+            target_type=None, access_type=None, start_date=None, end_date=None,
+            page=1, page_size=50, changed_field="erp",
+        )
+        self.assertEqual(filtered.total, 1)
+        self.assertEqual(filtered.items[0].changed_fields, ["erp"])
+        exported = query_audit_logs_for_export(
+            self.db, keyword=None, username=None, action_type=None, menu_key=None,
+            target_type=None, access_type=None, start_date=None, end_date=None,
+            changed_field="erp", limit=10000,
+        )
+        self.assertEqual(exported[0].before_data, {"erp": "old"})
 
     def test_audit_failure_does_not_escape_business_flow(self):
         engine = create_engine("sqlite+pysqlite:///:memory:")
