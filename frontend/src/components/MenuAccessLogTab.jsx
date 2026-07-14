@@ -3,24 +3,17 @@ import { getMenuAccessLogs } from "../api/client.js";
 
 
 const EMPTY_FILTERS = { keyword: "", username: "", menuKey: "", accessType: "", period: "", startDate: "", endDate: "" };
-const MENU_OPTIONS = [
-  ["user_management", "사용자 관리"], ["hr_list", "인사업무 > 리스트"],
-  ["history", "변경 이력"], ["settings", "설정"], ["work_manual", "업무설명서"],
-  ["install_files", "설치자료실"], ["excel_import", "엑셀 일괄등록"],
-];
-
-
 export default function MenuAccessLogTab() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
-  const [state, setState] = useState({ items: [], total: 0, totalPages: 1, loading: true, error: "" });
+  const [state, setState] = useState({ items: [], menuOptions: [], total: 0, totalPages: 1, loading: true, error: "" });
 
   const loadLogs = useCallback(async () => {
     setState((value) => ({ ...value, loading: true, error: "" }));
     try {
       const result = await getMenuAccessLogs(buildQuery(appliedFilters, page));
-      setState({ items: Array.isArray(result?.items) ? result.items : [], total: Number(result?.total || 0), totalPages: Math.max(1, Number(result?.total_pages || 1)), loading: false, error: "" });
+      setState({ items: Array.isArray(result?.items) ? result.items : [], menuOptions: Array.isArray(result?.menu_options) ? result.menu_options : [], total: Number(result?.total || 0), totalPages: Math.max(1, Number(result?.total_pages || 1)), loading: false, error: "" });
     } catch (error) {
       setState((value) => ({ ...value, loading: false, error: error?.message || "메뉴 접근 기록을 불러오지 못했습니다." }));
     }
@@ -46,7 +39,7 @@ export default function MenuAccessLogTab() {
         <div className="access-log-filter-row menu-access-log-filter-row">
           <input value={filters.username} onChange={(event) => setFilters((value) => ({ ...value, username: event.target.value }))} placeholder="사용자 ID 또는 이름" aria-label="메뉴 접근 사용자 검색" />
           <input value={filters.keyword} onChange={(event) => setFilters((value) => ({ ...value, keyword: event.target.value }))} placeholder="IP 또는 경로 검색" aria-label="메뉴 접근 IP 검색" />
-          <select value={filters.menuKey} onChange={(event) => setFilters((value) => ({ ...value, menuKey: event.target.value }))} aria-label="메뉴 선택"><option value="">전체 메뉴</option>{MENU_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <select value={filters.menuKey} onChange={(event) => setFilters((value) => ({ ...value, menuKey: event.target.value }))} aria-label="메뉴 선택"><option value="">전체 메뉴</option>{state.menuOptions.map((option) => <option key={option.menu_key} value={option.menu_key}>{option.menu_name}</option>)}</select>
           <label><span>시작일</span><input type="date" value={filters.startDate} max={filters.endDate || undefined} onChange={(event) => setFilters((value) => ({ ...value, period: "custom", startDate: event.target.value }))} /></label>
           <label><span>종료일</span><input type="date" value={filters.endDate} min={filters.startDate || undefined} onChange={(event) => setFilters((value) => ({ ...value, period: "custom", endDate: event.target.value }))} /></label>
           <button type="submit">조회</button><button type="button" onClick={reset}>초기화</button>

@@ -1,15 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { recordMenuAccess } from "../api/client.js";
+import { MENU_ITEMS } from "../components/PortalSidebar.jsx";
 
 
-export const MENU_ACCESS_TARGETS = {
-  users: { menu_key: "user_management", menu_name: "사용자 관리", route_path: "/admin/users" },
-  "hr-list": { menu_key: "hr_list", menu_name: "인사업무 > 리스트", route_path: "/hr/list" },
-  history: { menu_key: "history", menu_name: "변경 이력", route_path: "/history" },
-  settings: { menu_key: "settings", menu_name: "설정", route_path: "/settings" },
-  "work-manuals": { menu_key: "work_manual", menu_name: "업무설명서", route_path: "/work-manuals" },
-  "install-library": { menu_key: "install_files", menu_name: "설치자료실", route_path: "/install-library" },
-};
+export const MENU_ACCESS_TARGETS = Object.fromEntries(MENU_ITEMS.map((item) => [item.id, {
+  menu_key: item.menuKey,
+  menu_name: item.accessLabel || item.label,
+  route_path: item.routePath,
+}]));
 
 export const HR_EXCEL_IMPORT_TARGET = {
   menu_key: "excel_import", menu_name: "엑셀 일괄등록", route_path: "/hr/list",
@@ -24,9 +22,11 @@ export function recordMenuAccessBestEffort(target) {
 
 
 export default function useMenuAccessLog(activeSection, enabled = true) {
+  const lastRecordedSection = useRef("");
   useEffect(() => {
     const target = MENU_ACCESS_TARGETS[activeSection];
-    if (!enabled || !target) return undefined;
+    if (!enabled || !target || lastRecordedSection.current === activeSection) return undefined;
+    lastRecordedSection.current = activeSection;
 
     let active = true;
     recordMenuAccess(target).catch((error) => {

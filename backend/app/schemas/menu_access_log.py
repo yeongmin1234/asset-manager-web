@@ -5,8 +5,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 MenuAccessKey = Literal[
-    "user_management", "hr_list", "history", "settings",
-    "work_manual", "install_files", "excel_import",
+    "dashboard", "drink_orders", "work_manual", "vendor_contacts",
+    "expiration_schedules", "assets", "software", "company_cars",
+    "fire_insurance", "network", "excel_management", "statistics",
+    "history", "install_files", "hr_list", "scm", "user_management",
+    "settings", "excel_import",
 ]
 
 
@@ -51,3 +54,4 @@ class MenuAccessLogPage(BaseModel):
     page: int
     page_size: int
     total_pages: int
+    menu_options: List[dict] = Field(default_factory=list)

@@ -1,24 +1,24 @@
 import React, { useMemo, useState } from "react";
 
-const MENU_ITEMS = [
-  { id: "dashboard", label: "대시보드", icon: "⌂" },
-  { id: "beverage-orders", label: "음료주문기록", icon: "▥" },
-  { id: "work-manuals", label: "업무설명서", icon: "▤" },
-  { id: "vendor-contacts", label: "업체연락처", icon: "☎" },
-  { id: "expiration_schedules", label: "점검·만료 관리", icon: "!" },
-  { id: "assets", label: "자산 관리", icon: "▣" },
-  { id: "software", label: "SW 현황", icon: "▧" },
-  { id: "vehicles", label: "법인차량 관리", icon: "▦" },
-  { id: "paju-fire-insurance", label: "파주화재보험", icon: "▨" },
-  { id: "network", label: "네트워크 현황", icon: "◌" },
-  { id: "excel", label: "엑셀 관리", icon: "▤" },
-  { id: "stats", label: "통계 / 리포트", icon: "▥" },
-  { id: "history", label: "변경 이력", icon: "◷" },
-  { id: "install-library", label: "설치자료실", icon: "▩" },
-  { id: "hr-list", label: "리스트", icon: "♙" },
-  { id: "scm", label: "SCM", icon: "S" },
-  { id: "users", label: "사용자 관리", icon: "♙" },
-  { id: "settings", label: "설정", icon: "⚙" },
+export const MENU_ITEMS = [
+  { id: "dashboard", label: "대시보드", icon: "⌂", menuKey: "dashboard", routePath: "/dashboard" },
+  { id: "beverage-orders", label: "음료주문기록", icon: "▥", menuKey: "drink_orders", routePath: "/beverage-orders" },
+  { id: "work-manuals", label: "업무설명서", icon: "▤", menuKey: "work_manual", routePath: "/work-manuals" },
+  { id: "vendor-contacts", label: "업체연락처", icon: "☎", menuKey: "vendor_contacts", routePath: "/vendor-contacts" },
+  { id: "expiration_schedules", label: "점검·만료 관리", icon: "!", menuKey: "expiration_schedules", routePath: "/expiration-schedules" },
+  { id: "assets", label: "자산 관리", icon: "▣", menuKey: "assets", routePath: "/assets" },
+  { id: "software", label: "SW 현황", icon: "▧", menuKey: "software", routePath: "/software" },
+  { id: "vehicles", label: "법인차량 관리", icon: "▦", menuKey: "company_cars", routePath: "/vehicles" },
+  { id: "paju-fire-insurance", label: "파주화재보험", icon: "▨", menuKey: "fire_insurance", routePath: "/paju-fire-insurance" },
+  { id: "network", label: "네트워크 현황", icon: "◌", menuKey: "network", routePath: "/network" },
+  { id: "excel", label: "엑셀 관리", icon: "▤", menuKey: "excel_management", routePath: "/excel" },
+  { id: "stats", label: "통계 / 리포트", icon: "▥", menuKey: "statistics", routePath: "/statistics" },
+  { id: "history", label: "변경 이력", icon: "◷", menuKey: "history", routePath: "/history" },
+  { id: "install-library", label: "설치자료실", icon: "▩", menuKey: "install_files", routePath: "/install-library" },
+  { id: "hr-list", label: "리스트", accessLabel: "인사업무 > 리스트", icon: "♙", menuKey: "hr_list", routePath: "/hr/list" },
+  { id: "scm", label: "SCM", icon: "S", menuKey: "scm", routePath: "/scm" },
+  { id: "users", label: "사용자 관리", icon: "♙", menuKey: "user_management", routePath: "/admin/users" },
+  { id: "settings", label: "설정", icon: "⚙", menuKey: "settings", routePath: "/settings" },
 ];
 
 const MENU_GROUPS = [

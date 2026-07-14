@@ -220,7 +220,7 @@ function App({ currentUser, onLogout }) {
     typeof window !== "undefined" && window.location.pathname === "/hr/list" ? "hr-list" : "dashboard",
   );
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
-  useMenuAccessLog(activeSection, Boolean(currentUser) && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
+  useMenuAccessLog(activeSection, Boolean(currentUser) && menuVisibility[activeSection] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
 
   const activeFilters = useMemo(
     () => ({

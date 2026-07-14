@@ -9,6 +9,7 @@ from app.models.menu_access_log import MenuAccessLog
 from app.models.user import User
 from app.schemas.menu_access_log import MenuAccessLogCreate
 from app.services.menu_access_log_service import (
+    MENU_ACCESS_TARGETS,
     MenuAccessDeniedError,
     MenuAccessPayloadError,
     get_menu_access_logs,
@@ -89,6 +90,38 @@ class MenuAccessLogTest(unittest.TestCase):
         )
         self.assertEqual(result.total, 1)
         self.assertEqual(result.items[0].menu_key, "history")
+        self.assertEqual(result.menu_options, [{"menu_key": "history", "menu_name": "변경 이력"}])
+
+    def test_all_sidebar_menu_targets_are_accepted_for_admin(self):
+        sidebar_keys = {
+            "dashboard", "drink_orders", "work_manual", "vendor_contacts",
+            "expiration_schedules", "assets", "software", "company_cars",
+            "fire_insurance", "network", "excel_management", "statistics",
+            "history", "install_files", "hr_list", "scm", "user_management", "settings",
+        }
+        self.assertTrue(sidebar_keys.issubset(set(MENU_ACCESS_TARGETS)))
+        user = make_user("admin")
+        for key in sorted(sidebar_keys):
+            target = MENU_ACCESS_TARGETS[key]
+            result = record_menu_access_log(
+                self.db, make_request(), user,
+                payload(key, target["name"], target["path"]),
+            )
+            self.assertTrue(result.recorded, key)
+
+    def test_normal_user_can_record_only_permitted_sidebar_menu(self):
+        user = make_user(permissions=["dashboard", "assets"])
+        dashboard = MENU_ACCESS_TARGETS["dashboard"]
+        self.assertTrue(record_menu_access_log(
+            self.db, make_request(), user,
+            payload("dashboard", dashboard["name"], dashboard["path"]),
+        ).recorded)
+        software = MENU_ACCESS_TARGETS["software"]
+        with self.assertRaises(MenuAccessDeniedError):
+            record_menu_access_log(
+                self.db, make_request(), user,
+                payload("software", software["name"], software["path"]),
+            )
 
     def test_excel_import_uses_hr_route_and_requires_admin(self):
         excel = payload("excel_import", "엑셀 일괄등록", "/hr/list")

@@ -21,6 +21,18 @@ from app.services.login_access_log_service import (
 
 logger = logging.getLogger(__name__)
 MENU_ACCESS_TARGETS: Dict[str, Dict[str, Any]] = {
+    "dashboard": {"name": "대시보드", "path": "/dashboard", "permission": "dashboard", "admin": None},
+    "drink_orders": {"name": "음료주문기록", "path": "/beverage-orders", "permission": "drink_orders", "admin": None},
+    "vendor_contacts": {"name": "업체연락처", "path": "/vendor-contacts", "permission": "vendor_contacts", "admin": None},
+    "expiration_schedules": {"name": "점검·만료 관리", "path": "/expiration-schedules", "permission": "expiration_schedules", "admin": None},
+    "assets": {"name": "자산 관리", "path": "/assets", "permission": "assets", "admin": None},
+    "software": {"name": "SW 현황", "path": "/software", "permission": "software", "admin": None},
+    "company_cars": {"name": "법인차량 관리", "path": "/vehicles", "permission": "company_cars", "admin": None},
+    "fire_insurance": {"name": "파주화재보험", "path": "/paju-fire-insurance", "permission": "fire_insurance", "admin": None},
+    "network": {"name": "네트워크 현황", "path": "/network", "permission": "network", "admin": None},
+    "excel_management": {"name": "엑셀 관리", "path": "/excel", "permission": None, "admin": True},
+    "statistics": {"name": "통계 / 리포트", "path": "/statistics", "permission": "statistics", "admin": None},
+    "scm": {"name": "SCM", "path": "/scm", "permission": None, "admin": True},
     "user_management": {"name": "사용자 관리", "path": "/admin/users", "permission": None, "admin": True},
     "hr_list": {"name": "인사업무 > 리스트", "path": "/hr/list", "permission": "hr_list", "admin": None},
     "history": {"name": "변경 이력", "path": "/history", "permission": "changelog", "admin": None},
@@ -126,12 +138,21 @@ def get_menu_access_logs(
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all())
+    menu_options = [
+        {"menu_key": row[0], "menu_name": row[1]}
+        for row in db.execute(
+            select(MenuAccessLog.menu_key, MenuAccessLog.menu_name)
+            .distinct()
+            .order_by(MenuAccessLog.menu_name.asc())
+        ).all()
+    ]
     return MenuAccessLogPage(
         items=items,
         total=total,
         page=page,
         page_size=page_size,
         total_pages=max(1, int(math.ceil(total / float(page_size)))),
+        menu_options=menu_options,
     )
 
 
