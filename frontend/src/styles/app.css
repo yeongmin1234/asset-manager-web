@@ -14894,7 +14894,7 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-quick-message.is-error { color: #b91c1c; }
 .hr-account-table-panel { display: block; width: 100%; padding: 0; overflow: hidden; border: 1px solid #e5e7eb; background: #fff; box-shadow: none; }
 .hr-account-table-wrap { width: 100%; overflow-x: auto; overflow-y: visible; }
-.hr-account-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 100%; margin: 0 auto; }
+.hr-account-table { table-layout: fixed; border-collapse: separate; border-spacing: 0; width: 100%; min-width: 100%; margin: 0 auto; }
 .hr-account-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: #475569; text-align: center; border-bottom: 1px solid #dfe3e8; }
 .hr-account-table th, .hr-account-table td { height: 44px; padding: 8px 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #eef0f3; }
 .hr-account-table td { border-right: 1px solid #eef0f3; }
@@ -14903,10 +14903,15 @@ button.expiration-summary-card:not(:disabled):hover {
 .hr-account-table .resizable-table-heading { justify-content: center; min-height: 28px; padding: 0 4px; }
 .hr-account-table .table-column-resize-handle { appearance: none; position: absolute; top: 0; right: -3px; width: 7px; height: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent !important; box-shadow: none !important; cursor: col-resize; }
 .hr-account-table .table-column-resize-handle::before { content: none; }
-.hr-account-table .table-column-resize-handle::after { content: ""; position: absolute; top: 4px; right: 3px; width: 1px; height: calc(100% - 8px); border: 0; border-radius: 0; outline: 0; background: #555; box-shadow: none; opacity: 1; transition: background-color .14s ease; }
+.hr-account-table .table-column-resize-handle::after { content: ""; position: absolute; top: 4px; right: 0; width: 1px; height: calc(100% - 8px); border: 0; border-radius: 0; outline: 0; background: #555; box-shadow: none; opacity: 1; transition: background-color .14s ease; }
 .hr-account-table .table-column-resize-handle:hover::after, body.hr-column-resizing .hr-account-table .table-column-resize-handle::after { width: 1px; background: #111; box-shadow: none; opacity: 1; }
-.hr-account-actions { display: flex; justify-content: center; gap: 6px; }
-.hr-account-actions button { height: 30px; padding: 0 8px; }
+.hr-account-actions-cell { min-width: 150px; padding-left: 8px !important; padding-right: 8px !important; overflow: hidden; }
+.hr-account-actions { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-width: 0; }
+.hr-account-actions button { flex: 0 0 56px; width: 56px; height: 30px; padding: 0 6px; white-space: nowrap; }
+.hr-account-actions .hr-account-edit-button { background: #2563eb; border-color: #2563eb; color: #fff; }
+.hr-account-actions .hr-account-edit-button:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.hr-account-actions .danger-button { background: #fff; border: 1px solid #fecaca; color: #b91c1c; }
+.hr-account-actions .danger-button:hover { background: #fef2f2; border-color: #f87171; color: #991b1b; }
 .hr-account-empty-row td { height: auto; padding: 28px 16px; color: #64748b; text-align: center; }
 .hr-account-message { color: #166534; margin: 0; }
 .hr-account-error { color: #b91c1c; margin: 0; }

@@ -4,14 +4,16 @@ import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const EMPTY_FORM = { department: "", name: "", dowoffice: "", erp: "", scm: "", nas: "" };
 const COLUMNS = [
-  { key: "department", label: "부서", initialWidth: 150, minWidth: 90 },
-  { key: "name", label: "이름", initialWidth: 130, minWidth: 80 },
-  { key: "dowoffice", label: "다우오피스", initialWidth: 180, minWidth: 110 },
-  { key: "erp", label: "ERP", initialWidth: 160, minWidth: 100 },
-  { key: "scm", label: "SCM", initialWidth: 160, minWidth: 100 },
-  { key: "nas", label: "NAS", initialWidth: 160, minWidth: 100 },
-  { key: "created_at", label: "생성날짜", initialWidth: 170, minWidth: 130 },
+  { key: "department", label: "부서", initialWidth: 144, minWidth: 100 },
+  { key: "name", label: "이름", initialWidth: 132, minWidth: 90 },
+  { key: "dowoffice", label: "다우오피스", initialWidth: 156, minWidth: 110 },
+  { key: "erp", label: "ERP", initialWidth: 156, minWidth: 100 },
+  { key: "scm", label: "SCM", initialWidth: 156, minWidth: 100 },
+  { key: "nas", label: "NAS", initialWidth: 156, minWidth: 100 },
+  { key: "created_at", label: "생성날짜", initialWidth: 180, minWidth: 140 },
 ];
+const MANAGEMENT_COLUMN = { key: "actions", label: "관리", initialWidth: 150, minWidth: 150 };
+const ADMIN_COLUMNS = [...COLUMNS, MANAGEMENT_COLUMN];
 
 export default function HrAccountListPage({ currentUser }) {
   const isAdmin = currentUser?.role === "admin";
@@ -26,8 +28,9 @@ export default function HrAccountListPage({ currentUser }) {
   const [quickState, setQuickState] = useState({ saving: false, error: "", message: "", missingFields: [] });
   const quickDepartmentRef = useRef(null);
   const quickSavingRef = useRef(false);
+  const tableColumns = isAdmin ? ADMIN_COLUMNS : COLUMNS;
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
-    COLUMNS, "assetManager.hrAccounts.columnWidths", "hr-column-resizing",
+    tableColumns, "assetManager.hrAccounts.columnWidths", "hr-column-resizing",
   );
 
   const loadItems = useCallback(async () => {
@@ -113,9 +116,9 @@ export default function HrAccountListPage({ currentUser }) {
     }
   };
 
-  const colgroup = useMemo(() => COLUMNS.map((column) => (
+  const colgroup = useMemo(() => tableColumns.map((column) => (
     <col key={column.key} style={{ width: columnWidths[column.key] }} />
-  )), [columnWidths]);
+  )), [columnWidths, tableColumns]);
 
   return (
     <section className="hr-account-page">
@@ -166,17 +169,17 @@ export default function HrAccountListPage({ currentUser }) {
       {state.error ? <p className="hr-account-error">{state.error}</p> : null}
       <div className="content-panel hr-account-table-panel">
         <div className="hr-account-table-wrap">
-          <table className="hr-account-table" style={{ width: `max(100%, ${tableWidth + (isAdmin ? 120 : 0)}px)` }}>
-            <colgroup>{colgroup}{isAdmin ? <col style={{ width: 120 }} /> : null}</colgroup>
-            <thead><tr>{COLUMNS.map((column) => (
+          <table className="hr-account-table" style={{ width: `max(100%, ${tableWidth}px)` }}>
+            <colgroup>{colgroup}</colgroup>
+            <thead><tr>{tableColumns.map((column) => (
               <th key={column.key}><div className="resizable-table-heading"><span>{column.label}</span><button type="button" className="table-column-resize-handle" aria-label={`${column.label} 너비 조절`} onMouseDown={(event) => handleColumnResizeStart(event, column)} /></div></th>
-            ))}{isAdmin ? <th>관리</th> : null}</tr></thead>
+            ))}</tr></thead>
             <tbody>
-              {state.loading ? <tr><td colSpan={COLUMNS.length + (isAdmin ? 1 : 0)}>불러오는 중...</td></tr> : null}
-              {!state.loading && items.length === 0 ? <tr className="hr-account-empty-row"><td colSpan={COLUMNS.length + (isAdmin ? 1 : 0)}>등록된 계정 현황이 없습니다.</td></tr> : null}
+              {state.loading ? <tr><td colSpan={tableColumns.length}>불러오는 중...</td></tr> : null}
+              {!state.loading && items.length === 0 ? <tr className="hr-account-empty-row"><td colSpan={tableColumns.length}>등록된 계정 현황이 없습니다.</td></tr> : null}
               {!state.loading && items.map((item) => <tr key={item.id}>
                 <td>{item.department}</td><td>{item.name}</td><td>{item.dowoffice || "-"}</td><td>{item.erp || "-"}</td><td>{item.scm || "-"}</td><td>{item.nas || "-"}</td><td>{formatDate(item.created_at)}</td>
-                {isAdmin ? <td><div className="hr-account-actions"><button type="button" onClick={() => openForm(item)}>수정</button><button type="button" className="danger-button" onClick={() => remove(item)}>삭제</button></div></td> : null}
+                {isAdmin ? <td className="hr-account-actions-cell"><div className="hr-account-actions"><button type="button" className="hr-account-edit-button" onClick={() => openForm(item)}>수정</button><button type="button" className="danger-button" onClick={() => remove(item)}>삭제</button></div></td> : null}
               </tr>)}
             </tbody>
           </table>
@@ -196,7 +199,12 @@ export default function HrAccountListPage({ currentUser }) {
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("ko-KR");
+  if (Number.isNaN(date.getTime())) return String(value);
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())} ${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+}
+
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
 }
 
 function formatQuickError(error) {
