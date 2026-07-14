@@ -7,7 +7,9 @@ import {
 import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const EMPTY_FORM = { department: "", name: "", dowoffice: "", erp: "", scm: "", nas: "" };
-const EMPTY_COLUMN_FILTERS = { ...EMPTY_FORM, createdFrom: "", createdTo: "" };
+const FILTERABLE_COLUMNS = ["department", "name", "dowoffice", "erp", "scm", "nas"];
+const EMPTY_EXCEL_FILTERS = Object.fromEntries([...FILTERABLE_COLUMNS, "created_at"].map((key) => [key, null]));
+const HR_TABLE_VIEW_STORAGE_KEY = "assetManager.hrAccounts.tableView";
 const COLUMNS = [
   { key: "department", label: "부서", initialWidth: 144, minWidth: 100 },
   { key: "name", label: "이름", initialWidth: 132, minWidth: 90 },
@@ -33,8 +35,13 @@ export default function HrAccountListPage({ currentUser }) {
   const [state, setState] = useState({ loading: true, saving: false, error: "", message: "" });
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [columnFilters, setColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
-  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState(EMPTY_COLUMN_FILTERS);
+  const initialTableView = useMemo(loadHrTableView, []);
+  const [excelFilters, setExcelFilters] = useState(initialTableView.filters);
+  const [sortState, setSortState] = useState(initialTableView.sort);
+  const [openFilter, setOpenFilter] = useState(null);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [draftSelectedValues, setDraftSelectedValues] = useState([]);
+  const [draftDateFilter, setDraftDateFilter] = useState({ mode: "all", start: "", end: "" });
   const [inlineState, setInlineState] = useState({ saving: false, error: "", missingFields: [] });
   const [quickForm, setQuickForm] = useState(EMPTY_FORM);
   const [quickState, setQuickState] = useState({ saving: false, error: "", message: "", missingFields: [] });
@@ -43,6 +50,7 @@ export default function HrAccountListPage({ currentUser }) {
   const quickSavingRef = useRef(false);
   const inlineSavingRef = useRef(false);
   const excelFileInputRef = useRef(null);
+  const filterPopoverRef = useRef(null);
   const tableColumns = isAdmin ? ADMIN_COLUMNS : COLUMNS;
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
     tableColumns, "assetManager.hrAccounts.columnWidths", "hr-column-resizing",
@@ -61,9 +69,30 @@ export default function HrAccountListPage({ currentUser }) {
   useEffect(() => { loadItems(); }, [loadItems]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedColumnFilters(columnFilters), 250);
-    return () => window.clearTimeout(timer);
-  }, [columnFilters]);
+    window.sessionStorage.setItem(HR_TABLE_VIEW_STORAGE_KEY, JSON.stringify({ filters: excelFilters, sort: sortState }));
+  }, [excelFilters, sortState]);
+
+  useEffect(() => {
+    if (!openFilter) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!filterPopoverRef.current?.contains(event.target) && !event.target.closest?.(".hr-account-filter-button")) setOpenFilter(null);
+    };
+    const closeOnEscape = (event) => { if (event.key === "Escape") setOpenFilter(null); };
+    const closeOnViewportChange = (event) => {
+      if (event.type === "scroll" && filterPopoverRef.current?.contains(event.target)) return;
+      setOpenFilter(null);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeOnViewportChange);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeOnViewportChange);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+    };
+  }, [openFilter]);
 
   const createAccountAndReload = useCallback(async (payload) => {
     await createHrAccount(payload);
@@ -214,20 +243,80 @@ export default function HrAccountListPage({ currentUser }) {
     }
   };
 
+  const uniqueValuesByColumn = useMemo(() => Object.fromEntries(FILTERABLE_COLUMNS.map((key) => [
+    key,
+    [...new Set(items.map((item) => normalizeFilterValue(item[key])))].sort(compareFilterValues),
+  ])), [items]);
+
+  const showFilterPopover = (event, column) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setFilterSearch("");
+    if (column.key === "created_at") {
+      setDraftDateFilter(excelFilters.created_at || { mode: "all", start: "", end: "" });
+    } else {
+      setDraftSelectedValues(excelFilters[column.key] || uniqueValuesByColumn[column.key]);
+    }
+    setOpenFilter({
+      key: column.key,
+      label: column.label,
+      left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 288)),
+      top: rect.bottom + 430 > window.innerHeight ? Math.max(8, rect.top - 425) : rect.bottom + 5,
+    });
+  };
+
+  const filteredDraftValues = useMemo(() => {
+    if (!openFilter || openFilter.key === "created_at") return [];
+    const search = filterSearch.trim().toLocaleLowerCase();
+    return uniqueValuesByColumn[openFilter.key].filter((value) => !search || filterValueLabel(value).toLocaleLowerCase().includes(search));
+  }, [filterSearch, openFilter, uniqueValuesByColumn]);
+
+  const toggleAllDraftValues = (checked) => {
+    setDraftSelectedValues(checked ? [...uniqueValuesByColumn[openFilter.key]] : []);
+  };
+
+  const toggleDraftValue = (value) => {
+    setDraftSelectedValues((selected) => selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]);
+  };
+
+  const applyOpenFilter = () => {
+    if (!openFilter) return;
+    if (openFilter.key === "created_at") {
+      const nextDateFilter = draftDateFilter.mode === "all" ? null : draftDateFilter;
+      setExcelFilters((value) => ({ ...value, created_at: nextDateFilter }));
+    } else {
+      const allValues = uniqueValuesByColumn[openFilter.key];
+      const selected = allValues.filter((value) => draftSelectedValues.includes(value));
+      setExcelFilters((value) => ({ ...value, [openFilter.key]: selected.length === allValues.length ? null : selected }));
+    }
+    setOpenFilter(null);
+  };
+
+  const resetOpenFilter = () => {
+    if (!openFilter) return;
+    setExcelFilters((value) => ({ ...value, [openFilter.key]: null }));
+    setSortState((value) => value.key === openFilter.key ? { key: null, direction: null } : value);
+    setOpenFilter(null);
+  };
+
   const resetSearchAndFilters = () => {
     setKeyword("");
     setAppliedKeyword("");
-    setColumnFilters(EMPTY_COLUMN_FILTERS);
-    setDebouncedColumnFilters(EMPTY_COLUMN_FILTERS);
+    setExcelFilters(EMPTY_EXCEL_FILTERS);
+    setSortState({ key: null, direction: null });
+    setOpenFilter(null);
   };
 
-  const visibleItems = useMemo(() => items.filter((item) => (
-    item.id === editing?.id || matchesColumnFilters(item, debouncedColumnFilters)
-  )), [debouncedColumnFilters, editing?.id, items]);
+  const visibleItems = useMemo(() => items
+    .filter((item) => item.id === editing?.id || matchesExcelFilters(item, excelFilters))
+    .sort((left, right) => compareHrItems(left, right, sortState)), [editing?.id, excelFilters, items, sortState]);
 
   const colgroup = useMemo(() => tableColumns.map((column) => (
     <col key={column.key} style={{ width: columnWidths[column.key] }} />
   )), [columnWidths, tableColumns]);
+  const openFilterValues = openFilter?.key && openFilter.key !== "created_at" ? uniqueValuesByColumn[openFilter.key] : [];
+  const allDraftValuesSelected = openFilterValues.length > 0 && draftSelectedValues.length === openFilterValues.length;
+  const someDraftValuesSelected = draftSelectedValues.length > 0 && !allDraftValuesSelected;
+  const invalidCustomDateRange = draftDateFilter.mode === "custom" && draftDateFilter.start && draftDateFilter.end && draftDateFilter.start > draftDateFilter.end;
 
   return (
     <section className="hr-account-page">
@@ -298,30 +387,17 @@ export default function HrAccountListPage({ currentUser }) {
             <colgroup>{colgroup}</colgroup>
             <thead>
               <tr className="hr-account-header-row">{tableColumns.map((column) => (
-                <th key={column.key}><div className="resizable-table-heading"><span>{column.label}</span><button type="button" className="table-column-resize-handle" aria-label={`${column.label} 너비 조절`} onMouseDown={(event) => handleColumnResizeStart(event, column)} /></div></th>
+                <th key={column.key}><div className="resizable-table-heading"><span>{column.label}</span>{column.key !== "actions" ? (
+                  <button
+                    type="button"
+                    className={`hr-account-filter-button${excelFilters[column.key] !== null ? " is-filtered" : ""}${sortState.key === column.key ? " is-sorted" : ""}`}
+                    aria-label={`${column.label} 필터 및 정렬`}
+                    aria-expanded={openFilter?.key === column.key}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onClick={(event) => showFilterPopover(event, column)}
+                  ><span aria-hidden="true">▼</span></button>
+                ) : null}<button type="button" className="table-column-resize-handle" aria-label={`${column.label} 너비 조절`} onMouseDown={(event) => handleColumnResizeStart(event, column)} /></div></th>
               ))}</tr>
-              <tr className="hr-account-filter-row">{tableColumns.map((column) => {
-                if (column.key === "actions") return <th key={column.key} aria-label="관리 컬럼 필터 없음" />;
-                if (column.key === "created_at") return (
-                  <th key={column.key}>
-                    <div className="hr-account-date-filters">
-                      <input type="date" value={columnFilters.createdFrom} max={columnFilters.createdTo || undefined} onChange={(event) => setColumnFilters((value) => ({ ...value, createdFrom: event.target.value }))} aria-label="생성날짜 시작일" />
-                      <input type="date" value={columnFilters.createdTo} min={columnFilters.createdFrom || undefined} onChange={(event) => setColumnFilters((value) => ({ ...value, createdTo: event.target.value }))} aria-label="생성날짜 종료일" />
-                    </div>
-                  </th>
-                );
-                return (
-                  <th key={column.key}>
-                    <input
-                      type="search"
-                      value={columnFilters[column.key]}
-                      placeholder="검색"
-                      aria-label={`${column.label} 컬럼 필터`}
-                      onChange={(event) => setColumnFilters((value) => ({ ...value, [column.key]: event.target.value }))}
-                    />
-                  </th>
-                );
-              })}</tr>
             </thead>
             <tbody>
               {state.loading ? <tr><td colSpan={tableColumns.length}>불러오는 중...</td></tr> : null}
@@ -357,6 +433,38 @@ export default function HrAccountListPage({ currentUser }) {
           </table>
         </div>
       </div>
+      {openFilter ? (
+        <div ref={filterPopoverRef} className="hr-account-filter-popover" style={{ left: openFilter.left, top: openFilter.top }} role="dialog" aria-label={`${openFilter.label} 필터`}>
+          <div className="hr-account-filter-popover-title"><strong>{openFilter.label}</strong><span>필터 및 정렬</span></div>
+          <div className="hr-account-filter-sort-actions">
+            <button type="button" className={sortState.key === openFilter.key && sortState.direction === "asc" ? "is-active" : ""} onClick={() => setSortState({ key: openFilter.key, direction: "asc" })}>{openFilter.key === "created_at" ? "오래된순" : "오름차순"}</button>
+            <button type="button" className={sortState.key === openFilter.key && sortState.direction === "desc" ? "is-active" : ""} onClick={() => setSortState({ key: openFilter.key, direction: "desc" })}>{openFilter.key === "created_at" ? "최신순" : "내림차순"}</button>
+          </div>
+          {openFilter.key === "created_at" ? (
+            <div className="hr-account-date-filter-options">
+              {[
+                ["all", "전체"], ["today", "오늘"], ["last7", "최근 7일"],
+                ["last30", "최근 30일"], ["custom", "사용자 지정 기간"],
+              ].map(([mode, label]) => <label key={mode}><input type="radio" name="hr-created-date-filter" value={mode} checked={draftDateFilter.mode === mode} onChange={() => setDraftDateFilter((value) => ({ ...value, mode }))} /> {label}</label>)}
+              {draftDateFilter.mode === "custom" ? <div className="hr-account-custom-date-range">
+                <label><span>시작일</span><input type="date" value={draftDateFilter.start} max={draftDateFilter.end || undefined} onChange={(event) => setDraftDateFilter((value) => ({ ...value, start: event.target.value }))} /></label>
+                <label><span>종료일</span><input type="date" value={draftDateFilter.end} min={draftDateFilter.start || undefined} onChange={(event) => setDraftDateFilter((value) => ({ ...value, end: event.target.value }))} /></label>
+                {invalidCustomDateRange ? <p>시작일은 종료일보다 늦을 수 없습니다.</p> : null}
+              </div> : null}
+            </div>
+          ) : (
+            <>
+              <input className="hr-account-filter-value-search" type="search" value={filterSearch} placeholder={`${openFilter.label} 값 검색`} onChange={(event) => setFilterSearch(event.target.value)} autoFocus />
+              <div className="hr-account-filter-value-list">
+                <label className="hr-account-filter-select-all"><input type="checkbox" checked={allDraftValuesSelected} ref={(element) => { if (element) element.indeterminate = someDraftValuesSelected; }} onChange={(event) => toggleAllDraftValues(event.target.checked)} /> 전체 선택</label>
+                {filteredDraftValues.map((value) => <label key={value || "__empty__"}><input type="checkbox" checked={draftSelectedValues.includes(value)} onChange={() => toggleDraftValue(value)} /><span title={filterValueLabel(value)}>{filterValueLabel(value)}</span></label>)}
+                {filteredDraftValues.length === 0 ? <p className="hr-account-filter-no-values">검색 결과가 없습니다.</p> : null}
+              </div>
+            </>
+          )}
+          <div className="hr-account-filter-popover-actions"><button type="button" onClick={resetOpenFilter}>초기화</button><button type="button" className="hr-account-filter-apply" onClick={applyOpenFilter} disabled={invalidCustomDateRange}>적용</button></div>
+        </div>
+      ) : null}
       {excelState.isOpen ? (
         <div className="hr-account-modal-backdrop hr-account-import-backdrop" role="presentation" onMouseDown={closeExcelModal}>
           <section className="hr-account-modal hr-account-import-modal" role="dialog" aria-modal="true" aria-labelledby="hr-import-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -439,18 +547,21 @@ function padDatePart(value) {
   return String(value).padStart(2, "0");
 }
 
-function matchesColumnFilters(item, filters) {
-  const textColumns = Object.keys(EMPTY_FORM);
-  const matchesText = textColumns.every((key) => {
-    const filter = String(filters[key] || "").trim().toLocaleLowerCase();
-    return !filter || String(item[key] || "").toLocaleLowerCase().includes(filter);
+function matchesExcelFilters(item, filters) {
+  const matchesTextValues = FILTERABLE_COLUMNS.every((key) => {
+    const selectedValues = filters[key];
+    return selectedValues === null || selectedValues.includes(normalizeFilterValue(item[key]));
   });
-  if (!matchesText) return false;
-  if (!filters.createdFrom && !filters.createdTo) return true;
+  if (!matchesTextValues || !filters.created_at) return matchesTextValues;
   const createdDate = toLocalDateKey(item.created_at);
   if (!createdDate) return false;
-  return (!filters.createdFrom || createdDate >= filters.createdFrom)
-    && (!filters.createdTo || createdDate <= filters.createdTo);
+  const dateFilter = filters.created_at;
+  const today = toLocalDateKey(new Date());
+  if (dateFilter.mode === "today") return createdDate === today;
+  if (dateFilter.mode === "last7") return createdDate >= dateDaysAgoKey(6) && createdDate <= today;
+  if (dateFilter.mode === "last30") return createdDate >= dateDaysAgoKey(29) && createdDate <= today;
+  if (dateFilter.mode === "custom") return (!dateFilter.start || createdDate >= dateFilter.start) && (!dateFilter.end || createdDate <= dateFilter.end);
+  return true;
 }
 
 function toLocalDateKey(value) {
@@ -461,6 +572,60 @@ function toLocalDateKey(value) {
 
 function hasInlineChanges(item, form) {
   return Object.keys(EMPTY_FORM).some((key) => String(item[key] || "") !== String(form[key] || ""));
+}
+
+function normalizeFilterValue(value) {
+  return String(value ?? "").trim();
+}
+
+function filterValueLabel(value) {
+  return value === "" ? "(빈 값)" : value;
+}
+
+function compareFilterValues(left, right) {
+  return filterValueLabel(left).localeCompare(filterValueLabel(right), "ko", { numeric: true, sensitivity: "base" });
+}
+
+function compareHrItems(left, right, sortState) {
+  if (!sortState.key || !sortState.direction) return 0;
+  let comparison;
+  if (sortState.key === "created_at") {
+    comparison = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+    if (!Number.isFinite(comparison)) comparison = 0;
+  } else {
+    comparison = normalizeFilterValue(left[sortState.key]).localeCompare(normalizeFilterValue(right[sortState.key]), "ko", { numeric: true, sensitivity: "base" });
+  }
+  return sortState.direction === "desc" ? -comparison : comparison;
+}
+
+function dateDaysAgoKey(days) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - days);
+  return toLocalDateKey(date);
+}
+
+function loadHrTableView() {
+  const fallback = { filters: EMPTY_EXCEL_FILTERS, sort: { key: null, direction: null } };
+  try {
+    const stored = JSON.parse(window.sessionStorage.getItem(HR_TABLE_VIEW_STORAGE_KEY) || "null");
+    if (!stored || typeof stored !== "object") return fallback;
+    const filters = { ...EMPTY_EXCEL_FILTERS };
+    FILTERABLE_COLUMNS.forEach((key) => {
+      filters[key] = Array.isArray(stored.filters?.[key]) ? stored.filters[key].map(normalizeFilterValue) : null;
+    });
+    const dateFilter = stored.filters?.created_at;
+    if (dateFilter && ["today", "last7", "last30", "custom"].includes(dateFilter.mode)) {
+      filters.created_at = { mode: dateFilter.mode, start: dateFilter.start || "", end: dateFilter.end || "" };
+    }
+    const sortableKeys = [...FILTERABLE_COLUMNS, "created_at"];
+    const sort = sortableKeys.includes(stored.sort?.key) && ["asc", "desc"].includes(stored.sort?.direction)
+      ? { key: stored.sort.key, direction: stored.sort.direction }
+      : fallback.sort;
+    return { filters, sort };
+  } catch {
+    return fallback;
+  }
 }
 
 function formatQuickError(error) {
