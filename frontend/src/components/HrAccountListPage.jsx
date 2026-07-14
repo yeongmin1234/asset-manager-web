@@ -5,6 +5,7 @@ import {
   updateHrAccount,
 } from "../api/client.js";
 import useResizableColumns from "../hooks/useResizableColumns.js";
+import { HR_EXCEL_IMPORT_TARGET, recordMenuAccessBestEffort } from "../hooks/useMenuAccessLog.js";
 
 const EMPTY_FORM = { department: "", name: "", dowoffice: "", erp: "", scm: "", nas: "" };
 const FILTERABLE_COLUMNS = ["department", "name", "dowoffice", "erp", "scm", "nas"];
@@ -332,7 +333,10 @@ export default function HrAccountListPage({ currentUser }) {
               tabIndex={-1}
               aria-hidden="true"
             />
-            <button type="button" className="hr-account-excel-button" onClick={() => excelFileInputRef.current?.click()}>
+            <button type="button" className="hr-account-excel-button" onClick={() => {
+              recordMenuAccessBestEffort(HR_EXCEL_IMPORT_TARGET);
+              excelFileInputRef.current?.click();
+            }}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 2.5L17.5 8H14ZM8 12l2 3-2 3h2l1-1.7 1 1.7h2l-2-3 2-3h-2l-1 1.7-1-1.7Z" /></svg>
               엑셀 일괄등록
             </button>

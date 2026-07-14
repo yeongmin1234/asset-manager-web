@@ -9585,9 +9585,16 @@ button:disabled,
 .user-management-tabs button.is-active { border-color: #aeb8c4; background: #f1f3f5; color: #1f2937; }
 
 .login-access-log-tab { display: grid; gap: 10px; min-width: 0; }
+.login-access-log-panel, .menu-access-log-panel { display: grid; gap: 10px; min-width: 0; }
+.access-log-subtabs { display: flex; gap: 4px; border-bottom: 1px solid #e2e8f0; }
+.access-log-subtabs button { margin-bottom: -1px; padding: 8px 13px; border: 1px solid transparent; border-bottom-color: #e2e8f0; border-radius: 7px 7px 0 0; background: #fff; color: #64748b; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.access-log-subtabs button:hover { background: #f8fafc; color: #334155; }
+.access-log-subtabs button.is-active { border-color: #cbd5e1; border-bottom-color: #fff; color: #1f2937; }
 .access-log-filter-panel { display: grid; gap: 9px; padding: 11px 12px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; }
 .access-log-filter-row { display: grid; grid-template-columns: minmax(240px, 1fr) 155px 155px auto auto; gap: 7px; align-items: end; }
 .access-log-filter-row > input, .access-log-filter-row label input { width: 100%; height: 35px; padding: 0 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #334155; font: inherit; outline: none; }
+.access-log-filter-row select { width: 100%; height: 35px; padding: 0 28px 0 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #334155; font: inherit; outline: none; }
+.menu-access-log-filter-row { grid-template-columns: minmax(145px, .8fr) minmax(180px, 1fr) 170px 145px 145px auto auto; }
 .access-log-filter-row > input:focus, .access-log-filter-row label input:focus { border-color: #64748b; }
 .access-log-filter-row label { display: grid; gap: 3px; min-width: 0; color: #64748b; font-size: 11px; }
 .access-log-filter-row button, .access-log-quick-filters button, .access-log-pagination button { height: 35px; padding: 0 11px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #475569; cursor: pointer; font-weight: 700; white-space: nowrap; transition: background-color .15s ease, border-color .15s ease; }
@@ -9613,6 +9620,15 @@ button:disabled,
 .access-log-table th:nth-child(7), .access-log-table th:nth-child(8) { width: 100px; }
 .access-log-table th:nth-child(9) { width: 165px; }
 .access-log-table th:nth-child(10) { width: 190px; }
+.menu-access-log-table { min-width: 1180px; }
+.menu-access-log-table th:nth-child(1) { width: 125px; }
+.menu-access-log-table th:nth-child(2) { width: 115px; }
+.menu-access-log-table th:nth-child(3) { width: 155px; }
+.menu-access-log-table th:nth-child(4) { width: 155px; }
+.menu-access-log-table th:nth-child(5) { width: 140px; }
+.menu-access-log-table th:nth-child(6) { width: 95px; }
+.menu-access-log-table th:nth-child(7), .menu-access-log-table th:nth-child(8) { width: 105px; }
+.menu-access-log-table th:nth-child(9) { width: 170px; }
 .access-log-failure-reason { color: #991b1b !important; text-align: left !important; }
 .access-log-empty-row td { height: auto; padding: 28px 12px; color: #94a3b8; }
 .access-status-badge, .access-type-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; }

@@ -59,6 +59,7 @@ import {
   sortItems,
 } from "./utils/sortOptions.jsx";
 import { getAllowedSectionIds } from "./utils/menuPermissions.js";
+import useMenuAccessLog from "./hooks/useMenuAccessLog.js";
 import "./styles/app.css";
 
 const INITIAL_FILTERS = {
@@ -219,6 +220,7 @@ function App({ currentUser, onLogout }) {
     typeof window !== "undefined" && window.location.pathname === "/hr/list" ? "hr-list" : "dashboard",
   );
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
+  useMenuAccessLog(activeSection, Boolean(currentUser) && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
 
   const activeFilters = useMemo(
     () => ({

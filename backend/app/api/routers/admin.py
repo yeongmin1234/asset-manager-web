@@ -19,7 +19,9 @@ from app.schemas.admin import (
 )
 from app.services.activity_log_service import record_activity_log
 from app.schemas.login_access_log import LoginAccessLogPage
+from app.schemas.menu_access_log import MenuAccessLogPage
 from app.services.login_access_log_service import get_access_logs
+from app.services.menu_access_log_service import get_menu_access_logs
 from app.services.admin_service import (
     AdminPasswordInvalidError,
     AdminPasswordRequiredError,
@@ -69,6 +71,38 @@ def list_login_access_logs(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="접속기록을 불러오는 중 DB 연결에 실패했습니다.",
+        ) from exc
+
+
+@router.get("/menu-access-logs", response_model=MenuAccessLogPage)
+def list_menu_access_logs(
+    keyword: Optional[str] = Query(default=None),
+    username: Optional[str] = Query(default=None),
+    menu_key: Optional[str] = Query(default=None),
+    access_type: Optional[Literal["internal", "external"]] = Query(default=None),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> MenuAccessLogPage:
+    try:
+        return get_menu_access_logs(
+            db,
+            keyword=keyword,
+            username=username,
+            menu_key=menu_key,
+            access_type=access_type,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            page_size=page_size,
+        )
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to load menu access logs")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="메뉴 접근 기록을 불러오는 중 DB 연결에 실패했습니다.",
         ) from exc
 
 

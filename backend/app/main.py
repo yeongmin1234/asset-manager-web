@@ -19,6 +19,7 @@ from app.api.routers import (
     expiration_schedules,
     install_files,
     hr_accounts,
+    menu_access_logs,
     network_credentials,
     network_status,
     paju_fire_insurance,
@@ -66,6 +67,7 @@ app.mount(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(menu_access_logs.router)
 app.include_router(attachments.router)
 
 authenticated_user = [Depends(get_current_user)]

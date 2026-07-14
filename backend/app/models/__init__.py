@@ -16,6 +16,7 @@ from app.models.history import AssetActionType, AssetHistory
 from app.models.install_file import InstallFile
 from app.models.hr_account import HrAccount
 from app.models.login_access_log import LoginAccessLog
+from app.models.menu_access_log import MenuAccessLog
 from app.models.network_credential import (
     NetworkCredential,
     NetworkCredentialCategory,
@@ -48,6 +49,7 @@ __all__ = [
     "InstallFile",
     "HrAccount",
     "LoginAccessLog",
+    "MenuAccessLog",
     "NetworkCredential",
     "NetworkCredentialCategory",
     "NetworkCredentialImportance",

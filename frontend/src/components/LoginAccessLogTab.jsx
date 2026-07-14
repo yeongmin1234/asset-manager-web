@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { getLoginAccessLogs } from "../api/client.js";
+import MenuAccessLogTab from "./MenuAccessLogTab.jsx";
 
 
 const EMPTY_FILTERS = {
@@ -8,6 +9,20 @@ const EMPTY_FILTERS = {
 
 
 export default function LoginAccessLogTab() {
+  const [activeTab, setActiveTab] = useState("login");
+  return (
+    <section className="login-access-log-tab">
+      <div className="access-log-subtabs" role="tablist" aria-label="접속기록 구분">
+        <button type="button" role="tab" aria-selected={activeTab === "login"} className={activeTab === "login" ? "is-active" : ""} onClick={() => setActiveTab("login")}>로그인 기록</button>
+        <button type="button" role="tab" aria-selected={activeTab === "menu"} className={activeTab === "menu" ? "is-active" : ""} onClick={() => setActiveTab("menu")}>메뉴 접근 기록</button>
+      </div>
+      {activeTab === "login" ? <LoginRecordPanel /> : <MenuAccessLogTab />}
+    </section>
+  );
+}
+
+
+function LoginRecordPanel() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
@@ -56,7 +71,7 @@ export default function LoginAccessLogTab() {
   };
 
   return (
-    <section className="login-access-log-tab">
+    <section className="login-access-log-panel">
       <form className="access-log-filter-panel" onSubmit={applyFilters}>
         <div className="access-log-filter-row">
           <input value={filters.keyword} onChange={(event) => setFilters((value) => ({ ...value, keyword: event.target.value }))} placeholder="사용자 ID, 이름, IP 검색" aria-label="접속기록 사용자 검색" />

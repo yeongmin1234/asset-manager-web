@@ -346,6 +346,14 @@ export async function getLoginAccessLogs(filters = {}) {
   return request("/admin/access-logs", { query: filters });
 }
 
+export async function getMenuAccessLogs(filters = {}) {
+  return request("/admin/menu-access-logs", { query: filters });
+}
+
+export async function recordMenuAccess(payload) {
+  return request("/access-logs/menu", { method: "POST", body: payload });
+}
+
 export function getAuthToken() {
   if (typeof window === "undefined") {
     return "";
