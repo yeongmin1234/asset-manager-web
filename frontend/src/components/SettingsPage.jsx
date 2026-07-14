@@ -23,41 +23,56 @@ const SETTINGS_SECTIONS = [
 ];
 
 const MENU_VISIBILITY_ITEMS = [
+  { id: "beverage-orders", menuKey: "drink_orders", label: "음료주문기록", description: "음료 주문 기록 메뉴" },
+  { id: "work-manuals", menuKey: "work_manual", label: "업무설명서", description: "사내 업무설명서 메뉴" },
+  { id: "vendor-contacts", menuKey: "vendor_contacts", label: "업체연락처", description: "업체 연락처 관리 메뉴" },
+  { id: "expiration_schedules", menuKey: "expiration_schedules", label: "점검·만료 관리", description: "점검 및 만료 일정 관리 메뉴" },
+  { id: "software", menuKey: "software", label: "SW 현황", description: "소프트웨어 라이선스 현황 메뉴" },
+  { id: "vehicles", menuKey: "company_cars", label: "법인차량 관리", description: "법인차량과 보험 이력 관리 메뉴" },
   {
     id: "excel",
+    menuKey: "excel_management",
     label: "엑셀 관리",
     description: "엑셀 양식 다운로드와 일괄 등록 메뉴",
   },
   {
     id: "stats",
+    menuKey: "statistics",
     label: "통계 / 리포트",
     description: "자산 통계와 리포트 메뉴",
   },
   {
     id: "history",
+    menuKey: "history",
     label: "변경 이력",
     description: "자산 변경 이력 조회 메뉴",
   },
   {
     id: "install-library",
+    menuKey: "install_files",
     label: "설치자료실",
     description: "사내 설치 파일 자료실 메뉴",
   },
   {
     id: "scm",
+    menuKey: "scm",
     label: "SCM",
     description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴",
   },
   {
     id: "network",
+    menuKey: "network",
     label: "네트워크 현황",
     description: "네트워크 장비 상태 메뉴",
   },
   {
     id: "paju-fire-insurance",
+    menuKey: "fire_insurance",
     label: "파주화재보험",
     description: "파주 화재보험 계약 관리 메뉴",
   },
+  { id: "hr-list", menuKey: "hr_list", label: "인사업무 리스트", description: "직원별 시스템 계정 현황 메뉴" },
+  { id: "users", menuKey: "user_management", label: "사용자 관리", description: "사용자와 접속기록 관리 메뉴" },
 ];
 
 const PROTECTED_MENU_ITEMS = [
@@ -159,6 +174,7 @@ function SettingsPage({
   adminResetSuccessMessage = "",
   adminStatus = { configured: false, error: "", isLoading: true },
   menuVisibility = {},
+  menuVisibilityError = "",
   onAdminPasswordSave,
   onAdminPasswordResetRequest,
   onClearAdminAuth,
@@ -252,7 +268,7 @@ function SettingsPage({
           >
             <div className="settings-menu-visibility-list">
               {MENU_VISIBILITY_ITEMS.map((item) => {
-                const isVisible = menuVisibility[item.id] !== false;
+                const isVisible = menuVisibility[item.menuKey] !== false;
 
                 return (
                   <label className="settings-menu-toggle" key={item.id}>
@@ -264,9 +280,9 @@ function SettingsPage({
                       <input
                         type="checkbox"
                         checked={isVisible}
-                        onChange={(event) =>
-                          onMenuVisibilityChange?.(item.id, event.target.checked)
-                        }
+                        onChange={(event) => {
+                          Promise.resolve(onMenuVisibilityChange?.(item.menuKey, event.target.checked)).catch(() => {});
+                        }}
                       />
                       <span className="settings-menu-toggle-switch" aria-hidden="true" />
                     </span>
@@ -274,6 +290,7 @@ function SettingsPage({
                 );
               })}
             </div>
+            {menuVisibilityError ? <p className="settings-inline-error">{menuVisibilityError}</p> : null}
             <p className="settings-muted">
               대시보드, 자산 관리, 설정 메뉴는 항상 표시됩니다.
             </p>

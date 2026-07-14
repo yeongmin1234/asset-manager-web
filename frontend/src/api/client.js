@@ -377,6 +377,17 @@ export async function updateSidebarMenuLabel(menuKey, menuName) {
   });
 }
 
+export async function getMenuVisibility() {
+  return request("/menu-visibility");
+}
+
+export async function updateMenuVisibility(menuKey, visible) {
+  return request(`/menu-visibility/${encodeURIComponent(menuKey)}`, {
+    method: "PATCH",
+    body: { visible },
+  });
+}
+
 export function getAuthToken() {
   if (typeof window === "undefined") {
     return "";

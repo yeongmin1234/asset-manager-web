@@ -19,6 +19,7 @@ from app.models.install_file import InstallFile
 from app.models.hr_account import HrAccount
 from app.models.login_access_log import LoginAccessLog
 from app.models.menu_access_log import MenuAccessLog
+from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.network_credential import (
     NetworkCredential,
     NetworkCredentialCategory,
@@ -54,6 +55,7 @@ __all__ = [
     "HrAccount",
     "LoginAccessLog",
     "MenuAccessLog",
+    "MenuVisibilitySetting",
     "NetworkCredential",
     "NetworkCredentialCategory",
     "NetworkCredentialImportance",

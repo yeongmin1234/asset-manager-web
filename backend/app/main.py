@@ -20,6 +20,7 @@ from app.api.routers import (
     install_files,
     hr_accounts,
     menu_access_logs,
+    menu_visibility,
     network_credentials,
     network_status,
     paju_fire_insurance,
@@ -75,6 +76,7 @@ authenticated_user = [Depends(get_current_user)]
 admin_only = [Depends(require_admin)]
 
 app.include_router(sidebar_menu_labels.router, dependencies=authenticated_user)
+app.include_router(menu_visibility.router, dependencies=authenticated_user)
 
 assets_access = [Depends(require_menu_permission("assets"))]
 dashboard_access = [Depends(require_menu_permission("dashboard"))]

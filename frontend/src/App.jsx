@@ -10,6 +10,7 @@ import {
   getDepartments,
   getExpirationScheduleSummary,
   getHealth,
+  getMenuVisibility,
   getRecentActivityLogs,
   getStatsByCategory,
   getStatsByDepartment,
@@ -19,6 +20,7 @@ import {
   pingVisitor,
   resetAdminPassword,
   updateAdminPassword,
+  updateMenuVisibility,
   verifyAdminPassword,
 } from "./api/client.js";
 import AdminAuthModal from "./components/AdminAuthModal.jsx";
@@ -40,7 +42,7 @@ import InstallLibraryPage from "./components/InstallLibraryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
 import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
-import PortalSidebar from "./components/PortalSidebar.jsx";
+import PortalSidebar, { MENU_ITEMS } from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
 import ScmPage from "./components/ScmPage.jsx";
@@ -79,20 +81,29 @@ const INITIAL_STATS_SUMMARY = {
 };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "assetManager.sidebarCollapsed";
-const MENU_VISIBILITY_STORAGE_KEY = "assetManager.menuVisibility";
 const PROTECTED_MENU_STORAGE_KEY = "assetManager.protectedMenus";
 const ADMIN_AUTH_STORAGE_KEY = "assetManager.adminAuth";
 const DEFAULT_MENU_VISIBILITY = {
-  excel: true,
-  stats: true,
-  history: true,
-  "install-library": true,
-  "hr-list": true,
-  scm: true,
-  network: true,
-  "paju-fire-insurance": true,
+  dashboard: true,
+  drink_orders: true,
+  work_manual: true,
+  vendor_contacts: true,
   expiration_schedules: true,
+  assets: true,
+  software: true,
+  company_cars: true,
+  fire_insurance: true,
+  network: true,
+  excel_management: true,
+  statistics: true,
+  history: true,
+  install_files: true,
+  hr_list: true,
+  scm: true,
+  user_management: true,
+  settings: true,
 };
+const SECTION_MENU_KEYS = Object.fromEntries(MENU_ITEMS.map((item) => [item.id, item.menuKey]));
 const DEFAULT_PROTECTED_MENUS = {
   software: false,
   vehicles: false,
@@ -153,7 +164,8 @@ function App({ currentUser, onLogout }) {
     }
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
-  const [menuVisibility, setMenuVisibility] = useState(() => getStoredMenuVisibility());
+  const [menuVisibility, setMenuVisibility] = useState(DEFAULT_MENU_VISIBILITY);
+  const [menuVisibilityError, setMenuVisibilityError] = useState("");
   const [protectedMenus, setProtectedMenus] = useState(() => getStoredProtectedMenus());
   const [adminStatus, setAdminStatus] = useState({
     configured: false,
@@ -220,7 +232,16 @@ function App({ currentUser, onLogout }) {
     typeof window !== "undefined" && window.location.pathname === "/hr/list" ? "hr-list" : "dashboard",
   );
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
-  useMenuAccessLog(activeSection, Boolean(currentUser) && menuVisibility[activeSection] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
+  useMenuAccessLog(activeSection, Boolean(currentUser) && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
+  useEffect(() => {
+    let active = true;
+    getMenuVisibility()
+      .then((response) => {
+        if (active) setMenuVisibility({ ...DEFAULT_MENU_VISIBILITY, ...(response?.visibility || {}) });
+      })
+      .catch(() => { if (active) setMenuVisibilityError("메뉴 표시 설정을 불러오지 못했습니다."); });
+    return () => { active = false; };
+  }, [currentUser?.id]);
 
   const activeFilters = useMemo(
     () => ({
@@ -787,25 +808,19 @@ function App({ currentUser, onLogout }) {
     return result;
   };
 
-  const handleMenuVisibilityChange = (menuId, isVisible) => {
-    const nextVisibility = {
-      ...DEFAULT_MENU_VISIBILITY,
-      ...menuVisibility,
-      [menuId]: isVisible,
-    };
-
-    setMenuVisibility(nextVisibility);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        MENU_VISIBILITY_STORAGE_KEY,
-        JSON.stringify(nextVisibility),
-      );
-    }
-
-    if (!isVisible && activeSection === menuId) {
-      setActiveSection("dashboard");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleMenuVisibilityChange = async (menuKey, isVisible) => {
+    if (!isAdmin) throw new Error("관리자 권한이 필요합니다.");
+    setMenuVisibilityError("");
+    try {
+      const response = await updateMenuVisibility(menuKey, isVisible);
+      setMenuVisibility({ ...DEFAULT_MENU_VISIBILITY, ...(response?.visibility || {}) });
+      if (!isVisible && SECTION_MENU_KEYS[activeSection] === menuKey) {
+        setActiveSection("dashboard");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch (error) {
+      setMenuVisibilityError(error?.message || "메뉴 표시 설정을 저장하지 못했습니다.");
+      throw error;
     }
   };
 
@@ -1031,6 +1046,7 @@ function App({ currentUser, onLogout }) {
         <SettingsPage
           backendStatus={backendStatus}
           menuVisibility={menuVisibility}
+          menuVisibilityError={menuVisibilityError}
           onCheckBackend={checkBackend}
           onClearAdminAuth={handleClearAdminAuth}
           onAdminPasswordSave={handleAdminPasswordSave}
@@ -1398,33 +1414,6 @@ function downloadBlob(blob, filename) {
 function getFallbackExcelFilename() {
   const today = new Date().toISOString().slice(0, 10);
   return `asset_list_${today}.xlsx`;
-}
-
-function getStoredMenuVisibility() {
-  if (typeof window === "undefined") {
-    return DEFAULT_MENU_VISIBILITY;
-  }
-
-  try {
-    const storedValue = window.localStorage.getItem(MENU_VISIBILITY_STORAGE_KEY);
-    if (!storedValue) {
-      return DEFAULT_MENU_VISIBILITY;
-    }
-
-    const parsedValue = JSON.parse(storedValue);
-    return Object.keys(DEFAULT_MENU_VISIBILITY).reduce(
-      (visibility, menuId) => ({
-        ...visibility,
-        [menuId]:
-          typeof parsedValue?.[menuId] === "boolean"
-            ? parsedValue[menuId]
-            : DEFAULT_MENU_VISIBILITY[menuId],
-      }),
-      {},
-    );
-  } catch {
-    return DEFAULT_MENU_VISIBILITY;
-  }
 }
 
 function getStoredProtectedMenus() {

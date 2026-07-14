@@ -76,7 +76,7 @@ function PortalSidebar({
   }, []);
   const visibleMenuItems = MENU_ITEMS.filter(
     (item) =>
-      menuVisibility[item.id] !== false &&
+      menuVisibility[item.menuKey] !== false &&
       (!allowedMenuIds || allowedMenuIds.includes(item.id)),
   );
   const visibleMenuItemsById = visibleMenuItems.reduce(
