@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     admin_reset_code: str = ""
     auth_jwt_secret: str = ""
     auth_token_minutes: int = 480
+    trusted_proxy_ips: str = ""
     network_credential_secret_key: str = ""
     scm_reboot_host: str = ""
     scm_reboot_port: int = 22
@@ -66,6 +67,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> List[str]:
         return parse_cors_origins(self.cors_origins)
+
+    @property
+    def trusted_proxy_ip_list(self) -> List[str]:
+        return [value.strip() for value in self.trusted_proxy_ips.split(",") if value.strip()]
 
 
 @lru_cache

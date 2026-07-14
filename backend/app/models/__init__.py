@@ -15,6 +15,7 @@ from app.models.expiration_schedule import (
 from app.models.history import AssetActionType, AssetHistory
 from app.models.install_file import InstallFile
 from app.models.hr_account import HrAccount
+from app.models.login_access_log import LoginAccessLog
 from app.models.network_credential import (
     NetworkCredential,
     NetworkCredentialCategory,
@@ -46,6 +47,7 @@ __all__ = [
     "ExpirationScheduleStatus",
     "InstallFile",
     "HrAccount",
+    "LoginAccessLog",
     "NetworkCredential",
     "NetworkCredentialCategory",
     "NetworkCredentialImportance",

@@ -11,6 +11,7 @@ import {
   MENU_PERMISSION_OPTIONS,
   normalizeMenuPermissions,
 } from "../utils/menuPermissions.js";
+import LoginAccessLogTab from "./LoginAccessLogTab.jsx";
 
 const EMPTY_CREATE_FORM = {
   username: "",
@@ -22,6 +23,7 @@ const EMPTY_CREATE_FORM = {
 
 
 function UserManagementPage({ currentUser }) {
+  const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
   const [drafts, setDrafts] = useState({});
@@ -257,9 +259,15 @@ function UserManagementPage({ currentUser }) {
     <section className="user-management-page">
       <div className="portal-screen-heading">
         <h2>사용자 관리</h2>
-        <p>계정을 생성하고 권한, 활성 상태, 비밀번호와 계정 삭제를 관리합니다.</p>
+        <p>사용자 계정과 로그인 접속기록을 관리합니다.</p>
       </div>
 
+      <div className="user-management-tabs" role="tablist" aria-label="사용자 관리 화면">
+        <button type="button" role="tab" aria-selected={activeTab === "users"} className={activeTab === "users" ? "is-active" : ""} onClick={() => setActiveTab("users")}>사용자 목록</button>
+        <button type="button" role="tab" aria-selected={activeTab === "access-logs"} className={activeTab === "access-logs" ? "is-active" : ""} onClick={() => setActiveTab("access-logs")}>접속기록</button>
+      </div>
+
+      {activeTab === "users" ? <>
       <form className="user-create-panel" onSubmit={handleCreate}>
         <input placeholder="ID" value={createForm.username} onChange={(event) => setCreateForm({ ...createForm, username: event.target.value })} required />
         <input placeholder="이름" value={createForm.name} onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })} required />
@@ -396,6 +404,7 @@ function UserManagementPage({ currentUser }) {
           </section>
         </div>
       ) : null}
+      </> : <LoginAccessLogTab />}
     </section>
   );
 }

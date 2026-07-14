@@ -282,6 +282,10 @@ export async function getCurrentUser() {
   return request("/auth/me");
 }
 
+export async function logout() {
+  return request("/auth/logout", { method: "POST" });
+}
+
 export async function getAttachments(filters = {}) {
   return normalizeCollection(await request("/attachments", { query: filters }));
 }
@@ -336,6 +340,10 @@ export async function resetUserPassword(userId, password) {
 
 export async function deleteUser(userId) {
   return request(`/users/${userId}`, { method: "DELETE" });
+}
+
+export async function getLoginAccessLogs(filters = {}) {
+  return request("/admin/access-logs", { query: filters });
 }
 
 export function getAuthToken() {

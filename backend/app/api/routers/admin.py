@@ -1,7 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+import logging
+from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
 from app.db.database import get_db
@@ -15,6 +18,8 @@ from app.schemas.admin import (
     AdminVerifyResponse,
 )
 from app.services.activity_log_service import record_activity_log
+from app.schemas.login_access_log import LoginAccessLogPage
+from app.services.login_access_log_service import get_access_logs
 from app.services.admin_service import (
     AdminPasswordInvalidError,
     AdminPasswordRequiredError,
@@ -30,6 +35,41 @@ from app.services.admin_service import (
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
+
+
+@router.get("/access-logs", response_model=LoginAccessLogPage)
+def list_login_access_logs(
+    keyword: Optional[str] = Query(default=None),
+    username: Optional[str] = Query(default=None),
+    event_type: Optional[Literal["login", "logout"]] = Query(default=None),
+    login_result: Optional[Literal["success", "failure"]] = Query(default=None),
+    access_type: Optional[Literal["internal", "external"]] = Query(default=None),
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> LoginAccessLogPage:
+    try:
+        return get_access_logs(
+            db,
+            keyword=keyword,
+            username=username,
+            event_type=event_type,
+            login_result=login_result,
+            access_type=access_type,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            page_size=page_size,
+        )
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to load login access logs")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="접속기록을 불러오는 중 DB 연결에 실패했습니다.",
+        ) from exc
 
 
 @router.get("/status", response_model=AdminStatusResponse)

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
-import { clearAuthToken, getAuthToken, getCurrentUser, login } from "./api/client.js";
+import { clearAuthToken, getAuthToken, getCurrentUser, login, logout } from "./api/client.js";
 import LoginPage from "./components/LoginPage.jsx";
 
 
@@ -39,9 +39,15 @@ function AuthenticatedApp() {
     }
   };
 
-  const handleLogout = () => {
-    clearAuthToken();
-    setState({ error: "", loading: false, submitting: false, user: null });
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("[AssetManager] logout access log request failed", error);
+    } finally {
+      clearAuthToken();
+      setState({ error: "", loading: false, submitting: false, user: null });
+    }
   };
 
   if (state.loading) {
