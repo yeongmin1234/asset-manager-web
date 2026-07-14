@@ -29,7 +29,8 @@ const EMPTY_SUMMARY = {
   with_password: 0,
 };
 
-function NetworkCredentialPage() {
+function NetworkCredentialPage({ currentUser }) {
+  const canManage = currentUser?.role === "admin";
   const [credentials, setCredentials] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [filters, setFilters] = useState({ keyword: "", importance: "" });
@@ -247,13 +248,13 @@ function NetworkCredentialPage() {
           <h3>접속정보 관리</h3>
           <p>내부 주소, 외부 URL, 계정과 비밀번호를 안전하게 관리합니다.</p>
         </div>
-        <button
+        {canManage ? <button
           type="button"
           className="primary-button"
           onClick={() => setFormState({ credential: null, error: "", isOpen: true, isSubmitting: false })}
         >
           등록
-        </button>
+        </button> : null}
       </div>
 
       <div className="network-credential-security-note" role="note">
@@ -321,6 +322,7 @@ function NetworkCredentialPage() {
           onDelete={handleDelete}
           onEdit={(credential) => setFormState({ credential, error: "", isOpen: true, isSubmitting: false })}
           onRevealPassword={(credential) => openRevealAuth(credential, "reveal")}
+          canManage={canManage}
         />
       </section>
 

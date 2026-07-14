@@ -96,7 +96,7 @@ class MenuAccessLogTest(unittest.TestCase):
         sidebar_keys = {
             "dashboard", "drink_orders", "work_manual", "vendor_contacts",
             "expiration_schedules", "assets", "software", "company_cars",
-            "fire_insurance", "network", "excel_management", "statistics",
+            "fire_insurance", "access_info", "equipment_status", "excel_management", "statistics",
             "history", "install_files", "hr_list", "scm", "user_management", "settings",
         }
         self.assertTrue(sidebar_keys.issubset(set(MENU_ACCESS_TARGETS)))
@@ -122,6 +122,23 @@ class MenuAccessLogTest(unittest.TestCase):
                 self.db, make_request(), user,
                 payload("software", software["name"], software["path"]),
             )
+
+    def test_split_network_menus_are_recorded_independently(self):
+        user = make_user(permissions=["access_info", "equipment_status"])
+        access = MENU_ACCESS_TARGETS["access_info"]
+        equipment = MENU_ACCESS_TARGETS["equipment_status"]
+        self.assertTrue(record_menu_access_log(
+            self.db, make_request(), user,
+            payload("access_info", access["name"], access["path"]),
+        ).recorded)
+        self.assertTrue(record_menu_access_log(
+            self.db, make_request(), user,
+            payload("equipment_status", equipment["name"], equipment["path"]),
+        ).recorded)
+        self.assertEqual(
+            [row.menu_key for row in self.db.query(MenuAccessLog).order_by(MenuAccessLog.id).all()],
+            ["access_info", "equipment_status"],
+        )
 
     def test_excel_import_uses_hr_route_and_requires_admin(self):
         excel = payload("excel_import", "엑셀 일괄등록", "/hr/list")

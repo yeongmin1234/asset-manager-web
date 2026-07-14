@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 MenuAccessKey = Literal[
     "dashboard", "drink_orders", "work_manual", "vendor_contacts",
     "expiration_schedules", "assets", "software", "company_cars",
-    "fire_insurance", "network", "excel_management", "statistics",
+    "fire_insurance", "access_info", "equipment_status", "excel_management", "statistics",
     "history", "install_files", "hr_list", "scm", "user_management",
     "settings", "excel_import",
 ]

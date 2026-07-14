@@ -11,7 +11,8 @@ export const MENU_ITEMS = [
   { id: "software", label: "SW 현황", icon: "▧", menuKey: "software", routePath: "/software" },
   { id: "vehicles", label: "법인차량 관리", icon: "▦", menuKey: "company_cars", routePath: "/vehicles" },
   { id: "paju-fire-insurance", label: "파주화재보험", icon: "▨", menuKey: "fire_insurance", routePath: "/paju-fire-insurance" },
-  { id: "network", label: "네트워크 현황", icon: "◌", menuKey: "network", routePath: "/network" },
+  { id: "access-info", label: "접속정보 관리", icon: "⌁", menuKey: "access_info", routePath: "/access-info" },
+  { id: "equipment-status", label: "장비 현황", icon: "◌", menuKey: "equipment_status", routePath: "/equipment-status" },
   { id: "excel", label: "엑셀 관리", icon: "▤", menuKey: "excel_management", routePath: "/excel" },
   { id: "stats", label: "통계 / 리포트", icon: "▥", menuKey: "statistics", routePath: "/statistics" },
   { id: "history", label: "변경 이력", icon: "◷", menuKey: "history", routePath: "/history" },
@@ -29,7 +30,7 @@ const MENU_GROUPS = [
   },
   {
     title: "자산",
-    itemIds: ["assets", "software", "vehicles", "paju-fire-insurance", "network"],
+    itemIds: ["assets", "software", "vehicles", "paju-fire-insurance", "access-info", "equipment-status"],
   },
   {
     title: "인사업무",

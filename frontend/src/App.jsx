@@ -25,6 +25,7 @@ import {
 } from "./api/client.js";
 import AdminAuthModal from "./components/AdminAuthModal.jsx";
 import AdminPasswordResetModal from "./components/AdminPasswordResetModal.jsx";
+import AccessInfoPage from "./components/AccessInfoPage.jsx";
 import AssetDetail from "./components/AssetDetail.jsx";
 import AssetForm from "./components/AssetForm.jsx";
 import AssetList from "./components/AssetList.jsx";
@@ -93,7 +94,8 @@ const DEFAULT_MENU_VISIBILITY = {
   software: true,
   company_cars: true,
   fire_insurance: true,
-  network: true,
+  access_info: true,
+  equipment_status: true,
   excel_management: true,
   statistics: true,
   history: true,
@@ -111,7 +113,8 @@ const DEFAULT_PROTECTED_MENUS = {
   "beverage-orders": false,
   "work-manuals": false,
   expiration_schedules: false,
-  network: false,
+  "access-info": false,
+  "equipment-status": false,
   history: false,
   "install-library": false,
   "hr-list": false,
@@ -128,7 +131,8 @@ const MENU_LABELS = {
   "work-manuals": "업무설명서",
   "vendor-contacts": "업체연락처",
   expiration_schedules: "점검·만료 관리",
-  network: "네트워크 현황",
+  "access-info": "접속정보 관리",
+  "equipment-status": "장비 현황",
   excel: "엑셀 관리",
   stats: "통계 / 리포트",
   history: "변경 이력",
@@ -228,9 +232,7 @@ function App({ currentUser, onLogout }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState(null);
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
-  const [activeSection, setActiveSection] = useState(() =>
-    typeof window !== "undefined" && window.location.pathname === "/hr/list" ? "hr-list" : "dashboard",
-  );
+  const [activeSection, setActiveSection] = useState(() => getSectionFromPath());
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
   useMenuAccessLog(activeSection, Boolean(currentUser) && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
   useEffect(() => {
@@ -680,7 +682,7 @@ function App({ currentUser, onLogout }) {
   const navigateToSection = (nextSection) => {
     setActiveSection(nextSection);
     if (typeof window !== "undefined") {
-      const nextPath = nextSection === "hr-list" ? "/hr/list" : "/";
+      const nextPath = MENU_ITEMS.find((item) => item.id === nextSection)?.routePath || "/";
       if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -998,7 +1000,11 @@ function App({ currentUser, onLogout }) {
       return <PajuFireInsurancePage currentUser={currentUser} />;
     }
 
-    if (activeSection === "network") {
+    if (activeSection === "access-info") {
+      return <AccessInfoPage currentUser={currentUser} />;
+    }
+
+    if (activeSection === "equipment-status") {
       return <NetworkStatusPage />;
     }
 
@@ -1173,7 +1179,8 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "software"
                 || activeSection === "vehicles"
                 || activeSection === "paju-fire-insurance"
-                || activeSection === "network"
+                || activeSection === "access-info"
+                || activeSection === "equipment-status"
                 || activeSection === "install-library"
                 || activeSection === "hr-list"
                 || activeSection === "scm"
@@ -1184,7 +1191,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "network" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "scm" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
@@ -1414,6 +1421,12 @@ function downloadBlob(blob, filename) {
 function getFallbackExcelFilename() {
   const today = new Date().toISOString().slice(0, 10);
   return `asset_list_${today}.xlsx`;
+}
+
+function getSectionFromPath() {
+  if (typeof window === "undefined") return "dashboard";
+  if (window.location.pathname === "/network" || window.location.pathname === "/network-status") return "equipment-status";
+  return MENU_ITEMS.find((item) => item.routePath === window.location.pathname)?.id || "dashboard";
 }
 
 function getStoredProtectedMenus() {

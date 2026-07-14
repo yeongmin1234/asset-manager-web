@@ -25,6 +25,7 @@ function NetworkCredentialList({
   onDelete,
   onEdit,
   onRevealPassword,
+  canManage = false,
 }) {
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
     NETWORK_CREDENTIAL_COLUMNS,
@@ -96,11 +97,11 @@ function NetworkCredentialList({
                           {MASKED_PASSWORD}
                         </span>
                       )}
-                      <div className="network-password-actions">
+                      {canManage ? <div className="network-password-actions">
                         <button type="button" className="secondary-button compact-button" onClick={() => onRevealPassword?.(credential)}>
                           보기
                         </button>
-                      </div>
+                      </div> : null}
                     </div>
                   ) : (
                     <span className="muted-text">없음</span>
@@ -112,14 +113,14 @@ function NetworkCredentialList({
                   </span>
                 </td>
                 <td>
-                  <div className="network-credential-actions">
+                  {canManage ? <div className="network-credential-actions">
                     <button type="button" className="secondary-button compact-button" onClick={() => onEdit?.(credential)}>
                       수정
                     </button>
                     <button type="button" className="danger-button compact-button" onClick={() => onDelete?.(credential)}>
                       삭제
                     </button>
-                  </div>
+                  </div> : <span className="muted-text">-</span>}
                 </td>
               </tr>
             );

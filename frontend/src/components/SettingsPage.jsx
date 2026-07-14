@@ -59,12 +59,8 @@ const MENU_VISIBILITY_ITEMS = [
     label: "SCM",
     description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴",
   },
-  {
-    id: "network",
-    menuKey: "network",
-    label: "네트워크 현황",
-    description: "네트워크 장비 상태 메뉴",
-  },
+  { id: "access-info", menuKey: "access_info", label: "접속정보 관리", description: "서버 및 시스템 접속정보 관리 메뉴" },
+  { id: "equipment-status", menuKey: "equipment_status", label: "장비 현황", description: "네트워크 및 주요 장비 상태 메뉴" },
   {
     id: "paju-fire-insurance",
     menuKey: "fire_insurance",
@@ -96,11 +92,8 @@ const PROTECTED_MENU_ITEMS = [
     label: "음료주문기록",
     description: "음료 주문 기록 조회/관리 메뉴",
   },
-  {
-    id: "network",
-    label: "네트워크 현황",
-    description: "네트워크 장비 상태 메뉴",
-  },
+  { id: "access-info", label: "접속정보 관리", description: "서버 및 시스템 접속정보 관리 메뉴" },
+  { id: "equipment-status", label: "장비 현황", description: "네트워크 및 주요 장비 상태 메뉴" },
   {
     id: "history",
     label: "변경 이력",

@@ -345,7 +345,7 @@ function DashboardPage({ onNavigate }) {
       {
         title: "네트워크",
         tone: networkStatus.summary.down ? "red" : networkStatus.summary.warning ? "amber" : "green",
-        action: "network",
+        action: "equipment-status",
         rows: [
           ["정상", networkStatus.summary.ok],
           ["주의", networkStatus.summary.warning],
@@ -378,8 +378,8 @@ function DashboardPage({ onNavigate }) {
           <button type="button" className="secondary-button" onClick={() => onNavigate?.("vehicles")}>
             법인차량
           </button>
-          <button type="button" className="secondary-button" onClick={() => onNavigate?.("network")}>
-            네트워크 현황
+          <button type="button" className="secondary-button" onClick={() => onNavigate?.("equipment-status")}>
+            장비 현황
           </button>
         </div>
       </div>

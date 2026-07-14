@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user
 from app.db.database import get_db
+from app.models.user import User
 from app.models.network_credential import (
     NetworkCredentialCategory,
     NetworkCredentialImportance,
@@ -34,9 +36,11 @@ from app.services.network_credential_service import (
     to_network_credential_read,
     update_network_credential,
 )
+from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
 
 
 router = APIRouter(prefix="/network-credentials", tags=["network-credentials"])
+AUDIT_FIELDS = ("category", "service_name", "internal_url", "external_url", "port", "username", "importance", "owner", "note", "is_active")
 
 
 @router.get("", response_model=List[NetworkCredentialRead])
@@ -98,6 +102,7 @@ def create_new_network_credential(
     request: Request,
     payload: NetworkCredentialCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> NetworkCredentialRead:
     try:
         credential = create_network_credential(
@@ -106,7 +111,9 @@ def create_new_network_credential(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        return to_network_credential_read(credential)
+        result = to_network_credential_read(credential)
+        record_audit_log(db, request, current_user, action_type="create", menu_key="access_info", menu_name="접속정보 관리", target_type="access_info", target_id=credential.id, target_name=credential.service_name, action_summary="접속정보를 등록했습니다.", after_data=audit_snapshot(credential, AUDIT_FIELDS))
+        return result
     except NetworkCredentialCryptoConfigError as exc:
         db.rollback()
         raise HTTPException(
@@ -133,8 +140,10 @@ def update_existing_network_credential(
     credential_id: int,
     payload: NetworkCredentialUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> NetworkCredentialRead:
     try:
+        before = audit_snapshot(get_network_credential(db, credential_id), AUDIT_FIELDS)
         credential = update_network_credential(
             db,
             credential_id,
@@ -142,6 +151,8 @@ def update_existing_network_credential(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        before_changed, after_changed, changed = build_audit_changes(before, audit_snapshot(credential, AUDIT_FIELDS))
+        record_audit_log(db, request, current_user, action_type="update", menu_key="access_info", menu_name="접속정보 관리", target_type="access_info", target_id=credential.id, target_name=credential.service_name, action_summary="접속정보를 수정했습니다.", before_data=before_changed, after_data=after_changed, changed_fields=changed)
         return to_network_credential_read(credential)
     except NetworkCredentialNotFoundError as exc:
         raise HTTPException(
@@ -173,14 +184,20 @@ def delete_existing_network_credential(
     request: Request,
     credential_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> NetworkCredentialRead:
     try:
-        return delete_network_credential(
+        credential = get_network_credential(db, credential_id)
+        before = audit_snapshot(credential, AUDIT_FIELDS)
+        target_name = credential.service_name
+        result = delete_network_credential(
             db,
             credential_id,
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+        record_audit_log(db, request, current_user, action_type="delete", menu_key="access_info", menu_name="접속정보 관리", target_type="access_info", target_id=credential_id, target_name=target_name, action_summary="접속정보를 삭제했습니다.", before_data=before)
+        return result
     except NetworkCredentialNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

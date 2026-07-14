@@ -16,7 +16,7 @@ MENU_NAMES = {
     "dashboard": "대시보드", "drink_orders": "음료주문기록", "work_manual": "업무설명서",
     "vendor_contacts": "업체연락처", "expiration_schedules": "점검·만료 관리", "assets": "자산 관리",
     "software": "SW 현황", "company_cars": "법인차량 관리", "fire_insurance": "파주화재보험",
-    "network": "네트워크 현황", "excel_management": "엑셀 관리", "statistics": "통계 / 리포트",
+    "access_info": "접속정보 관리", "equipment_status": "장비 현황", "excel_management": "엑셀 관리", "statistics": "통계 / 리포트",
     "history": "변경 이력", "install_files": "설치자료실", "hr_list": "리스트", "scm": "SCM",
     "user_management": "사용자 관리", "settings": "설정",
 }

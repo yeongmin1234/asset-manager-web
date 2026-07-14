@@ -186,7 +186,7 @@ AUDIT_FIELD_LABELS = {
     "is_active": "활성 상태", "title": "제목", "vehicle_number": "차량번호", "owner_name": "사용자",
 }
 AUDIT_ACTION_LABELS = {"create": "등록", "update": "수정", "delete": "삭제", "activate": "활성화", "deactivate": "비활성화", "permission_change": "권한 변경", "excel_import": "엑셀 일괄등록", "export": "엑셀 다운로드"}
-AUDIT_PERMISSION_LABELS = {"dashboard": "대시보드", "assets": "자산 관리", "software": "SW 현황", "company_cars": "법인차량 관리", "hr_list": "인사업무 리스트", "statistics": "통계 / 리포트", "changelog": "변경 이력", "work_manual": "업무설명서", "vendor_contacts": "업체연락처", "expiration_schedules": "점검·만료 관리"}
+AUDIT_PERMISSION_LABELS = {"dashboard": "대시보드", "assets": "자산 관리", "software": "SW 현황", "company_cars": "법인차량 관리", "access_info": "접속정보 관리", "equipment_status": "장비 현황", "hr_list": "인사업무 리스트", "statistics": "통계 / 리포트", "changelog": "변경 이력", "work_manual": "업무설명서", "vendor_contacts": "업체연락처", "expiration_schedules": "점검·만료 관리"}
 
 
 def _build_audit_excel(logs):

@@ -8,7 +8,8 @@ export const MENU_PERMISSION_OPTIONS = [
   ["software", "SW 현황"],
   ["company_cars", "법인차량 관리"],
   ["fire_insurance", "파주화재보험"],
-  ["network", "네트워크 현황"],
+  ["access_info", "접속정보 관리"],
+  ["equipment_status", "장비 현황"],
   ["statistics", "통계 / 리포트"],
   ["changelog", "변경 이력"],
   ["hr_list", "인사업무 리스트"],
@@ -37,7 +38,8 @@ const SECTION_PERMISSION_MAP = {
   software: "software",
   vehicles: "company_cars",
   "paju-fire-insurance": "fire_insurance",
-  network: "network",
+  "access-info": "access_info",
+  "equipment-status": "equipment_status",
   stats: "statistics",
   history: "changelog",
   "hr-list": "hr_list",
@@ -61,10 +63,13 @@ export function normalizeMenuPermissions(values) {
   const seen = new Set();
   values.forEach((value) => {
     if (typeof value !== "string") return;
-    const key = LEGACY_PERMISSION_MAP[value.trim()] || value.trim();
-    if (!MENU_PERMISSION_KEYS.has(key) || seen.has(key)) return;
-    seen.add(key);
-    normalized.push(key);
+    const rawKey = value.trim();
+    const keys = rawKey === "network" ? ["access_info", "equipment_status"] : [LEGACY_PERMISSION_MAP[rawKey] || rawKey];
+    keys.forEach((key) => {
+      if (!MENU_PERMISSION_KEYS.has(key) || seen.has(key)) return;
+      seen.add(key);
+      normalized.push(key);
+    });
   });
   return normalized;
 }

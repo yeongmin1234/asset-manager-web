@@ -15,7 +15,8 @@ ALLOWED_MENU_PERMISSIONS = {
     "software",
     "company_cars",
     "fire_insurance",
-    "network",
+    "access_info",
+    "equipment_status",
     "statistics",
     "changelog",
     "hr_list",
@@ -33,7 +34,12 @@ LEGACY_MENU_PERMISSION_MAP = {
 
 
 def normalize_menu_permissions(values: List[str]) -> List[str]:
-    normalized_values = [LEGACY_MENU_PERMISSION_MAP.get(value, value) for value in values]
+    normalized_values = []
+    for value in values:
+        if value == "network":
+            normalized_values.extend(["access_info", "equipment_status"])
+        else:
+            normalized_values.append(LEGACY_MENU_PERMISSION_MAP.get(value, value))
     invalid_values = [value for value in normalized_values if value not in ALLOWED_MENU_PERMISSIONS]
     if invalid_values:
         raise ValueError(f"지원하지 않는 메뉴 권한입니다: {', '.join(invalid_values)}")

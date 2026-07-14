@@ -5,7 +5,7 @@ const EMPTY = { keyword: "", username: "", menuKey: "", actionType: "", targetTy
 const ACTIONS = [["create", "등록"], ["update", "수정"], ["delete", "삭제"], ["activate", "활성화"], ["deactivate", "비활성화"], ["permission_change", "권한 변경"], ["excel_import", "엑셀 일괄등록"], ["export", "엑셀 다운로드"]];
 const ACTION_LABELS = Object.fromEntries(ACTIONS);
 const FIELD_LABELS = { department: "부서", name: "이름", dowoffice: "다우오피스", erp: "ERP", scm: "SCM", nas: "NAS", menu_permissions: "메뉴 권한", status: "상태", role: "역할", is_active: "활성 상태", title: "제목", vehicle_number: "차량번호", vehicle_name: "차량명", owner_name: "사용자", expire_date: "만료일", due_date: "예정일", category: "분류", target_name: "대상 이름", company_name: "업체명" };
-const PERMISSION_LABELS = { dashboard: "대시보드", assets: "자산 관리", software: "SW 현황", company_cars: "법인차량 관리", fire_insurance: "파주화재보험", network: "네트워크 현황", hr_list: "인사업무 리스트", statistics: "통계 / 리포트", changelog: "변경 이력", work_manual: "업무설명서", vendor_contacts: "업체연락처", expiration_schedules: "점검·만료 관리", drink_orders: "음료주문기록" };
+const PERMISSION_LABELS = { dashboard: "대시보드", assets: "자산 관리", software: "SW 현황", company_cars: "법인차량 관리", fire_insurance: "파주화재보험", access_info: "접속정보 관리", equipment_status: "장비 현황", hr_list: "인사업무 리스트", statistics: "통계 / 리포트", changelog: "변경 이력", work_manual: "업무설명서", vendor_contacts: "업체연락처", expiration_schedules: "점검·만료 관리", drink_orders: "음료주문기록" };
 
 export default function AuditLogTab() {
   const [filters, setFilters] = useState(EMPTY);
