@@ -1,4 +1,5 @@
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
 import unittest
@@ -174,7 +175,7 @@ class InventoryServiceTest(unittest.TestCase):
         self.assertEqual(auth.calls, [False])
         self.assertNotIn("private external detail", context.exception.message)
 
-    def test_identical_query_uses_short_cache(self):
+    def test_identical_query_uses_60_second_cache(self):
         calls = []
 
         def handler(request):
@@ -187,6 +188,23 @@ class InventoryServiceTest(unittest.TestCase):
             second = service.search_products(keyword="토스터블랙")
         self.assertEqual(len(calls), 1)
         self.assertEqual(first, second)
+
+    def test_concurrent_identical_queries_use_single_external_call(self):
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return product_response([{"PROD_CD": "A", "PROD_DES": "토스터블랙"}])
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            service = InventoryService(make_settings(), client, FakeAuthService())
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(executor.map(
+                    lambda _: service.search_products(keyword="토스터블랙"),
+                    range(2),
+                ))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(results[0], results[1])
 
     def test_recommendations_are_sorted_limited_and_product_only(self):
         rows = [
@@ -237,7 +255,7 @@ class InventoryServiceTest(unittest.TestCase):
             )
         self.assertEqual([item["item_code"] for item in result], ["930101"])
 
-    def test_rate_limit_is_short_negative_cached(self):
+    def test_rate_limit_blocks_followup_external_calls_globally(self):
         calls = []
 
         def handler(request):
@@ -246,10 +264,13 @@ class InventoryServiceTest(unittest.TestCase):
 
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
             service = InventoryService(make_settings(), client, FakeAuthService())
-            for _ in range(2):
-                with self.assertRaises(InventoryRateLimitError):
-                    service.search_products(keyword="토스터블랙")
+            with self.assertRaises(InventoryRateLimitError) as first:
+                service.search_products(keyword="토스터블랙")
+            with self.assertRaises(InventoryRateLimitError) as second:
+                service.search_products(keyword="완전히다른품목")
         self.assertEqual(len(calls), 1)
+        self.assertGreaterEqual(first.exception.retry_after_seconds, 1)
+        self.assertGreaterEqual(second.exception.retry_after_seconds, 1)
 
     def test_invalid_response(self):
         with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"Status": "200"}))) as client:
@@ -483,7 +504,9 @@ class InventoryRouteTest(unittest.TestCase):
             service.return_value.get_aggregated_inventory.side_effect = error
             response = TestClient(app).get("/inventory/search?item_code=ABC")
         self.assertEqual(response.status_code, 429)
-        self.assertEqual(response.json()["detail"], error.message)
+        self.assertEqual(response.json()["detail"]["message"], error.message)
+        self.assertEqual(response.json()["detail"]["retry_after_seconds"], 60)
+        self.assertEqual(response.headers["retry-after"], "60")
         self.assertEqual(response.headers["x-inventory-error-code"], "ECOUNT_RATE_LIMITED")
         self.assertNotIn("PRIVATE", response.text)
 

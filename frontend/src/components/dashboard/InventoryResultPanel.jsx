@@ -15,6 +15,16 @@ function formatInventoryChange(value) {
     : formatted;
 }
 
+function formatSnapshotAt(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleString("ko-KR", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
 const CHANGE_STATUS_LABELS = {
   increased: "증가",
   decreased: "감소",
@@ -53,6 +63,10 @@ function InventoryResultPanel({ state, isVisible = true }) {
           <span>일치 {items.length}건</span>
           {state.analysis.limited ? <em>최대 {state.analysis.scope_limit}개 범위</em> : null}
           {state.analysis.selection_note ? <em>{state.analysis.selection_note}</em> : null}
+          {state.analysis.data_source_label ? <em>데이터: {state.analysis.data_source_label}</em> : null}
+          {formatSnapshotAt(state.analysis.snapshot_at) ? (
+            <em>기준: {formatSnapshotAt(state.analysis.snapshot_at)}</em>
+          ) : null}
         </div>
       ) : null}
 

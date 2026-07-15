@@ -131,13 +131,13 @@ class AiAssistantServiceTest(unittest.TestCase):
         self.assertIn("총 18개", response["message"])
         inventory.get_aggregated_inventory.assert_called_once_with("B001", product=None)
 
-    def test_low_stock_executes_aggregated_lookup(self):
+    def test_low_stock_defers_to_snapshot_analysis_endpoint(self):
         inventory = Mock()
-        inventory.get_aggregated_low_stock.return_value = self._inventory_response(quantity="2")
         response = AiAssistantService(inventory).process_message("재고 10개 이하 품목 보여줘")
         self.assertEqual(response["intent"], "inventory_low_stock")
-        self.assertIn("1개입니다", response["message"])
-        inventory.get_aggregated_low_stock.assert_called_once()
+        self.assertIn("분석", response["message"])
+        inventory.get_aggregated_low_stock.assert_not_called()
+        inventory.get_inventory_by_location.assert_not_called()
 
     def test_item_without_warehouse_inventory_is_distinguished_from_zero(self):
         inventory = Mock()

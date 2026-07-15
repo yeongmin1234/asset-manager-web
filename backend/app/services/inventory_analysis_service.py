@@ -1,9 +1,18 @@
 import time
+from datetime import timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # Python 3.8
+    from backports.zoneinfo import ZoneInfo
+
+from sqlalchemy.orm import Session
+
 from app.services.ai_inventory_context_service import get_inventory_context
 from app.services.inventory_service import InventoryService, MAX_RESULT_LIMIT
+from app.services.inventory_snapshot_query_service import get_latest_snapshot
 
 
 ANALYSIS_INTENTS = {
@@ -18,9 +27,18 @@ ANALYSIS_INTENTS = {
 }
 
 
+class InventorySnapshotUnavailableError(ValueError):
+    pass
+
+
 class InventoryAnalysisService:
-    def __init__(self, inventory_service: Optional[InventoryService] = None):
+    def __init__(
+        self,
+        inventory_service: Optional[InventoryService] = None,
+        db: Optional[Session] = None,
+    ):
         self.inventory_service = inventory_service or InventoryService()
+        self.db = db
 
     def analyze(
         self,
@@ -38,13 +56,24 @@ class InventoryAnalysisService:
             items = self._load_comparison_items(user_id, queries or [])
             result_items, answer, label = self._compare(items)
             limited = False
+            source = {
+                "data_source": "realtime",
+                "data_source_label": "실시간 재고",
+                "snapshot_at": None,
+            }
         else:
-            items = self._load_analysis_scope()
+            items, source = self._load_analysis_scope()
             result_items, answer, label = self._analyze_scope(
                 intent, items, direction, comparison, threshold,
             )
-            limited = True
-            answer = "{}\n현재 조회 가능한 최대 200개 재고 항목을 기준으로 분석했습니다.".format(answer)
+            limited = source["data_source"] == "realtime"
+            if source["data_source"] == "snapshot":
+                answer = "{}\n기준 시각: {}\n데이터: 최근 동기화 재고".format(
+                    answer,
+                    self._format_snapshot_at(source["snapshot_at"]),
+                )
+            else:
+                answer = "{}\n현재 조회 가능한 최대 200개 재고 항목을 기준으로 분석했습니다.".format(answer)
 
         return {
             "success": True,
@@ -59,6 +88,7 @@ class InventoryAnalysisService:
                 "label": label,
                 "limited": limited,
                 "scope_limit": MAX_RESULT_LIMIT if limited else None,
+                **source,
             },
         }
 
@@ -89,7 +119,20 @@ class InventoryAnalysisService:
             raise ValueError("비교 조건에 맞는 품목을 두 개 이상 찾지 못했습니다.")
         return items
 
-    def _load_analysis_scope(self) -> List[Dict[str, Any]]:
+    def _load_analysis_scope(self):
+        if self.db is not None:
+            snapshot = get_latest_snapshot(self.db)
+            if not snapshot.get("snapshot_group_id") or not snapshot.get("snapshot_at"):
+                raise InventorySnapshotUnavailableError(
+                    "최근 재고 스냅샷이 없습니다. 관리자 재고 동기화 또는 예약 작업이 완료된 후 다시 조회해 주세요."
+                )
+            return snapshot.get("items") or [], {
+                "data_source": "snapshot",
+                "data_source_label": "최근 동기화 재고",
+                "snapshot_at": snapshot.get("snapshot_at"),
+                "snapshot_group_id": snapshot.get("snapshot_group_id"),
+            }
+
         products = self.inventory_service.search_products(limit=MAX_RESULT_LIMIT)
         locations = self.inventory_service.get_inventory_by_location(limit=MAX_RESULT_LIMIT)
         products_by_code = {item["item_code"]: item for item in products}
@@ -111,7 +154,11 @@ class InventoryAnalysisService:
                 "unit": None,
             }
             items.append(self.inventory_service._aggregate_inventory(product, item_locations))
-        return items[:MAX_RESULT_LIMIT]
+        return items[:MAX_RESULT_LIMIT], {
+            "data_source": "realtime",
+            "data_source_label": "실시간 재고",
+            "snapshot_at": None,
+        }
 
     def _compare(self, items: List[Dict[str, Any]]):
         quantities = [self._quantity(item) for item in items]
@@ -169,7 +216,7 @@ class InventoryAnalysisService:
             result = [item for item in items if self._quantity(item) < 0]
             return result, "음수 재고 품목은 {}개입니다.\n재고 정합성 확인이 필요할 수 있습니다.".format(len(result)), "총재고 < 0"
         if intent in {"inventory_filter", "inventory_low_stock"}:
-            value = self._decimal(threshold)
+            value = self._decimal(10 if threshold is None else threshold)
             if comparison in {"gte", "이상"}:
                 result = [item for item in items if self._quantity(item) >= value]
                 label = "총재고 ≥ {}".format(self._format(value))
@@ -219,3 +266,11 @@ class InventoryAnalysisService:
     def _format(value):
         raw = str(value)
         return raw.rstrip("0").rstrip(".") if "." in raw else raw
+
+    @staticmethod
+    def _format_snapshot_at(value):
+        if value is None:
+            return "확인 불가"
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")

@@ -15,7 +15,10 @@ from app.services.inventory_service import (
     InventoryService,
     InventoryTimeoutError,
 )
-from app.services.inventory_analysis_service import InventoryAnalysisService
+from app.services.inventory_analysis_service import (
+    InventoryAnalysisService,
+    InventorySnapshotUnavailableError,
+)
 from app.db.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.inventory_snapshot import (
@@ -183,6 +186,7 @@ def analyze_inventory(
     comparison: Optional[str] = Query(default=None),
     threshold: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> AggregatedInventoryResponse:
     parsed_queries = None
     if queries:
@@ -194,7 +198,7 @@ def analyze_inventory(
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail="비교 품목 형식이 올바르지 않습니다.") from exc
     return _run_inventory_query(
-        lambda: InventoryAnalysisService().analyze(
+        lambda: InventoryAnalysisService(db=db).analyze(
             intent=intent,
             user_id=current_user.id,
             queries=parsed_queries,
@@ -248,6 +252,8 @@ def get_low_stock_inventory(
 def _run_inventory_query(operation) -> AggregatedInventoryResponse:
     try:
         return AggregatedInventoryResponse(**operation())
+    except InventorySnapshotUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except EcountConfigurationError as exc:
@@ -255,10 +261,18 @@ def _run_inventory_query(operation) -> AggregatedInventoryResponse:
     except InventoryTimeoutError as exc:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
     except InventoryRateLimitError as exc:
+        retry_after = max(1, int(exc.retry_after_seconds or 60))
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=exc.message,
-            headers={"Retry-After": "5", "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED"},
+            detail={
+                "message": exc.message,
+                "error_code": "ECOUNT_RATE_LIMITED",
+                "retry_after_seconds": retry_after,
+            },
+            headers={
+                "Retry-After": str(retry_after),
+                "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED",
+            },
         ) from exc
     except InventoryError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message) from exc

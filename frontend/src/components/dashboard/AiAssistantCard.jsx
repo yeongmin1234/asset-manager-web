@@ -185,7 +185,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
         items: [],
         selectedItemCode: null,
         searchedAt: new Date().toISOString(),
-        errorMessage: "재고 정보를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.",
+        errorMessage: error.message || "재고 정보를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.",
       } : current);
       setMessages((current) => current.map((message) => (
         message.id === pendingId

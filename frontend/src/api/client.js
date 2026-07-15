@@ -244,6 +244,12 @@ function getErrorMessage(data, status) {
   if (typeof data?.detail === "string") {
     return data.detail;
   }
+  if (typeof data?.detail?.message === "string") {
+    const wait = Number(data.detail.retry_after_seconds);
+    return Number.isFinite(wait) && wait > 0
+      ? `${data.detail.message} (약 ${Math.ceil(wait)}초 후 재시도)`
+      : data.detail.message;
+  }
   if (typeof data?.message === "string") {
     return data.message;
   }

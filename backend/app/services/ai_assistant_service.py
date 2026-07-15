@@ -156,7 +156,7 @@ class AiAssistantService:
                 DEFAULT_SUGGESTIONS,
             )
 
-        if result.intent in {"inventory_search", "inventory_item_code", "inventory_low_stock"}:
+        if result.intent in {"inventory_search", "inventory_item_code"}:
             return self._execute_inventory_query(result, user_id)
 
         handlers = {
@@ -168,6 +168,7 @@ class AiAssistantService:
             "inventory_compare": self._inventory_pending,
             "inventory_sort": self._inventory_pending,
             "inventory_filter": self._inventory_pending,
+            "inventory_low_stock": self._inventory_pending,
             "inventory_min": self._inventory_pending,
             "inventory_max": self._inventory_pending,
             "inventory_zero": self._inventory_pending,
@@ -212,14 +213,7 @@ class AiAssistantService:
                 INVENTORY_SUGGESTIONS,
             )
 
-        if result.intent == "inventory_low_stock":
-            inventory_response = service.get_aggregated_low_stock(
-                keyword=keyword or None,
-                item_code=item_code or None,
-                threshold=Decimal(str(threshold)),
-                limit=20,
-            )
-        elif item_code:
+        if item_code:
             inventory_response = service.get_aggregated_inventory(item_code, product=resolved_product)
         elif keyword:
             inventory_response = service.search_inventory_by_keyword(keyword, limit=20)
@@ -387,8 +381,7 @@ class AiAssistantService:
 
     @staticmethod
     def _inventory_pending(_: IntentResult) -> str:
-        # Phase 2 integration point: call inventory_service here.
-        return "현재 재고 조회 기능을 연결 중입니다. 이카운트 재고 API 연결 후 조회할 수 있습니다."
+        return "요청 조건에 따라 재고 데이터를 조회·분석하겠습니다."
 
     @staticmethod
     def _response(

@@ -4,6 +4,7 @@ import time
 import copy
 import threading
 import re
+import math
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple
@@ -36,21 +37,30 @@ MAX_RESULT_LIMIT = 200
 MAX_LOW_STOCK_THRESHOLD = Decimal("1000000000")
 DEFAULT_RECOMMENDATION_LIMIT = 8
 MAX_RECOMMENDATION_LIMIT = 10
-INVENTORY_QUERY_CACHE_TTL_SECONDS = 5.0
+INVENTORY_QUERY_CACHE_TTL_SECONDS = 60.0
+INVENTORY_RATE_LIMIT_COOLDOWN_SECONDS = 60
 INVENTORY_QUERY_CACHE_MAX_ITEMS = 256
 _query_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
-_rate_limit_cache: Dict[str, float] = {}
+_rate_limit_until = 0.0
 _query_cache_lock = threading.Lock()
 _external_request_lock = threading.Lock()
 
 
 class InventoryError(Exception):
-    def __init__(self, kind: str, message: str, http_status: Optional[int] = None, response_code: str = ""):
+    def __init__(
+        self,
+        kind: str,
+        message: str,
+        http_status: Optional[int] = None,
+        response_code: str = "",
+        retry_after_seconds: Optional[int] = None,
+    ):
         super().__init__(message)
         self.kind = kind
         self.message = message
         self.http_status = http_status
         self.response_code = response_code
+        self.retry_after_seconds = retry_after_seconds
 
 
 class InventoryTimeoutError(InventoryError):
@@ -377,15 +387,17 @@ class InventoryService:
                 return cached
             try:
                 result = self._fetch_uncached_with_single_reauthentication(payload, endpoint_template)
-            except InventoryRateLimitError:
+            except InventoryRateLimitError as exc:
+                global _rate_limit_until
                 with _query_cache_lock:
                     now = time.monotonic()
-                    expired = [key for key, value in _rate_limit_cache.items() if value <= now]
-                    for key in expired:
-                        _rate_limit_cache.pop(key, None)
-                    if len(_rate_limit_cache) >= INVENTORY_QUERY_CACHE_MAX_ITEMS:
-                        _rate_limit_cache.pop(next(iter(_rate_limit_cache)), None)
-                    _rate_limit_cache[cache_key] = now + INVENTORY_QUERY_CACHE_TTL_SECONDS
+                    _rate_limit_until = max(
+                        _rate_limit_until,
+                        now + INVENTORY_RATE_LIMIT_COOLDOWN_SECONDS,
+                    )
+                    exc.retry_after_seconds = max(
+                        1, int(math.ceil(_rate_limit_until - now)),
+                    )
                 raise
             self._store_cached_result(cache_key, result)
             return copy.deepcopy(result)
@@ -419,22 +431,19 @@ class InventoryService:
     def _get_cached_result(cache_key: str) -> Optional[List[Dict[str, Any]]]:
         now = time.monotonic()
         with _query_cache_lock:
-            rate_limit_until = _rate_limit_cache.get(cache_key)
-            if rate_limit_until is not None:
-                if rate_limit_until > now:
-                    raise InventoryRateLimitError(
-                        "rate_limited",
-                        "이카운트 조회 요청이 잠시 제한되었습니다. 잠시 후 다시 조회해 주세요.",
-                        412,
-                    )
-                _rate_limit_cache.pop(cache_key, None)
             cached = _query_cache.get(cache_key)
-            if cached is None:
-                return None
-            if cached[0] <= now:
+            if cached is not None and cached[0] > now:
+                return copy.deepcopy(cached[1])
+            if cached is not None:
                 _query_cache.pop(cache_key, None)
-                return None
-            return copy.deepcopy(cached[1])
+            if _rate_limit_until > now:
+                raise InventoryRateLimitError(
+                    "rate_limited",
+                    "이카운트 조회 제한으로 잠시 후 다시 조회할 수 있습니다.",
+                    412,
+                    retry_after_seconds=max(1, int(math.ceil(_rate_limit_until - now))),
+                )
+            return None
 
     @staticmethod
     def _store_cached_result(cache_key: str, result: List[Dict[str, Any]]) -> None:
@@ -486,9 +495,10 @@ class InventoryService:
                 self._log_error("rate_limited", status_code, safe_code)
                 raise InventoryRateLimitError(
                     "rate_limited",
-                    "이카운트 조회 요청이 잠시 제한되었습니다. 잠시 후 다시 조회해 주세요.",
+                    "이카운트 조회 제한으로 잠시 후 다시 조회할 수 있습니다.",
                     status_code,
                     safe_code,
+                    INVENTORY_RATE_LIMIT_COOLDOWN_SECONDS,
                 )
             try:
                 data = response.json()
@@ -717,6 +727,7 @@ class InventoryService:
 
 def clear_inventory_query_cache() -> None:
     """Clear short-lived data/rate-limit caches without touching SESSION_ID."""
+    global _rate_limit_until
     with _query_cache_lock:
         _query_cache.clear()
-        _rate_limit_cache.clear()
+        _rate_limit_until = 0.0
