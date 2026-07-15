@@ -16,6 +16,7 @@ from app.api.routers import (
     beverage_orders,
     company_vehicles,
     dashboard_notices,
+    ecount_integration,
     expiration_schedules,
     install_files,
     hr_accounts,
@@ -99,6 +100,7 @@ app.include_router(visitors.router, dependencies=authenticated_user)
 # Management and operational surfaces are admin-only.
 app.include_router(software.router, dependencies=[Depends(require_menu_permission("software"))])
 app.include_router(admin.router, dependencies=admin_only)
+app.include_router(ecount_integration.router, dependencies=admin_only)
 app.include_router(company_vehicles.router, dependencies=[Depends(require_menu_permission("company_cars"))])
 app.include_router(install_files.router, dependencies=admin_only)
 app.include_router(vehicle_insurance_histories.router, dependencies=[Depends(require_menu_permission("company_cars"))])

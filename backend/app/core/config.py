@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     scm_reboot_user: str = ""
     scm_reboot_password: str = ""
     scm_mariadb_restart_enabled: bool = False
+    ecount_enabled: bool = False
+    ecount_company_code: str = ""
+    ecount_user_id: str = ""
+    ecount_api_cert_key: str = ""
+    ecount_api_mode: Literal["test", "production"] = "test"
+    ecount_request_timeout: float = 15.0
+    ecount_trust_ssl: bool = True
 
     model_config = SettingsConfigDict(
         # Resolve backend/.env independently of the directory uvicorn was
