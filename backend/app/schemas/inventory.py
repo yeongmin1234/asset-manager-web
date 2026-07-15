@@ -49,3 +49,19 @@ class AggregatedInventoryResponse(BaseModel):
     response_time_ms: int
     answer: Optional[str] = None
     analysis: Optional[Dict[str, Any]] = None
+
+
+class ProductMasterItem(BaseModel):
+    item_code: str
+    item_name: Optional[str] = None
+    size: Optional[str] = None
+    unit: Optional[str] = None
+
+
+class ProductMasterListResponse(BaseModel):
+    success: bool = True
+    total: int
+    page: int
+    page_size: int
+    items: List[ProductMasterItem]
+    data_source: str = "product_master_cache"

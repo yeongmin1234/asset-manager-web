@@ -15,6 +15,7 @@ import {
   sendAiAssistantMessage,
 } from "../../services/aiAssistantService.js";
 import RecommendedInventoryItems from "./RecommendedInventoryItems.jsx";
+import ProductPickerModal from "./ProductPickerModal.jsx";
 
 const EXAMPLE_QUESTIONS = [
   "품목명으로 재고 조회",
@@ -34,6 +35,8 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
+  const [inputPlaceholder, setInputPlaceholder] = useState("질문을 입력하세요");
   const conversationRef = useRef(null);
   const inputRef = useRef(null);
   const requestLockRef = useRef(false);
@@ -264,6 +267,20 @@ function AiAssistantCard({ onInventoryStateChange }) {
     }
   };
 
+  const handleProductPickerSelect = async (item) => {
+    setIsProductPickerOpen(false);
+    await handleRecommendationSelect("product-picker", item);
+  };
+
+  const handleQuickQuestion = (question) => {
+    if (question === "품목코드로 재고 조회") {
+      setInputPlaceholder("품목코드를 입력하세요");
+      inputRef.current?.focus();
+      return;
+    }
+    setIsProductPickerOpen(true);
+  };
+
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -305,7 +322,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
       <div className="ai-assistant-input-area">
         <div className="ai-assistant-examples" aria-label="예시 질문">
           {EXAMPLE_QUESTIONS.map((question) => (
-            <button type="button" key={question} onClick={() => sendMessage(question)} disabled={isSending}>
+            <button type="button" key={question} onClick={() => handleQuickQuestion(question)} disabled={isSending}>
               {question}
             </button>
           ))}
@@ -319,7 +336,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isSending}
-            placeholder="질문을 입력하세요"
+            placeholder={inputPlaceholder}
             aria-label="AI 업무 도우미 질문"
           />
           <button type="button" onClick={() => sendMessage()} disabled={!input.trim() || isSending}>
@@ -327,6 +344,11 @@ function AiAssistantCard({ onInventoryStateChange }) {
           </button>
         </div>
       </div>
+      <ProductPickerModal
+        isOpen={isProductPickerOpen}
+        onClose={() => setIsProductPickerOpen(false)}
+        onSelect={handleProductPickerSelect}
+      />
     </section>
   );
 }

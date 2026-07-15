@@ -302,6 +302,12 @@ export async function searchInventory({ keyword, itemCode, warehouseCode, baseDa
   });
 }
 
+export async function getInventoryProducts({ keyword, page = 1, pageSize = 50 } = {}) {
+  return request("/inventory/products", {
+    query: { keyword, page, page_size: pageSize },
+  });
+}
+
 export async function getLowStockInventory({ keyword, itemCode, threshold = 10, limit = 100 }) {
   return request("/inventory/low-stock", {
     query: { keyword, item_code: itemCode, threshold, limit },

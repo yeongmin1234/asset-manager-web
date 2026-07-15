@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.auth import get_current_user, require_menu_permission
 from app.models.user import User
-from app.schemas.inventory import AggregatedInventoryResponse
+from app.schemas.inventory import AggregatedInventoryResponse, ProductMasterListResponse
 from app.services.ecount_api_service import EcountConfigurationError
 from app.services.inventory_service import (
     InventoryError,
@@ -37,6 +37,26 @@ from app.models.inventory_alert import InventoryAlert
 
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+@router.get("/products", response_model=ProductMasterListResponse)
+def list_inventory_products(
+    keyword: Optional[str] = Query(default=None, max_length=200),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+) -> ProductMasterListResponse:
+    try:
+        return ProductMasterListResponse(**InventoryService().list_products(
+            keyword=keyword, page=page, page_size=page_size,
+        ))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except EcountConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
+    except InventoryTimeoutError as exc:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
+    except InventoryError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message) from exc
 
 
 def _alert_item(row):

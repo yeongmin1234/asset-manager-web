@@ -149,6 +149,55 @@ class InventoryService:
         )
         return products
 
+    def list_products(
+        self,
+        keyword: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 50,
+        product_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return product-master data only; this method never requests inventory data."""
+        if page < 1:
+            raise ValueError("페이지는 1 이상이어야 합니다.")
+        if page_size < 1 or page_size > 100:
+            raise ValueError("페이지 크기는 100건 이하이어야 합니다.")
+        self._validate_common_mode_and_limit(page_size)
+        products, cache_status = self._get_product_master(product_type)
+        normalized_keyword = self._normalize_product_search_text(keyword)
+        if normalized_keyword:
+            ranked = []
+            for index, item in enumerate(products):
+                priority = self._product_search_priority(item, normalized_keyword)
+                if priority is not None:
+                    ranked.append((priority, index, item))
+            ranked.sort(key=lambda match: (match[0], match[1]))
+            products = [match[2] for match in ranked]
+
+        total = len(products)
+        start = (page - 1) * page_size
+        items = [
+            {
+                "item_code": item["item_code"],
+                "item_name": item.get("item_name"),
+                "size": item.get("size"),
+                "unit": item.get("unit"),
+            }
+            for item in products[start:start + page_size]
+        ]
+        logger.info(
+            "ECOUNT product list cache_hit=%s candidate_count=%s external_inventory_call=false",
+            cache_status,
+            total,
+        )
+        return {
+            "success": True,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "items": items,
+            "data_source": "product_master_cache",
+        }
+
     def _search_products_with_cache_status(
         self,
         keyword: Optional[str] = None,
@@ -168,8 +217,7 @@ class InventoryService:
         if normalized_keyword:
             products = [
                 item for item in products
-                if normalized_keyword in self._normalize_product_search_text(item["item_name"])
-                or normalized_keyword in self._normalize_product_search_text(item["item_code"])
+                if self._product_search_priority(item, normalized_keyword) is not None
             ]
         products = products[:limit]
         logger.info(
@@ -643,11 +691,43 @@ class InventoryService:
             "class_code_2": str(item.get("CLASS_CD2") or "").strip() or None,
             "class_code_3": str(item.get("CLASS_CD3") or "").strip() or None,
             "barcode": str(item.get("BAR_CODE") or "").strip() or None,
+            "group_name_1": str(item.get("CLASS_DES") or "").strip() or None,
+            "group_name_2": str(item.get("CLASS_DES2") or "").strip() or None,
+            "group_name_3": str(item.get("CLASS_DES3") or "").strip() or None,
+            "search_text": str(item.get("SEARCH_DES") or item.get("PROD_SEARCH") or "").strip() or None,
         }
 
     @staticmethod
     def _normalize_product_search_text(value: Any) -> str:
         return re.sub(r"\s+", "", str(value or "").strip()).casefold()
+
+    @classmethod
+    def _product_search_priority(cls, item: Dict[str, Any], keyword: str) -> Optional[int]:
+        code = cls._normalize_product_search_text(item.get("item_code"))
+        name = cls._normalize_product_search_text(item.get("item_name"))
+        size = cls._normalize_product_search_text(item.get("size"))
+        barcode = cls._normalize_product_search_text(item.get("barcode"))
+        if code == keyword:
+            return 0
+        if name == keyword:
+            return 1
+        if name.startswith(keyword):
+            return 2
+        if keyword in name:
+            return 3
+        if keyword in size:
+            return 4
+        if barcode == keyword or keyword in barcode:
+            return 5
+        auxiliary_fields = (
+            "search_text", "group_name_1", "group_name_2", "group_name_3",
+            "class_code_1", "class_code_2", "class_code_3",
+        )
+        if any(keyword in cls._normalize_product_search_text(item.get(field)) for field in auxiliary_fields):
+            return 6
+        if keyword in code:
+            return 7
+        return None
 
     def _normalize_location_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         code = str(item.get("PROD_CD") or "").strip().upper()

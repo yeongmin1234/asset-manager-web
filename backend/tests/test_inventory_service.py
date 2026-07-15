@@ -255,6 +255,47 @@ class InventoryServiceTest(unittest.TestCase):
             )
         self.assertEqual([item["item_code"] for item in result], ["930101"])
 
+    def test_product_list_searches_master_fields_without_inventory_calls(self):
+        rows = [
+            {"PROD_CD": "601011", "PROD_DES": "더팟", "SIZE_DES": "20 cm", "UNIT": "EA", "BAR_CODE": "880001"},
+            {"PROD_CD": "A002", "PROD_DES": "악세사리", "SIZE_DES": "대형", "UNIT": "EA", "CLASS_DES": "주방"},
+        ]
+        paths = []
+
+        def handler(request):
+            paths.append(request.url.path)
+            return product_response(rows)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            service = InventoryService(make_settings(), client, FakeAuthService())
+            by_space = service.list_products(keyword="더 팟")
+            by_size = service.list_products(keyword="20 cm")
+            by_barcode = service.list_products(keyword="880001")
+            by_group = service.list_products(keyword="주방")
+
+        self.assertEqual(by_space["items"][0]["item_code"], "601011")
+        self.assertEqual(by_size["items"][0]["item_code"], "601011")
+        self.assertEqual(by_barcode["items"][0]["item_code"], "601011")
+        self.assertEqual(by_group["items"][0]["item_code"], "A002")
+        self.assertEqual(set(by_space["items"][0]), {"item_code", "item_name", "size", "unit"})
+        self.assertEqual(len(paths), 1)
+        self.assertIn("GetBasicProductsList", paths[0])
+        self.assertFalse(any("InventoryBalance" in path for path in paths))
+
+    def test_product_list_priority_and_pagination(self):
+        rows = [
+            {"PROD_CD": "X100", "PROD_DES": "100 보조"},
+            {"PROD_CD": "100", "PROD_DES": "정확 코드"},
+            {"PROD_CD": "N1", "PROD_DES": "100"},
+        ]
+        with httpx.Client(transport=httpx.MockTransport(lambda request: product_response(rows))) as client:
+            result = InventoryService(make_settings(), client, FakeAuthService()).list_products(
+                keyword="100", page=1, page_size=2,
+            )
+        self.assertEqual(result["total"], 3)
+        self.assertEqual([item["item_code"] for item in result["items"]], ["100", "N1"])
+        self.assertEqual(result["data_source"], "product_master_cache")
+
     def test_rate_limit_blocks_followup_external_calls_globally(self):
         calls = []
 
@@ -531,6 +572,24 @@ class InventoryRouteTest(unittest.TestCase):
             response = TestClient(app).get("/inventory/search?item_code=ABC")
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("SESSION_ID", response.text)
+
+    def test_authenticated_product_list_uses_product_master_only(self):
+        app.dependency_overrides[get_current_user] = lambda: User(
+            id=2, username="user", name="사용자", password_hash="-", role="user",
+        )
+        safe_products = {
+            "success": True, "total": 1, "page": 1, "page_size": 50,
+            "items": [{"item_code": "601011", "item_name": "더글락", "size": "", "unit": "EA"}],
+            "data_source": "product_master_cache",
+        }
+        with patch("app.api.routers.inventory.InventoryService") as service:
+            service.return_value.list_products.return_value = safe_products
+            response = TestClient(app).get("/inventory/products?keyword=더글락")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data_source"], "product_master_cache")
+        self.assertNotIn("total_quantity", response.text)
+        service.return_value.list_products.assert_called_once_with(keyword="더글락", page=1, page_size=50)
+        service.return_value.get_inventory_by_location.assert_not_called()
 
     def test_low_stock_analysis_endpoint_is_disabled_without_external_lookup(self):
         app.dependency_overrides[get_current_user] = lambda: User(
