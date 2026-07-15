@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ApiError,
   createInstallFile,
   deleteInstallFile,
   downloadInstallFile,
@@ -207,7 +208,7 @@ function InstallLibraryPage() {
       setToastMessage("설치자료가 저장되었습니다.");
       await loadInstallLibrary();
     } catch (error) {
-      setFormState((current) => ({ ...current, error: error.message, isSubmitting: false }));
+      setFormState((current) => ({ ...current, error: getInstallFileErrorMessage(error), isSubmitting: false }));
     }
   };
 
@@ -442,6 +443,21 @@ function InstallLibraryPage() {
       )}
     </section>
   );
+}
+
+function getInstallFileErrorMessage(error) {
+  if (!(error instanceof ApiError)) return "설치자료 저장 중 오류가 발생했습니다.";
+  const serverMessage = typeof error.detail?.detail === "string" ? error.detail.detail : "";
+  if (!error.status) return "백엔드 서버에 연결할 수 없습니다.";
+  if (error.status === 413 || serverMessage.includes("파일 크기")) return "파일 크기가 허용 범위를 초과했습니다.";
+  if (serverMessage.includes("허용되지 않는 파일 형식")) return "허용되지 않는 파일 형식입니다.";
+  if (serverMessage.includes("저장 권한")) return "서버 저장 권한을 확인해주세요.";
+  if (error.status === 401) return "로그인이 만료되었습니다.";
+  if (error.status === 403) return "설치자료를 등록할 권한이 없습니다.";
+  if (error.status === 404) return "설치자료 업로드 기능을 찾을 수 없습니다.";
+  if (error.status === 422) return "입력값과 첨부파일을 확인해주세요.";
+  if (error.status >= 500) return "설치자료 저장 중 오류가 발생했습니다.";
+  return serverMessage || error.message || "설치자료 저장 중 오류가 발생했습니다.";
 }
 
 function SummaryCard({ label, value }) {

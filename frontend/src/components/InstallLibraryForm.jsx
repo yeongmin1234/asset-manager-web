@@ -136,7 +136,7 @@ function InstallLibraryForm({
               취소
             </button>
             <button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "저장 중" : "저장"}
+              {isSubmitting ? "업로드 중..." : "저장"}
             </button>
           </div>
         </form>

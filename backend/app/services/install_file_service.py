@@ -1,6 +1,7 @@
 import re
 import uuid
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -9,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.config import BACKEND_DIR
 from app.models.install_file import InstallFile
 
 
@@ -23,6 +25,7 @@ ALLOWED_INSTALL_FILE_EXTENSIONS = {
     ".ps1",
 }
 UPLOAD_CHUNK_SIZE = 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
 class InstallFileNotFoundError(Exception):
@@ -33,9 +36,41 @@ class InstallFileValidationError(Exception):
     pass
 
 
+class InstallFilePermissionError(Exception):
+    pass
+
+
+class InstallFileStorageError(Exception):
+    pass
+
+
+def _unlink_temporary_file(path: Path) -> None:
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        logger.exception("install_file_temporary_cleanup_failed")
+
+
 def get_install_file_upload_dir() -> Path:
-    upload_dir = Path(settings.install_file_upload_dir).resolve()
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    configured = Path(settings.install_file_upload_dir)
+    if configured.is_absolute():
+        upload_dir = configured.resolve()
+    else:
+        upload_root = Path(settings.upload_dir)
+        if not upload_root.is_absolute():
+            upload_root = BACKEND_DIR / upload_root
+        # The historic default points at ../uploads/install_files. Resolve it
+        # through UPLOAD_DIR so Docker/NAS volume mappings remain authoritative.
+        upload_dir = (upload_root / configured.name).resolve()
+    try:
+        upload_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError as exc:
+        logger.error("upload_directory_permission_denied path=%s", upload_dir)
+        raise InstallFilePermissionError("서버 저장 권한을 확인해주세요.") from exc
+    except OSError as exc:
+        logger.exception("install_file_upload_directory_error path=%s", upload_dir)
+        raise InstallFileStorageError("설치자료 저장 중 오류가 발생했습니다.") from exc
     return upload_dir
 
 
@@ -63,7 +98,7 @@ def build_stored_filename(original_filename: str) -> str:
     safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._-")
     if not safe_stem:
         safe_stem = "install_file"
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return "{}_{}_{}{}".format(timestamp, uuid.uuid4().hex[:12], safe_stem[:80], extension)
 
 
@@ -94,13 +129,20 @@ async def save_install_upload(upload_file: UploadFile) -> dict:
                     break
                 file_size += len(chunk)
                 if file_size > max_size:
-                    raise InstallFileValidationError("파일 크기는 2GB 이하만 업로드할 수 있습니다.")
+                    raise InstallFileValidationError("파일 크기가 허용 범위를 초과했습니다.")
                 file_handle.write(chunk)
         temp_path.replace(final_path)
-    except Exception:
-        if temp_path.exists():
-            temp_path.unlink()
+    except PermissionError as exc:
+        logger.error("upload_directory_permission_denied path=%s", upload_dir)
+        _unlink_temporary_file(temp_path)
+        raise InstallFilePermissionError("서버 저장 권한을 확인해주세요.") from exc
+    except InstallFileValidationError:
+        _unlink_temporary_file(temp_path)
         raise
+    except OSError as exc:
+        _unlink_temporary_file(temp_path)
+        logger.exception("install_file_storage_error path=%s", upload_dir)
+        raise InstallFileStorageError("설치자료 저장 중 오류가 발생했습니다.") from exc
     finally:
         await upload_file.close()
 
@@ -111,6 +153,19 @@ async def save_install_upload(upload_file: UploadFile) -> dict:
         "file_size": file_size,
         "file_extension": Path(original_filename).suffix.lower(),
     }
+
+
+def cleanup_install_upload(upload_data: Optional[dict]) -> None:
+    """Remove only a newly written upload after its DB operation failed."""
+    if not upload_data or not upload_data.get("file_path"):
+        return
+    try:
+        upload_dir = get_install_file_upload_dir()
+        target = Path(upload_data["file_path"]).resolve()
+        if target != upload_dir and upload_dir in target.parents and target.is_file():
+            target.unlink()
+    except (OSError, InstallFilePermissionError, InstallFileStorageError):
+        logger.exception("install_file_rollback_cleanup_failed")
 
 
 def list_install_files(

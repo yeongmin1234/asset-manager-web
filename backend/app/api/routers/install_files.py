@@ -22,7 +22,10 @@ from app.services.admin_service import (
 )
 from app.services.install_file_service import (
     InstallFileNotFoundError,
+    InstallFilePermissionError,
+    InstallFileStorageError,
     InstallFileValidationError,
+    cleanup_install_upload,
     create_install_file,
     delete_install_file,
     get_install_file,
@@ -147,9 +150,8 @@ async def create_new_install_file(
     current_admin: User = Depends(require_admin),
 ) -> InstallFileRead:
     verify_admin_guard(db, admin_password)
+    upload_data = None
     try:
-        fields = ("title", "category", "os_type", "version", "is_required", "install_order", "original_filename")
-        before = audit_snapshot(db.get(InstallFile, file_id), fields)
         file_data = build_file_data(
             title,
             category,
@@ -168,8 +170,15 @@ async def create_new_install_file(
     except InstallFileValidationError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except InstallFilePermissionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except InstallFileStorageError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
+        cleanup_install_upload(upload_data)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="설치자료를 등록하는 중 DB 연결에 실패했습니다.",
@@ -195,7 +204,10 @@ async def update_existing_install_file(
     current_admin: User = Depends(require_admin),
 ) -> InstallFileRead:
     verify_admin_guard(db, admin_password)
+    upload_data = None
     try:
+        fields = ("title", "category", "os_type", "version", "is_required", "install_order", "original_filename")
+        before = audit_snapshot(get_install_file(db, file_id), fields)
         file_data = build_file_data(
             title,
             category,
@@ -222,8 +234,15 @@ async def update_existing_install_file(
     except InstallFileValidationError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except InstallFilePermissionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except InstallFileStorageError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
+        cleanup_install_upload(upload_data)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="설치자료를 수정하는 중 DB 연결에 실패했습니다.",

@@ -573,7 +573,7 @@ export async function getInstallFileSummary() {
 
 export async function createInstallFile(payload) {
   return requestFormData("/install-files", buildInstallFileFormData(payload), {
-    timeoutMs: 60000,
+    timeoutMs: 30 * 60 * 1000,
   });
 }
 
@@ -1155,7 +1155,7 @@ export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
   return request(`${HR_ACCOUNTS_API_PATH}/import`, {
     method: "POST",
     body: { rows, duplicate_policy: duplicatePolicy },
-    timeoutMs: 60000,
+    timeoutMs: 30 * 60 * 1000,
   });
 }
 

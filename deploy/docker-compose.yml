@@ -24,6 +24,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-asset_user}:${POSTGRES_PASSWORD:-change_me_in_deploy_env}@postgres:5432/${POSTGRES_DB:-asset_manager}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3010}
       UPLOAD_DIR: /data/uploads
+      INSTALL_FILE_UPLOAD_DIR: /data/uploads/install_files
+      INSTALL_FILE_MAX_SIZE_MB: 2048
       EXPORT_DIR: /data/exports
     volumes:
       - ../backend:/app
