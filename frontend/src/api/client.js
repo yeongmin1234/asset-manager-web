@@ -302,6 +302,22 @@ export async function getLowStockInventory({ keyword, itemCode, threshold = 10, 
   });
 }
 
+export async function saveAiInventoryContext(payload) {
+  return request("/ai/inventory-context", { method: "POST", body: payload });
+}
+
+export async function analyzeInventory({ intent, queries, direction, comparison, threshold }) {
+  return request("/inventory/analyze", {
+    query: {
+      intent,
+      queries: Array.isArray(queries) ? JSON.stringify(queries) : undefined,
+      direction,
+      comparison,
+      threshold,
+    },
+  });
+}
+
 export async function login(username, password) {
   const result = await request("/auth/login", {
     method: "POST",

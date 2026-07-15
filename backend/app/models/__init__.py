@@ -31,6 +31,9 @@ from app.models.vendor_contact import VendorContact
 from app.models.vehicle_insurance_history import VehicleInsuranceHistory
 from app.models.work_manual import WorkManual
 from app.models.user import User
+from app.models.inventory_schedule import InventorySchedule
+from app.models.inventory_snapshot import InventorySnapshot
+from app.models.inventory_job_run import InventoryJobRun
 
 __all__ = [
     "Asset",
@@ -68,4 +71,7 @@ __all__ = [
     "VehicleOwnershipType",
     "WorkManual",
     "User",
+    "InventorySchedule",
+    "InventorySnapshot",
+    "InventoryJobRun",
 ]

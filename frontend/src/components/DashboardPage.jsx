@@ -72,8 +72,10 @@ const INITIAL_INVENTORY_PANEL_STATE = {
   status: "idle",
   query: null,
   items: [],
+  selectedItemCode: null,
   searchedAt: null,
   errorMessage: null,
+  analysis: null,
 };
 
 function DashboardPage({ currentUser, onNavigate }) {
@@ -356,17 +358,6 @@ function DashboardPage({ currentUser, onNavigate }) {
           ["7일 이내", expirationSummary.within_7_days_count],
           ["30일 이내", expirationSummary.within_30_days_count],
           ["정상", expirationSummary.normal_count],
-        ],
-      },
-      {
-        title: "네트워크",
-        tone: networkStatus.summary.down ? "red" : networkStatus.summary.warning ? "amber" : "green",
-        action: "equipment-status",
-        rows: [
-          ["정상", networkStatus.summary.ok],
-          ["주의", networkStatus.summary.warning],
-          ["장애", networkStatus.summary.down],
-          ["마지막 확인", networkStatus.checkedAt ? formatTime(networkStatus.checkedAt) : "확인 필요"],
         ],
       },
     ],

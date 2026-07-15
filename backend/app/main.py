@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from typing import List
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from app.api.routers import (
     work_manuals,
 )
 from app.routers import assets, categories, departments, health
+from app.services.inventory_scheduler_service import get_inventory_scheduler
 
 
 def get_cors_origins() -> List[str]:
@@ -48,7 +50,17 @@ def get_cors_origins() -> List[str]:
     )
 
 
-app = FastAPI(title=settings.app_name)
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    scheduler = get_inventory_scheduler()
+    scheduler.start()
+    try:
+        yield
+    finally:
+        scheduler.shutdown()
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 cors_origins = get_cors_origins()
 logging.getLogger("uvicorn.error").info(
     "CORS allow_origins=%s",

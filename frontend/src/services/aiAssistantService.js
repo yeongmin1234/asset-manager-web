@@ -1,6 +1,25 @@
-import { ApiError, getLowStockInventory, postAiChat, searchInventory } from "../api/client.js";
+import {
+  ApiError,
+  analyzeInventory,
+  getLowStockInventory,
+  postAiChat,
+  saveAiInventoryContext,
+  searchInventory,
+} from "../api/client.js";
 
-const INVENTORY_INTENTS = new Set(["inventory_search", "inventory_low_stock", "inventory_item_code"]);
+const INVENTORY_INTENTS = new Set([
+  "inventory_search", "inventory_low_stock", "inventory_item_code", "inventory_refresh",
+]);
+const INVENTORY_ANALYSIS_INTENTS = new Set([
+  "inventory_compare",
+  "inventory_sort",
+  "inventory_filter",
+  "inventory_low_stock",
+  "inventory_min",
+  "inventory_max",
+  "inventory_zero",
+  "inventory_negative",
+]);
 
 export async function sendAiAssistantMessage(message) {
   try {
@@ -21,18 +40,57 @@ export function isInventoryIntent(intent) {
   return INVENTORY_INTENTS.has(intent);
 }
 
+export function isInventoryContextIntent(intent) {
+  return String(intent || "").startsWith("inventory_context_");
+}
+
+export function isInventoryAnalysisIntent(intent) {
+  return INVENTORY_ANALYSIS_INTENTS.has(intent);
+}
+
+export async function fetchInventoryAnalysisForAi(aiResponse) {
+  const response = await analyzeInventory({
+    intent: aiResponse.intent,
+    queries: aiResponse.data?.items,
+    direction: aiResponse.data?.direction,
+    comparison: aiResponse.data?.comparison,
+    threshold: aiResponse.data?.threshold,
+  });
+  return {
+    inventoryResponse: response,
+    answer: response.answer || response.message,
+  };
+}
+
 export async function fetchInventoryForAi(aiResponse, originalQuestion) {
   const params = getInventoryQuery(aiResponse, originalQuestion);
   if (!params.itemCode && !params.keyword && aiResponse.intent !== "inventory_low_stock") {
     throw new Error("조회할 품목명 또는 품목코드를 함께 입력해주세요.");
   }
-  const inventoryResponse = aiResponse.intent === "inventory_low_stock"
+  const isLowStock = aiResponse.intent === "inventory_low_stock"
+    || (aiResponse.intent === "inventory_refresh" && aiResponse.data?.source_intent === "inventory_low_stock");
+  const inventoryResponse = isLowStock
     ? await getLowStockInventory({ ...params, threshold: aiResponse.data?.threshold || 10 })
     : await searchInventory(params);
   return {
     inventoryResponse,
     answer: buildInventoryAnswer(inventoryResponse),
   };
+}
+
+export async function rememberInventoryContext({ aiResponse, query, inventoryResponse }) {
+  const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
+  if (!items.length) return;
+  await saveAiInventoryContext({
+    intent: aiResponse.intent === "inventory_refresh"
+      ? (aiResponse.data?.source_intent || "inventory_search")
+      : aiResponse.intent,
+    query,
+    items,
+    threshold: aiResponse.data?.threshold ?? null,
+    searched_at: new Date().toISOString(),
+    selected_item_code: items[0]?.item_code || null,
+  });
 }
 
 function getInventoryQuery(aiResponse, originalQuestion) {

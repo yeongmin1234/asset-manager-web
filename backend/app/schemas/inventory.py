@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -36,6 +36,8 @@ class AggregatedInventoryItem(BaseModel):
     unit: Optional[str] = None
     total_quantity: Decimal
     warehouses: List[WarehouseInventoryItem]
+    rank: Optional[int] = None
+    difference: Optional[Decimal] = None
 
 
 class AggregatedInventoryResponse(BaseModel):
@@ -45,3 +47,5 @@ class AggregatedInventoryResponse(BaseModel):
     items: List[AggregatedInventoryItem]
     message: str
     response_time_ms: int
+    answer: Optional[str] = None
+    analysis: Optional[Dict[str, Any]] = None

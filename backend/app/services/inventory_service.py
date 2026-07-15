@@ -134,6 +134,31 @@ class InventoryService:
             ]
         return products[:limit]
 
+    def search_products_for_keywords(
+        self,
+        keywords: List[str],
+        product_type: Optional[str] = None,
+        limit_per_keyword: int = 5,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        self._validate_common_mode_and_limit(min(MAX_RESULT_LIMIT, max(1, limit_per_keyword)))
+        payload = {"PROD_CD": "", "PROD_TYPE": (product_type or "").strip()}
+        raw_items = self._fetch_with_single_reauthentication(payload, PRODUCTS_ENDPOINT)
+        products = [self._normalize_product(item) for item in raw_items]
+        result = {}
+        for keyword in keywords[:10]:
+            normalized = (keyword or "").strip().casefold()
+            if not normalized:
+                result[keyword] = []
+                continue
+            exact = [item for item in products if item["item_code"].casefold() == normalized]
+            partial = [
+                item for item in products
+                if normalized in (item["item_name"] or "").casefold()
+                or normalized in item["item_code"].casefold()
+            ]
+            result[keyword] = (exact or partial)[:limit_per_keyword]
+        return result
+
     def get_inventory_by_location(
         self,
         base_date: Optional[str] = None,

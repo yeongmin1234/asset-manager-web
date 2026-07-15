@@ -13,8 +13,8 @@ function InventoryResultPanel({ state, isVisible = true }) {
   const items = Array.isArray(state.items) ? state.items : [];
 
   useEffect(() => {
-    setSelectedCode(items[0]?.item_code || null);
-  }, [items]);
+    setSelectedCode(state.selectedItemCode || items[0]?.item_code || null);
+  }, [items, state.selectedItemCode]);
 
   if (!isVisible) return null;
   const selectedItem = items.find((item) => item.item_code === selectedCode) || items[0] || null;
@@ -28,6 +28,14 @@ function InventoryResultPanel({ state, isVisible = true }) {
         </div>
         {state.searchedAt ? <span className="inventory-result-time">방금 조회</span> : null}
       </div>
+
+      {state.analysis?.label ? (
+        <div className="inventory-analysis-summary">
+          <strong>{state.analysis.label}</strong>
+          <span>일치 {items.length}건</span>
+          {state.analysis.limited ? <em>최대 {state.analysis.scope_limit}개 범위</em> : null}
+        </div>
+      ) : null}
 
       {state.status === "idle" ? (
         <div className="dashboard-empty inventory-result-state">
@@ -53,7 +61,12 @@ function InventoryResultPanel({ state, isVisible = true }) {
           {items.length > 1 ? (
             <div className="inventory-result-table-wrap">
               <table className="inventory-result-table">
-                <thead><tr><th>품목코드</th><th>품목명</th><th>단위</th><th>총 재고</th><th>창고 수</th></tr></thead>
+                <thead><tr>
+                  {state.analysis?.type === "inventory_sort" ? <th>순위</th> : null}
+                  <th>품목코드</th><th>품목명</th><th>단위</th><th>총 재고</th>
+                  {state.analysis?.type === "inventory_compare" ? <th>차이</th> : null}
+                  <th>창고 수</th>
+                </tr></thead>
                 <tbody>
                   {items.map((item) => (
                     <tr
@@ -61,10 +74,12 @@ function InventoryResultPanel({ state, isVisible = true }) {
                       className={selectedItem?.item_code === item.item_code ? "selected" : ""}
                       onClick={() => setSelectedCode(item.item_code)}
                     >
+                      {state.analysis?.type === "inventory_sort" ? <td>{item.rank || "-"}</td> : null}
                       <td>{item.item_code}</td><td>{item.item_name || "-"}</td><td>{item.unit || "-"}</td>
                       <td className={String(item.total_quantity).startsWith("-") ? "negative" : ""}>
                         {formatInventoryQuantity(item.total_quantity)}
                       </td>
+                      {state.analysis?.type === "inventory_compare" ? <td>{formatInventoryQuantity(item.difference)}</td> : null}
                       <td>{item.warehouses?.length || 0}</td>
                     </tr>
                   ))}

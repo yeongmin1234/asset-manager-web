@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     ecount_api_mode: Literal["test", "production"] = "test"
     ecount_request_timeout: float = 15.0
     ecount_trust_ssl: bool = True
+    inventory_scheduler_enabled: bool = False
+    inventory_snapshot_max_items: int = 200
+    inventory_snapshot_request_interval: float = 1.0
+    inventory_snapshot_412_max_retries: int = 2
+    inventory_snapshot_retention_days: int = 180
 
     model_config = SettingsConfigDict(
         # Resolve backend/.env independently of the directory uvicorn was

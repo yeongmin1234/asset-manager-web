@@ -24,8 +24,16 @@ class IntentResult:
 
 INTENT_RULES: List[IntentRule] = sorted(
     [
-        IntentRule("inventory_item_code", ("품목코드", "품목 코드"), 100, "item_code"),
-        IntentRule("inventory_low_stock", ("재고 부족", "부족 재고", "적게 남은", "이하", "미만"), 90, "threshold"),
+        IntentRule("inventory_compare", ("비교", "중 어느 게", "중 어느것"), 170, "compare_items"),
+        IntentRule("inventory_sort", ("적은 순", "낮은 순", "많은 순", "높은 순", "수량 적은 순", "수량 많은 순"), 160, "sort"),
+        IntentRule("inventory_zero", ("재고 0개", "재고가 0개", "재고 없는", "재고가 없는"), 150),
+        IntentRule("inventory_negative", ("음수 재고", "마이너스 재고", "재고가 음수"), 145),
+        IntentRule("inventory_max", ("가장 많은 품목", "재고가 가장 많은", "최대 재고"), 140),
+        IntentRule("inventory_min", ("가장 적은 품목", "재고가 가장 적은", "최소 재고"), 135),
+        # 기존 부족 재고 intent를 유지하면서 이하 조건 분석에도 재사용한다.
+        IntentRule("inventory_low_stock", ("재고 부족", "부족 재고", "적게 남은", "이하", "미만"), 131, "threshold"),
+        IntentRule("inventory_filter", ("이상 품목", "개 이상"), 130, "condition"),
+        IntentRule("inventory_item_code", ("품목코드", "품목 코드"), 132, "item_code"),
         IntentRule("inventory_search", ("재고", "재고량", "남아", "남았", "몇 개", "수량", "현재고", "보유 수량"), 80, "inventory_keyword"),
         IntentRule("vehicle_expiration", ("보험 만료", "리스 만료", "이번 달 보험", "다음 달 보험", "만료 차량"), 70, "period"),
         IntentRule("vehicle_search", ("법인차량", "차량번호", "차량", "자동차"), 60),
@@ -77,6 +85,28 @@ def _parse_entities(parser: Optional[str], message: str) -> Dict[str, Any]:
         return {
             "threshold": int(match.group(1)) if match else 10,
             "comparison": match.group(2) if match else "이하",
+        }
+    if parser == "compare_items":
+        cleaned = re.sub(r"(?:재고|수량)?\s*(?:비교해줘|비교|중 어느 게 더 많아|중 어느것이 더 많아)", "", message)
+        parts = [
+            part.strip()
+            for part in re.split(
+                r"\s*(?:이랑|랑|하고|,|/)\s*|(?<=\S)(?:와|과)\s+(?=\S)",
+                cleaned,
+            )
+            if part.strip()
+        ]
+        return {"items": parts[:10]}
+    if parser == "sort":
+        descending = any(phrase in message for phrase in ("많은 순", "높은 순", "수량 많은 순"))
+        return {"direction": "desc" if descending else "asc"}
+    if parser == "condition":
+        match = re.search(r"(\d+(?:\.\d+)?)\s*개?\s*(이하|이상)", message)
+        if not match:
+            return {}
+        return {
+            "threshold": match.group(1),
+            "comparison": "lte" if match.group(2) == "이하" else "gte",
         }
     if parser == "item_code":
         match = re.search(r"품목\s*코드\s*[:#]?\s*([a-z0-9][a-z0-9._-]*)", message, re.IGNORECASE)

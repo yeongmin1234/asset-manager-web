@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   fetchInventoryForAi,
+  fetchInventoryAnalysisForAi,
+  isInventoryAnalysisIntent,
+  isInventoryContextIntent,
   isInventoryIntent,
+  rememberInventoryContext,
   sendAiAssistantMessage,
 } from "../../services/aiAssistantService.js";
 
@@ -47,22 +51,67 @@ function AiAssistantCard({ onInventoryStateChange }) {
     try {
       const response = await sendAiAssistantMessage(trimmedQuestion);
       let answer = response.message;
-      if (isInventoryIntent(response.intent)) {
+      if (isInventoryContextIntent(response.intent)) {
+        const inventoryResponse = response.data?.inventory_response;
+        const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
+        if (items.length) {
+          onInventoryStateChange?.({
+            status: "success",
+            query: trimmedQuestion,
+            items,
+            selectedItemCode: response.data?.selected_item_code || items[0]?.item_code || null,
+            searchedAt: new Date().toISOString(),
+            errorMessage: null,
+          });
+        }
+      } else if (isInventoryAnalysisIntent(response.intent)) {
         setMessages((current) => current.map((message) => (
-          message.id === pendingId ? { ...message, content: "재고 정보를 조회하고 있습니다." } : message
+          message.id === pendingId ? { ...message, content: "재고 조건을 분석하고 있습니다." } : message
         )));
         onInventoryStateChange?.({
-          status: "loading", query: trimmedQuestion, items: [], searchedAt: null, errorMessage: null,
+          status: "loading", query: trimmedQuestion, items: [], selectedItemCode: null,
+          searchedAt: null, errorMessage: null, analysis: null,
         });
-        const inventory = await fetchInventoryForAi(response, trimmedQuestion);
+        const inventory = await fetchInventoryAnalysisForAi(response);
         answer = inventory.answer;
         const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+        await rememberInventoryContext({
+          aiResponse: response,
+          query: trimmedQuestion,
+          inventoryResponse: inventory.inventoryResponse,
+        }).catch(() => {});
         onInventoryStateChange?.({
           status: items.length ? "success" : "empty",
           query: trimmedQuestion,
           items,
+          selectedItemCode: items[0]?.item_code || null,
           searchedAt: new Date().toISOString(),
           errorMessage: null,
+          analysis: inventory.inventoryResponse?.analysis || null,
+        });
+      } else if (isInventoryIntent(response.intent)) {
+        setMessages((current) => current.map((message) => (
+          message.id === pendingId ? { ...message, content: "재고 정보를 조회하고 있습니다." } : message
+        )));
+        onInventoryStateChange?.({
+          status: "loading", query: trimmedQuestion, items: [], selectedItemCode: null, searchedAt: null, errorMessage: null,
+        });
+        const inventory = await fetchInventoryForAi(response, trimmedQuestion);
+        answer = inventory.answer;
+        const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+        await rememberInventoryContext({
+          aiResponse: response,
+          query: trimmedQuestion,
+          inventoryResponse: inventory.inventoryResponse,
+        }).catch(() => {});
+        onInventoryStateChange?.({
+          status: items.length ? "success" : "empty",
+          query: trimmedQuestion,
+          items,
+          selectedItemCode: items[0]?.item_code || null,
+          searchedAt: new Date().toISOString(),
+          errorMessage: null,
+          analysis: null,
         });
       }
       setMessages((current) => current.map((message) => (
@@ -75,6 +124,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
         ...current,
         status: "error",
         items: [],
+        selectedItemCode: null,
         searchedAt: new Date().toISOString(),
         errorMessage: "재고 정보를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.",
       } : current);

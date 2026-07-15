@@ -14729,6 +14729,30 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   text-align: center;
 }
 
+.inventory-analysis-summary {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 12px;
+  padding: 8px 10px;
+}
+
+.inventory-analysis-summary strong {
+  color: #334155;
+  font-size: 0.82rem;
+}
+
+.inventory-analysis-summary span,
+.inventory-analysis-summary em {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-style: normal;
+}
+
 .inventory-result-loading {
   color: #475569;
   font-size: 0.86rem;
