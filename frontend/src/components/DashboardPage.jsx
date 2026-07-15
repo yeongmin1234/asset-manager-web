@@ -14,9 +14,7 @@ import {
 } from "../api/client.js";
 import { formatDaysLeft, getCategoryLabel, openExpirationScheduleFilter } from "./ExpirationSchedulePage.jsx";
 import {
-  BOARD_SORT_OPTIONS,
   SORT_VALUES,
-  SortSelect,
   sortItems,
 } from "../utils/sortOptions.jsx";
 import AiAssistantCard from "./dashboard/AiAssistantCard.jsx";
@@ -108,7 +106,6 @@ function DashboardPage({ currentUser, onNavigate }) {
   });
   const [noticeAdminUnlocked, setNoticeAdminUnlocked] = useState(false);
   const [dashboardState, setDashboardState] = useState({ isLoading: false, error: "" });
-  const [noticeSortValue, setNoticeSortValue] = useState(SORT_VALUES.latest);
   const [inventoryPanelState, setInventoryPanelState] = useState(INITIAL_INVENTORY_PANEL_STATE);
   const permissions = Array.isArray(currentUser?.menu_permissions) ? currentUser.menu_permissions : [];
   const canViewInventory = currentUser?.role === "admin"
@@ -223,12 +220,12 @@ function DashboardPage({ currentUser, onNavigate }) {
   );
 
   const displayedNotices = useMemo(
-    () => sortItems(dashboardNotices, noticeSortValue, {
+    () => sortItems(dashboardNotices, SORT_VALUES.latest, {
       created: ["created_at"],
       updated: ["updated_at", "created_at"],
       title: ["title"],
-    }).slice(0, 5),
-    [dashboardNotices, noticeSortValue],
+    }).slice(0, 4),
+    [dashboardNotices],
   );
 
   const displayedRecentLogs = useMemo(
@@ -317,6 +314,11 @@ function DashboardPage({ currentUser, onNavigate }) {
   const summaryGroups = useMemo(
     () => [
       {
+        title: "공지사항",
+        tone: "notice",
+        kind: "notices",
+      },
+      {
         title: "자산",
         tone: "blue",
         action: "assets",
@@ -349,19 +351,8 @@ function DashboardPage({ currentUser, onNavigate }) {
           ["만료 임박", vehicleSummary.expiring_soon_count],
         ],
       },
-      {
-        title: "점검·만료",
-        tone: expirationSummary.overdue_count ? "red" : expirationSummary.within_7_days_count ? "amber" : "green",
-        action: "expiration_schedules",
-        rows: [
-          ["기한 초과", expirationSummary.overdue_count],
-          ["7일 이내", expirationSummary.within_7_days_count],
-          ["30일 이내", expirationSummary.within_30_days_count],
-          ["정상", expirationSummary.normal_count],
-        ],
-      },
     ],
-    [assetSummary, expirationSummary, networkStatus, softwareSummary, vehicleSummary],
+    [assetSummary, softwareSummary, vehicleSummary],
   );
 
   return (
@@ -400,76 +391,67 @@ function DashboardPage({ currentUser, onNavigate }) {
           <article className={`dashboard-summary-card dashboard-summary-card-${group.tone}`} key={group.title}>
             <div className="dashboard-card-heading">
               <h3>{group.title}</h3>
-              <button type="button" className="link-button" onClick={() => onNavigate?.(group.action)}>
-                보기
-              </button>
-            </div>
-            <dl>
-              {group.rows.map(([label, value]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{formatCount(value)}</dd>
+              {group.kind === "notices" ? (
+                <div className="dashboard-card-actions">
+                  <button
+                    type="button"
+                    className="link-button"
+                    disabled={displayedNotices.length === 0}
+                    onClick={() => setNoticeDetail(displayedNotices[0])}
+                  >
+                    보기
+                  </button>
+                  <button type="button" className="link-button" onClick={() => openNoticeForm()}>
+                    새 공지
+                  </button>
                 </div>
-              ))}
-            </dl>
+              ) : (
+                <button type="button" className="link-button" onClick={() => onNavigate?.(group.action)}>
+                  보기
+                </button>
+              )}
+            </div>
+            {group.kind === "notices" ? (
+              <div className="dashboard-summary-notices">
+                <div className="dashboard-summary-notice-count">
+                  <span>전체 공지</span>
+                  <strong>{formatCount(dashboardNotices.length)}</strong>
+                </div>
+                {dashboardState.isLoading ? (
+                  <p>공지사항을 불러오는 중입니다.</p>
+                ) : displayedNotices.length === 0 ? (
+                  <p>등록된 공지사항이 없습니다.</p>
+                ) : (
+                  <ul>
+                    {displayedNotices.slice(0, 2).map((notice) => (
+                      <li key={notice.id}>
+                        <button type="button" onClick={() => setNoticeDetail(notice)}>
+                          <span title={formatText(notice.title)}>
+                            {notice.is_pinned ? "[고정] " : ""}{formatText(notice.title)}
+                          </span>
+                          <small>{formatDate(notice.created_at)}</small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <dl>
+                {group.rows.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{formatCount(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </article>
         ))}
       </div>
 
       <div className="dashboard-work-grid">
         <div className="dashboard-work-column dashboard-work-column-main">
-        <section className="dashboard-panel dashboard-attention-panel">
-          <div className="dashboard-panel-heading">
-            <h3>공지사항</h3>
-            <div className="dashboard-panel-actions">
-              <SortSelect
-                value={noticeSortValue}
-                options={BOARD_SORT_OPTIONS}
-                onChange={setNoticeSortValue}
-              />
-              <button type="button" className="link-button" onClick={() => openNoticeForm()}>
-                새 공지
-              </button>
-            </div>
-          </div>
-
-          {dashboardState.isLoading ? (
-            <div className="dashboard-empty dashboard-notice-empty">공지사항을 불러오는 중입니다.</div>
-          ) : displayedNotices.length === 0 ? (
-            <div className="dashboard-empty dashboard-notice-empty">등록된 공지사항이 없습니다.</div>
-          ) : (
-            <ul className="dashboard-notice-list">
-              {displayedNotices.map((notice) => (
-                <li key={notice.id}>
-                  <button type="button" className="dashboard-notice-item" onClick={() => setNoticeDetail(notice)}>
-                    <span className={`dashboard-notice-badge dashboard-notice-badge-${getNoticeTone(notice.notice_type)}`}>
-                      {formatText(notice.notice_type)}
-                    </span>
-                    <div className="dashboard-notice-main">
-                      <div className="dashboard-notice-title-row">
-                        <strong title={formatText(notice.title)}>
-                          {notice.is_pinned ? "[고정] " : ""}{formatText(notice.title)}
-                        </strong>
-                        <span>{formatDate(notice.created_at)}</span>
-                      </div>
-                    </div>
-                  </button>
-                  {noticeAdminUnlocked ? (
-                    <div className="dashboard-notice-actions">
-                      <button type="button" className="link-button" onClick={() => openNoticeForm(notice)}>
-                        수정
-                      </button>
-                      <button type="button" className="link-button danger-link-button" onClick={() => openNoticeDelete(notice)}>
-                        삭제
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
         <section className="dashboard-panel dashboard-recent-panel">
           <div className="dashboard-panel-heading">
             <h3>최근 변경 이력</h3>

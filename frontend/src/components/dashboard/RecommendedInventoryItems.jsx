@@ -10,7 +10,7 @@ function RecommendedInventoryItems({ items, disabled, selectedItemCode, onSelect
           <button
             type="button"
             key={item.item_code}
-            disabled={disabled || Boolean(selectedItemCode)}
+            disabled={disabled}
             className={`inventory-recommendation-item${selectedItemCode === item.item_code ? " selected" : ""}`}
             onClick={() => onSelect(item)}
           >

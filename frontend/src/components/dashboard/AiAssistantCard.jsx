@@ -237,7 +237,6 @@ function AiAssistantCard({ onInventoryStateChange }) {
           : message
       )));
     } catch (error) {
-      recommendationLocksRef.current.delete(lockKey);
       setMessages((current) => current.map((message) => {
         if (message.id === messageId) return { ...message, selectedItemCode: null };
         if (message.id === pendingId) return { id: `error-selection-${requestId}`, role: "assistant", content: error.message };
@@ -248,6 +247,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
         searchedAt: new Date().toISOString(), errorMessage: error.message,
       }));
     } finally {
+      recommendationLocksRef.current.delete(lockKey);
       requestLockRef.current = false;
       setIsSending(false);
     }
