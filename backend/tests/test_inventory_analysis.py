@@ -1,14 +1,9 @@
 from decimal import Decimal
-from datetime import datetime, timezone
 import unittest
-from unittest.mock import Mock, patch
 
 from app.services.ai_intent_service import analyze_intent
 from app.services.ai_inventory_context_service import clear_inventory_contexts, save_inventory_context
-from app.services.inventory_analysis_service import (
-    InventoryAnalysisService,
-    InventorySnapshotUnavailableError,
-)
+from app.services.inventory_analysis_service import InventoryAnalysisService
 
 
 def product(code, name):
@@ -175,42 +170,13 @@ class InventoryAnalysisServiceTest(unittest.TestCase):
         self.assertEqual(fake.product_lookup_calls, 0)
         self.assertEqual(fake.location_lookup_calls, 0)
 
-    def test_low_stock_uses_latest_snapshot_without_external_lookup(self):
+    def test_low_stock_is_disabled_without_snapshot_or_external_lookup(self):
         service, fake = self.service()
-        service.db = Mock()
-        snapshot_at = datetime(2026, 7, 15, 6, 30, tzinfo=timezone.utc)
-        snapshot = {
-            "snapshot_group_id": "snapshot-1",
-            "snapshot_at": snapshot_at,
-            "items": [
-                {**product("A", "상품 A"), "total_quantity": Decimal("11"), "warehouses": []},
-                {**product("B", "상품 B"), "total_quantity": Decimal("3"), "warehouses": []},
-            ],
-        }
-        with patch(
-            "app.services.inventory_analysis_service.get_latest_snapshot",
-            return_value=snapshot,
-        ) as snapshot_lookup:
-            result = service.analyze("inventory_low_stock", 1, threshold="10")
-            second_user_result = service.analyze("inventory_low_stock", 2, threshold="10")
-        self.assertEqual([item["item_code"] for item in result["items"]], ["B"])
-        self.assertEqual(result["analysis"]["data_source"], "snapshot")
-        self.assertEqual(result["analysis"]["snapshot_at"], snapshot_at)
-        self.assertIn("2026-07-15 15:30", result["answer"])
-        self.assertEqual(fake.product_lookup_calls, 0)
-        self.assertEqual(fake.location_lookup_calls, 0)
-        self.assertEqual(second_user_result["items"], result["items"])
-        self.assertEqual(snapshot_lookup.call_count, 2)
-
-    def test_missing_snapshot_never_falls_back_to_external_lookup(self):
-        service, fake = self.service()
-        service.db = Mock()
-        with patch(
-            "app.services.inventory_analysis_service.get_latest_snapshot",
-            return_value={"snapshot_group_id": None, "snapshot_at": None, "items": []},
-        ):
-            with self.assertRaises(InventorySnapshotUnavailableError):
-                service.analyze("inventory_low_stock", 1, threshold="10")
+        result = service.analyze("inventory_low_stock", 1, threshold="10")
+        self.assertEqual(result["items"], [])
+        self.assertTrue(result["analysis"]["disabled"])
+        self.assertEqual(result["analysis"]["data_source"], "none")
+        self.assertIn("일시 중지", result["answer"])
         self.assertEqual(fake.product_lookup_calls, 0)
         self.assertEqual(fake.location_lookup_calls, 0)
 

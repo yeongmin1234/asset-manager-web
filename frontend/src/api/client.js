@@ -246,7 +246,7 @@ function getErrorMessage(data, status) {
   }
   if (typeof data?.detail?.message === "string") {
     const wait = Number(data.detail.retry_after_seconds);
-    return Number.isFinite(wait) && wait > 0
+    return Number.isFinite(wait) && wait > 0 && !data.detail.message.includes("초 후")
       ? `${data.detail.message} (약 ${Math.ceil(wait)}초 후 재시도)`
       : data.detail.message;
   }

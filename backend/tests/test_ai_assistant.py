@@ -9,6 +9,7 @@ from app.main import app
 from app.models.user import User
 from app.services.ai_assistant_service import AiAssistantService
 from app.services.ai_intent_service import analyze_intent, normalize_message
+from app.services.inventory_service import InventoryRateLimitError
 
 
 class AiIntentServiceTest(unittest.TestCase):
@@ -118,6 +119,7 @@ class AiAssistantServiceTest(unittest.TestCase):
         inventory.get_aggregated_inventory.return_value = self._inventory_response()
         response = AiAssistantService(inventory).process_message("벤틀리 재고 알려줘")
         self.assertTrue(response["success"])
+        self.assertEqual(response["data"]["type"], "inventory_result")
         self.assertIn("총 23개", response["message"])
         self.assertEqual(response["data"]["inventory_response"]["items"][0]["item_code"], "B001")
         inventory.get_aggregated_inventory.assert_called_once()
@@ -131,12 +133,14 @@ class AiAssistantServiceTest(unittest.TestCase):
         self.assertIn("총 18개", response["message"])
         inventory.get_aggregated_inventory.assert_called_once_with("B001", product=None)
 
-    def test_low_stock_defers_to_snapshot_analysis_endpoint(self):
+    def test_low_stock_is_disabled_without_external_lookup(self):
         inventory = Mock()
         response = AiAssistantService(inventory).process_message("재고 10개 이하 품목 보여줘")
         self.assertEqual(response["intent"], "inventory_low_stock")
-        self.assertIn("분석", response["message"])
+        self.assertEqual(response["data"]["type"], "feature_disabled")
+        self.assertIn("일시 중지", response["message"])
         inventory.get_aggregated_low_stock.assert_not_called()
+        inventory.search_products.assert_not_called()
         inventory.get_inventory_by_location.assert_not_called()
 
     def test_item_without_warehouse_inventory_is_distinguished_from_zero(self):
@@ -203,7 +207,20 @@ class AiAssistantServiceTest(unittest.TestCase):
         viewer = User(id=3, username="viewer", name="조회자", password_hash="-", role="user", menu_permissions=["dashboard"])
         response = AiAssistantService(inventory).process_message("토스터", viewer.id, viewer)
         self.assertEqual(response["intent"], "inventory_recommendation")
+        self.assertEqual(response["data"]["type"], "product_candidates")
         self.assertEqual(len(response["data"]["items"]), 2)
+        inventory.get_aggregated_inventory.assert_not_called()
+        inventory.get_inventory_by_location.assert_not_called()
+
+    def test_explicit_inventory_search_without_product_returns_not_found_state(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "없는품목", "total": 0,
+            "items": [], "has_more": False, "limit": 8, "cache_hit": True,
+        }
+        response = AiAssistantService(inventory).process_message("없는품목 재고 알려줘")
+        self.assertEqual(response["data"]["type"], "product_not_found")
+        self.assertEqual(response["message"], "검색 조건에 맞는 품목이 없습니다.")
         inventory.get_inventory_by_location.assert_not_called()
 
     def test_no_product_keeps_bare_general_fallback(self):
@@ -247,6 +264,22 @@ class AiAssistantRouteTest(unittest.TestCase):
         response = TestClient(app).post("/ai/chat", json={"message": "  "})
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "질문을 입력해주세요.")
+
+    def test_rate_limit_response_includes_type_and_remaining_seconds(self):
+        app.dependency_overrides[get_current_user] = lambda: User(
+            id=3, username="viewer", name="조회자", password_hash="-", role="user",
+        )
+        error = InventoryRateLimitError(
+            "rate_limited", "safe", 412, retry_after_seconds=45,
+        )
+        with patch("app.api.routers.ai_assistant.AiAssistantService") as service:
+            service.return_value.process_message.side_effect = error
+            response = TestClient(app).post("/ai/chat", json={"message": "악세 재고 알려줘"})
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json()["data"]["type"], "rate_limited")
+        self.assertEqual(response.json()["data"]["retry_after_seconds"], 45)
+        self.assertIn("약 45초 후", response.json()["message"])
+        self.assertEqual(response.headers["retry-after"], "45")
 
     def test_openapi_contains_ai_chat(self):
         self.assertIn("post", app.openapi()["paths"]["/ai/chat"])

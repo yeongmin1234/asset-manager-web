@@ -262,12 +262,14 @@ def _run_inventory_query(operation) -> AggregatedInventoryResponse:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
     except InventoryRateLimitError as exc:
         retry_after = max(1, int(exc.retry_after_seconds or 60))
+        message = "이카운트 요청 제한으로 약 {}초 후 다시 조회할 수 있습니다.".format(retry_after)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={
-                "message": exc.message,
+                "message": message,
                 "error_code": "ECOUNT_RATE_LIMITED",
                 "retry_after_seconds": retry_after,
+                "data": {"type": "rate_limited"},
             },
             headers={
                 "Retry-After": str(retry_after),

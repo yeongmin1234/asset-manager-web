@@ -52,6 +52,30 @@ class InventoryAnalysisService:
         if intent not in ANALYSIS_INTENTS:
             raise ValueError("지원하지 않는 재고 분석 요청입니다.")
         started_at = time.monotonic()
+        if intent == "inventory_low_stock":
+            answer = (
+                "현재 부족 재고 전체 조회 기능은 안정화를 위해 일시 중지되었습니다.\n"
+                "품목명 또는 품목코드로 재고를 조회해주세요."
+            )
+            return {
+                "success": True,
+                "authenticated": True,
+                "total": 0,
+                "items": [],
+                "message": answer,
+                "response_time_ms": max(0, int((time.monotonic() - started_at) * 1000)),
+                "answer": answer,
+                "analysis": {
+                    "type": intent,
+                    "label": "기능 일시 중지",
+                    "disabled": True,
+                    "limited": False,
+                    "scope_limit": None,
+                    "data_source": "none",
+                    "data_source_label": None,
+                    "snapshot_at": None,
+                },
+            }
         if intent == "inventory_compare":
             items = self._load_comparison_items(user_id, queries or [])
             result_items, answer, label = self._compare(items)

@@ -17,9 +17,9 @@ import {
 import RecommendedInventoryItems from "./RecommendedInventoryItems.jsx";
 
 const EXAMPLE_QUESTIONS = [
-  "벤틀리 재고 알려줘",
-  "재고 10개 이하 품목 보여줘",
+  "품목명으로 재고 조회",
   "품목코드로 재고 조회",
+  "창고별 재고 조회",
 ];
 
 const INITIAL_MESSAGES = [
@@ -72,7 +72,18 @@ function AiAssistantCard({ onInventoryStateChange }) {
       const response = await sendAiAssistantMessage(trimmedQuestion);
       let answer = response.message;
       let recommendations = null;
-      if (isInventoryRecommendationIntent(response.intent)) {
+      const responseType = response.data?.type;
+      if (responseType === "product_candidates") {
+        recommendations = Array.isArray(response.data?.items) ? response.data.items : [];
+      } else if (responseType === "product_not_found") {
+        onInventoryStateChange?.({
+          status: "empty", query: response.data?.query || trimmedQuestion, items: [],
+          selectedItemCode: null, searchedAt: new Date().toISOString(),
+          errorMessage: null, analysis: null,
+        });
+      } else if (responseType === "feature_disabled") {
+        // Keep the current inventory panel unchanged for temporarily disabled features.
+      } else if (isInventoryRecommendationIntent(response.intent)) {
         recommendations = Array.isArray(response.data?.items) ? response.data.items : [];
         if (!recommendations.length) {
           onInventoryStateChange?.({

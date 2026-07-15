@@ -39,11 +39,15 @@ DEFAULT_RECOMMENDATION_LIMIT = 8
 MAX_RECOMMENDATION_LIMIT = 10
 INVENTORY_QUERY_CACHE_TTL_SECONDS = 60.0
 INVENTORY_RATE_LIMIT_COOLDOWN_SECONDS = 60
+PRODUCT_MASTER_CACHE_TTL_SECONDS = 3600.0
+PRODUCT_MASTER_STALE_TTL_SECONDS = 86400.0
 INVENTORY_QUERY_CACHE_MAX_ITEMS = 256
 _query_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 _rate_limit_until = 0.0
+_product_master_cache: Dict[str, Tuple[float, float, List[Dict[str, Any]]]] = {}
 _query_cache_lock = threading.Lock()
 _external_request_lock = threading.Lock()
+_product_master_lock = threading.Lock()
 
 
 class InventoryError(Exception):
@@ -137,19 +141,29 @@ class InventoryService:
         product_type: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
+        products, _ = self._search_products_with_cache_status(
+            keyword=keyword,
+            item_code=item_code,
+            product_type=product_type,
+            limit=limit,
+        )
+        return products
+
+    def _search_products_with_cache_status(
+        self,
+        keyword: Optional[str] = None,
+        item_code: Optional[str] = None,
+        product_type: Optional[str] = None,
+        limit: int = 50,
+    ) -> Tuple[List[Dict[str, Any]], str]:
         self._validate_common_mode_and_limit(limit)
         normalized_code = (item_code or "").strip().upper()
         if len(normalized_code) > 20:
             raise ValueError("품목코드는 20자 이하로 입력해주세요.")
-        payload = {
-            "PROD_CD": normalized_code,
-            "PROD_TYPE": (product_type or "").strip(),
-        }
-        raw_items = self._fetch_with_single_reauthentication(payload, PRODUCTS_ENDPOINT)
-        products = [self._normalize_product(item) for item in raw_items]
+        products, cache_status = self._get_product_master(product_type)
         if normalized_code:
             exact = [item for item in products if item["item_code"].upper() == normalized_code]
-            products = exact or products
+            products = exact
         normalized_keyword = self._normalize_product_search_text(keyword)
         if normalized_keyword:
             products = [
@@ -157,7 +171,13 @@ class InventoryService:
                 if normalized_keyword in self._normalize_product_search_text(item["item_name"])
                 or normalized_keyword in self._normalize_product_search_text(item["item_code"])
             ]
-        return products[:limit]
+        products = products[:limit]
+        logger.info(
+            "ECOUNT product search intent=product_search cache_hit=%s candidate_count=%s external_inventory_call=false",
+            cache_status,
+            len(products),
+        )
+        return products, cache_status
 
     def search_products_for_keywords(
         self,
@@ -166,9 +186,7 @@ class InventoryService:
         limit_per_keyword: int = 5,
     ) -> Dict[str, List[Dict[str, Any]]]:
         self._validate_common_mode_and_limit(min(MAX_RESULT_LIMIT, max(1, limit_per_keyword)))
-        payload = {"PROD_CD": "", "PROD_TYPE": (product_type or "").strip()}
-        raw_items = self._fetch_with_single_reauthentication(payload, PRODUCTS_ENDPOINT)
-        products = [self._normalize_product(item) for item in raw_items]
+        products, cache_status = self._get_product_master(product_type)
         result = {}
         for keyword in keywords[:10]:
             normalized = (keyword or "").strip().casefold()
@@ -182,6 +200,11 @@ class InventoryService:
                 or normalized in item["item_code"].casefold()
             ]
             result[keyword] = (exact or partial)[:limit_per_keyword]
+        logger.info(
+            "ECOUNT product search intent=product_compare cache_hit=%s candidate_count=%s external_inventory_call=false",
+            cache_status,
+            sum(len(items) for items in result.values()),
+        )
         return result
 
     def recommend_products(self, keyword: str, limit: int = DEFAULT_RECOMMENDATION_LIMIT) -> Dict[str, Any]:
@@ -190,7 +213,10 @@ class InventoryService:
             raise ValueError("추천 품목 검색어를 입력해주세요.")
         if limit < 1 or limit > MAX_RECOMMENDATION_LIMIT:
             raise ValueError("추천 품목은 최대 10개까지 조회할 수 있습니다.")
-        products = self.search_products(keyword=normalized, limit=MAX_RESULT_LIMIT)
+        products, cache_status = self._search_products_with_cache_status(
+            keyword=normalized,
+            limit=MAX_RESULT_LIMIT,
+        )
         folded = normalized.casefold()
         exact_code_matches = [
             item for item in products
@@ -232,7 +258,40 @@ class InventoryService:
             "items": items,
             "has_more": len(products) > limit,
             "limit": limit,
+            "cache_hit": cache_status != "false",
         }
+
+    def _get_product_master(
+        self, product_type: Optional[str] = None,
+    ) -> Tuple[List[Dict[str, Any]], str]:
+        cache_key = (product_type or "").strip()
+        now = time.monotonic()
+        with _product_master_lock:
+            cached = _product_master_cache.get(cache_key)
+            if cached is not None and cached[0] > now:
+                return copy.deepcopy(cached[2]), "true"
+
+            stale = cached if cached is not None and cached[1] > now else None
+            payload = {"PROD_CD": "", "PROD_TYPE": cache_key}
+            try:
+                raw_items = self._fetch_with_single_reauthentication(payload, PRODUCTS_ENDPOINT)
+            except InventoryRateLimitError:
+                if stale is not None:
+                    logger.warning(
+                        "ECOUNT product master refresh rate_limited stale_cache_used=true candidate_count=%s",
+                        len(stale[2]),
+                    )
+                    return copy.deepcopy(stale[2]), "stale"
+                raise
+
+            products = [self._normalize_product(item) for item in raw_items]
+            cached_at = time.monotonic()
+            _product_master_cache[cache_key] = (
+                cached_at + PRODUCT_MASTER_CACHE_TTL_SECONDS,
+                cached_at + PRODUCT_MASTER_STALE_TTL_SECONDS,
+                copy.deepcopy(products),
+            )
+            return products, "false"
 
     def get_inventory_by_location(
         self,
@@ -376,28 +435,35 @@ class InventoryService:
         self, payload: Dict[str, str], endpoint_template: str = INVENTORY_ENDPOINT,
     ) -> List[Dict[str, Any]]:
         cache_key = self._cache_key(endpoint_template, payload)
-        cached = self._get_cached_result(cache_key)
+        enforce_inventory_cooldown = endpoint_template != PRODUCTS_ENDPOINT
+        cached = self._get_cached_result(cache_key, enforce_inventory_cooldown)
         if cached is not None:
             return cached
         # Serialize cache misses in this Backend process. A second identical
         # request rechecks the cache after the first external request finishes.
         with _external_request_lock:
-            cached = self._get_cached_result(cache_key)
+            cached = self._get_cached_result(cache_key, enforce_inventory_cooldown)
             if cached is not None:
                 return cached
+            logger.info(
+                "ECOUNT request intent=%s product_search_cache_hit=false candidate_count=- external_inventory_call=%s",
+                "inventory_lookup" if enforce_inventory_cooldown else "product_master_refresh",
+                str(enforce_inventory_cooldown).lower(),
+            )
             try:
                 result = self._fetch_uncached_with_single_reauthentication(payload, endpoint_template)
             except InventoryRateLimitError as exc:
-                global _rate_limit_until
-                with _query_cache_lock:
-                    now = time.monotonic()
-                    _rate_limit_until = max(
-                        _rate_limit_until,
-                        now + INVENTORY_RATE_LIMIT_COOLDOWN_SECONDS,
-                    )
-                    exc.retry_after_seconds = max(
-                        1, int(math.ceil(_rate_limit_until - now)),
-                    )
+                if enforce_inventory_cooldown:
+                    global _rate_limit_until
+                    with _query_cache_lock:
+                        now = time.monotonic()
+                        _rate_limit_until = max(
+                            _rate_limit_until,
+                            now + INVENTORY_RATE_LIMIT_COOLDOWN_SECONDS,
+                        )
+                        exc.retry_after_seconds = max(
+                            1, int(math.ceil(_rate_limit_until - now)),
+                        )
                 raise
             self._store_cached_result(cache_key, result)
             return copy.deepcopy(result)
@@ -428,7 +494,9 @@ class InventoryService:
         return endpoint_template + "|" + json.dumps(payload, sort_keys=True, ensure_ascii=True)
 
     @staticmethod
-    def _get_cached_result(cache_key: str) -> Optional[List[Dict[str, Any]]]:
+    def _get_cached_result(
+        cache_key: str, enforce_inventory_cooldown: bool = True,
+    ) -> Optional[List[Dict[str, Any]]]:
         now = time.monotonic()
         with _query_cache_lock:
             cached = _query_cache.get(cache_key)
@@ -436,12 +504,17 @@ class InventoryService:
                 return copy.deepcopy(cached[1])
             if cached is not None:
                 _query_cache.pop(cache_key, None)
-            if _rate_limit_until > now:
+            if enforce_inventory_cooldown and _rate_limit_until > now:
+                remaining = max(1, int(math.ceil(_rate_limit_until - now)))
+                logger.warning(
+                    "ECOUNT inventory request blocked kind=rate_limited remaining_seconds=%s external_inventory_call=false",
+                    remaining,
+                )
                 raise InventoryRateLimitError(
                     "rate_limited",
                     "이카운트 조회 제한으로 잠시 후 다시 조회할 수 있습니다.",
                     412,
-                    retry_after_seconds=max(1, int(math.ceil(_rate_limit_until - now))),
+                    retry_after_seconds=remaining,
                 )
             return None
 
@@ -731,3 +804,5 @@ def clear_inventory_query_cache() -> None:
     with _query_cache_lock:
         _query_cache.clear()
         _rate_limit_until = 0.0
+    with _product_master_lock:
+        _product_master_cache.clear()

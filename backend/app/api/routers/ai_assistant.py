@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from app.core.auth import get_current_user
 from app.models.user import User
@@ -27,11 +28,25 @@ def chat(
     except AiAssistantPermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="해당 기능을 사용할 권한이 없습니다.") from exc
     except InventoryRateLimitError as exc:
-        raise HTTPException(
+        retry_after = max(1, int(exc.retry_after_seconds or 60))
+        message = "이카운트 요청 제한으로 약 {}초 후 다시 조회할 수 있습니다.".format(retry_after)
+        return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=exc.message,
-            headers={"Retry-After": "5", "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED"},
-        ) from exc
+            content={
+                "success": False,
+                "intent": "inventory_search",
+                "message": message,
+                "data": {
+                    "type": "rate_limited",
+                    "retry_after_seconds": retry_after,
+                },
+                "suggestions": [],
+            },
+            headers={
+                "Retry-After": str(retry_after),
+                "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED",
+            },
+        )
     except InventoryTimeoutError as exc:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
     except EcountConfigurationError as exc:

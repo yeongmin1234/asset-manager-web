@@ -2,7 +2,6 @@ import {
   ApiError,
   analyzeInventory,
   analyzeInventoryChange,
-  getLowStockInventory,
   getInventoryAlerts,
   getInventoryAlertSummary,
   postAiChat,
@@ -44,7 +43,7 @@ export async function sendAiAssistantMessage(message) {
     if (error instanceof ApiError) {
       if (error.status === 401) throw new Error("로그인이 만료되었습니다.");
       if (error.status === 403) throw new Error("업무 도우미를 사용할 권한이 없습니다.");
-      if (error.status === 429) throw new Error("이카운트 재고 조회 요청이 많습니다. 잠시 후 다시 시도해주세요.");
+      if (error.status === 429) throw new Error(error.message || "이카운트 요청 제한으로 잠시 후 다시 조회할 수 있습니다.");
       if (error.status === 504) throw new Error("재고 조회 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
       if (error.status === 502 || error.status === 503) throw new Error("현재 재고 정보를 불러올 수 없습니다.");
       if (error.status >= 500) throw new Error("질문 처리 중 오류가 발생했습니다.");
@@ -143,9 +142,17 @@ export async function fetchInventoryForAi(aiResponse, originalQuestion) {
   }
   const isLowStock = aiResponse.intent === "inventory_low_stock"
     || (aiResponse.intent === "inventory_refresh" && aiResponse.data?.source_intent === "inventory_low_stock");
-  const inventoryResponse = isLowStock
-    ? await getLowStockInventory({ ...params, threshold: aiResponse.data?.threshold || 10 })
-    : await searchInventory(params);
+  if (isLowStock) {
+    const answer = "현재 부족 재고 전체 조회 기능은 안정화를 위해 일시 중지되었습니다.\n품목명 또는 품목코드로 재고를 조회해주세요.";
+    return {
+      inventoryResponse: {
+        success: true, authenticated: true, total: 0, items: [], message: answer,
+        response_time_ms: 0, analysis: { type: "inventory_low_stock", disabled: true },
+      },
+      answer,
+    };
+  }
+  const inventoryResponse = await searchInventory(params);
   return {
     inventoryResponse,
     answer: buildInventoryAnswer(inventoryResponse),

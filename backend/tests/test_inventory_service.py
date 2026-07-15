@@ -265,12 +265,40 @@ class InventoryServiceTest(unittest.TestCase):
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
             service = InventoryService(make_settings(), client, FakeAuthService())
             with self.assertRaises(InventoryRateLimitError) as first:
-                service.search_products(keyword="토스터블랙")
+                service.search_inventory(item_code="ABC")
             with self.assertRaises(InventoryRateLimitError) as second:
-                service.search_products(keyword="완전히다른품목")
+                service.search_inventory(item_code="XYZ")
         self.assertEqual(len(calls), 1)
         self.assertGreaterEqual(first.exception.retry_after_seconds, 1)
         self.assertGreaterEqual(second.exception.retry_after_seconds, 1)
+
+    def test_cached_product_candidates_remain_available_during_inventory_cooldown(self):
+        paths = []
+        products = [
+            {"PROD_CD": "A1", "PROD_DES": "악세사리 케이스", "UNIT": "EA"},
+            {"PROD_CD": "A2", "PROD_DES": "악세사리 거치대", "UNIT": "EA"},
+            {"PROD_CD": "R1", "PROD_DES": "레인지 블랙", "UNIT": "EA"},
+            {"PROD_CD": "R2", "PROD_DES": "레인지 화이트", "UNIT": "EA"},
+        ]
+
+        def handler(request):
+            paths.append(request.url.path)
+            if "GetBasicProductsList" in request.url.path:
+                return product_response(products)
+            return httpx.Response(412, text="limited")
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            service = InventoryService(make_settings(), client, FakeAuthService())
+            first_candidates = service.recommend_products("악세")
+            with self.assertRaises(InventoryRateLimitError):
+                service.search_inventory(item_code="A1")
+            second_candidates = service.recommend_products("레인지")
+
+        self.assertEqual(first_candidates["total"], 2)
+        self.assertEqual(second_candidates["total"], 2)
+        self.assertTrue(second_candidates["cache_hit"])
+        self.assertEqual(sum("GetBasicProductsList" in path for path in paths), 1)
+        self.assertEqual(sum("InventoryBalance" in path for path in paths), 1)
 
     def test_invalid_response(self):
         with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"Status": "200"}))) as client:
@@ -369,6 +397,17 @@ class InventoryServiceTest(unittest.TestCase):
         with httpx.Client(transport=httpx.MockTransport(lambda request: product_response(rows))) as client:
             products = InventoryService(make_settings(), client, FakeAuthService()).search_products(item_code="abc")
         self.assertEqual([item["item_code"] for item in products], ["ABC"])
+
+    def test_unknown_product_code_does_not_return_first_cached_product(self):
+        rows = [
+            {"PROD_CD": "ABC", "PROD_DES": "첫 번째 품목"},
+            {"PROD_CD": "DEF", "PROD_DES": "두 번째 품목"},
+        ]
+        with httpx.Client(transport=httpx.MockTransport(lambda request: product_response(rows))) as client:
+            products = InventoryService(make_settings(), client, FakeAuthService()).search_products(
+                item_code="UNKNOWN",
+            )
+        self.assertEqual(products, [])
 
     def test_location_inventory_parsing_and_negative_quantity(self):
         rows = [{
@@ -493,6 +532,20 @@ class InventoryRouteTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("SESSION_ID", response.text)
 
+    def test_low_stock_analysis_endpoint_is_disabled_without_external_lookup(self):
+        app.dependency_overrides[get_current_user] = lambda: User(
+            id=2, username="user", name="사용자", password_hash="-", role="user",
+        )
+        with patch("app.services.inventory_analysis_service.InventoryService") as service:
+            response = TestClient(app).get(
+                "/inventory/analyze?intent=inventory_low_stock&threshold=10"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["analysis"]["disabled"])
+        self.assertIn("일시 중지", response.json()["answer"])
+        service.return_value.search_products.assert_not_called()
+        service.return_value.get_inventory_by_location.assert_not_called()
+
     def test_rate_limit_is_safe_429(self):
         app.dependency_overrides[get_current_user] = lambda: User(
             id=2, username="user", name="사용자", password_hash="-", role="user",
@@ -504,7 +557,10 @@ class InventoryRouteTest(unittest.TestCase):
             service.return_value.get_aggregated_inventory.side_effect = error
             response = TestClient(app).get("/inventory/search?item_code=ABC")
         self.assertEqual(response.status_code, 429)
-        self.assertEqual(response.json()["detail"]["message"], error.message)
+        self.assertEqual(
+            response.json()["detail"]["message"],
+            "이카운트 요청 제한으로 약 60초 후 다시 조회할 수 있습니다.",
+        )
         self.assertEqual(response.json()["detail"]["retry_after_seconds"], 60)
         self.assertEqual(response.headers["retry-after"], "60")
         self.assertEqual(response.headers["x-inventory-error-code"], "ECOUNT_RATE_LIMITED")

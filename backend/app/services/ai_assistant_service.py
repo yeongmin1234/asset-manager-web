@@ -19,13 +19,14 @@ from app.services.inventory_service import InventoryError, InventoryRateLimitErr
 logger = logging.getLogger(__name__)
 
 DEFAULT_SUGGESTIONS = [
-    "벤틀리 재고 알려줘",
-    "재고 10개 이하 품목 보여줘",
-    "이번 달 보험 만료 차량 알려줘",
+    "품목명으로 재고 조회",
+    "품목코드로 재고 조회",
+    "창고별 재고 조회",
 ]
 INVENTORY_SUGGESTIONS = [
-    "재고 10개 이하 품목 보여줘",
+    "품목명으로 재고 조회",
     "품목코드로 재고 조회",
+    "창고별 재고 조회",
 ]
 
 
@@ -112,25 +113,38 @@ class AiAssistantService:
             if result.intent == "unknown":
                 return result
             raise
+        recommendation = dict(recommendation)
         items = recommendation["items"]
+        logger.info(
+            "AI inventory candidate search intent=%s product_search_cache_hit=%s candidate_count=%s external_inventory_call=false",
+            result.intent,
+            str(bool(recommendation.get("cache_hit"))).lower(),
+            recommendation.get("total", len(items)),
+        )
         if not items:
             if result.intent == "unknown":
                 return result
+            recommendation["type"] = "product_not_found"
             return self._response(
                 "inventory_recommendation",
-                "검색어와 일치하는 품목을 찾지 못했습니다. 품목명을 다시 확인해 주세요.",
+                "검색 조건에 맞는 품목이 없습니다.",
                 recommendation,
                 INVENTORY_SUGGESTIONS,
             )
         if recommendation["total"] == 1:
             return IntentResult(
                 "inventory_search", result.normalized_message,
-                {"item_code": items[0]["item_code"], "_resolved_product": items[0]},
+                {
+                    "item_code": items[0]["item_code"],
+                    "_resolved_product": items[0],
+                    "_product_search_cache_hit": bool(recommendation.get("cache_hit")),
+                },
                 result.read_only_violation,
             )
-        message_text = "\"{}\"와 관련된 품목을 찾았습니다.\n조회할 품목을 선택해 주세요.".format(candidate)
+        recommendation["type"] = "product_candidates"
+        message_text = "'{}'와 일치하는 품목이 여러 개입니다.\n조회할 품목을 선택해주세요.".format(candidate)
         if recommendation["has_more"]:
-            message_text += "\n검색 결과가 많습니다. 품목명을 조금 더 구체적으로 입력해 주세요."
+            message_text += "\n'{}'와 일치하는 품목이 많습니다. 품목명을 조금 더 구체적으로 입력해주세요.".format(candidate)
         return self._response(
             "inventory_recommendation", message_text, recommendation, INVENTORY_SUGGESTIONS,
         )
@@ -159,6 +173,16 @@ class AiAssistantService:
         if result.intent in {"inventory_search", "inventory_item_code"}:
             return self._execute_inventory_query(result, user_id)
 
+        if result.intent == "inventory_low_stock":
+            data = dict(result.entities)
+            data["type"] = "feature_disabled"
+            return self._response(
+                result.intent,
+                "현재 부족 재고 전체 조회 기능은 안정화를 위해 일시 중지되었습니다.\n품목명 또는 품목코드로 재고를 조회해주세요.",
+                data,
+                INVENTORY_SUGGESTIONS,
+            )
+
         handlers = {
             "inventory_alert_summary": self._inventory_pending,
             "inventory_out_of_stock": self._inventory_pending,
@@ -168,7 +192,6 @@ class AiAssistantService:
             "inventory_compare": self._inventory_pending,
             "inventory_sort": self._inventory_pending,
             "inventory_filter": self._inventory_pending,
-            "inventory_low_stock": self._inventory_pending,
             "inventory_min": self._inventory_pending,
             "inventory_max": self._inventory_pending,
             "inventory_zero": self._inventory_pending,
@@ -187,7 +210,7 @@ class AiAssistantService:
             "greeting": lambda _: "안녕하세요. 재고, 자산, 차량, 점검 일정 조회를 도와드릴 수 있습니다.",
             "help": lambda _: (
                 "현재 지원하거나 준비 중인 기능입니다.\n\n"
-                "• 재고 조회\n• 부족 재고 조회\n• 품목코드 재고 조회\n"
+                "• 품목명 재고 조회\n• 품목코드 재고 조회\n• 창고별 재고 조회\n"
                 "• 자산 조회\n• 차량 정보 조회\n• 보험·리스 만료 조회\n• 점검 일정 조회"
             ),
             "unknown": lambda _: "아직 해당 질문은 처리할 수 없습니다. 재고, 자산, 차량 또는 점검 일정에 대해 질문해주세요.",
@@ -214,8 +237,17 @@ class AiAssistantService:
             )
 
         if item_code:
+            logger.info(
+                "AI inventory lookup intent=%s product_search_cache_hit=%s candidate_count=1 external_inventory_call=true",
+                result.intent,
+                str(bool(result.entities.get("_product_search_cache_hit"))).lower(),
+            )
             inventory_response = service.get_aggregated_inventory(item_code, product=resolved_product)
         elif keyword:
+            logger.info(
+                "AI inventory lookup intent=%s product_search_cache_hit=false candidate_count=- external_inventory_call=true",
+                result.intent,
+            )
             inventory_response = service.search_inventory_by_keyword(keyword, limit=20)
         else:
             return self._response(
@@ -243,6 +275,7 @@ class AiAssistantService:
             if not str(key).startswith("_")
         }
         data.update({
+            "type": "inventory_result",
             "inventory_response": inventory_response,
             "selected_item_code": items[0].get("item_code") if len(items) == 1 else None,
             "base_date": InventoryService._korea_today(),
