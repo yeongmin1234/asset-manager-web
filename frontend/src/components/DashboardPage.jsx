@@ -20,6 +20,7 @@ import {
   sortItems,
 } from "../utils/sortOptions.jsx";
 import AiAssistantCard from "./dashboard/AiAssistantCard.jsx";
+import InventoryResultPanel from "./dashboard/InventoryResultPanel.jsx";
 
 const NOTICE_TYPES = ["공지", "업데이트", "점검", "기타"];
 const EMPTY_NOTICE_FORM = {
@@ -67,7 +68,15 @@ const EMPTY_EXPIRATION_SUMMARY = {
   upcoming_items: [],
 };
 
-function DashboardPage({ onNavigate }) {
+const INITIAL_INVENTORY_PANEL_STATE = {
+  status: "idle",
+  query: null,
+  items: [],
+  searchedAt: null,
+  errorMessage: null,
+};
+
+function DashboardPage({ currentUser, onNavigate }) {
   const [assetSummary, setAssetSummary] = useState(EMPTY_ASSET_SUMMARY);
   const [softwareSummary, setSoftwareSummary] = useState(EMPTY_SOFTWARE_SUMMARY);
   const [softwareItems, setSoftwareItems] = useState([]);
@@ -98,6 +107,12 @@ function DashboardPage({ onNavigate }) {
   const [noticeAdminUnlocked, setNoticeAdminUnlocked] = useState(false);
   const [dashboardState, setDashboardState] = useState({ isLoading: false, error: "" });
   const [noticeSortValue, setNoticeSortValue] = useState(SORT_VALUES.latest);
+  const [inventoryPanelState, setInventoryPanelState] = useState(INITIAL_INVENTORY_PANEL_STATE);
+  const permissions = Array.isArray(currentUser?.menu_permissions) ? currentUser.menu_permissions : [];
+  const canViewInventory = currentUser?.role === "admin"
+    || permissions.includes("inventory")
+    || permissions.includes("inventory_view")
+    || permissions.includes("dashboard");
 
   const loadDashboard = useCallback(async () => {
     setDashboardState({ isLoading: true, error: "" });
@@ -523,7 +538,7 @@ function DashboardPage({ onNavigate }) {
         </div>
 
         <aside className="dashboard-work-column dashboard-work-column-side">
-          <section className="dashboard-panel dashboard-expiration-panel dashboard-expiration-panel-compact">
+          <section className="dashboard-panel dashboard-expiration-panel dashboard-expiration-panel-compact dashboard-expiration-panel-home-hidden" aria-hidden="true">
             <div className="dashboard-panel-heading">
               <h3>점검·만료 현황</h3>
               <button type="button" className="link-button" onClick={() => onNavigate?.("expiration_schedules")}>
@@ -556,7 +571,8 @@ function DashboardPage({ onNavigate }) {
               </div>
             )}
           </section>
-          <AiAssistantCard />
+          <InventoryResultPanel state={inventoryPanelState} isVisible={canViewInventory} />
+          <AiAssistantCard onInventoryStateChange={setInventoryPanelState} />
         </aside>
       </div>
 

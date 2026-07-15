@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { sendAiAssistantMessage } from "../../services/aiAssistantService.js";
+import {
+  fetchInventoryForAi,
+  isInventoryIntent,
+  sendAiAssistantMessage,
+} from "../../services/aiAssistantService.js";
 
 const EXAMPLE_QUESTIONS = [
   "벤틀리 재고 알려줘",
@@ -15,7 +19,7 @@ const INITIAL_MESSAGES = [
   },
 ];
 
-function AiAssistantCard() {
+function AiAssistantCard({ onInventoryStateChange }) {
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -42,12 +46,38 @@ function AiAssistantCard() {
 
     try {
       const response = await sendAiAssistantMessage(trimmedQuestion);
+      let answer = response.message;
+      if (isInventoryIntent(response.intent)) {
+        setMessages((current) => current.map((message) => (
+          message.id === pendingId ? { ...message, content: "재고 정보를 조회하고 있습니다." } : message
+        )));
+        onInventoryStateChange?.({
+          status: "loading", query: trimmedQuestion, items: [], searchedAt: null, errorMessage: null,
+        });
+        const inventory = await fetchInventoryForAi(response, trimmedQuestion);
+        answer = inventory.answer;
+        const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+        onInventoryStateChange?.({
+          status: items.length ? "success" : "empty",
+          query: trimmedQuestion,
+          items,
+          searchedAt: new Date().toISOString(),
+          errorMessage: null,
+        });
+      }
       setMessages((current) => current.map((message) => (
         message.id === pendingId
-          ? { id: `assistant-${requestId}`, role: "assistant", content: response.message }
+          ? { id: `assistant-${requestId}`, role: "assistant", content: answer }
           : message
       )));
     } catch (error) {
+      onInventoryStateChange?.((current) => current.status === "loading" ? {
+        ...current,
+        status: "error",
+        items: [],
+        searchedAt: new Date().toISOString(),
+        errorMessage: "재고 정보를 불러오지 못했습니다. 잠시 후 다시 조회해 주세요.",
+      } : current);
       setMessages((current) => current.map((message) => (
         message.id === pendingId
           ? { id: `error-${requestId}`, role: "assistant", content: error.message }

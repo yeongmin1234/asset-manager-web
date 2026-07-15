@@ -20,6 +20,7 @@ from app.api.routers import (
     ecount_integration,
     expiration_schedules,
     install_files,
+    inventory,
     hr_accounts,
     menu_access_logs,
     menu_visibility,
@@ -74,6 +75,7 @@ app.include_router(auth.router)
 app.include_router(menu_access_logs.router)
 app.include_router(attachments.router)
 app.include_router(ai_assistant.router, dependencies=[Depends(get_current_user)])
+app.include_router(inventory.router, dependencies=[Depends(get_current_user)])
 
 authenticated_user = [Depends(get_current_user)]
 admin_only = [Depends(require_admin)]

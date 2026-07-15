@@ -284,6 +284,24 @@ export async function postAiChat(message) {
   });
 }
 
+export async function searchInventory({ keyword, itemCode, warehouseCode, baseDate, limit = 50 }) {
+  return request("/inventory/search", {
+    query: {
+      keyword,
+      item_code: itemCode,
+      warehouse_code: warehouseCode,
+      base_date: baseDate,
+      limit,
+    },
+  });
+}
+
+export async function getLowStockInventory({ keyword, itemCode, threshold = 10, limit = 100 }) {
+  return request("/inventory/low-stock", {
+    query: { keyword, item_code: itemCode, threshold, limit },
+  });
+}
+
 export async function login(username, password) {
   const result = await request("/auth/login", {
     method: "POST",

@@ -1069,7 +1069,7 @@ function App({ currentUser, onLogout }) {
     }
 
     return (
-      <DashboardPage onNavigate={handleNavigate} />
+      <DashboardPage currentUser={currentUser} onNavigate={handleNavigate} />
     );
   };
 

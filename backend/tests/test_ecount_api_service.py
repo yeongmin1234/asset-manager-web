@@ -16,6 +16,7 @@ from app.services.ecount_api_service import (
     EcountAuthResult,
     EcountConfigurationError,
     EcountTimeoutError,
+    clear_ecount_session_cache,
 )
 
 
@@ -42,6 +43,12 @@ def make_client(handler):
 
 
 class EcountApiServiceTest(unittest.TestCase):
+    def setUp(self):
+        clear_ecount_session_cache()
+
+    def tearDown(self):
+        clear_ecount_session_cache()
+
     def test_missing_required_settings_are_distinguished(self):
         cases = (
             ("ecount_company_code", "회사코드"),
@@ -122,6 +129,23 @@ class EcountApiServiceTest(unittest.TestCase):
         self.assertTrue(result["authenticated"])
         self.assertNotIn(SESSION_ID, repr(result))
         self.assertNotIn("session", " ".join(result.keys()).lower())
+
+    def test_authenticated_session_is_reused_from_memory(self):
+        calls = []
+
+        def handler(request):
+            calls.append(request.url.path)
+            if request.url.path.endswith("/Zone"):
+                return httpx.Response(200, json={"Status": "200", "Data": {"ZONE": "AA"}})
+            return httpx.Response(200, json={"Status": "200", "Data": {"SESSION_ID": SESSION_ID}})
+
+        config = make_settings(ecount_api_mode="production")
+        with make_client(handler) as client:
+            service = EcountApiService(config, client)
+            first = service.get_authenticated_session()
+            second = service.get_authenticated_session()
+        self.assertIs(first, second)
+        self.assertEqual(len(calls), 2)
 
 
 class EcountAdminRouteTest(unittest.TestCase):

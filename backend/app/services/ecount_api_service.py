@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
@@ -9,6 +10,7 @@ from app.core.config import Settings, settings
 
 
 logger = logging.getLogger(__name__)
+SESSION_CACHE_TTL_SECONDS = 30 * 60
 
 # ECOUNT's detailed Open API manual is available only after ERP login.
 # Verify these isolated mode-specific endpoints against that manual before enabling production.
@@ -67,6 +69,23 @@ class EcountAuthResult:
         }
 
 
+@dataclass
+class EcountSession:
+    session_id: str
+    zone: str
+    issued_at: float
+
+
+_session_cache: Optional[EcountSession] = None
+_session_lock = threading.Lock()
+
+
+def clear_ecount_session_cache() -> None:
+    global _session_cache
+    with _session_lock:
+        _session_cache = None
+
+
 class EcountApiService:
     def __init__(self, config: Settings = settings, client: Optional[httpx.Client] = None):
         self.config = config
@@ -95,6 +114,9 @@ class EcountApiService:
         return str(zone).strip()
 
     def authenticate(self, zone: str) -> bool:
+        return bool(self.authenticate_session(zone))
+
+    def authenticate_session(self, zone: str) -> str:
         self.validate_settings()
         normalized_zone = (zone or "").strip()
         if not normalized_zone or not normalized_zone.replace("-", "").isalnum():
@@ -113,8 +135,27 @@ class EcountApiService:
         session_id = self._read_value(data, "SESSION_ID")
         if not session_id:
             self._raise_external("session_not_issued", "이카운트 SESSION_ID가 발급되지 않았습니다.", status_code, data)
-        # SESSION_ID is intentionally reduced to a boolean and discarded here.
-        return True
+        return str(session_id)
+
+    def get_authenticated_session(self, force_refresh: bool = False) -> EcountSession:
+        global _session_cache
+        if not self.config.ecount_enabled:
+            raise EcountConfigurationError(
+                "disabled", "이카운트 API 연동이 비활성화되어 있습니다.",
+            )
+        self.validate_settings()
+        with _session_lock:
+            now = time.monotonic()
+            if (
+                not force_refresh
+                and _session_cache is not None
+                and now - _session_cache.issued_at < SESSION_CACHE_TTL_SECONDS
+            ):
+                return _session_cache
+            zone = self.get_zone()
+            session_id = self.authenticate_session(zone)
+            _session_cache = EcountSession(session_id=session_id, zone=zone, issued_at=now)
+            return _session_cache
 
     def test_connection(self) -> EcountAuthResult:
         started_at = time.monotonic()
@@ -129,14 +170,13 @@ class EcountApiService:
                 response_time_ms=self._elapsed_ms(started_at),
             )
         self.validate_settings()
-        zone = self.get_zone()
-        authenticated = self.authenticate(zone)
+        authenticated_session = self.get_authenticated_session(force_refresh=True)
         return EcountAuthResult(
-            success=authenticated,
+            success=True,
             enabled=True,
             mode=self.config.ecount_api_mode,
-            zone=zone,
-            authenticated=authenticated,
+            zone=authenticated_session.zone,
+            authenticated=True,
             message="이카운트 API 인증에 성공했습니다.",
             response_time_ms=self._elapsed_ms(started_at),
         )
