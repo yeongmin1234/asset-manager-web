@@ -13,7 +13,6 @@ from app.api.routers import (
     activity_logs,
     admin,
     ai_assistant,
-    ai_settings_admin,
     attachments,
     auth,
     beverage_orders,
@@ -119,7 +118,6 @@ app.include_router(visitors.router, dependencies=authenticated_user)
 app.include_router(software.router, dependencies=[Depends(require_menu_permission("software"))])
 app.include_router(admin.router, dependencies=admin_only)
 app.include_router(ecount_integration.router, dependencies=admin_only)
-app.include_router(ai_settings_admin.router, dependencies=admin_only)
 app.include_router(inventory_alerts_admin.router, dependencies=admin_only)
 app.include_router(company_vehicles.router, dependencies=[Depends(require_menu_permission("company_cars"))])
 app.include_router(install_files.router, dependencies=admin_only)

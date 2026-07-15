@@ -34,7 +34,7 @@ const INVENTORY_CHANGE_INTENTS = new Set([
 ]);
 const INVENTORY_ALERT_INTENTS = new Set([
   "inventory_alert_summary", "inventory_out_of_stock", "inventory_alert_negative",
-  "inventory_negative_stock", "inventory_rapid_decrease", "inventory_alert_low_stock",
+  "inventory_rapid_decrease", "inventory_alert_low_stock",
 ]);
 
 export async function sendAiAssistantMessage(message) {
@@ -73,7 +73,6 @@ export function isInventoryAlertIntent(intent) { return INVENTORY_ALERT_INTENTS.
 export async function fetchInventoryAlertsForAi(aiResponse) {
   const types = {
     inventory_out_of_stock: "OUT_OF_STOCK", inventory_alert_negative: "NEGATIVE_STOCK",
-    inventory_negative_stock: "NEGATIVE_STOCK",
     inventory_rapid_decrease: "RAPID_DECREASE", inventory_alert_low_stock: "LOW_STOCK",
   };
   const response = aiResponse.intent === "inventory_alert_summary"

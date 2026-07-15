@@ -9,8 +9,6 @@ from app.services.ai_inventory_context_service import (
     select_context_item,
 )
 from app.services.ai_intent_service import IntentResult, analyze_intent
-from app.services.ai_router_service import AiRouterService
-from app.services.ai_tool_service import AiToolService
 
 
 logger = logging.getLogger(__name__)
@@ -26,13 +24,16 @@ INVENTORY_SUGGESTIONS = [
 ]
 
 
+class AiAssistantPermissionError(PermissionError):
+    pass
+
+
 class AiAssistantService:
     def process_message(self, message: str, user_id: Optional[int] = None, user=None) -> Dict[str, Any]:
         started_at = time.monotonic()
         followup_intent = classify_inventory_followup(message)
         if followup_intent and user_id is not None:
-            if user is not None:
-                AiToolService().validate("inventory_search", {}, user)
+            self._ensure_permission("inventory_search", user)
             response = self._build_context_response(user_id, followup_intent)
             logger.info(
                 "AI assistant processed intent=%s success=true response_time_ms=%s",
@@ -40,22 +41,32 @@ class AiAssistantService:
                 max(0, int((time.monotonic() - started_at) * 1000)),
             )
             return response
-        result, ai_mode, tool_name, fallback = AiRouterService().route(message, user=user)
+        result = analyze_intent(message)
+        self._ensure_permission(result.intent, user)
         try:
             response = self._build_response(result)
             logger.info(
-                "AI assistant processed intent=%s mode=%s tool=%s fallback=%s success=true response_time_ms=%s",
-                result.intent, ai_mode, tool_name or "-", fallback,
+                "AI assistant processed intent=%s success=true response_time_ms=%s",
+                result.intent,
                 max(0, int((time.monotonic() - started_at) * 1000)),
             )
-            data = dict(response.get("data") or {})
-            data["_ai"] = {"mode": ai_mode, "tool": tool_name, "fallback": fallback}
-            response["data"] = data
             return response
         except Exception:
             logger.exception("AI assistant failed intent=%s", result.intent)
             raise
 
+    @staticmethod
+    def _ensure_permission(intent: str, user) -> None:
+        if user is None or user.role == "admin":
+            return
+        permission = (
+            "dashboard" if intent.startswith("inventory_")
+            else "assets" if intent == "asset_search"
+            else "company_cars" if intent.startswith("vehicle_")
+            else None
+        )
+        if permission and permission not in set(user.menu_permissions or []):
+            raise AiAssistantPermissionError("해당 기능을 사용할 권한이 없습니다.")
     def _build_response(self, result: IntentResult) -> Dict[str, Any]:
         if result.read_only_violation:
             return self._response(
@@ -69,7 +80,6 @@ class AiAssistantService:
             "inventory_alert_summary": self._inventory_pending,
             "inventory_out_of_stock": self._inventory_pending,
             "inventory_alert_negative": self._inventory_pending,
-            "inventory_negative_stock": self._inventory_pending,
             "inventory_rapid_decrease": self._inventory_pending,
             "inventory_alert_low_stock": self._inventory_pending,
             "inventory_item_code": self._inventory_item_code,

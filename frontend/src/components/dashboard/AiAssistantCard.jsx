@@ -31,7 +31,6 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [aiMode, setAiMode] = useState("rules");
   const conversationRef = useRef(null);
 
   useEffect(() => {
@@ -55,7 +54,6 @@ function AiAssistantCard({ onInventoryStateChange }) {
 
     try {
       const response = await sendAiAssistantMessage(trimmedQuestion);
-      setAiMode(response.data?._ai?.mode === "natural" ? "natural" : "rules");
       let answer = response.message;
       if (isInventoryContextIntent(response.intent)) {
         const inventoryResponse = response.data?.inventory_response;
@@ -184,7 +182,6 @@ function AiAssistantCard({ onInventoryStateChange }) {
           <h3 id="ai-assistant-title">AI 업무 도우미</h3>
           <p>재고 및 사내 업무 정보를 질문해보세요.</p>
         </div>
-        <span>{aiMode === "natural" ? "자연어 보조" : "규칙 기반"}</span>
       </div>
 
       <div className="ai-assistant-conversation" ref={conversationRef} aria-live="polite">

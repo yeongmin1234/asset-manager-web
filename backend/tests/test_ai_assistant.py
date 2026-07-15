@@ -74,6 +74,18 @@ class AiIntentServiceTest(unittest.TestCase):
     def test_priority_prefers_item_code(self):
         self.assertEqual(analyze_intent("품목코드 ABC123 부족 재고").intent, "inventory_item_code")
 
+    def test_inventory_alert_intents_remain_rule_based(self):
+        cases = {
+            "오늘 확인해야 할 재고 있어?": "inventory_alert_summary",
+            "품절 품목 보여줘": "inventory_out_of_stock",
+            "재고 부족 품목 알려줘": "inventory_alert_low_stock",
+            "음수 재고 있어?": "inventory_alert_negative",
+            "급격히 줄어든 품목 보여줘": "inventory_rapid_decrease",
+        }
+        for question, expected in cases.items():
+            with self.subTest(question=question):
+                self.assertEqual(analyze_intent(question).intent, expected)
+
 
 class AiAssistantServiceTest(unittest.TestCase):
     def test_inventory_returns_pending_message(self):
