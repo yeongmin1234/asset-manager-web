@@ -3,7 +3,10 @@ from decimal import Decimal
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except ImportError:  # Python 3.8
+    from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class InventoryScheduleBase(BaseModel):

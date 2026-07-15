@@ -1,7 +1,10 @@
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from typing import List, Optional
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # Python 3.8
+    from backports.zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
