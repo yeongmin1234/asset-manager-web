@@ -14631,6 +14631,11 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   text-align: right;
 }
 
+.ai-assistant-message-pending p {
+  color: #64748b;
+  font-style: italic;
+}
+
 .ai-assistant-examples {
   display: flex;
   flex-wrap: wrap;

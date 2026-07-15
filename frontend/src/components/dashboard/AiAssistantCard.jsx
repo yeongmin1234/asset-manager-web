@@ -30,19 +30,29 @@ function AiAssistantCard() {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion || isSending) return;
 
+    const requestId = Date.now();
+    const pendingId = `pending-${requestId}`;
     setMessages((current) => [
       ...current,
-      { id: `user-${Date.now()}`, role: "user", content: trimmedQuestion },
+      { id: `user-${requestId}`, role: "user", content: trimmedQuestion },
+      { id: pendingId, role: "assistant", content: "질문을 확인하고 있습니다...", pending: true },
     ]);
     setInput("");
     setIsSending(true);
 
     try {
       const response = await sendAiAssistantMessage(trimmedQuestion);
-      setMessages((current) => [
-        ...current,
-        { id: `assistant-${Date.now()}`, role: "assistant", content: response.message },
-      ]);
+      setMessages((current) => current.map((message) => (
+        message.id === pendingId
+          ? { id: `assistant-${requestId}`, role: "assistant", content: response.message }
+          : message
+      )));
+    } catch (error) {
+      setMessages((current) => current.map((message) => (
+        message.id === pendingId
+          ? { id: `error-${requestId}`, role: "assistant", content: error.message }
+          : message
+      )));
     } finally {
       setIsSending(false);
     }
@@ -62,12 +72,15 @@ function AiAssistantCard() {
           <h3 id="ai-assistant-title">AI 업무 도우미</h3>
           <p>재고 및 사내 업무 정보를 질문해보세요.</p>
         </div>
-        <span>준비 중</span>
+        <span>규칙 기반</span>
       </div>
 
       <div className="ai-assistant-conversation" ref={conversationRef} aria-live="polite">
         {messages.map((message) => (
-          <div className={`ai-assistant-message ai-assistant-message-${message.role}`} key={message.id}>
+          <div
+            className={`ai-assistant-message ai-assistant-message-${message.role}${message.pending ? " ai-assistant-message-pending" : ""}`}
+            key={message.id}
+          >
             <span>{message.role === "user" ? "나" : "AI"}</span>
             <p>{message.content}</p>
           </div>
@@ -88,6 +101,7 @@ function AiAssistantCard() {
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={isSending}
           placeholder="질문을 입력하세요"
           aria-label="AI 업무 도우미 질문"
         />

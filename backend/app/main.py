@@ -11,6 +11,7 @@ from app.core.config import REQUIRED_CORS_ORIGINS, settings
 from app.api.routers import (
     activity_logs,
     admin,
+    ai_assistant,
     attachments,
     auth,
     beverage_orders,
@@ -72,6 +73,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(menu_access_logs.router)
 app.include_router(attachments.router)
+app.include_router(ai_assistant.router, dependencies=[Depends(get_current_user)])
 
 authenticated_user = [Depends(get_current_user)]
 admin_only = [Depends(require_admin)]

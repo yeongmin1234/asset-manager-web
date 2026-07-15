@@ -1,7 +1,16 @@
-const PREVIEW_RESPONSE = "재고 조회 API 연결 후 사용할 수 있습니다.";
+import { ApiError, postAiChat } from "../api/client.js";
 
-// 실제 연동 시 이 함수 내부에서 POST /ai/chat 또는
-// POST /inventory/ai-query 요청을 수행하도록 교체합니다.
-export async function sendAiAssistantMessage(_message) {
-  return Promise.resolve({ message: PREVIEW_RESPONSE });
+export async function sendAiAssistantMessage(message) {
+  try {
+    return await postAiChat(message);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 401) throw new Error("로그인이 만료되었습니다.");
+      if (error.status === 403) throw new Error("업무 도우미를 사용할 권한이 없습니다.");
+      if (error.status >= 500) throw new Error("질문 처리 중 오류가 발생했습니다.");
+      if (!error.status) throw new Error("업무 도우미 서버에 연결할 수 없습니다.");
+      throw new Error(error.message || "질문을 처리할 수 없습니다.");
+    }
+    throw new Error("업무 도우미 서버에 연결할 수 없습니다.");
+  }
 }

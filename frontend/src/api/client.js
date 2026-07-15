@@ -277,6 +277,13 @@ export async function getHealth() {
   return request("/health");
 }
 
+export async function postAiChat(message) {
+  return request("/ai/chat", {
+    method: "POST",
+    body: { message },
+  });
+}
+
 export async function login(username, password) {
   const result = await request("/auth/login", {
     method: "POST",
