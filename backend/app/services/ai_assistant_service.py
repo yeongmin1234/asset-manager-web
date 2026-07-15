@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
@@ -9,6 +10,8 @@ from app.services.ai_inventory_context_service import (
     select_context_item,
 )
 from app.services.ai_intent_service import IntentResult, analyze_intent
+from app.services.ecount_api_service import EcountConfigurationError
+from app.services.inventory_service import InventoryError, InventoryRateLimitError, InventoryService
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,9 @@ class AiAssistantPermissionError(PermissionError):
 
 
 class AiAssistantService:
+    def __init__(self, inventory_service=None):
+        self.inventory_service = inventory_service
+
     def process_message(self, message: str, user_id: Optional[int] = None, user=None) -> Dict[str, Any]:
         started_at = time.monotonic()
         followup_intent = classify_inventory_followup(message)
@@ -42,6 +48,16 @@ class AiAssistantService:
             )
             return response
         result = analyze_intent(message)
+        if not result.read_only_violation and result.intent in {"unknown", "inventory_search"}:
+            resolved = self._resolve_inventory_products(result, message, user_id, user)
+            if isinstance(resolved, dict):
+                logger.info(
+                    "AI assistant processed intent=%s success=true response_time_ms=%s",
+                    resolved.get("intent") or "inventory_recommendation",
+                    max(0, int((time.monotonic() - started_at) * 1000)),
+                )
+                return resolved
+            result = resolved
         self._ensure_permission(result.intent, user)
         try:
             response = self._build_response(result)
@@ -54,6 +70,60 @@ class AiAssistantService:
         except Exception:
             logger.exception("AI assistant failed intent=%s", result.intent)
             raise
+
+    def _resolve_inventory_products(self, result, message, user_id, user):
+        candidate = str(result.entities.get("keyword") or (message or "").strip()).strip()
+        if not candidate or len(candidate) > 40:
+            return result
+
+        # Previously returned inventory is authoritative and needs no ECOUNT call.
+        context = get_inventory_context(user_id) if user_id is not None else None
+        if context:
+            normalized = candidate.casefold()
+            for item in context.last_inventory_items:
+                if normalized in {
+                    str(item.get("item_name") or "").strip().casefold(),
+                    str(item.get("item_code") or "").strip().casefold(),
+                }:
+                    return IntentResult(
+                        "inventory_search", result.normalized_message,
+                        {"item_code": item["item_code"]},
+                        result.read_only_violation,
+                    )
+
+        # Only a short, sentence-free token is eligible for exact product-name
+        # verification. General sentences remain unknown and make no API call.
+        if result.intent == "unknown" and not re.fullmatch(r"[가-힣A-Za-z0-9._()/-]{2,40}", candidate):
+            return result
+        self._ensure_permission("inventory_search", user)
+        service = self.inventory_service or InventoryService()
+        try:
+            recommendation = service.recommend_products(candidate, limit=8)
+        except InventoryRateLimitError:
+            raise
+        except (InventoryError, EcountConfigurationError, ValueError):
+            return result
+        items = recommendation["items"]
+        if not items:
+            if result.intent == "unknown":
+                return result
+            return self._response(
+                "inventory_recommendation",
+                "검색어와 일치하는 품목을 찾지 못했습니다. 품목명을 다시 확인해 주세요.",
+                recommendation,
+                INVENTORY_SUGGESTIONS,
+            )
+        if recommendation["total"] == 1:
+            return IntentResult(
+                "inventory_search", result.normalized_message,
+                {"item_code": items[0]["item_code"]}, result.read_only_violation,
+            )
+        message_text = "\"{}\"와 관련된 품목을 찾았습니다.\n조회할 품목을 선택해 주세요.".format(candidate)
+        if recommendation["has_more"]:
+            message_text += "\n검색 결과가 많습니다. 품목명을 조금 더 구체적으로 입력해 주세요."
+        return self._response(
+            "inventory_recommendation", message_text, recommendation, INVENTORY_SUGGESTIONS,
+        )
 
     @staticmethod
     def _ensure_permission(intent: str, user) -> None:

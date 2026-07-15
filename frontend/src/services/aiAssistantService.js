@@ -11,7 +11,7 @@ import {
 } from "../api/client.js";
 
 const INVENTORY_INTENTS = new Set([
-  "inventory_search", "inventory_low_stock", "inventory_item_code", "inventory_refresh",
+  "inventory_search", "inventory_item_code", "inventory_refresh",
 ]);
 const INVENTORY_ANALYSIS_INTENTS = new Set([
   "inventory_compare",
@@ -69,6 +69,15 @@ export function isInventoryChangeIntent(intent) {
 }
 
 export function isInventoryAlertIntent(intent) { return INVENTORY_ALERT_INTENTS.has(intent); }
+
+export function isInventoryRecommendationIntent(intent) {
+  return intent === "inventory_recommendation";
+}
+
+export async function fetchRecommendedInventoryItem(item) {
+  const inventoryResponse = await searchInventory({ itemCode: item.item_code, limit: 1 });
+  return { inventoryResponse, answer: buildInventoryAnswer(inventoryResponse) };
+}
 
 export async function fetchInventoryAlertsForAi(aiResponse) {
   const types = {

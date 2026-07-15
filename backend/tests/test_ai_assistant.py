@@ -1,6 +1,6 @@
 import logging
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
@@ -89,7 +89,13 @@ class AiIntentServiceTest(unittest.TestCase):
 
 class AiAssistantServiceTest(unittest.TestCase):
     def test_inventory_returns_pending_message(self):
-        response = AiAssistantService().process_message("벤틀리 재고 알려줘")
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "벤틀리", "total": 1,
+            "items": [{"item_code": "B001", "item_name": "벤틀리", "unit": "EA"}],
+            "has_more": False, "limit": 8,
+        }
+        response = AiAssistantService(inventory).process_message("벤틀리 재고 알려줘")
         self.assertTrue(response["success"])
         self.assertIn("이카운트 재고 API 연결 후", response["message"])
 
@@ -108,9 +114,60 @@ class AiAssistantServiceTest(unittest.TestCase):
 
     def test_original_question_is_not_logged(self):
         secret_question = "민감한질문원문-987654 재고 알려줘"
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "민감한질문원문-987654", "total": 0,
+            "items": [], "has_more": False, "limit": 8,
+        }
         with self.assertLogs("app.services.ai_assistant_service", logging.INFO) as captured:
-            AiAssistantService().process_message(secret_question)
+            AiAssistantService(inventory).process_message(secret_question)
         self.assertNotIn(secret_question, " ".join(captured.output))
+
+    def test_exact_bare_product_name_becomes_inventory_search(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "토스터블랙", "total": 1,
+            "items": [{"item_code": "T001", "item_name": "토스터블랙", "unit": "EA"}],
+            "has_more": False, "limit": 8,
+        }
+        viewer = User(id=3, username="viewer", name="조회자", password_hash="-", role="user", menu_permissions=["dashboard"])
+        response = AiAssistantService(inventory).process_message("토스터블랙", viewer.id, viewer)
+        self.assertEqual(response["intent"], "inventory_search")
+        self.assertEqual(response["data"]["item_code"], "T001")
+        inventory.recommend_products.assert_called_once_with("토스터블랙", limit=8)
+
+    def test_multiple_products_return_recommendations_without_inventory_lookup(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "토스터", "total": 2,
+            "items": [
+                {"item_code": "T001", "item_name": "토스터블랙", "unit": "EA"},
+                {"item_code": "T002", "item_name": "토스터화이트", "unit": "EA"},
+            ],
+            "has_more": False, "limit": 8,
+        }
+        viewer = User(id=3, username="viewer", name="조회자", password_hash="-", role="user", menu_permissions=["dashboard"])
+        response = AiAssistantService(inventory).process_message("토스터", viewer.id, viewer)
+        self.assertEqual(response["intent"], "inventory_recommendation")
+        self.assertEqual(len(response["data"]["items"]), 2)
+        inventory.get_inventory_by_location.assert_not_called()
+
+    def test_no_product_keeps_bare_general_fallback(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "없는품목", "total": 0,
+            "items": [], "has_more": False, "limit": 8,
+        }
+        viewer = User(id=3, username="viewer", name="조회자", password_hash="-", role="user", menu_permissions=["dashboard"])
+        response = AiAssistantService(inventory).process_message("없는품목", viewer.id, viewer)
+        self.assertEqual(response["intent"], "unknown")
+
+    def test_general_sentence_is_not_treated_as_product_name(self):
+        inventory = Mock()
+        viewer = User(id=3, username="viewer", name="조회자", password_hash="-", role="user", menu_permissions=["dashboard"])
+        response = AiAssistantService(inventory).process_message("오늘 점심 메뉴 추천", viewer.id, viewer)
+        self.assertEqual(response["intent"], "unknown")
+        inventory.search_products.assert_not_called()
 
 
 class AiAssistantRouteTest(unittest.TestCase):

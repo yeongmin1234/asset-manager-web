@@ -11,6 +11,7 @@ from app.schemas.inventory import AggregatedInventoryResponse
 from app.services.ecount_api_service import EcountConfigurationError
 from app.services.inventory_service import (
     InventoryError,
+    InventoryRateLimitError,
     InventoryService,
     InventoryTimeoutError,
 )
@@ -253,5 +254,11 @@ def _run_inventory_query(operation) -> AggregatedInventoryResponse:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
     except InventoryTimeoutError as exc:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
+    except InventoryRateLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=exc.message,
+            headers={"Retry-After": "5", "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED"},
+        ) from exc
     except InventoryError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message) from exc

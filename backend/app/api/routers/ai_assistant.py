@@ -10,6 +10,7 @@ from app.schemas.ai_assistant import (
 )
 from app.services.ai_assistant_service import AiAssistantPermissionError, AiAssistantService
 from app.services.ai_inventory_context_service import save_inventory_context
+from app.services.inventory_service import InventoryRateLimitError
 
 
 router = APIRouter(prefix="/ai", tags=["ai-assistant"])
@@ -24,6 +25,12 @@ def chat(
         return AiChatResponse(**AiAssistantService().process_message(payload.message, current_user.id, current_user))
     except AiAssistantPermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="해당 기능을 사용할 권한이 없습니다.") from exc
+    except InventoryRateLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=exc.message,
+            headers={"Retry-After": "5", "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED"},
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:

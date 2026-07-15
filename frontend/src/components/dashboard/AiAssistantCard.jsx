@@ -4,14 +4,17 @@ import {
   fetchInventoryAnalysisForAi,
   fetchInventoryChangeForAi,
   fetchInventoryAlertsForAi,
+  fetchRecommendedInventoryItem,
   isInventoryAnalysisIntent,
   isInventoryChangeIntent,
   isInventoryAlertIntent,
   isInventoryContextIntent,
   isInventoryIntent,
+  isInventoryRecommendationIntent,
   rememberInventoryContext,
   sendAiAssistantMessage,
 } from "../../services/aiAssistantService.js";
+import RecommendedInventoryItems from "./RecommendedInventoryItems.jsx";
 
 const EXAMPLE_QUESTIONS = [
   "벤틀리 재고 알려줘",
@@ -32,6 +35,8 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const conversationRef = useRef(null);
+  const requestLockRef = useRef(false);
+  const recommendationLocksRef = useRef(new Set());
 
   useEffect(() => {
     const conversation = conversationRef.current;
@@ -40,7 +45,8 @@ function AiAssistantCard({ onInventoryStateChange }) {
 
   const sendMessage = async (question = input) => {
     const trimmedQuestion = question.trim();
-    if (!trimmedQuestion || isSending) return;
+    if (!trimmedQuestion || isSending || requestLockRef.current) return;
+    requestLockRef.current = true;
 
     const requestId = Date.now();
     const pendingId = `pending-${requestId}`;
@@ -55,7 +61,17 @@ function AiAssistantCard({ onInventoryStateChange }) {
     try {
       const response = await sendAiAssistantMessage(trimmedQuestion);
       let answer = response.message;
-      if (isInventoryContextIntent(response.intent)) {
+      let recommendations = null;
+      if (isInventoryRecommendationIntent(response.intent)) {
+        recommendations = Array.isArray(response.data?.items) ? response.data.items : [];
+        if (!recommendations.length) {
+          onInventoryStateChange?.({
+            status: "empty", query: response.data?.query || trimmedQuestion, items: [],
+            selectedItemCode: null, searchedAt: new Date().toISOString(),
+            errorMessage: null, analysis: null,
+          });
+        }
+      } else if (isInventoryContextIntent(response.intent)) {
         const inventoryResponse = response.data?.inventory_response;
         const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
         if (items.length) {
@@ -146,7 +162,10 @@ function AiAssistantCard({ onInventoryStateChange }) {
       }
       setMessages((current) => current.map((message) => (
         message.id === pendingId
-          ? { id: `assistant-${requestId}`, role: "assistant", content: answer }
+          ? {
+            id: `assistant-${requestId}`, role: "assistant", content: answer,
+            recommendations, selectedItemCode: null,
+          }
           : message
       )));
     } catch (error) {
@@ -164,6 +183,62 @@ function AiAssistantCard({ onInventoryStateChange }) {
           : message
       )));
     } finally {
+      requestLockRef.current = false;
+      setIsSending(false);
+    }
+  };
+
+  const handleRecommendationSelect = async (messageId, item) => {
+    const lockKey = `${messageId}:${item.item_code}`;
+    if (isSending || requestLockRef.current || recommendationLocksRef.current.has(lockKey)) return;
+    requestLockRef.current = true;
+    recommendationLocksRef.current.add(lockKey);
+    setIsSending(true);
+    setMessages((current) => current.map((message) => (
+      message.id === messageId ? { ...message, selectedItemCode: item.item_code } : message
+    )));
+    const requestId = Date.now();
+    const pendingId = `pending-selection-${requestId}`;
+    setMessages((current) => [
+      ...current,
+      { id: `user-selection-${requestId}`, role: "user", content: `${item.item_name || item.item_code} 선택` },
+      { id: pendingId, role: "assistant", content: "선택한 품목의 재고를 조회하고 있습니다...", pending: true },
+    ]);
+    onInventoryStateChange?.({
+      status: "loading", query: item.item_name || item.item_code, items: [],
+      selectedItemCode: item.item_code, searchedAt: null, errorMessage: null, analysis: null,
+    });
+    try {
+      const inventory = await fetchRecommendedInventoryItem(item);
+      const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+      await rememberInventoryContext({
+        aiResponse: { intent: "inventory_search", data: { item_code: item.item_code } },
+        query: item.item_name || item.item_code,
+        inventoryResponse: inventory.inventoryResponse,
+      }).catch(() => {});
+      onInventoryStateChange?.({
+        status: items.length ? "success" : "empty", query: item.item_name || item.item_code,
+        items, selectedItemCode: item.item_code, searchedAt: new Date().toISOString(),
+        errorMessage: null, analysis: null,
+      });
+      setMessages((current) => current.map((message) => (
+        message.id === pendingId
+          ? { id: `assistant-selection-${requestId}`, role: "assistant", content: inventory.answer }
+          : message
+      )));
+    } catch (error) {
+      recommendationLocksRef.current.delete(lockKey);
+      setMessages((current) => current.map((message) => {
+        if (message.id === messageId) return { ...message, selectedItemCode: null };
+        if (message.id === pendingId) return { id: `error-selection-${requestId}`, role: "assistant", content: error.message };
+        return message;
+      }));
+      onInventoryStateChange?.((current) => ({
+        ...current, status: "error", items: [], selectedItemCode: null,
+        searchedAt: new Date().toISOString(), errorMessage: error.message,
+      }));
+    } finally {
+      requestLockRef.current = false;
       setIsSending(false);
     }
   };
@@ -191,7 +266,17 @@ function AiAssistantCard({ onInventoryStateChange }) {
             key={message.id}
           >
             <span>{message.role === "user" ? "나" : "AI"}</span>
-            <p>{message.content}</p>
+            <div className="ai-assistant-message-body">
+              <p>{message.content}</p>
+              {message.recommendations ? (
+                <RecommendedInventoryItems
+                  items={message.recommendations}
+                disabled={isSending}
+                  selectedItemCode={message.selectedItemCode}
+                  onSelect={(item) => handleRecommendationSelect(message.id, item)}
+                />
+              ) : null}
+            </div>
           </div>
         ))}
       </div>

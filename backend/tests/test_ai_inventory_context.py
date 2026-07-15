@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
@@ -88,8 +88,21 @@ class AiInventoryContextTest(unittest.TestCase):
         self.save()
         # A new inventory intent alone does not overwrite context; only the authenticated
         # success callback endpoint writes a replacement result.
-        AiAssistantService().process_message("없는품목 재고 알려줘", user_id=1)
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "없는품목", "total": 0,
+            "items": [], "has_more": False, "limit": 8,
+        }
+        AiAssistantService(inventory).process_message("없는품목 재고 알려줘", user_id=1)
         self.assertEqual(get_inventory_context(1).last_item_code, "00016")
+
+    def test_exact_bare_name_uses_recent_context_without_product_api(self):
+        self.save()
+        inventory = Mock()
+        response = AiAssistantService(inventory).process_message("뉴토스터블랙", user_id=1)
+        self.assertEqual(response["intent"], "inventory_search")
+        self.assertEqual(response["data"]["item_code"], "00016")
+        inventory.recommend_products.assert_not_called()
 
     def test_followup_does_not_call_external_api(self):
         self.save()

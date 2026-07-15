@@ -1,6 +1,8 @@
 import logging
 import json
 import time
+import copy
+import threading
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple
@@ -31,6 +33,14 @@ LOCATION_INVENTORY_ENDPOINT = (
 )
 MAX_RESULT_LIMIT = 200
 MAX_LOW_STOCK_THRESHOLD = Decimal("1000000000")
+DEFAULT_RECOMMENDATION_LIMIT = 8
+MAX_RECOMMENDATION_LIMIT = 10
+INVENTORY_QUERY_CACHE_TTL_SECONDS = 5.0
+INVENTORY_QUERY_CACHE_MAX_ITEMS = 256
+_query_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+_rate_limit_cache: Dict[str, float] = {}
+_query_cache_lock = threading.Lock()
+_external_request_lock = threading.Lock()
 
 
 class InventoryError(Exception):
@@ -47,6 +57,10 @@ class InventoryTimeoutError(InventoryError):
 
 
 class InventoryConnectionError(InventoryError):
+    pass
+
+
+class InventoryRateLimitError(InventoryError):
     pass
 
 
@@ -158,6 +172,56 @@ class InventoryService:
             ]
             result[keyword] = (exact or partial)[:limit_per_keyword]
         return result
+
+    def recommend_products(self, keyword: str, limit: int = DEFAULT_RECOMMENDATION_LIMIT) -> Dict[str, Any]:
+        normalized = (keyword or "").strip()
+        if not normalized:
+            raise ValueError("추천 품목 검색어를 입력해주세요.")
+        if limit < 1 or limit > MAX_RECOMMENDATION_LIMIT:
+            raise ValueError("추천 품목은 최대 10개까지 조회할 수 있습니다.")
+        products = self.search_products(keyword=normalized, limit=MAX_RESULT_LIMIT)
+        folded = normalized.casefold()
+        exact_code_matches = [
+            item for item in products
+            if str(item.get("item_code") or "").strip().casefold() == folded
+        ]
+        if exact_code_matches:
+            products = exact_code_matches
+
+        def priority(item):
+            name = str(item.get("item_name") or "").strip()
+            code = str(item.get("item_code") or "").strip()
+            name_folded = name.casefold()
+            code_folded = code.casefold()
+            if name_folded == folded:
+                rank = 0
+            elif name_folded.startswith(folded):
+                rank = 1
+            elif folded in name_folded:
+                rank = 2
+            elif code_folded == folded:
+                rank = 3
+            else:
+                rank = 4
+            return rank, name_folded, code_folded
+
+        products.sort(key=priority)
+        items = [
+            {
+                "item_code": item["item_code"],
+                "item_name": item.get("item_name"),
+                "unit": item.get("unit"),
+            }
+            for item in products[:limit]
+        ]
+        return {
+            "mode": "recommendation",
+            "query": normalized,
+            "total": len(products),
+            "items": items,
+            "has_more": len(products) > limit,
+            "limit": limit,
+        }
 
     def get_inventory_by_location(
         self,
@@ -299,6 +363,34 @@ class InventoryService:
     def _fetch_with_single_reauthentication(
         self, payload: Dict[str, str], endpoint_template: str = INVENTORY_ENDPOINT,
     ) -> List[Dict[str, Any]]:
+        cache_key = self._cache_key(endpoint_template, payload)
+        cached = self._get_cached_result(cache_key)
+        if cached is not None:
+            return cached
+        # Serialize cache misses in this Backend process. A second identical
+        # request rechecks the cache after the first external request finishes.
+        with _external_request_lock:
+            cached = self._get_cached_result(cache_key)
+            if cached is not None:
+                return cached
+            try:
+                result = self._fetch_uncached_with_single_reauthentication(payload, endpoint_template)
+            except InventoryRateLimitError:
+                with _query_cache_lock:
+                    now = time.monotonic()
+                    expired = [key for key, value in _rate_limit_cache.items() if value <= now]
+                    for key in expired:
+                        _rate_limit_cache.pop(key, None)
+                    if len(_rate_limit_cache) >= INVENTORY_QUERY_CACHE_MAX_ITEMS:
+                        _rate_limit_cache.pop(next(iter(_rate_limit_cache)), None)
+                    _rate_limit_cache[cache_key] = now + INVENTORY_QUERY_CACHE_TTL_SECONDS
+                raise
+            self._store_cached_result(cache_key, result)
+            return copy.deepcopy(result)
+
+    def _fetch_uncached_with_single_reauthentication(
+        self, payload: Dict[str, str], endpoint_template: str,
+    ) -> List[Dict[str, Any]]:
         session = self._get_session(False)
         data, http_status = self._request_once(
             session.zone, session.session_id, payload, endpoint_template,
@@ -316,6 +408,45 @@ class InventoryService:
                     "authentication_failed", "이카운트 API 인증에 실패했습니다.", http_status, code,
                 )
         return self._validate_response(data, http_status)
+
+    @staticmethod
+    def _cache_key(endpoint_template: str, payload: Dict[str, str]) -> str:
+        return endpoint_template + "|" + json.dumps(payload, sort_keys=True, ensure_ascii=True)
+
+    @staticmethod
+    def _get_cached_result(cache_key: str) -> Optional[List[Dict[str, Any]]]:
+        now = time.monotonic()
+        with _query_cache_lock:
+            rate_limit_until = _rate_limit_cache.get(cache_key)
+            if rate_limit_until is not None:
+                if rate_limit_until > now:
+                    raise InventoryRateLimitError(
+                        "rate_limited",
+                        "이카운트 조회 요청이 잠시 제한되었습니다. 잠시 후 다시 조회해 주세요.",
+                        412,
+                    )
+                _rate_limit_cache.pop(cache_key, None)
+            cached = _query_cache.get(cache_key)
+            if cached is None:
+                return None
+            if cached[0] <= now:
+                _query_cache.pop(cache_key, None)
+                return None
+            return copy.deepcopy(cached[1])
+
+    @staticmethod
+    def _store_cached_result(cache_key: str, result: List[Dict[str, Any]]) -> None:
+        now = time.monotonic()
+        with _query_cache_lock:
+            expired = [key for key, value in _query_cache.items() if value[0] <= now]
+            for key in expired:
+                _query_cache.pop(key, None)
+            if len(_query_cache) >= INVENTORY_QUERY_CACHE_MAX_ITEMS:
+                _query_cache.pop(next(iter(_query_cache)), None)
+            _query_cache[cache_key] = (
+                now + INVENTORY_QUERY_CACHE_TTL_SECONDS,
+                copy.deepcopy(result),
+            )
 
     def _get_session(self, force_refresh: bool):
         try:
@@ -342,6 +473,21 @@ class InventoryService:
         try:
             response = client.post(endpoint, params={"SESSION_ID": session_id}, json=payload)
             status_code = response.status_code
+            if status_code == 412:
+                safe_code = ""
+                try:
+                    limited_data = response.json()
+                    if isinstance(limited_data, dict):
+                        safe_code = self._safe_error_code(limited_data)
+                except ValueError:
+                    pass
+                self._log_error("rate_limited", status_code, safe_code)
+                raise InventoryRateLimitError(
+                    "rate_limited",
+                    "이카운트 조회 요청이 잠시 제한되었습니다. 잠시 후 다시 조회해 주세요.",
+                    status_code,
+                    safe_code,
+                )
             try:
                 data = response.json()
             except ValueError as exc:
@@ -368,7 +514,6 @@ class InventoryService:
         finally:
             if owns_client:
                 client.close()
-
     def _validate_response(self, data: Dict[str, Any], http_status: int) -> List[Dict[str, Any]]:
         payload = data.get("Data")
         if (
@@ -562,3 +707,10 @@ class InventoryService:
             "ECOUNT inventory error kind=%s http_status=%s response_code=%s",
             kind, http_status if http_status is not None else "-", response_code or "-",
         )
+
+
+def clear_inventory_query_cache() -> None:
+    """Clear short-lived data/rate-limit caches without touching SESSION_ID."""
+    with _query_cache_lock:
+        _query_cache.clear()
+        _rate_limit_cache.clear()

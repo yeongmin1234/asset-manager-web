@@ -13,7 +13,9 @@ from app.main import app
 from app.models.user import User
 from app.services.ecount_api_service import EcountSession
 from app.services.inventory_service import (
+    clear_inventory_query_cache,
     InventoryError,
+    InventoryRateLimitError,
     InventoryResponseError,
     InventoryService,
     InventoryTimeoutError,
@@ -86,6 +88,12 @@ class FakeAuthService:
 
 
 class InventoryServiceTest(unittest.TestCase):
+    def setUp(self):
+        clear_inventory_query_cache()
+
+    def tearDown(self):
+        clear_inventory_query_cache()
+
     def test_inventory_api_success_and_official_request_shape(self):
         auth = FakeAuthService()
 
@@ -152,6 +160,85 @@ class InventoryServiceTest(unittest.TestCase):
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
             with self.assertRaises(InventoryTimeoutError):
                 InventoryService(make_settings(), client, FakeAuthService()).search_inventory(item_code="ABC")
+
+    def test_http_412_is_rate_limit_and_never_reauthenticates(self):
+        auth = FakeAuthService()
+        limited = httpx.Response(412, json={
+            "Data": None, "Status": "412", "Error": {"Code": "RATE", "Message": "private external detail"},
+        })
+        with httpx.Client(transport=httpx.MockTransport(lambda request: limited)) as client:
+            with self.assertRaises(InventoryRateLimitError) as context:
+                InventoryService(make_settings(), client, auth).search_inventory(item_code="ABC")
+        self.assertEqual(context.exception.kind, "rate_limited")
+        self.assertEqual(context.exception.http_status, 412)
+        self.assertEqual(auth.calls, [False])
+        self.assertNotIn("private external detail", context.exception.message)
+
+    def test_identical_query_uses_short_cache(self):
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return product_response([{"PROD_CD": "A", "PROD_DES": "토스터블랙"}])
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            service = InventoryService(make_settings(), client, FakeAuthService())
+            first = service.search_products(keyword="토스터블랙")
+            second = service.search_products(keyword="토스터블랙")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(first, second)
+
+    def test_recommendations_are_sorted_limited_and_product_only(self):
+        rows = [
+            {"PROD_CD": "4", "PROD_DES": "뉴토스터블랙", "UNIT": "EA"},
+            {"PROD_CD": "3", "PROD_DES": "미니토스터", "UNIT": "EA"},
+            {"PROD_CD": "2", "PROD_DES": "토스터화이트", "UNIT": "EA"},
+            {"PROD_CD": "1", "PROD_DES": "토스터", "UNIT": "EA"},
+        ] + [
+            {"PROD_CD": str(index), "PROD_DES": "추천토스터{:02d}".format(index), "UNIT": "EA"}
+            for index in range(5, 12)
+        ]
+        paths = []
+
+        def handler(request):
+            paths.append(request.url.path)
+            return product_response(rows)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result = InventoryService(make_settings(), client, FakeAuthService()).recommend_products("토스터")
+        self.assertEqual(result["total"], 11)
+        self.assertEqual(len(result["items"]), 8)
+        self.assertTrue(result["has_more"])
+        self.assertEqual(result["items"][0]["item_name"], "토스터")
+        self.assertEqual(result["items"][1]["item_name"], "토스터화이트")
+        self.assertEqual(result["items"][-1].keys(), {"item_code", "item_name", "unit"})
+        self.assertEqual(len(paths), 1)
+        self.assertIn("GetBasicProductsList", paths[0])
+        self.assertFalse(any("InventoryBalance" in path for path in paths))
+
+    def test_recommendation_product_code_exact_match(self):
+        rows = [
+            {"PROD_CD": "101006", "PROD_DES": "토스터블랙", "UNIT": "EA"},
+            {"PROD_CD": "X101006", "PROD_DES": "다른 품목", "UNIT": "EA"},
+        ]
+        with httpx.Client(transport=httpx.MockTransport(lambda request: product_response(rows))) as client:
+            result = InventoryService(make_settings(), client, FakeAuthService()).recommend_products("101006")
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["items"][0]["item_code"], "101006")
+
+    def test_rate_limit_is_short_negative_cached(self):
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(412, text="limited")
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            service = InventoryService(make_settings(), client, FakeAuthService())
+            for _ in range(2):
+                with self.assertRaises(InventoryRateLimitError):
+                    service.search_products(keyword="토스터블랙")
+        self.assertEqual(len(calls), 1)
 
     def test_invalid_response(self):
         with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"Status": "200"}))) as client:
@@ -373,6 +460,21 @@ class InventoryRouteTest(unittest.TestCase):
             response = TestClient(app).get("/inventory/search?item_code=ABC")
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("SESSION_ID", response.text)
+
+    def test_rate_limit_is_safe_429(self):
+        app.dependency_overrides[get_current_user] = lambda: User(
+            id=2, username="user", name="사용자", password_hash="-", role="user",
+        )
+        error = InventoryRateLimitError(
+            "rate_limited", "이카운트 조회 요청이 잠시 제한되었습니다. 잠시 후 다시 조회해 주세요.", 412, "PRIVATE",
+        )
+        with patch("app.api.routers.inventory.InventoryService") as service:
+            service.return_value.get_aggregated_inventory.side_effect = error
+            response = TestClient(app).get("/inventory/search?item_code=ABC")
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json()["detail"], error.message)
+        self.assertEqual(response.headers["x-inventory-error-code"], "ECOUNT_RATE_LIMITED")
+        self.assertNotIn("PRIVATE", response.text)
 
     def test_unauthenticated_inventory_search_is_401(self):
         response = TestClient(app).get("/inventory/search?item_code=ABC")
