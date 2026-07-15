@@ -3,6 +3,7 @@ import json
 import time
 import copy
 import threading
+import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple
@@ -139,12 +140,12 @@ class InventoryService:
         if normalized_code:
             exact = [item for item in products if item["item_code"].upper() == normalized_code]
             products = exact or products
-        normalized_keyword = (keyword or "").strip().casefold()
+        normalized_keyword = self._normalize_product_search_text(keyword)
         if normalized_keyword:
             products = [
                 item for item in products
-                if normalized_keyword in (item["item_name"] or "").casefold()
-                or normalized_keyword in item["item_code"].casefold()
+                if normalized_keyword in self._normalize_product_search_text(item["item_name"])
+                or normalized_keyword in self._normalize_product_search_text(item["item_code"])
             ]
         return products[:limit]
 
@@ -278,9 +279,10 @@ class InventoryService:
         item_code: str,
         base_date: Optional[str] = None,
         warehouse_code: Optional[str] = None,
+        product: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         started_at = time.monotonic()
-        products = self.search_products(item_code=item_code, limit=1)
+        products = [product] if product else self.search_products(item_code=item_code, limit=1)
         if not products:
             return self._aggregate_response([], started_at)
         locations = self.get_inventory_by_location(
@@ -560,6 +562,10 @@ class InventoryService:
             "barcode": str(item.get("BAR_CODE") or "").strip() or None,
         }
 
+    @staticmethod
+    def _normalize_product_search_text(value: Any) -> str:
+        return re.sub(r"\s+", "", str(value or "").strip()).casefold()
+
     def _normalize_location_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         code = str(item.get("PROD_CD") or "").strip().upper()
         if not code:
@@ -586,9 +592,9 @@ class InventoryService:
         ]
         return {
             "item_code": product["item_code"],
-            "item_name": product["item_name"],
-            "size": product["size"],
-            "unit": product["unit"],
+            "item_name": product.get("item_name"),
+            "size": product.get("size"),
+            "unit": product.get("unit"),
             "total_quantity": sum((item["quantity"] for item in matching), Decimal("0")),
             "warehouses": warehouses,
         }

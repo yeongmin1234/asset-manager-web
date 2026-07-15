@@ -88,16 +88,69 @@ class AiIntentServiceTest(unittest.TestCase):
 
 
 class AiAssistantServiceTest(unittest.TestCase):
-    def test_inventory_returns_pending_message(self):
+    @staticmethod
+    def _inventory_response(quantity="23", warehouses=None):
+        return {
+            "success": True,
+            "authenticated": True,
+            "total": 1,
+            "items": [{
+                "item_code": "B001",
+                "item_name": "벤틀리",
+                "size": None,
+                "unit": "EA",
+                "total_quantity": quantity,
+                "warehouses": warehouses if warehouses is not None else [
+                    {"warehouse_code": "W1", "warehouse_name": "본사", "quantity": quantity},
+                ],
+            }],
+            "message": "재고 조회에 성공했습니다.",
+            "response_time_ms": 1,
+        }
+
+    def test_inventory_search_executes_ecount_inventory_service(self):
         inventory = Mock()
         inventory.recommend_products.return_value = {
             "mode": "recommendation", "query": "벤틀리", "total": 1,
             "items": [{"item_code": "B001", "item_name": "벤틀리", "unit": "EA"}],
             "has_more": False, "limit": 8,
         }
+        inventory.get_aggregated_inventory.return_value = self._inventory_response()
         response = AiAssistantService(inventory).process_message("벤틀리 재고 알려줘")
         self.assertTrue(response["success"])
-        self.assertIn("이카운트 재고 API 연결 후", response["message"])
+        self.assertIn("총 23개", response["message"])
+        self.assertEqual(response["data"]["inventory_response"]["items"][0]["item_code"], "B001")
+        inventory.get_aggregated_inventory.assert_called_once()
+        self.assertEqual(inventory.get_aggregated_inventory.call_args.args[0], "B001")
+        self.assertEqual(inventory.get_aggregated_inventory.call_args.kwargs["product"]["item_name"], "벤틀리")
+
+    def test_item_code_executes_exact_inventory_lookup(self):
+        inventory = Mock()
+        inventory.get_aggregated_inventory.return_value = self._inventory_response(quantity="18")
+        response = AiAssistantService(inventory).process_message("품목코드 B001 재고 알려줘")
+        self.assertIn("총 18개", response["message"])
+        inventory.get_aggregated_inventory.assert_called_once_with("B001", product=None)
+
+    def test_low_stock_executes_aggregated_lookup(self):
+        inventory = Mock()
+        inventory.get_aggregated_low_stock.return_value = self._inventory_response(quantity="2")
+        response = AiAssistantService(inventory).process_message("재고 10개 이하 품목 보여줘")
+        self.assertEqual(response["intent"], "inventory_low_stock")
+        self.assertIn("1개입니다", response["message"])
+        inventory.get_aggregated_low_stock.assert_called_once()
+
+    def test_item_without_warehouse_inventory_is_distinguished_from_zero(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "벤틀리", "total": 1,
+            "items": [{"item_code": "B001", "item_name": "벤틀리", "unit": "EA"}],
+            "has_more": False, "limit": 8,
+        }
+        inventory.get_aggregated_inventory.return_value = self._inventory_response(
+            quantity="0", warehouses=[],
+        )
+        response = AiAssistantService(inventory).process_message("벤틀리 재고 알려줘")
+        self.assertIn("재고 정보가 없습니다", response["message"])
 
     def test_item_code_prompt_when_code_is_missing(self):
         response = AiAssistantService().process_message("품목코드로 재고 조회")
@@ -130,6 +183,7 @@ class AiAssistantServiceTest(unittest.TestCase):
             "items": [{"item_code": "T001", "item_name": "토스터블랙", "unit": "EA"}],
             "has_more": False, "limit": 8,
         }
+        inventory.get_aggregated_inventory.return_value = self._inventory_response()
         viewer = User(id=3, username="viewer", name="조회자", password_hash="-", role="user", menu_permissions=["dashboard"])
         response = AiAssistantService(inventory).process_message("토스터블랙", viewer.id, viewer)
         self.assertEqual(response["intent"], "inventory_search")

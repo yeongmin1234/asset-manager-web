@@ -226,6 +226,17 @@ class InventoryServiceTest(unittest.TestCase):
         self.assertEqual(result["total"], 1)
         self.assertEqual(result["items"][0]["item_code"], "101006")
 
+    def test_product_name_search_allows_whitespace_difference(self):
+        rows = [
+            {"PROD_CD": "930101", "PROD_DES": "그린팬 런치박스", "UNIT": "EA"},
+            {"PROD_CD": "930102", "PROD_DES": "다른 품목", "UNIT": "EA"},
+        ]
+        with httpx.Client(transport=httpx.MockTransport(lambda request: product_response(rows))) as client:
+            result = InventoryService(make_settings(), client, FakeAuthService()).search_products(
+                keyword="그린팬런치박스",
+            )
+        self.assertEqual([item["item_code"] for item in result], ["930101"])
+
     def test_rate_limit_is_short_negative_cached(self):
         calls = []
 

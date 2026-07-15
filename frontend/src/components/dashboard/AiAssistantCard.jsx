@@ -26,7 +26,7 @@ const INITIAL_MESSAGES = [
   {
     id: "initial",
     role: "assistant",
-    content: "안녕하세요.\n현재는 재고 조회 기능을 준비하고 있습니다.",
+    content: "안녕하세요.\n품목명 또는 품목코드로 현재 재고를 조회할 수 있습니다.",
   },
 ];
 

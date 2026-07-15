@@ -10,7 +10,8 @@ from app.schemas.ai_assistant import (
 )
 from app.services.ai_assistant_service import AiAssistantPermissionError, AiAssistantService
 from app.services.ai_inventory_context_service import save_inventory_context
-from app.services.inventory_service import InventoryRateLimitError
+from app.services.ecount_api_service import EcountConfigurationError
+from app.services.inventory_service import InventoryError, InventoryRateLimitError, InventoryTimeoutError
 
 
 router = APIRouter(prefix="/ai", tags=["ai-assistant"])
@@ -31,6 +32,12 @@ def chat(
             detail=exc.message,
             headers={"Retry-After": "5", "X-Inventory-Error-Code": "ECOUNT_RATE_LIMITED"},
         ) from exc
+    except InventoryTimeoutError as exc:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
+    except EcountConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
+    except InventoryError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:

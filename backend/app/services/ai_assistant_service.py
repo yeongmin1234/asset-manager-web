@@ -1,12 +1,14 @@
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional
 
 from app.services.ai_inventory_context_service import (
     classify_inventory_followup,
     get_inventory_context,
+    save_inventory_context,
     select_context_item,
 )
 from app.services.ai_intent_service import IntentResult, analyze_intent
@@ -60,15 +62,20 @@ class AiAssistantService:
             result = resolved
         self._ensure_permission(result.intent, user)
         try:
-            response = self._build_response(result)
+            response = self._build_response(result, user_id)
             logger.info(
                 "AI assistant processed intent=%s success=true response_time_ms=%s",
                 result.intent,
                 max(0, int((time.monotonic() - started_at) * 1000)),
             )
             return response
-        except Exception:
-            logger.exception("AI assistant failed intent=%s", result.intent)
+        except Exception as exc:
+            logger.warning(
+                "AI assistant failed intent=%s error_type=%s response_time_ms=%s",
+                result.intent,
+                type(exc).__name__,
+                max(0, int((time.monotonic() - started_at) * 1000)),
+            )
             raise
 
     def _resolve_inventory_products(self, result, message, user_id, user):
@@ -102,7 +109,9 @@ class AiAssistantService:
         except InventoryRateLimitError:
             raise
         except (InventoryError, EcountConfigurationError, ValueError):
-            return result
+            if result.intent == "unknown":
+                return result
+            raise
         items = recommendation["items"]
         if not items:
             if result.intent == "unknown":
@@ -116,7 +125,8 @@ class AiAssistantService:
         if recommendation["total"] == 1:
             return IntentResult(
                 "inventory_search", result.normalized_message,
-                {"item_code": items[0]["item_code"]}, result.read_only_violation,
+                {"item_code": items[0]["item_code"], "_resolved_product": items[0]},
+                result.read_only_violation,
             )
         message_text = "\"{}\"와 관련된 품목을 찾았습니다.\n조회할 품목을 선택해 주세요.".format(candidate)
         if recommendation["has_more"]:
@@ -137,7 +147,7 @@ class AiAssistantService:
         )
         if permission and permission not in set(user.menu_permissions or []):
             raise AiAssistantPermissionError("해당 기능을 사용할 권한이 없습니다.")
-    def _build_response(self, result: IntentResult) -> Dict[str, Any]:
+    def _build_response(self, result: IntentResult, user_id: Optional[int] = None) -> Dict[str, Any]:
         if result.read_only_violation:
             return self._response(
                 result.intent,
@@ -146,15 +156,15 @@ class AiAssistantService:
                 DEFAULT_SUGGESTIONS,
             )
 
+        if result.intent in {"inventory_search", "inventory_item_code", "inventory_low_stock"}:
+            return self._execute_inventory_query(result, user_id)
+
         handlers = {
             "inventory_alert_summary": self._inventory_pending,
             "inventory_out_of_stock": self._inventory_pending,
             "inventory_alert_negative": self._inventory_pending,
             "inventory_rapid_decrease": self._inventory_pending,
             "inventory_alert_low_stock": self._inventory_pending,
-            "inventory_item_code": self._inventory_item_code,
-            "inventory_low_stock": self._inventory_pending,
-            "inventory_search": self._inventory_pending,
             "inventory_compare": self._inventory_pending,
             "inventory_sort": self._inventory_pending,
             "inventory_filter": self._inventory_pending,
@@ -184,6 +194,106 @@ class AiAssistantService:
         message = handlers[result.intent](result)
         suggestions = INVENTORY_SUGGESTIONS if result.intent.startswith("inventory_") else DEFAULT_SUGGESTIONS
         return self._response(result.intent, message, result.entities, suggestions)
+
+    def _execute_inventory_query(
+        self, result: IntentResult, user_id: Optional[int],
+    ) -> Dict[str, Any]:
+        service = self.inventory_service or InventoryService()
+        item_code = str(result.entities.get("item_code") or "").strip().upper()
+        keyword = str(result.entities.get("keyword") or "").strip()
+        threshold = result.entities.get("threshold", 10)
+        resolved_product = result.entities.get("_resolved_product")
+
+        if result.intent == "inventory_item_code" and not item_code:
+            return self._response(
+                result.intent,
+                "조회할 품목코드를 함께 입력해주세요.",
+                result.entities,
+                INVENTORY_SUGGESTIONS,
+            )
+
+        if result.intent == "inventory_low_stock":
+            inventory_response = service.get_aggregated_low_stock(
+                keyword=keyword or None,
+                item_code=item_code or None,
+                threshold=Decimal(str(threshold)),
+                limit=20,
+            )
+        elif item_code:
+            inventory_response = service.get_aggregated_inventory(item_code, product=resolved_product)
+        elif keyword:
+            inventory_response = service.search_inventory_by_keyword(keyword, limit=20)
+        else:
+            return self._response(
+                result.intent,
+                "조회할 품목명 또는 품목코드를 함께 입력해주세요.",
+                result.entities,
+                INVENTORY_SUGGESTIONS,
+            )
+
+        items = inventory_response.get("items") or []
+        if items and user_id is not None:
+            save_inventory_context(
+                user_id=user_id,
+                intent=result.intent,
+                query=keyword or item_code,
+                items=items,
+                threshold=int(threshold) if result.intent == "inventory_low_stock" else None,
+                searched_at=datetime.now(timezone.utc).isoformat(),
+                selected_item_code=items[0].get("item_code") if len(items) == 1 else None,
+            )
+
+        message = self._build_inventory_message(result.intent, inventory_response, threshold)
+        data = {
+            key: value for key, value in result.entities.items()
+            if not str(key).startswith("_")
+        }
+        data.update({
+            "inventory_response": inventory_response,
+            "selected_item_code": items[0].get("item_code") if len(items) == 1 else None,
+            "base_date": InventoryService._korea_today(),
+        })
+        return self._response(result.intent, message, data, INVENTORY_SUGGESTIONS)
+
+    def _build_inventory_message(
+        self, intent: str, inventory_response: Dict[str, Any], threshold: Any,
+    ) -> str:
+        items = inventory_response.get("items") or []
+        if intent == "inventory_low_stock":
+            if not items:
+                return "재고 {}개 이하인 품목이 없습니다.".format(self._format_quantity(threshold))
+            return (
+                "재고 {}개 이하 품목은 {}개입니다.\n"
+                "상세 결과는 왼쪽 재고 조회 결과에서 확인할 수 있습니다."
+            ).format(self._format_quantity(threshold), len(items))
+        if not items:
+            return "검색 조건에 맞는 품목을 찾지 못했습니다."
+        if len(items) > 1:
+            return (
+                "검색된 품목은 {}개입니다.\n"
+                "상세 결과는 왼쪽 재고 조회 결과에서 확인할 수 있습니다."
+            ).format(len(items))
+
+        item = items[0]
+        name = item.get("item_name") or item.get("item_code")
+        code = item.get("item_code")
+        label = "{}({})".format(name, code) if item.get("item_name") and code else name
+        warehouses = item.get("warehouses") or []
+        if not warehouses:
+            return "{}의 재고 정보가 없습니다.".format(label)
+        lines = [
+            "{}의 현재 재고는 총 {}개입니다.".format(
+                label, self._format_quantity(item.get("total_quantity")),
+            )
+        ]
+        lines.extend(
+            "• {}: {}개".format(
+                warehouse.get("warehouse_name") or warehouse.get("warehouse_code") or "창고",
+                self._format_quantity(warehouse.get("quantity")),
+            )
+            for warehouse in warehouses
+        )
+        return "\n".join(lines)
 
     def _build_context_response(self, user_id: int, intent: str) -> Dict[str, Any]:
         context = get_inventory_context(user_id)
@@ -279,12 +389,6 @@ class AiAssistantService:
     def _inventory_pending(_: IntentResult) -> str:
         # Phase 2 integration point: call inventory_service here.
         return "현재 재고 조회 기능을 연결 중입니다. 이카운트 재고 API 연결 후 조회할 수 있습니다."
-
-    @staticmethod
-    def _inventory_item_code(result: IntentResult) -> str:
-        if not result.entities.get("item_code"):
-            return "조회할 품목코드를 함께 입력해주세요."
-        return AiAssistantService._inventory_pending(result)
 
     @staticmethod
     def _response(

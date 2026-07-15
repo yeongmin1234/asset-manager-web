@@ -44,6 +44,9 @@ export async function sendAiAssistantMessage(message) {
     if (error instanceof ApiError) {
       if (error.status === 401) throw new Error("로그인이 만료되었습니다.");
       if (error.status === 403) throw new Error("업무 도우미를 사용할 권한이 없습니다.");
+      if (error.status === 429) throw new Error("이카운트 재고 조회 요청이 많습니다. 잠시 후 다시 시도해주세요.");
+      if (error.status === 504) throw new Error("재고 조회 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+      if (error.status === 502 || error.status === 503) throw new Error("현재 재고 정보를 불러올 수 없습니다.");
       if (error.status >= 500) throw new Error("질문 처리 중 오류가 발생했습니다.");
       if (!error.status) throw new Error("업무 도우미 서버에 연결할 수 없습니다.");
       throw new Error(error.message || "질문을 처리할 수 없습니다.");
@@ -128,6 +131,12 @@ export async function fetchInventoryAnalysisForAi(aiResponse) {
 }
 
 export async function fetchInventoryForAi(aiResponse, originalQuestion) {
+  if (aiResponse.data?.inventory_response) {
+    return {
+      inventoryResponse: aiResponse.data.inventory_response,
+      answer: aiResponse.message || buildInventoryAnswer(aiResponse.data.inventory_response),
+    };
+  }
   const params = getInventoryQuery(aiResponse, originalQuestion);
   if (!params.itemCode && !params.keyword && aiResponse.intent !== "inventory_low_stock") {
     throw new Error("조회할 품목명 또는 품목코드를 함께 입력해주세요.");
@@ -144,6 +153,7 @@ export async function fetchInventoryForAi(aiResponse, originalQuestion) {
 }
 
 export async function rememberInventoryContext({ aiResponse, query, inventoryResponse }) {
+  if (aiResponse.data?.inventory_response) return;
   const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
   if (!items.length) return;
   await saveAiInventoryContext({

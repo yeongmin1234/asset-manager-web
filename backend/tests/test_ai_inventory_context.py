@@ -99,10 +99,16 @@ class AiInventoryContextTest(unittest.TestCase):
     def test_exact_bare_name_uses_recent_context_without_product_api(self):
         self.save()
         inventory = Mock()
+        inventory.get_aggregated_inventory.return_value = {
+            "success": True, "authenticated": True, "total": 1,
+            "items": [inventory_item()], "message": "재고 조회에 성공했습니다.",
+            "response_time_ms": 1,
+        }
         response = AiAssistantService(inventory).process_message("뉴토스터블랙", user_id=1)
         self.assertEqual(response["intent"], "inventory_search")
         self.assertEqual(response["data"]["item_code"], "00016")
         inventory.recommend_products.assert_not_called()
+        inventory.get_aggregated_inventory.assert_called_once_with("00016", product=None)
 
     def test_followup_does_not_call_external_api(self):
         self.save()
