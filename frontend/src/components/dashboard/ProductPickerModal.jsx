@@ -29,6 +29,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [recent, setRecent] = useState([]);
   const searchRef = useRef(null);
+  const optionRefs = useRef([]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedKeyword(keyword.trim()), 300);
@@ -73,6 +74,11 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
   if (!isOpen) return null;
 
   const choose = (item) => {
@@ -111,7 +117,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
   };
 
   return (
-    <div className="product-picker-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="product-picker-backdrop product-picker-overlay" role="presentation" onMouseDown={onClose}>
       <section className="product-picker-modal" role="dialog" aria-modal="true" aria-labelledby="product-picker-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="product-picker-heading">
           <div><h3 id="product-picker-title">품목 선택</h3><p>조회할 품목을 검색하거나 목록에서 선택하세요.</p></div>
@@ -127,16 +133,21 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
         <div className="product-picker-count">검색 결과 {total.toLocaleString("ko-KR")}건</div>
         <div className="product-picker-list" role="listbox" aria-label="전체 품목 목록">
           {items.map((item, index) => (
-            <button type="button" role="option" aria-selected={activeIndex === index} className={activeIndex === index ? "active" : ""} key={item.item_code} onMouseEnter={() => setActiveIndex(index)} onClick={() => choose(item)}>
+            <button ref={(element) => { optionRefs.current[index] = element; }} type="button" role="option" aria-selected={activeIndex === index} className={activeIndex === index ? "active" : ""} key={item.item_code} onMouseEnter={() => setActiveIndex(index)} onClick={() => choose(item)}>
               <strong>{item.item_name || "품목명 없음"}</strong>
               <span>{[item.item_code, item.size, item.unit].filter(Boolean).join(" · ")}</span>
             </button>
           ))}
           {!isLoading && !items.length && !error ? <p className="product-picker-empty">검색 조건에 맞는 품목이 없습니다.</p> : null}
-          {error ? <p className="product-picker-error">{error}</p> : null}
-          {isLoading ? <p className="product-picker-loading">품목을 불러오는 중입니다.</p> : null}
-          {!isLoading && items.length < total ? <button type="button" className="product-picker-more" onClick={loadMore}>더 보기</button> : null}
+          {error && !items.length ? <p className="product-picker-error">{error}</p> : null}
         </div>
+        {(isLoading || error || items.length < total) ? (
+          <footer className="product-picker-footer">
+            {error && items.length ? <p className="product-picker-error">{error}</p> : null}
+            {isLoading ? <p className="product-picker-loading">품목을 불러오는 중입니다.</p> : null}
+            {!isLoading && items.length < total ? <button type="button" className="product-picker-more" onClick={loadMore}>더 보기</button> : null}
+          </footer>
+        ) : null}
       </section>
     </div>
   );
