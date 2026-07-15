@@ -35,6 +35,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const conversationRef = useRef(null);
+  const inputRef = useRef(null);
   const requestLockRef = useRef(false);
   const recommendationLocksRef = useRef(new Set());
 
@@ -42,6 +43,15 @@ function AiAssistantCard({ onInventoryStateChange }) {
     const conversation = conversationRef.current;
     if (conversation) conversation.scrollTop = conversation.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(textarea.scrollHeight, 120);
+    textarea.style.height = `${Math.max(nextHeight, 40)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > 120 ? "auto" : "hidden";
+  }, [input]);
 
   const sendMessage = async (question = input) => {
     const trimmedQuestion = question.trim();
@@ -281,27 +291,30 @@ function AiAssistantCard({ onInventoryStateChange }) {
         ))}
       </div>
 
-      <div className="ai-assistant-examples" aria-label="예시 질문">
-        {EXAMPLE_QUESTIONS.map((question) => (
-          <button type="button" key={question} onClick={() => sendMessage(question)} disabled={isSending}>
-            {question}
-          </button>
-        ))}
-      </div>
+      <div className="ai-assistant-input-area">
+        <div className="ai-assistant-examples" aria-label="예시 질문">
+          {EXAMPLE_QUESTIONS.map((question) => (
+            <button type="button" key={question} onClick={() => sendMessage(question)} disabled={isSending}>
+              {question}
+            </button>
+          ))}
+        </div>
 
-      <div className="ai-assistant-input-row">
-        <textarea
-          rows="1"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isSending}
-          placeholder="질문을 입력하세요"
-          aria-label="AI 업무 도우미 질문"
-        />
-        <button type="button" onClick={() => sendMessage()} disabled={!input.trim() || isSending}>
-          {isSending ? "전송 중" : "전송"}
-        </button>
+        <div className="ai-assistant-input-row">
+          <textarea
+            ref={inputRef}
+            rows="1"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isSending}
+            placeholder="질문을 입력하세요"
+            aria-label="AI 업무 도우미 질문"
+          />
+          <button type="button" onClick={() => sendMessage()} disabled={!input.trim() || isSending}>
+            {isSending ? "전송 중" : "전송"}
+          </button>
+        </div>
       </div>
     </section>
   );
