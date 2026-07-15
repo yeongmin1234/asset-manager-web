@@ -30,6 +30,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [recent, setRecent] = useState([]);
   const searchRef = useRef(null);
+  const listRef = useRef(null);
   const optionRefs = useRef([]);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
     let cancelled = false;
     setIsLoading(true);
     setError("");
+    if (listRef.current) listRef.current.scrollTop = 0;
     getInventoryProducts({ keyword: debouncedKeyword || undefined, page: 1, pageSize: PAGE_SIZE })
       .then((response) => {
         if (cancelled) return;
@@ -148,7 +150,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
           <input ref={searchRef} value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={handleSearchKeyDown} placeholder="품목명, 코드, 규격, 바코드로 검색" autoComplete="off" />
         </label>
         <div className="product-picker-count">검색 결과 {total.toLocaleString("ko-KR")}건</div>
-        <div className="product-picker-list" role="listbox" aria-label="전체 품목 목록">
+        <div ref={listRef} className="product-picker-list" role="listbox" aria-label="전체 품목 목록">
           {items.map((item, index) => (
             <button ref={(element) => { optionRefs.current[index] = element; }} type="button" role="option" aria-selected={activeIndex === index} className={activeIndex === index ? "active" : ""} key={item.item_code} onClick={() => choose(item)}>
               <strong>{item.item_name || "품목명 없음"}</strong>
