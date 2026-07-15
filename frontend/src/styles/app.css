@@ -789,7 +789,9 @@ p {
   font-size: 0.78rem;
 }
 
-.visitor-item span:last-child {
+.visitor-item .visitor-meta {
+  color: #7b8798;
+  font-size: 0.72rem;
   grid-column: 1 / -1;
 }
 

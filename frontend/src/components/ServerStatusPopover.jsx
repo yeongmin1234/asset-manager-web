@@ -56,6 +56,18 @@ function shortenUserAgent(value) {
   return text.slice(0, 32);
 }
 
+function getVisitorDisplayName(visitor) {
+  return visitor?.user_name || visitor?.username || visitor?.ip_address || "알 수 없음";
+}
+
+function getVisitorMeta(visitor) {
+  const lastSeen = formatLastSeen(visitor?.last_seen);
+  if (visitor?.user_name || visitor?.username) {
+    return `${visitor?.ip_address || "-"} · ${lastSeen}`;
+  }
+  return lastSeen;
+}
+
 function StatusValue({ isOk, unknownLabel = "확인 대기" }) {
   if (isOk === null || isOk === undefined) {
     return (
@@ -87,9 +99,17 @@ function getStatusButtonClass(status) {
   return "server-status-button-idle";
 }
 
-function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status, visitorSummary }) {
+function ServerStatusPopover({
+  isOpen,
+  onToggle,
+  onClose,
+  onCheck,
+  showVisitorSummary = false,
+  status,
+  visitorSummary,
+}) {
   const wrapperRef = useRef(null);
-  const activeCount = visitorSummary?.active_count;
+  const activeCount = showVisitorSummary ? visitorSummary?.active_count : null;
   const visitors = Array.isArray(visitorSummary?.visitors) ? visitorSummary.visitors : [];
 
   useEffect(() => {
@@ -194,7 +214,7 @@ function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status, visit
             <p className="server-status-error">{status.message}</p>
           ) : null}
 
-          <div className="visitor-summary">
+          {showVisitorSummary ? <div className="visitor-summary">
             <div className="visitor-summary-heading">
               <strong>접속자 현황</strong>
               <span>최근 {visitorSummary?.active_window_seconds || 180}초 기준</span>
@@ -205,16 +225,16 @@ function ServerStatusPopover({ isOpen, onToggle, onClose, onCheck, status, visit
               <div className="visitor-list">
                 {visitors.map((visitor) => (
                   <div className="visitor-item" key={visitor.ip_address}>
-                    <strong>{visitor.ip_address}</strong>
-                    <span>{shortenUserAgent(visitor.user_agent)}</span>
-                    <span>{formatLastSeen(visitor.last_seen)}</span>
+                    <strong>{getVisitorDisplayName(visitor)}</strong>
+                    <span className="visitor-browser">{shortenUserAgent(visitor.user_agent)}</span>
+                    <span className="visitor-meta">{getVisitorMeta(visitor)}</span>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="visitor-summary-empty">현재 접속 정보를 확인 중입니다.</p>
             )}
-          </div>
+          </div> : null}
 
           <button
             type="button"

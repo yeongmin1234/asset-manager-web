@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta
 from typing import Dict, List
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+
+from app.core.auth import get_current_user, require_admin
+from app.models.user import User
+from app.services.login_access_log_service import get_client_ip
 
 
 ACTIVE_WINDOW_SECONDS = 180
@@ -29,6 +33,9 @@ def _get_active_visitors() -> List[dict]:
                 "ip_address": ip_address,
                 "last_seen": last_seen.isoformat(timespec="seconds"),
                 "user_agent": visitor.get("user_agent") or "",
+                "user_id": visitor.get("user_id"),
+                "username": visitor.get("username") or None,
+                "user_name": visitor.get("user_name") or None,
             }
         )
 
@@ -40,17 +47,23 @@ def _get_active_visitors() -> List[dict]:
 
 
 @router.post("/ping")
-def ping_visitor(request: Request) -> dict:
-    client_host = request.client.host if request.client else "unknown"
+def ping_visitor(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    client_host = get_client_ip(request) or "unknown"
     _visitors[client_host] = {
         "last_seen": _now(),
         "user_agent": request.headers.get("user-agent", ""),
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "user_name": current_user.name,
     }
     return {"ok": True}
 
 
 @router.get("/summary")
-def read_visitor_summary() -> dict:
+def read_visitor_summary(_: User = Depends(require_admin)) -> dict:
     visitors = _get_active_visitors()
     return {
         "active_count": len(visitors),

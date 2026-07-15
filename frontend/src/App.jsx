@@ -336,6 +336,7 @@ function App({ currentUser, onLogout }) {
   const refreshVisitors = useCallback(async () => {
     try {
       await pingVisitor();
+      if (!isAdmin) return;
       const summary = await getVisitorsSummary();
       setVisitorSummary({
         active_count: Number(summary?.active_count || 0),
@@ -344,12 +345,13 @@ function App({ currentUser, onLogout }) {
         error: "",
       });
     } catch (error) {
+      if (!isAdmin) return;
       setVisitorSummary((current) => ({
         ...current,
         error: error.message,
       }));
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadLookups = useCallback(async () => {
     setLookupState({ isLoading: true, categoryError: "", departmentError: "" });
@@ -1120,7 +1122,11 @@ function App({ currentUser, onLogout }) {
               isOpen={isServerStatusOpen}
               onToggle={() => setIsServerStatusOpen((current) => !current)}
               onClose={() => setIsServerStatusOpen(false)}
-              onCheck={checkBackend}
+              onCheck={() => {
+                checkBackend();
+                refreshVisitors();
+              }}
+              showVisitorSummary={isAdmin}
               status={backendStatus}
               visitorSummary={visitorSummary}
             />
