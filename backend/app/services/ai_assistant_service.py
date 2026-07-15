@@ -9,6 +9,8 @@ from app.services.ai_inventory_context_service import (
     select_context_item,
 )
 from app.services.ai_intent_service import IntentResult, analyze_intent
+from app.services.ai_router_service import AiRouterService
+from app.services.ai_tool_service import AiToolService
 
 
 logger = logging.getLogger(__name__)
@@ -25,10 +27,12 @@ INVENTORY_SUGGESTIONS = [
 
 
 class AiAssistantService:
-    def process_message(self, message: str, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def process_message(self, message: str, user_id: Optional[int] = None, user=None) -> Dict[str, Any]:
         started_at = time.monotonic()
         followup_intent = classify_inventory_followup(message)
         if followup_intent and user_id is not None:
+            if user is not None:
+                AiToolService().validate("inventory_search", {}, user)
             response = self._build_context_response(user_id, followup_intent)
             logger.info(
                 "AI assistant processed intent=%s success=true response_time_ms=%s",
@@ -36,14 +40,17 @@ class AiAssistantService:
                 max(0, int((time.monotonic() - started_at) * 1000)),
             )
             return response
-        result = analyze_intent(message)
+        result, ai_mode, tool_name, fallback = AiRouterService().route(message, user=user)
         try:
             response = self._build_response(result)
             logger.info(
-                "AI assistant processed intent=%s success=true response_time_ms=%s",
-                result.intent,
+                "AI assistant processed intent=%s mode=%s tool=%s fallback=%s success=true response_time_ms=%s",
+                result.intent, ai_mode, tool_name or "-", fallback,
                 max(0, int((time.monotonic() - started_at) * 1000)),
             )
+            data = dict(response.get("data") or {})
+            data["_ai"] = {"mode": ai_mode, "tool": tool_name, "fallback": fallback}
+            response["data"] = data
             return response
         except Exception:
             logger.exception("AI assistant failed intent=%s", result.intent)
@@ -59,9 +66,29 @@ class AiAssistantService:
             )
 
         handlers = {
+            "inventory_alert_summary": self._inventory_pending,
+            "inventory_out_of_stock": self._inventory_pending,
+            "inventory_alert_negative": self._inventory_pending,
+            "inventory_negative_stock": self._inventory_pending,
+            "inventory_rapid_decrease": self._inventory_pending,
+            "inventory_alert_low_stock": self._inventory_pending,
             "inventory_item_code": self._inventory_item_code,
             "inventory_low_stock": self._inventory_pending,
             "inventory_search": self._inventory_pending,
+            "inventory_compare": self._inventory_pending,
+            "inventory_sort": self._inventory_pending,
+            "inventory_filter": self._inventory_pending,
+            "inventory_min": self._inventory_pending,
+            "inventory_max": self._inventory_pending,
+            "inventory_zero": self._inventory_pending,
+            "inventory_negative": self._inventory_pending,
+            "inventory_change_summary": self._inventory_pending,
+            "inventory_change_compare": self._inventory_pending,
+            "inventory_increased": self._inventory_pending,
+            "inventory_decreased": self._inventory_pending,
+            "inventory_largest_increase": self._inventory_pending,
+            "inventory_largest_decrease": self._inventory_pending,
+            "inventory_history_compare": self._inventory_pending,
             "asset_search": lambda _: "자산 조회 기능은 추후 연결 예정입니다.",
             "vehicle_search": lambda _: "차량 정보 조회 기능은 추후 연결 예정입니다.",
             "vehicle_expiration": lambda _: "보험·리스 만료 조회 기능은 추후 연결 예정입니다.",

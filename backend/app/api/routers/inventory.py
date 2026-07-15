@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_menu_permission
 from app.models.user import User
 from app.schemas.inventory import AggregatedInventoryResponse
 from app.services.ecount_api_service import EcountConfigurationError
@@ -21,15 +21,120 @@ from app.schemas.inventory_snapshot import (
     InventorySnapshotCompareResponse,
     InventorySnapshotGroupResponse,
     InventorySnapshotHistoryItem,
+    InventoryChangeResponse,
 )
 from app.services.inventory_snapshot_query_service import (
     compare_latest_snapshots,
     get_latest_snapshot,
     get_snapshot_history,
 )
+from app.services.inventory_change_analysis_service import InventoryChangeAnalysisService
+from app.models.inventory_alert import InventoryAlert
 
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+def _alert_item(row):
+    return {
+        "id": row.id, "alert_type": row.alert_type, "severity": row.severity,
+        "status": row.status, "item_code": row.item_code, "item_name": row.item_name,
+        "current_quantity": row.current_quantity, "total_quantity": row.current_quantity,
+        "previous_quantity": row.previous_quantity, "change_quantity": row.change_quantity,
+        "change_rate": row.change_rate, "threshold": row.threshold_description,
+        "detected_at": row.detected_at, "safe_message": row.safe_message,
+        "partial_result": row.partial_result, "warehouses": [],
+    }
+
+
+@router.get("/alerts")
+def read_inventory_alerts(
+    alert_status: Optional[str] = Query(default="active", alias="status"),
+    alert_type: Optional[str] = None, severity: Optional[str] = None,
+    item_code: Optional[str] = Query(default=None, max_length=20),
+    limit: int = Query(default=100, ge=1, le=200), db: Session = Depends(get_db),
+    _=Depends(require_menu_permission("dashboard")),
+):
+    query = db.query(InventoryAlert)
+    if alert_status:
+        query = query.filter(InventoryAlert.status == alert_status)
+    if alert_type:
+        query = query.filter(InventoryAlert.alert_type == alert_type.upper())
+    if severity:
+        query = query.filter(InventoryAlert.severity == severity.lower())
+    if item_code:
+        query = query.filter(InventoryAlert.item_code == item_code.strip())
+    rows = query.order_by(InventoryAlert.detected_at.desc()).limit(limit).all()
+    return {"total": len(rows), "items": [_alert_item(row) for row in rows], "mode": "inventory_alert"}
+
+
+@router.get("/alerts/summary")
+def read_inventory_alert_summary(
+    db: Session = Depends(get_db), _=Depends(require_menu_permission("dashboard")),
+):
+    rows = db.query(InventoryAlert).filter(InventoryAlert.status == "active").all()
+    counts = {key: 0 for key in ("OUT_OF_STOCK", "LOW_STOCK", "NEGATIVE_STOCK", "RAPID_DECREASE")}
+    for row in rows:
+        counts[row.alert_type] = counts.get(row.alert_type, 0) + 1
+    return {
+        "active_total": len(rows), "out_of_stock": counts["OUT_OF_STOCK"],
+        "low_stock": counts["LOW_STOCK"], "negative_stock": counts["NEGATIVE_STOCK"],
+        "rapid_decrease": counts["RAPID_DECREASE"],
+        "items": [_alert_item(row) for row in rows[:200]], "mode": "inventory_alert",
+    }
+
+
+@router.get("/analysis/compare", response_model=InventoryChangeResponse)
+def analyze_inventory_change(
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+    item_code: Optional[str] = Query(default=None, max_length=20),
+    keyword: Optional[str] = Query(default=None, max_length=200),
+    schedule_id: Optional[int] = None,
+    start_schedule_id: Optional[int] = None,
+    end_schedule_id: Optional[int] = None,
+    direction: str = Query(default="all"),
+    extreme: Optional[str] = Query(default=None),
+    mode: str = Query(default="latest_previous"),
+    today_only: bool = False,
+    limit: int = Query(default=200, ge=1, le=200),
+    db: Session = Depends(get_db),
+    _=Depends(require_menu_permission("dashboard")),
+):
+    try:
+        return InventoryChangeAnalysisService().compare(
+            db, start_at=start_at, end_at=end_at, item_code=item_code, keyword=keyword,
+            schedule_id=schedule_id, start_schedule_id=start_schedule_id,
+            end_schedule_id=end_schedule_id, direction=direction, mode=mode,
+            extreme=extreme, today_only=today_only, limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/analysis/summary", response_model=InventoryChangeResponse)
+def summarize_inventory_change(
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+    item_code: Optional[str] = Query(default=None, max_length=20),
+    keyword: Optional[str] = Query(default=None, max_length=200),
+    schedule_id: Optional[int] = None,
+    start_schedule_id: Optional[int] = None,
+    end_schedule_id: Optional[int] = None,
+    mode: str = Query(default="latest_previous"),
+    today_only: bool = False,
+    limit: int = Query(default=200, ge=1, le=200),
+    db: Session = Depends(get_db),
+    _=Depends(require_menu_permission("dashboard")),
+):
+    try:
+        return InventoryChangeAnalysisService().summary(
+            db, start_at=start_at, end_at=end_at, item_code=item_code, keyword=keyword,
+            schedule_id=schedule_id, start_schedule_id=start_schedule_id,
+            end_schedule_id=end_schedule_id, mode=mode, today_only=today_only, limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/snapshots/latest", response_model=InventorySnapshotGroupResponse)

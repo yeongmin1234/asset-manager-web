@@ -318,6 +318,33 @@ export async function analyzeInventory({ intent, queries, direction, comparison,
   });
 }
 
+export async function analyzeInventoryChange(params = {}, summary = false) {
+  return request(`/inventory/analysis/${summary ? "summary" : "compare"}`, {
+    query: {
+      start_at: params.startAt,
+      end_at: params.endAt,
+      item_code: params.itemCode,
+      keyword: params.keyword,
+      schedule_id: params.scheduleId,
+      start_schedule_id: params.startScheduleId,
+      end_schedule_id: params.endScheduleId,
+      direction: params.direction,
+      extreme: params.extreme,
+      mode: params.mode,
+      today_only: params.todayOnly,
+      limit: params.limit,
+    },
+  });
+}
+
+export async function getInventoryAlerts({ alertType, status = "active", limit = 200 } = {}) {
+  return request("/inventory/alerts", { query: { alert_type: alertType, status, limit } });
+}
+
+export async function getInventoryAlertSummary() {
+  return request("/inventory/alerts/summary");
+}
+
 export async function login(username, password) {
   const result = await request("/auth/login", {
     method: "POST",

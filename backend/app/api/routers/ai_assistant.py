@@ -9,6 +9,7 @@ from app.schemas.ai_assistant import (
     AiInventoryContextResponse,
 )
 from app.services.ai_assistant_service import AiAssistantService
+from app.services.ai_tool_service import AiToolPermissionError
 from app.services.ai_inventory_context_service import save_inventory_context
 
 
@@ -21,7 +22,9 @@ def chat(
     current_user: User = Depends(get_current_user),
 ) -> AiChatResponse:
     try:
-        return AiChatResponse(**AiAssistantService().process_message(payload.message, current_user.id))
+        return AiChatResponse(**AiAssistantService().process_message(payload.message, current_user.id, current_user))
+    except AiToolPermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="해당 기능을 사용할 권한이 없습니다.") from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:

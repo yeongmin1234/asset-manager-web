@@ -1,7 +1,10 @@
 import {
   ApiError,
   analyzeInventory,
+  analyzeInventoryChange,
   getLowStockInventory,
+  getInventoryAlerts,
+  getInventoryAlertSummary,
   postAiChat,
   saveAiInventoryContext,
   searchInventory,
@@ -19,6 +22,19 @@ const INVENTORY_ANALYSIS_INTENTS = new Set([
   "inventory_max",
   "inventory_zero",
   "inventory_negative",
+]);
+const INVENTORY_CHANGE_INTENTS = new Set([
+  "inventory_change_summary",
+  "inventory_change_compare",
+  "inventory_increased",
+  "inventory_decreased",
+  "inventory_largest_increase",
+  "inventory_largest_decrease",
+  "inventory_history_compare",
+]);
+const INVENTORY_ALERT_INTENTS = new Set([
+  "inventory_alert_summary", "inventory_out_of_stock", "inventory_alert_negative",
+  "inventory_negative_stock", "inventory_rapid_decrease", "inventory_alert_low_stock",
 ]);
 
 export async function sendAiAssistantMessage(message) {
@@ -46,6 +62,47 @@ export function isInventoryContextIntent(intent) {
 
 export function isInventoryAnalysisIntent(intent) {
   return INVENTORY_ANALYSIS_INTENTS.has(intent);
+}
+
+export function isInventoryChangeIntent(intent) {
+  return INVENTORY_CHANGE_INTENTS.has(intent);
+}
+
+export function isInventoryAlertIntent(intent) { return INVENTORY_ALERT_INTENTS.has(intent); }
+
+export async function fetchInventoryAlertsForAi(aiResponse) {
+  const types = {
+    inventory_out_of_stock: "OUT_OF_STOCK", inventory_alert_negative: "NEGATIVE_STOCK",
+    inventory_negative_stock: "NEGATIVE_STOCK",
+    inventory_rapid_decrease: "RAPID_DECREASE", inventory_alert_low_stock: "LOW_STOCK",
+  };
+  const response = aiResponse.intent === "inventory_alert_summary"
+    ? await getInventoryAlertSummary() : await getInventoryAlerts({ alertType: types[aiResponse.intent] });
+  const total = response.active_total ?? response.total ?? response.items?.length ?? 0;
+  const answer = aiResponse.intent === "inventory_alert_summary"
+    ? `현재 확인이 필요한 재고 경고는 ${total}건입니다.\n\n품절 ${response.out_of_stock || 0}건\n부족 재고 ${response.low_stock || 0}건\n음수 재고 ${response.negative_stock || 0}건\n급감 품목 ${response.rapid_decrease || 0}건\n\n상세 결과는 왼쪽 패널에서 확인할 수 있습니다.`
+    : `현재 조건에 해당하는 재고 경고는 ${total}건입니다. 상세 결과는 왼쪽 패널에서 확인할 수 있습니다.`;
+  return { inventoryResponse: response, answer };
+}
+
+export async function fetchInventoryChangeForAi(aiResponse) {
+  const isLargest = aiResponse.intent === "inventory_largest_increase"
+    || aiResponse.intent === "inventory_largest_decrease";
+  const response = await analyzeInventoryChange({
+    itemCode: aiResponse.data?.item_code,
+    keyword: aiResponse.data?.keyword,
+    direction: aiResponse.data?.direction || "all",
+    extreme: aiResponse.intent === "inventory_largest_increase"
+      ? "largest_increase"
+      : aiResponse.intent === "inventory_largest_decrease" ? "largest_decrease" : undefined,
+    mode: aiResponse.data?.mode || "latest_previous",
+    todayOnly: aiResponse.data?.today_only || false,
+    limit: isLargest ? 10 : 200,
+  }, aiResponse.intent === "inventory_change_summary");
+  return {
+    inventoryResponse: response,
+    answer: response.answer || response.message,
+  };
 }
 
 export async function fetchInventoryAnalysisForAi(aiResponse) {

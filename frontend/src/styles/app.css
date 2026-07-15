@@ -14883,6 +14883,36 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   margin: 0;
 }
 
+.inventory-change-value,
+.inventory-change-badge {
+  font-weight: 800;
+}
+
+.inventory-change-badge {
+  background: #f8fafc;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.inventory-change-increased,
+.inventory-change-newly_added {
+  color: #166534;
+}
+
+.inventory-change-decreased,
+.inventory-change-no_longer_present,
+.inventory-change-negative_transition {
+  color: #b42318;
+}
+
+.inventory-change-unchanged {
+  color: #64748b;
+}
+
 @media (max-width: 1180px) {
   .dashboard-work-column-side {
     grid-template-columns: 1fr;

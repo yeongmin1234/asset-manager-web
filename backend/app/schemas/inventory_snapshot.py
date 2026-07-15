@@ -142,3 +142,40 @@ class InventorySnapshotAdminRead(BaseModel):
     total_quantity: Decimal
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InventoryChangeItem(BaseModel):
+    item_code: str
+    item_name: Optional[str] = None
+    unit: Optional[str] = None
+    before_quantity: Decimal
+    after_quantity: Decimal
+    change_quantity: Decimal
+    change_rate: Optional[Decimal] = None
+    change_rate_label: Optional[str] = None
+    status: str
+    total_quantity: Decimal
+    warehouses: List[StoredWarehouseInventory] = Field(default_factory=list)
+
+
+class InventoryChangeResponse(BaseModel):
+    success: bool
+    available: bool
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
+    start_snapshot_group_id: Optional[str] = None
+    end_snapshot_group_id: Optional[str] = None
+    start_schedule_id: Optional[int] = None
+    end_schedule_id: Optional[int] = None
+    selection_note: str
+    total_items: int
+    total: int
+    increased_count: int
+    decreased_count: int
+    unchanged_count: int
+    largest_increase: Optional[InventoryChangeItem] = None
+    largest_decrease: Optional[InventoryChangeItem] = None
+    items: List[InventoryChangeItem]
+    message: str
+    answer: str
+    analysis: dict

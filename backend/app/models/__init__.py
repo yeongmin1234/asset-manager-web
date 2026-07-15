@@ -34,6 +34,8 @@ from app.models.user import User
 from app.models.inventory_schedule import InventorySchedule
 from app.models.inventory_snapshot import InventorySnapshot
 from app.models.inventory_job_run import InventoryJobRun
+from app.models.inventory_alert_rule import InventoryAlertRule
+from app.models.inventory_alert import InventoryAlert
 
 __all__ = [
     "Asset",
@@ -74,4 +76,6 @@ __all__ = [
     "InventorySchedule",
     "InventorySnapshot",
     "InventoryJobRun",
+    "InventoryAlertRule",
+    "InventoryAlert",
 ]

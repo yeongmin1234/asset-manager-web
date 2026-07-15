@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     inventory_snapshot_request_interval: float = 1.0
     inventory_snapshot_412_max_retries: int = 2
     inventory_snapshot_retention_days: int = 180
+    ai_enabled: bool = False
+    ai_provider: str = "openai_compatible"
+    ai_model: str = ""
+    ai_api_key: str = ""
+    ai_base_url: str = ""
+    ai_timeout_seconds: float = 8.0
+    ai_fallback_enabled: bool = True
+    ai_min_confidence: float = 0.70
 
     model_config = SettingsConfigDict(
         # Resolve backend/.env independently of the directory uvicorn was

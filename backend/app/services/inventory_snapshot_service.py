@@ -124,6 +124,20 @@ class InventorySnapshotService:
             schedule.last_run_at = run.finished_at
             db.commit()
             db.refresh(run)
+            # Snapshot persistence is the transaction boundary. Alert evaluation runs
+            # only after a successful save and never makes the snapshot job fail.
+            try:
+                from app.services.inventory_alert_service import InventoryAlertService
+                InventoryAlertService.detect_for_snapshot_group(
+                    db, group_id, partial_result=bool(failures)
+                )
+                db.commit()
+            except Exception as alert_exc:
+                db.rollback()
+                logger.error(
+                    "Inventory alert detection failed schedule_id=%s error_type=%s",
+                    schedule.id, type(alert_exc).__name__,
+                )
             return run
         except InventoryError as exc:
             return self._finish_failed(db, run, expected_requested, 1, exc.kind, exc.message)

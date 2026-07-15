@@ -2,7 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   fetchInventoryForAi,
   fetchInventoryAnalysisForAi,
+  fetchInventoryChangeForAi,
+  fetchInventoryAlertsForAi,
   isInventoryAnalysisIntent,
+  isInventoryChangeIntent,
+  isInventoryAlertIntent,
   isInventoryContextIntent,
   isInventoryIntent,
   rememberInventoryContext,
@@ -27,6 +31,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [aiMode, setAiMode] = useState("rules");
   const conversationRef = useRef(null);
 
   useEffect(() => {
@@ -50,6 +55,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
 
     try {
       const response = await sendAiAssistantMessage(trimmedQuestion);
+      setAiMode(response.data?._ai?.mode === "natural" ? "natural" : "rules");
       let answer = response.message;
       if (isInventoryContextIntent(response.intent)) {
         const inventoryResponse = response.data?.inventory_response;
@@ -64,6 +70,32 @@ function AiAssistantCard({ onInventoryStateChange }) {
             errorMessage: null,
           });
         }
+      } else if (isInventoryAlertIntent(response.intent)) {
+        onInventoryStateChange?.({ status: "loading", query: trimmedQuestion, items: [], selectedItemCode: null, searchedAt: null, errorMessage: null, analysis: null });
+        const inventory = await fetchInventoryAlertsForAi(response);
+        answer = inventory.answer;
+        const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+        onInventoryStateChange?.({ status: items.length ? "success" : "empty", query: trimmedQuestion, items, selectedItemCode: items[0]?.item_code || null, searchedAt: new Date().toISOString(), errorMessage: null, analysis: { type: "inventory_alert", label: "재고 경고" } });
+      } else if (isInventoryChangeIntent(response.intent)) {
+        setMessages((current) => current.map((message) => (
+          message.id === pendingId ? { ...message, content: "저장된 재고 변화를 분석하고 있습니다." } : message
+        )));
+        onInventoryStateChange?.({
+          status: "loading", query: trimmedQuestion, items: [], selectedItemCode: null,
+          searchedAt: null, errorMessage: null, analysis: null,
+        });
+        const inventory = await fetchInventoryChangeForAi(response);
+        answer = inventory.answer;
+        const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+        onInventoryStateChange?.({
+          status: items.length ? "success" : "empty",
+          query: trimmedQuestion,
+          items,
+          selectedItemCode: items[0]?.item_code || null,
+          searchedAt: new Date().toISOString(),
+          errorMessage: null,
+          analysis: inventory.inventoryResponse?.analysis || null,
+        });
       } else if (isInventoryAnalysisIntent(response.intent)) {
         setMessages((current) => current.map((message) => (
           message.id === pendingId ? { ...message, content: "재고 조건을 분석하고 있습니다." } : message
@@ -152,7 +184,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
           <h3 id="ai-assistant-title">AI 업무 도우미</h3>
           <p>재고 및 사내 업무 정보를 질문해보세요.</p>
         </div>
-        <span>규칙 기반</span>
+        <span>{aiMode === "natural" ? "자연어 보조" : "규칙 기반"}</span>
       </div>
 
       <div className="ai-assistant-conversation" ref={conversationRef} aria-live="polite">

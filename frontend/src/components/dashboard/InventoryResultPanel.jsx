@@ -8,9 +8,27 @@ export function formatInventoryQuantity(value) {
   return trimmed === "-0" ? "0" : trimmed;
 }
 
+function formatInventoryChange(value) {
+  const formatted = formatInventoryQuantity(value);
+  return !formatted.startsWith("-") && formatted !== "0" && formatted !== "확인 필요"
+    ? `+${formatted}`
+    : formatted;
+}
+
+const CHANGE_STATUS_LABELS = {
+  increased: "증가",
+  decreased: "감소",
+  unchanged: "변화 없음",
+  newly_added: "신규 증가",
+  no_longer_present: "미존재 전환",
+  negative_transition: "음수 전환",
+};
+
 function InventoryResultPanel({ state, isVisible = true }) {
   const [selectedCode, setSelectedCode] = useState(null);
   const items = Array.isArray(state.items) ? state.items : [];
+  const isChangeAnalysis = state.analysis?.type === "inventory_change";
+  const isAlertAnalysis = state.analysis?.type === "inventory_alert";
 
   useEffect(() => {
     setSelectedCode(state.selectedItemCode || items[0]?.item_code || null);
@@ -34,6 +52,7 @@ function InventoryResultPanel({ state, isVisible = true }) {
           <strong>{state.analysis.label}</strong>
           <span>일치 {items.length}건</span>
           {state.analysis.limited ? <em>최대 {state.analysis.scope_limit}개 범위</em> : null}
+          {state.analysis.selection_note ? <em>{state.analysis.selection_note}</em> : null}
         </div>
       ) : null}
 
@@ -58,14 +77,22 @@ function InventoryResultPanel({ state, isVisible = true }) {
 
       {state.status === "success" && items.length > 0 ? (
         <>
-          {items.length > 1 ? (
+          {items.length > 1 || isChangeAnalysis || isAlertAnalysis ? (
             <div className="inventory-result-table-wrap">
               <table className="inventory-result-table">
                 <thead><tr>
-                  {state.analysis?.type === "inventory_sort" ? <th>순위</th> : null}
-                  <th>품목코드</th><th>품목명</th><th>단위</th><th>총 재고</th>
-                  {state.analysis?.type === "inventory_compare" ? <th>차이</th> : null}
-                  <th>창고 수</th>
+                  {isAlertAnalysis ? (
+                    <><th>상태</th><th>품목코드</th><th>품목명</th><th>현재 재고</th><th>기준</th><th>감지 시각</th></>
+                  ) : isChangeAnalysis ? (
+                    <><th>품목코드</th><th>품목명</th><th>이전 재고</th><th>현재 재고</th><th>증감</th><th>증감률</th><th>상태</th></>
+                  ) : (
+                    <>
+                      {state.analysis?.type === "inventory_sort" ? <th>순위</th> : null}
+                      <th>품목코드</th><th>품목명</th><th>단위</th><th>총 재고</th>
+                      {state.analysis?.type === "inventory_compare" ? <th>차이</th> : null}
+                      <th>창고 수</th>
+                    </>
+                  )}
                 </tr></thead>
                 <tbody>
                   {items.map((item) => (
@@ -74,13 +101,30 @@ function InventoryResultPanel({ state, isVisible = true }) {
                       className={selectedItem?.item_code === item.item_code ? "selected" : ""}
                       onClick={() => setSelectedCode(item.item_code)}
                     >
-                      {state.analysis?.type === "inventory_sort" ? <td>{item.rank || "-"}</td> : null}
-                      <td>{item.item_code}</td><td>{item.item_name || "-"}</td><td>{item.unit || "-"}</td>
-                      <td className={String(item.total_quantity).startsWith("-") ? "negative" : ""}>
-                        {formatInventoryQuantity(item.total_quantity)}
-                      </td>
-                      {state.analysis?.type === "inventory_compare" ? <td>{formatInventoryQuantity(item.difference)}</td> : null}
-                      <td>{item.warehouses?.length || 0}</td>
+                      {isAlertAnalysis ? (
+                        <><td><span className={`inventory-change-badge inventory-alert-${item.severity}`}>{item.alert_type}</span></td><td>{item.item_code}</td><td>{item.item_name || "-"}</td><td>{formatInventoryQuantity(item.current_quantity)}</td><td>{item.threshold || "-"}</td><td>{item.detected_at ? new Date(item.detected_at).toLocaleString("ko-KR") : "-"}</td></>
+                      ) : isChangeAnalysis ? (
+                        <>
+                          <td>{item.item_code}</td><td>{item.item_name || "-"}</td>
+                          <td>{formatInventoryQuantity(item.before_quantity)}</td>
+                          <td>{formatInventoryQuantity(item.after_quantity)}</td>
+                          <td className={`inventory-change-value inventory-change-${item.status}`}>
+                            {formatInventoryChange(item.change_quantity)}
+                          </td>
+                          <td>{item.change_rate_label || (item.change_rate == null ? "-" : `${formatInventoryChange(item.change_rate)}%`)}</td>
+                          <td><span className={`inventory-change-badge inventory-change-${item.status}`}>{CHANGE_STATUS_LABELS[item.status] || item.status}</span></td>
+                        </>
+                      ) : (
+                        <>
+                          {state.analysis?.type === "inventory_sort" ? <td>{item.rank || "-"}</td> : null}
+                          <td>{item.item_code}</td><td>{item.item_name || "-"}</td><td>{item.unit || "-"}</td>
+                          <td className={String(item.total_quantity).startsWith("-") ? "negative" : ""}>
+                            {formatInventoryQuantity(item.total_quantity)}
+                          </td>
+                          {state.analysis?.type === "inventory_compare" ? <td>{formatInventoryQuantity(item.difference)}</td> : null}
+                          <td>{item.warehouses?.length || 0}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -93,11 +137,22 @@ function InventoryResultPanel({ state, isVisible = true }) {
               <dl>
                 <div><dt>품목코드</dt><dd>{selectedItem.item_code}</dd></div>
                 <div><dt>품목명</dt><dd>{selectedItem.item_name || "-"}</dd></div>
-                <div><dt>단위</dt><dd>{selectedItem.unit || "-"}</dd></div>
-                <div><dt>총 재고</dt><dd className={String(selectedItem.total_quantity).startsWith("-") ? "negative" : ""}>{formatInventoryQuantity(selectedItem.total_quantity)}</dd></div>
+                {isChangeAnalysis ? (
+                  <>
+                    <div><dt>이전 재고</dt><dd>{formatInventoryQuantity(selectedItem.before_quantity)}</dd></div>
+                    <div><dt>현재 재고</dt><dd>{formatInventoryQuantity(selectedItem.after_quantity)}</dd></div>
+                    <div><dt>증감</dt><dd className={`inventory-change-${selectedItem.status}`}>{formatInventoryChange(selectedItem.change_quantity)}</dd></div>
+                    <div><dt>증감률</dt><dd>{selectedItem.change_rate_label || (selectedItem.change_rate == null ? "-" : `${formatInventoryChange(selectedItem.change_rate)}%`)}</dd></div>
+                  </>
+                ) : (
+                  <>
+                    <div><dt>단위</dt><dd>{selectedItem.unit || "-"}</dd></div>
+                    <div><dt>총 재고</dt><dd className={String(selectedItem.total_quantity).startsWith("-") ? "negative" : ""}>{formatInventoryQuantity(selectedItem.total_quantity)}</dd></div>
+                  </>
+                )}
               </dl>
-              <h4>창고별 재고</h4>
-              {selectedItem.warehouses?.length ? (
+              {!isChangeAnalysis ? <h4>창고별 재고</h4> : null}
+              {!isChangeAnalysis && selectedItem.warehouses?.length ? (
                 <ul>
                   {selectedItem.warehouses.map((warehouse, index) => (
                     <li key={`${warehouse.warehouse_code || "warehouse"}-${index}`}>
@@ -106,7 +161,7 @@ function InventoryResultPanel({ state, isVisible = true }) {
                     </li>
                   ))}
                 </ul>
-              ) : <p className="inventory-result-no-warehouse">등록된 창고별 재고가 없습니다.</p>}
+              ) : !isChangeAnalysis ? <p className="inventory-result-no-warehouse">등록된 창고별 재고가 없습니다.</p> : null}
             </div>
           ) : null}
         </>
