@@ -14503,6 +14503,228 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   gap: 8px;
 }
 
+/* Dashboard work area: content stack + compact assistant sidebar */
+.dashboard-work-column {
+  align-content: start;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dashboard-expiration-panel-compact {
+  padding: 12px 14px;
+}
+
+.dashboard-expiration-panel-compact .dashboard-expiration-counts {
+  margin: 10px 0 8px;
+}
+
+.dashboard-expiration-panel-compact .dashboard-expiration-counts span {
+  padding: 6px;
+}
+
+.dashboard-expiration-panel-compact .dashboard-expiration-list {
+  gap: 6px;
+  max-height: 128px;
+  overflow-y: auto;
+}
+
+.dashboard-expiration-panel-compact .dashboard-expiration-item {
+  min-height: 34px;
+  padding: 6px 9px;
+}
+
+.dashboard-expiration-panel-compact .dashboard-empty {
+  margin-top: 8px;
+  padding: 9px 10px;
+}
+
+.ai-assistant-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 430px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ai-assistant-heading {
+  align-items: flex-start;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.ai-assistant-heading h3 {
+  color: #0f172a;
+  font-size: 1.06rem;
+  margin: 0;
+}
+
+.ai-assistant-heading p {
+  color: #64748b;
+  font-size: 0.82rem;
+  margin: 4px 0 0;
+}
+
+.ai-assistant-heading > span {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #64748b;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.ai-assistant-conversation {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 190px;
+  max-height: 310px;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.ai-assistant-message {
+  align-items: flex-start;
+  display: flex;
+  gap: 7px;
+  max-width: 88%;
+}
+
+.ai-assistant-message > span {
+  color: #64748b;
+  flex: 0 0 22px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding-top: 8px;
+}
+
+.ai-assistant-message p {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #334155;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+}
+
+.ai-assistant-message-user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.ai-assistant-message-user p {
+  background: #f8fbff;
+  border-color: #bfdbfe;
+}
+
+.ai-assistant-message-user > span {
+  text-align: right;
+}
+
+.ai-assistant-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 12px;
+}
+
+.ai-assistant-examples button,
+.ai-assistant-input-row button {
+  background: #ffffff !important;
+  border: 1px solid #bfdbfe !important;
+  box-shadow: none !important;
+  color: #2563eb !important;
+}
+
+.ai-assistant-examples button {
+  border-radius: 999px;
+  font-size: 0.76rem;
+  min-height: 30px;
+  min-width: 0;
+  padding: 5px 9px;
+}
+
+.ai-assistant-examples button:not(:disabled):hover,
+.ai-assistant-input-row button:not(:disabled):hover {
+  background: #eff6ff !important;
+  border-color: #60a5fa !important;
+  transform: none;
+}
+
+.ai-assistant-input-row {
+  align-items: end;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px 14px;
+}
+
+.ai-assistant-input-row textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.4;
+  max-height: 96px;
+  min-height: 38px;
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.ai-assistant-input-row textarea:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: 0;
+}
+
+.ai-assistant-input-row button {
+  min-height: 38px;
+  min-width: 62px;
+  padding: 7px 12px;
+}
+
+@media (max-width: 1180px) {
+  .dashboard-work-column-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-work-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dashboard-work-column-side {
+    order: -1;
+  }
+
+  .dashboard-expiration-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-assistant-card {
+    min-height: 390px;
+  }
+
+  .ai-assistant-conversation {
+    max-height: 250px;
+  }
+}
+
 .dashboard-expiration-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

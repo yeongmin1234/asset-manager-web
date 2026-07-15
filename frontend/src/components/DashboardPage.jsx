@@ -19,6 +19,7 @@ import {
   SortSelect,
   sortItems,
 } from "../utils/sortOptions.jsx";
+import AiAssistantCard from "./dashboard/AiAssistantCard.jsx";
 
 const NOTICE_TYPES = ["공지", "업데이트", "점검", "기타"];
 const EMPTY_NOTICE_FORM = {
@@ -410,6 +411,7 @@ function DashboardPage({ onNavigate }) {
       </div>
 
       <div className="dashboard-work-grid">
+        <div className="dashboard-work-column dashboard-work-column-main">
         <section className="dashboard-panel dashboard-attention-panel">
           <div className="dashboard-panel-heading">
             <h3>공지사항</h3>
@@ -459,40 +461,6 @@ function DashboardPage({ onNavigate }) {
                 </li>
               ))}
             </ul>
-          )}
-        </section>
-
-        <section className="dashboard-panel dashboard-expiration-panel">
-          <div className="dashboard-panel-heading">
-            <h3>점검·만료 현황</h3>
-            <button type="button" className="link-button" onClick={() => onNavigate?.("expiration_schedules")}>
-              관리
-            </button>
-          </div>
-          <div className="dashboard-expiration-counts">
-            <span className="expiration-count-overdue">기한 초과 {formatCount(expirationSummary.overdue_count)}건</span>
-            <span className="expiration-count-week">7일 이내 {formatCount(expirationSummary.within_7_days_count)}건</span>
-            <span className="expiration-count-month">30일 이내 {formatCount(expirationSummary.within_30_days_count)}건</span>
-          </div>
-          {expirationSummary.upcoming_items.length === 0 ? (
-            <div className="dashboard-empty">임박한 점검·만료 일정이 없습니다.</div>
-          ) : (
-            <div className="dashboard-expiration-list">
-              {expirationSummary.upcoming_items.map((item) => (
-                <button
-                  type="button"
-                  className={`dashboard-expiration-item dashboard-expiration-${item.status}`}
-                  key={item.id}
-                  onClick={() => {
-                    openExpirationScheduleFilter(item.status);
-                    onNavigate?.("expiration_schedules");
-                  }}
-                >
-                  <strong>{getCategoryLabel(item.category)} · {item.target_name}</strong>
-                  <span>{formatDaysLeft(item)}</span>
-                </button>
-              ))}
-            </div>
           )}
         </section>
 
@@ -552,6 +520,44 @@ function DashboardPage({ onNavigate }) {
             )}
           </div>
         </section>
+        </div>
+
+        <aside className="dashboard-work-column dashboard-work-column-side">
+          <section className="dashboard-panel dashboard-expiration-panel dashboard-expiration-panel-compact">
+            <div className="dashboard-panel-heading">
+              <h3>점검·만료 현황</h3>
+              <button type="button" className="link-button" onClick={() => onNavigate?.("expiration_schedules")}>
+                관리
+              </button>
+            </div>
+            <div className="dashboard-expiration-counts">
+              <span className="expiration-count-overdue">기한 초과 {formatCount(expirationSummary.overdue_count)}건</span>
+              <span className="expiration-count-week">7일 이내 {formatCount(expirationSummary.within_7_days_count)}건</span>
+              <span className="expiration-count-month">30일 이내 {formatCount(expirationSummary.within_30_days_count)}건</span>
+            </div>
+            {expirationSummary.upcoming_items.length === 0 ? (
+              <div className="dashboard-empty">임박한 점검·만료 일정이 없습니다.</div>
+            ) : (
+              <div className="dashboard-expiration-list">
+                {expirationSummary.upcoming_items.map((item) => (
+                  <button
+                    type="button"
+                    className={`dashboard-expiration-item dashboard-expiration-${item.status}`}
+                    key={item.id}
+                    onClick={() => {
+                      openExpirationScheduleFilter(item.status);
+                      onNavigate?.("expiration_schedules");
+                    }}
+                  >
+                    <strong>{getCategoryLabel(item.category)} · {item.target_name}</strong>
+                    <span>{formatDaysLeft(item)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+          <AiAssistantCard />
+        </aside>
       </div>
 
       <DashboardNoticeFormModal
