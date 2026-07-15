@@ -14900,7 +14900,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   justify-content: center;
   box-sizing: border-box;
   overflow: hidden;
-  padding: 20px;
+  padding: 16px;
   position: fixed;
   z-index: 1200;
 }
@@ -14913,10 +14913,13 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 40px);
-  max-height: calc(100dvh - 40px);
+  height: min(680px, calc(100vh - 32px));
+  height: min(680px, calc(100dvh - 32px));
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
-  width: min(640px, calc(100vw - 40px));
+  position: relative;
+  width: min(640px, calc(100vw - 32px));
 }
 
 .product-picker-heading {
@@ -15006,26 +15009,23 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
+  justify-content: center;
+  min-height: 58px;
   padding: 9px 20px 12px;
 }
 .product-picker-footer .product-picker-error,
 .product-picker-footer .product-picker-loading { margin: 0; padding: 0 0 8px; }
 .product-picker-more { flex: 0 0 auto; min-height: 36px; width: 100%; }
 
-@media (max-height: 700px) {
-  .product-picker-backdrop {
-    align-items: flex-start;
-    padding: 10px;
-  }
-  .product-picker-modal {
-    max-height: calc(100vh - 20px);
-    max-height: calc(100dvh - 20px);
-  }
-}
-
 @media (max-width: 640px) {
   .product-picker-backdrop { padding: 8px; }
-  .product-picker-modal { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); width: calc(100vw - 16px); }
+  .product-picker-modal {
+    height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    width: calc(100vw - 16px);
+  }
   .product-picker-heading, .product-picker-recent, .product-picker-search { padding-left: 14px; padding-right: 14px; }
   .product-picker-count { padding-left: 14px; padding-right: 14px; }
   .product-picker-list { padding-left: 14px; padding-right: 14px; }

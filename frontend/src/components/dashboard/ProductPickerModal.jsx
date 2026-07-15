@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getInventoryProducts } from "../../api/client.js";
 
 const RECENT_PRODUCTS_KEY = "assetManager.recentInventoryProducts";
@@ -44,7 +45,8 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
     setPage(1);
     setActiveIndex(-1);
     setRecent(readRecentInventoryProducts());
-    window.setTimeout(() => searchRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(() => searchRef.current?.focus(), 0);
+    return () => window.clearTimeout(focusTimer);
   }, [isOpen]);
 
   useEffect(() => {
@@ -73,6 +75,15 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (activeIndex < 0) return;
@@ -116,9 +127,15 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
     }
   };
 
-  return (
-    <div className="product-picker-backdrop product-picker-overlay" role="presentation" onMouseDown={onClose}>
-      <section className="product-picker-modal" role="dialog" aria-modal="true" aria-labelledby="product-picker-title" onMouseDown={(event) => event.stopPropagation()}>
+  const modal = (
+    <div
+      className="product-picker-backdrop product-picker-overlay"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="product-picker-modal" role="dialog" aria-modal="true" aria-labelledby="product-picker-title">
         <header className="product-picker-heading">
           <div><h3 id="product-picker-title">품목 선택</h3><p>조회할 품목을 검색하거나 목록에서 선택하세요.</p></div>
           <button type="button" onClick={onClose} aria-label="품목 선택 닫기">닫기</button>
@@ -133,7 +150,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
         <div className="product-picker-count">검색 결과 {total.toLocaleString("ko-KR")}건</div>
         <div className="product-picker-list" role="listbox" aria-label="전체 품목 목록">
           {items.map((item, index) => (
-            <button ref={(element) => { optionRefs.current[index] = element; }} type="button" role="option" aria-selected={activeIndex === index} className={activeIndex === index ? "active" : ""} key={item.item_code} onMouseEnter={() => setActiveIndex(index)} onClick={() => choose(item)}>
+            <button ref={(element) => { optionRefs.current[index] = element; }} type="button" role="option" aria-selected={activeIndex === index} className={activeIndex === index ? "active" : ""} key={item.item_code} onClick={() => choose(item)}>
               <strong>{item.item_name || "품목명 없음"}</strong>
               <span>{[item.item_code, item.size, item.unit].filter(Boolean).join(" · ")}</span>
             </button>
@@ -141,16 +158,16 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
           {!isLoading && !items.length && !error ? <p className="product-picker-empty">검색 조건에 맞는 품목이 없습니다.</p> : null}
           {error && !items.length ? <p className="product-picker-error">{error}</p> : null}
         </div>
-        {(isLoading || error || items.length < total) ? (
-          <footer className="product-picker-footer">
-            {error && items.length ? <p className="product-picker-error">{error}</p> : null}
-            {isLoading ? <p className="product-picker-loading">품목을 불러오는 중입니다.</p> : null}
-            {!isLoading && items.length < total ? <button type="button" className="product-picker-more" onClick={loadMore}>더 보기</button> : null}
-          </footer>
-        ) : null}
+        <footer className="product-picker-footer">
+          {error && items.length ? <p className="product-picker-error">{error}</p> : null}
+          {isLoading ? <p className="product-picker-loading">품목을 불러오는 중입니다.</p> : null}
+          {!isLoading && items.length < total ? <button type="button" className="product-picker-more" onClick={loadMore}>더 보기</button> : null}
+        </footer>
       </section>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
 
 export default ProductPickerModal;
