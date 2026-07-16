@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.auth import get_current_user, require_menu_permission
 from app.models.user import User
-from app.schemas.inventory import AggregatedInventoryResponse, ProductMasterListResponse
+from app.schemas.inventory import (
+    AggregatedInventoryResponse, ProductMasterListResponse,
+    WarehouseInventoryResponse, WarehouseMasterListResponse,
+)
 from app.services.ecount_api_service import EcountConfigurationError
 from app.services.inventory_service import (
     InventoryError,
@@ -21,6 +24,7 @@ from app.services.inventory_analysis_service import (
 )
 from app.db.database import get_db
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from app.schemas.inventory_snapshot import (
     InventorySnapshotCompareResponse,
     InventorySnapshotGroupResponse,
@@ -33,10 +37,53 @@ from app.services.inventory_snapshot_query_service import (
     get_snapshot_history,
 )
 from app.services.inventory_change_analysis_service import InventoryChangeAnalysisService
+from app.services.warehouse_inventory_service import WarehouseInventoryService
 from app.models.inventory_alert import InventoryAlert
 
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+@router.get("/warehouses", response_model=WarehouseMasterListResponse)
+def list_inventory_warehouses(
+    keyword: Optional[str] = Query(default=None, max_length=200),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> WarehouseMasterListResponse:
+    try:
+        return WarehouseMasterListResponse(**WarehouseInventoryService(db=db).list_warehouses(keyword, limit, offset))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="창고 목록을 불러올 수 없습니다.") from exc
+
+
+@router.get("/warehouses/{warehouse_code}/inventory", response_model=WarehouseInventoryResponse)
+def read_warehouse_inventory(
+    warehouse_code: str,
+    keyword: Optional[str] = Query(default=None, max_length=200),
+    include_zero: bool = Query(default=False),
+    sort_by: str = Query(default="quantity_desc", alias="sort"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> WarehouseInventoryResponse:
+    try:
+        result = WarehouseInventoryService().get_warehouse_inventory(
+            warehouse_code, keyword, include_zero, sort_by, limit, offset,
+        )
+        return WarehouseInventoryResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except InventoryRateLimitError as exc:
+        retry_after = max(1, int(exc.retry_after_seconds or 60))
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="이카운트 요청 제한으로 약 {}초 후 다시 조회할 수 있습니다.".format(retry_after), headers={"Retry-After": str(retry_after)}) from exc
+    except InventoryTimeoutError as exc:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=exc.message) from exc
+    except EcountConfigurationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
+    except InventoryError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message) from exc
 
 
 @router.get("/products", response_model=ProductMasterListResponse)

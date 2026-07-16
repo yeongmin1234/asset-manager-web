@@ -308,6 +308,16 @@ export async function getInventoryProducts({ keyword, page = 1, pageSize = 50 } 
   });
 }
 
+export async function getInventoryWarehouses({ keyword, limit = 50, offset = 0 } = {}) {
+  return request("/inventory/warehouses", { query: { keyword, limit, offset } });
+}
+
+export async function getWarehouseInventory(warehouseCode, { keyword, includeZero = false, sort = "quantity_desc", limit = 50, offset = 0 } = {}) {
+  return request(`/inventory/warehouses/${encodeURIComponent(warehouseCode)}/inventory`, {
+    query: { keyword, include_zero: includeZero, sort, limit, offset },
+  });
+}
+
 export async function getLowStockInventory({ keyword, itemCode, threshold = 10, limit = 100 }) {
   return request("/inventory/low-stock", {
     query: { keyword, item_code: itemCode, threshold, limit },

@@ -18,13 +18,17 @@ import {
   sendAiAssistantMessage,
 } from "../../services/aiAssistantService.js";
 import InventoryAnswerCard from "./InventoryAnswerCard.jsx";
+import WarehouseInventoryResultCard from "./WarehouseInventoryResultCard.jsx";
+import WarehousePickerModal from "./WarehousePickerModal.jsx";
+import { getWarehouseInventory } from "../../api/client.js";
+import { compareInventoryQuantities } from "../../utils/inventoryDisplayUtils.js";
 import RecommendedInventoryItems from "./RecommendedInventoryItems.jsx";
 import ProductPickerModal from "./ProductPickerModal.jsx";
 
 const EXAMPLE_QUESTIONS = [
   "품목명으로 재고 조회",
   "품목코드로 재고 조회",
-  "창고별 재고 조회",
+  "창고·백화점별 품목 조회",
 ];
 
 const INITIAL_MESSAGES = [
@@ -40,6 +44,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
+  const [isWarehousePickerOpen, setIsWarehousePickerOpen] = useState(false);
   const [inputPlaceholder, setInputPlaceholder] = useState("질문을 입력하세요");
   const [conversationContext, setConversationContext] = useState(null);
   const conversationRef = useRef(null);
@@ -64,6 +69,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const sendMessage = async (question = input) => {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion || isSending || requestLockRef.current) return;
+    if (handleWarehouseContextFollowup(trimmedQuestion)) return;
     requestLockRef.current = true;
 
     const requestId = Date.now();
@@ -235,6 +241,34 @@ function AiAssistantCard({ onInventoryStateChange }) {
     }
   };
 
+  const handleWarehouseContextFollowup = (question) => {
+    const source = conversationContext?.warehouse_inventory_result;
+    if (!source) return false;
+    const normalized = question.trim().toLocaleLowerCase();
+    if (normalized.includes("다른 창고")) {
+      setMessages((current) => [...current, { id: `user-${Date.now()}`, role: "user", content: question }, { id: `assistant-${Date.now()}-warehouse`, role: "assistant", content: "다른 창고 또는 백화점을 선택해주세요." }]);
+      setIsWarehousePickerOpen(true); setInput(""); return true;
+    }
+    const isSupported = ["재고 있는 품목", "0재고", "검색", "보여", "재고 많은 순", "재고 적은 순"].some((phrase) => normalized.includes(phrase));
+    if (!isSupported) return false;
+    let items = [...(source.items || [])];
+    if (normalized.includes("재고 있는 품목")) items = items.filter((item) => compareInventoryQuantities(item.quantity, 0) > 0);
+    else if (normalized.includes("0재고")) items = [...(source.items || [])];
+    else {
+      const keywordMatch = normalized.match(/(.+?)(?:만\s*)?(?:검색|보여)/);
+      if (keywordMatch && !normalized.includes("재고 많은") && !normalized.includes("재고 적은")) {
+        const keyword = keywordMatch[1].replace(/품목|재고/g, "").trim();
+        if (keyword) items = items.filter((item) => `${item.item_name || ""} ${item.item_code || ""}`.toLocaleLowerCase().includes(keyword));
+      }
+    }
+    if (normalized.includes("재고 많은 순")) items.sort((a, b) => compareInventoryQuantities(b.quantity, a.quantity));
+    if (normalized.includes("재고 적은 순")) items.sort((a, b) => compareInventoryQuantities(a.quantity, b.quantity));
+    const result = { ...source, items, total: items.length };
+    const requestId = Date.now();
+    setMessages((current) => [...current, { id: `user-${requestId}`, role: "user", content: question }, { id: `assistant-${requestId}`, role: "assistant", content: `${source.warehouse_name}의 기존 조회 결과에서 조건을 적용했습니다.`, warehouseInventoryResult: result }]);
+    setInput(""); return true;
+  };
+
   const handleRecommendationSelect = async (messageId, item) => {
     const lockKey = `${messageId}:${item.item_code}`;
     if (isSending || requestLockRef.current || recommendationLocksRef.current.has(lockKey)) return;
@@ -310,7 +344,32 @@ function AiAssistantCard({ onInventoryStateChange }) {
 
   const handleProductPickerSelect = async (item) => {
     setIsProductPickerOpen(false);
+    setIsWarehousePickerOpen(false);
     await handleRecommendationSelect("product-picker", item);
+  };
+
+  const handleWarehouseSelect = async (warehouse) => {
+    if (isSending || requestLockRef.current) return;
+    setIsWarehousePickerOpen(false); requestLockRef.current = true; setIsSending(true);
+    const requestId = Date.now(); const pendingId = `pending-warehouse-${requestId}`;
+    setMessages((current) => [...current, { id: `user-warehouse-${requestId}`, role: "user", content: `${warehouse.warehouse_name} 선택` }, { id: pendingId, role: "assistant", content: "선택한 장소의 품목 재고를 조회하고 있습니다...", pending: true }]);
+    onInventoryStateChange?.({ status: "loading", query: warehouse.warehouse_name, items: [], selectedItemCode: null, searchedAt: null, errorMessage: null, analysis: null });
+    try {
+      const result = await getWarehouseInventory(warehouse.warehouse_code, { includeZero: true, limit: 50 });
+      const panelItems = (result.items || []).filter((item) => compareInventoryQuantities(item.quantity, 0) !== 0).map((item) => ({
+        item_code: item.item_code, item_name: item.item_name, size: item.size, unit: item.unit,
+        total_quantity: item.quantity, warehouses: [{ warehouse_code: result.warehouse_code, warehouse_name: result.warehouse_name, quantity: item.quantity }],
+      }));
+      setConversationContext({
+        selected_warehouse_code: result.warehouse_code, selected_warehouse_name: result.warehouse_name,
+        warehouse_inventory_result: result, last_intent: "warehouse_inventory_search",
+      });
+      onInventoryStateChange?.({ status: panelItems.length ? "success" : "empty", query: result.warehouse_name, items: panelItems, selectedItemCode: panelItems[0]?.item_code || null, searchedAt: new Date().toISOString(), errorMessage: null, analysis: { type: "warehouse_inventory", label: `${result.warehouse_name} 품목 재고` } });
+      setMessages((current) => current.map((message) => message.id === pendingId ? { id: `assistant-warehouse-${requestId}`, role: "assistant", content: `${result.warehouse_name}의 품목 재고입니다.`, warehouseInventoryResult: result } : message));
+    } catch (error) {
+      onInventoryStateChange?.((current) => ({ ...current, status: "error", errorMessage: error.message }));
+      setMessages((current) => current.map((message) => message.id === pendingId ? { id: `error-warehouse-${requestId}`, role: "assistant", content: error.message } : message));
+    } finally { requestLockRef.current = false; setIsSending(false); }
   };
 
   const handleQuickQuestion = (question) => {
@@ -319,7 +378,20 @@ function AiAssistantCard({ onInventoryStateChange }) {
       inputRef.current?.focus();
       return;
     }
+    if (question === "창고·백화점별 품목 조회") {
+      setIsWarehousePickerOpen(true);
+      return;
+    }
     setIsProductPickerOpen(true);
+  };
+
+  const handleWarehouseLoadMore = async (messageId, result) => {
+    if (requestLockRef.current || isSending) return;
+    requestLockRef.current = true; setIsSending(true);
+    try {
+      const next = await getWarehouseInventory(result.warehouse_code, { includeZero: true, limit: 50, offset: result.items?.length || 0 });
+      setMessages((current) => current.map((message) => message.id === messageId ? { ...message, warehouseInventoryResult: { ...result, items: [...(result.items || []), ...(next.items || [])], total: next.total, cache_hit: next.cache_hit } } : message));
+    } finally { requestLockRef.current = false; setIsSending(false); }
   };
 
   const handleKeyDown = (event) => {
@@ -370,6 +442,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
             <div className="ai-assistant-message-body">
               {message.inventoryCard ? null : <p>{message.content}</p>}
               {message.inventoryCard ? <InventoryAnswerCard data={message.inventoryCard} onClearFilter={(data) => handleInventoryCardClearFilter(message.id, data)} /> : null}
+              {message.warehouseInventoryResult ? <WarehouseInventoryResultCard result={message.warehouseInventoryResult} onLoadMore={() => handleWarehouseLoadMore(message.id, message.warehouseInventoryResult)} /> : null}
               {message.recommendations ? (
                 <RecommendedInventoryItems
                   items={message.recommendations}
@@ -413,6 +486,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
         onClose={() => setIsProductPickerOpen(false)}
         onSelect={handleProductPickerSelect}
       />
+      <WarehousePickerModal isOpen={isWarehousePickerOpen} onClose={() => setIsWarehousePickerOpen(false)} onSelect={handleWarehouseSelect} />
     </section>
   );
 }

@@ -720,6 +720,7 @@ class InventoryService:
             "item_code": code,
             "item_name": str(item.get("PROD_DES") or "").strip() or None,
             "product_size_description": str(item.get("PROD_SIZE_DES") or "").strip() or None,
+            "unit": str(item.get("UNIT") or "").strip() or None,
             "warehouse_code": str(item.get("WH_CD") or "").strip().upper() or None,
             "warehouse_name": str(item.get("WH_DES") or "").strip() or None,
             "quantity": self.parse_quantity(item.get("BAL_QTY"), code),

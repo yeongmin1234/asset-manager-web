@@ -69,3 +69,50 @@ class ProductMasterListResponse(BaseModel):
     items: List[ProductMasterItem]
     data_source: str = "product_master_cache"
     match_type: str = "all"
+
+
+class WarehouseMasterItem(BaseModel):
+    warehouse_code: str
+    warehouse_name: str
+    location_type: str = "warehouse"
+
+
+class WarehouseMasterListResponse(BaseModel):
+    success: bool = True
+    total: int
+    limit: int
+    offset: int
+    items: List[WarehouseMasterItem]
+    cache_status: str
+    data_source: str
+
+
+class WarehouseProductInventoryItem(BaseModel):
+    item_code: str
+    item_name: Optional[str] = None
+    size: Optional[str] = None
+    unit: Optional[str] = None
+    quantity: Decimal
+    warehouse_code: str
+    warehouse_name: Optional[str] = None
+
+
+class WarehouseInventorySummary(BaseModel):
+    item_count: int
+    positive_item_count: int
+    zero_item_count: int
+    negative_item_count: int
+
+
+class WarehouseInventoryResponse(BaseModel):
+    success: bool = True
+    warehouse_code: str
+    warehouse_name: str
+    summary: WarehouseInventorySummary
+    total: int
+    limit: int
+    offset: int
+    items: List[WarehouseProductInventoryItem]
+    include_zero: bool
+    sort: str
+    cache_hit: bool
