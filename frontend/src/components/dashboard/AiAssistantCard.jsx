@@ -6,6 +6,7 @@ import {
   fetchInventoryAlertsForAi,
   fetchRecommendedInventoryItem,
   buildConversationContext,
+  buildInventoryCardData,
   filterInventoryForWarehouse,
   isInventoryAnalysisIntent,
   isInventoryChangeIntent,
@@ -16,6 +17,7 @@ import {
   rememberInventoryContext,
   sendAiAssistantMessage,
 } from "../../services/aiAssistantService.js";
+import InventoryAnswerCard from "./InventoryAnswerCard.jsx";
 import RecommendedInventoryItems from "./RecommendedInventoryItems.jsx";
 import ProductPickerModal from "./ProductPickerModal.jsx";
 
@@ -80,6 +82,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
       else if (response.intent === "context_clear") setConversationContext(null);
       let answer = response.message;
       let recommendations = null;
+      let inventoryCard = null;
       const responseType = response.data?.type;
       if (responseType === "product_candidates") {
         recommendations = Array.isArray(response.data?.items) ? response.data.items : [];
@@ -104,6 +107,10 @@ function AiAssistantCard({ onInventoryStateChange }) {
         const inventoryResponse = response.data?.inventory_response;
         const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
         if (items.length) {
+          inventoryCard = buildInventoryCardData({
+            inventoryResponse, context: response.context || conversationContext,
+            responseData: response.data, intent: response.intent, queriedAt: new Date().toISOString(),
+          });
           onInventoryStateChange?.({
             status: "success",
             query: trimmedQuestion,
@@ -174,6 +181,10 @@ function AiAssistantCard({ onInventoryStateChange }) {
         const inventory = await fetchInventoryForAi(response, trimmedQuestion);
         answer = inventory.answer;
         const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+        inventoryCard = buildInventoryCardData({
+          inventoryResponse: inventory.inventoryResponse, context: response.context || conversationContext,
+          responseData: response.data, intent: response.intent, queriedAt: new Date().toISOString(),
+        });
         await rememberInventoryContext({
           aiResponse: response,
           query: trimmedQuestion,
@@ -200,7 +211,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
         message.id === pendingId
           ? {
             id: `assistant-${requestId}`, role: "assistant", content: answer,
-            recommendations, selectedItemCode: null,
+            recommendations, selectedItemCode: null, inventoryCard,
           }
           : message
       )));
@@ -254,6 +265,17 @@ function AiAssistantCard({ onInventoryStateChange }) {
       const displayedResponse = filtered?.inventoryResponse || inventory.inventoryResponse;
       const items = Array.isArray(displayedResponse?.items) ? displayedResponse.items : [];
       setConversationContext(filtered?.context || buildConversationContext(inventory.inventoryResponse));
+      const inventoryCard = buildInventoryCardData({
+        inventoryResponse: displayedResponse,
+        context: filtered?.context || buildConversationContext(inventory.inventoryResponse),
+        responseData: filtered ? {
+          type: "inventory_warehouse_result", warehouse_keyword: pendingWarehouse,
+          total_quantity: inventory.inventoryResponse?.items?.[0]?.total_quantity,
+          all_warehouses: inventory.inventoryResponse?.items?.[0]?.warehouses || [],
+        } : null,
+        intent: filtered ? "inventory_item_warehouse_search" : "inventory_search",
+        queriedAt: new Date().toISOString(),
+      });
       await rememberInventoryContext({
         aiResponse: { intent: "inventory_search", data: { item_code: item.item_code } },
         query: item.item_name || item.item_code,
@@ -266,7 +288,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
       });
       setMessages((current) => current.map((message) => (
         message.id === pendingId
-          ? { id: `assistant-selection-${requestId}`, role: "assistant", content: filtered?.answer || inventory.answer }
+          ? { id: `assistant-selection-${requestId}`, role: "assistant", content: filtered?.answer || inventory.answer, inventoryCard }
           : message
       )));
     } catch (error) {
@@ -307,6 +329,15 @@ function AiAssistantCard({ onInventoryStateChange }) {
     }
   };
 
+  const handleInventoryCardClearFilter = (messageId, cardData) => {
+    const fullItem = { ...cardData.item, total_quantity: cardData.totalQuantity, warehouses: cardData.allWarehouses };
+    const fullResponse = { success: true, authenticated: true, total: 1, items: [fullItem], message: "기존 재고 조회 결과입니다.", response_time_ms: 0 };
+    const nextCard = buildInventoryCardData({ inventoryResponse: fullResponse, context: buildConversationContext(fullResponse), intent: "inventory_show_all_warehouses", queriedAt: cardData.queriedAt });
+    setMessages((current) => current.map((message) => message.id === messageId ? { ...message, inventoryCard: nextCard } : message));
+    setConversationContext(buildConversationContext(fullResponse, "inventory_show_all_warehouses"));
+    onInventoryStateChange?.({ status: "success", query: cardData.item.item_name || cardData.item.item_code, items: [fullItem], selectedItemCode: fullItem.item_code, searchedAt: new Date().toISOString(), errorMessage: null, analysis: null });
+  };
+
   const handleConversationReset = () => {
     if (isSending) return;
     setConversationContext(null);
@@ -337,7 +368,8 @@ function AiAssistantCard({ onInventoryStateChange }) {
           >
             <span>{message.role === "user" ? "나" : "AI"}</span>
             <div className="ai-assistant-message-body">
-              <p>{message.content}</p>
+              {message.inventoryCard ? null : <p>{message.content}</p>}
+              {message.inventoryCard ? <InventoryAnswerCard data={message.inventoryCard} onClearFilter={(data) => handleInventoryCardClearFilter(message.id, data)} /> : null}
               {message.recommendations ? (
                 <RecommendedInventoryItems
                   items={message.recommendations}

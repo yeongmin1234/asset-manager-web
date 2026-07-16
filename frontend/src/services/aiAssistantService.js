@@ -8,6 +8,7 @@ import {
   saveAiInventoryContext,
   searchInventory,
 } from "../api/client.js";
+export { buildInventoryCardData } from "../utils/inventoryDisplayUtils.js";
 
 const INVENTORY_INTENTS = new Set([
   "inventory_search", "inventory_item_code", "inventory_refresh", "inventory_item_warehouse_search",
