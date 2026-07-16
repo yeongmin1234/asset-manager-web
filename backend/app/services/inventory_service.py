@@ -18,6 +18,7 @@ from app.services.ecount_api_service import (
     EcountConfigurationError,
     EcountTimeoutError,
 )
+from app.services.product_match_service import prepare_product_search_fields, rank_product_matches
 
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,7 @@ class InventoryService:
             raise ValueError("페이지 크기는 100건 이하이어야 합니다.")
         self._validate_common_mode_and_limit(page_size)
         products, cache_status = self._get_product_master(product_type)
+        all_products = products
         normalized_keyword = self._normalize_product_search_text(keyword)
         if normalized_keyword:
             ranked = []
@@ -172,6 +174,13 @@ class InventoryService:
                     ranked.append((priority, index, item))
             ranked.sort(key=lambda match: (match[0], match[1]))
             products = [match[2] for match in ranked]
+            match_type = "standard"
+            if not products:
+                fuzzy = rank_product_matches(all_products, keyword, 8)
+                products = fuzzy["items"]
+                match_type = fuzzy["match_type"]
+        else:
+            match_type = "all"
 
         total = len(products)
         start = (page - 1) * page_size
@@ -196,6 +205,7 @@ class InventoryService:
             "page_size": page_size,
             "items": items,
             "data_source": "product_master_cache",
+            "match_type": match_type,
         }
 
     def _search_products_with_cache_status(
@@ -261,52 +271,23 @@ class InventoryService:
             raise ValueError("추천 품목 검색어를 입력해주세요.")
         if limit < 1 or limit > MAX_RECOMMENDATION_LIMIT:
             raise ValueError("추천 품목은 최대 10개까지 조회할 수 있습니다.")
-        products, cache_status = self._search_products_with_cache_status(
-            keyword=normalized,
-            limit=MAX_RESULT_LIMIT,
+        products, cache_status = self._get_product_master()
+        matches = rank_product_matches(products, normalized, min(limit, DEFAULT_RECOMMENDATION_LIMIT))
+        items = matches["items"]
+        logger.info(
+            "ECOUNT product recommendation match_type=%s candidate_count=%s highest_score=%s cache_hit=%s external_inventory_call=false",
+            matches["match_type"], matches["total"], matches["highest_score"], cache_status,
         )
-        folded = normalized.casefold()
-        exact_code_matches = [
-            item for item in products
-            if str(item.get("item_code") or "").strip().casefold() == folded
-        ]
-        if exact_code_matches:
-            products = exact_code_matches
-
-        def priority(item):
-            name = str(item.get("item_name") or "").strip()
-            code = str(item.get("item_code") or "").strip()
-            name_folded = name.casefold()
-            code_folded = code.casefold()
-            if name_folded == folded:
-                rank = 0
-            elif name_folded.startswith(folded):
-                rank = 1
-            elif folded in name_folded:
-                rank = 2
-            elif code_folded == folded:
-                rank = 3
-            else:
-                rank = 4
-            return rank, name_folded, code_folded
-
-        products.sort(key=priority)
-        items = [
-            {
-                "item_code": item["item_code"],
-                "item_name": item.get("item_name"),
-                "unit": item.get("unit"),
-            }
-            for item in products[:limit]
-        ]
         return {
             "mode": "recommendation",
             "query": normalized,
-            "total": len(products),
+            "total": matches["total"],
             "items": items,
-            "has_more": len(products) > limit,
+            "has_more": matches["total"] > len(items),
             "limit": limit,
             "cache_hit": cache_status != "false",
+            "match_type": matches["match_type"],
+            "highest_score": matches["highest_score"],
         }
 
     def _get_product_master(
@@ -680,7 +661,7 @@ class InventoryService:
         code = str(item.get("PROD_CD") or "").strip().upper()
         if not code:
             raise InventoryResponseError("missing_item_code", "이카운트 품목 응답 형식을 확인할 수 없습니다.")
-        return {
+        product = {
             "item_code": code,
             "item_name": str(item.get("PROD_DES") or "").strip() or None,
             "size": str(item.get("SIZE_DES") or "").strip() or None,
@@ -696,6 +677,8 @@ class InventoryService:
             "group_name_3": str(item.get("CLASS_DES3") or "").strip() or None,
             "search_text": str(item.get("SEARCH_DES") or item.get("PROD_SEARCH") or "").strip() or None,
         }
+        product["_search"] = prepare_product_search_fields(product)
+        return product
 
     @staticmethod
     def _normalize_product_search_text(value: Any) -> str:

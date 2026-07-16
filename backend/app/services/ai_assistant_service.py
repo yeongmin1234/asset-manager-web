@@ -17,6 +17,7 @@ from app.services.ai_inventory_context_service import (
 from app.services.ai_intent_service import IntentResult, analyze_intent
 from app.services.ecount_api_service import EcountConfigurationError
 from app.services.inventory_service import InventoryError, InventoryRateLimitError, InventoryService
+from app.services.product_match_service import normalize_product_text
 
 
 logger = logging.getLogger(__name__)
@@ -140,11 +141,20 @@ class AiAssistantService:
             recommendation["type"] = "product_not_found"
             return self._response(
                 "inventory_recommendation",
-                "검색 조건에 맞는 품목이 없습니다.",
+                "'{}'와 일치하거나 비슷한 품목을 찾지 못했습니다.".format(candidate),
                 recommendation,
                 INVENTORY_SUGGESTIONS,
             )
-        if recommendation["total"] == 1:
+        match_type = recommendation.get("match_type")
+        if match_type is None and recommendation["total"] == 1:
+            only = items[0]
+            if str(only.get("item_code") or "").strip().casefold() == candidate.casefold():
+                match_type = "exact_code"
+            elif normalize_product_text(only.get("item_name"), compact=True) == normalize_product_text(candidate, compact=True):
+                match_type = "space_normalized"
+        if recommendation["total"] == 1 and match_type in {
+            "exact_code", "exact_name", "space_normalized",
+        }:
             return IntentResult(
                 "inventory_search", result.normalized_message,
                 {
@@ -155,7 +165,12 @@ class AiAssistantService:
                 result.read_only_violation,
             )
         recommendation["type"] = "product_candidates"
-        message_text = "'{}'와 일치하는 품목이 여러 개입니다.\n조회할 품목을 선택해주세요.".format(candidate)
+        if match_type == "fuzzy":
+            message_text = "'{}'과 비슷한 품목입니다.\n조회할 품목을 선택해주세요.".format(candidate)
+        elif match_type == "code_prefix":
+            message_text = "입력한 품목코드와 정확히 일치하는 품목이 없습니다.\n비슷한 코드의 품목을 선택해주세요."
+        else:
+            message_text = "'{}'와 일치하는 품목이 여러 개입니다.\n조회할 품목을 선택해주세요.".format(candidate)
         if recommendation["has_more"]:
             message_text += "\n'{}'와 일치하는 품목이 많습니다. 품목명을 조금 더 구체적으로 입력해주세요.".format(candidate)
         response = self._response(

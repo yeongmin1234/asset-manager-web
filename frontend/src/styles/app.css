@@ -14820,6 +14820,21 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   overflow-wrap: anywhere;
 }
 
+.inventory-recommendation-item em,
+.product-picker-list strong em {
+  display: inline-block;
+  margin-left: 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #2563eb;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .inventory-recommendation-list .inventory-recommendation-item small {
   color: #64748b;
   font-size: 0.7rem;

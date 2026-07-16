@@ -56,6 +56,9 @@ class ProductMasterItem(BaseModel):
     item_name: Optional[str] = None
     size: Optional[str] = None
     unit: Optional[str] = None
+    match_score: Optional[float] = None
+    match_reason: Optional[str] = None
+    match_type: Optional[str] = None
 
 
 class ProductMasterListResponse(BaseModel):
@@ -65,3 +68,4 @@ class ProductMasterListResponse(BaseModel):
     page_size: int
     items: List[ProductMasterItem]
     data_source: str = "product_master_cache"
+    match_type: str = "all"

@@ -14,8 +14,8 @@ function RecommendedInventoryItems({ items, disabled, selectedItemCode, onSelect
             className={`inventory-recommendation-item${selectedItemCode === item.item_code ? " selected" : ""}`}
             onClick={() => onSelect(item)}
           >
-            <span>{item.item_name || item.item_code}</span>
-            <small>{item.item_code}{item.unit ? ` · ${item.unit}` : ""}</small>
+            <span>{item.item_name || item.item_code}{item.match_type === "fuzzy" ? <em>유사 품목</em> : null}</span>
+            <small>{[item.item_code, item.size, item.unit].filter(Boolean).join(" · ")}</small>
           </button>
         ))}
       </div>

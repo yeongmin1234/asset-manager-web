@@ -212,6 +212,29 @@ class AiAssistantServiceTest(unittest.TestCase):
         inventory.get_aggregated_inventory.assert_not_called()
         inventory.get_inventory_by_location.assert_not_called()
 
+    def test_single_fuzzy_candidate_requires_selection_without_inventory_lookup(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "랜턴블렉", "total": 1,
+            "items": [{"item_code": "101006", "item_name": "랜턴블랙", "unit": "EA", "match_type": "fuzzy", "match_score": 0.75}],
+            "has_more": False, "limit": 8, "match_type": "fuzzy",
+        }
+        response = AiAssistantService(inventory).process_message("랜턴블렉 재고 알려줘")
+        self.assertEqual(response["data"]["type"], "product_candidates")
+        self.assertIn("비슷한 품목", response["message"])
+        inventory.get_aggregated_inventory.assert_not_called()
+
+    def test_partial_product_code_requires_selection_without_typo_correction(self):
+        inventory = Mock()
+        inventory.recommend_products.return_value = {
+            "mode": "recommendation", "query": "1010", "total": 2,
+            "items": [{"item_code": "101006", "item_name": "랜턴블랙", "match_type": "code_prefix"}],
+            "has_more": True, "limit": 8, "match_type": "code_prefix",
+        }
+        response = AiAssistantService(inventory).process_message("1010 재고 알려줘")
+        self.assertIn("정확히 일치", response["message"])
+        inventory.get_aggregated_inventory.assert_not_called()
+
     def test_explicit_inventory_search_without_product_returns_not_found_state(self):
         inventory = Mock()
         inventory.recommend_products.return_value = {
@@ -220,7 +243,7 @@ class AiAssistantServiceTest(unittest.TestCase):
         }
         response = AiAssistantService(inventory).process_message("없는품목 재고 알려줘")
         self.assertEqual(response["data"]["type"], "product_not_found")
-        self.assertEqual(response["message"], "검색 조건에 맞는 품목이 없습니다.")
+        self.assertIn("일치하거나 비슷한 품목을 찾지 못했습니다", response["message"])
         inventory.get_inventory_by_location.assert_not_called()
 
     def test_no_product_keeps_bare_general_fallback(self):

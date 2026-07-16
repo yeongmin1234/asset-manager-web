@@ -224,12 +224,14 @@ class InventoryServiceTest(unittest.TestCase):
 
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
             result = InventoryService(make_settings(), client, FakeAuthService()).recommend_products("토스터")
-        self.assertEqual(result["total"], 11)
-        self.assertEqual(len(result["items"]), 8)
-        self.assertTrue(result["has_more"])
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(len(result["items"]), 1)
+        self.assertFalse(result["has_more"])
         self.assertEqual(result["items"][0]["item_name"], "토스터")
-        self.assertEqual(result["items"][1]["item_name"], "토스터화이트")
-        self.assertEqual(result["items"][-1].keys(), {"item_code", "item_name", "unit"})
+        self.assertEqual(
+            result["items"][-1].keys(),
+            {"item_code", "item_name", "size", "unit", "match_score", "match_reason", "match_type"},
+        )
         self.assertEqual(len(paths), 1)
         self.assertIn("GetBasicProductsList", paths[0])
         self.assertFalse(any("InventoryBalance" in path for path in paths))

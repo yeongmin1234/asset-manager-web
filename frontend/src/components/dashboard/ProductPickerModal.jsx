@@ -24,6 +24,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [matchType, setMatchType] = useState("all");
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -43,6 +44,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
     setKeyword("");
     setDebouncedKeyword("");
     setItems([]);
+    setMatchType("all");
     setPage(1);
     setActiveIndex(-1);
     setRecent(readRecentInventoryProducts());
@@ -61,6 +63,7 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
         if (cancelled) return;
         setItems(Array.isArray(response.items) ? response.items : []);
         setTotal(Number(response.total || 0));
+        setMatchType(response.match_type || "standard");
         setPage(1);
         setActiveIndex(-1);
       })
@@ -149,11 +152,11 @@ function ProductPickerModal({ isOpen, onClose, onSelect }) {
           <span className="sr-only">품목 검색</span>
           <input ref={searchRef} value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={handleSearchKeyDown} placeholder="품목명, 코드, 규격, 바코드로 검색" autoComplete="off" />
         </label>
-        <div className="product-picker-count">검색 결과 {total.toLocaleString("ko-KR")}건</div>
+        <div className="product-picker-count">{matchType === "fuzzy" ? "비슷한 품목" : "검색 결과"} {total.toLocaleString("ko-KR")}건</div>
         <div ref={listRef} className="product-picker-list" role="listbox" aria-label="전체 품목 목록">
           {items.map((item, index) => (
             <button ref={(element) => { optionRefs.current[index] = element; }} type="button" role="option" aria-selected={activeIndex === index} className={activeIndex === index ? "active" : ""} key={item.item_code} onClick={() => choose(item)}>
-              <strong>{item.item_name || "품목명 없음"}</strong>
+              <strong>{item.item_name || "품목명 없음"}{item.match_type === "fuzzy" ? <em>유사 품목</em> : null}</strong>
               <span>{[item.item_code, item.size, item.unit].filter(Boolean).join(" · ")}</span>
             </button>
           ))}
