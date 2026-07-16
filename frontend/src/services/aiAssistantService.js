@@ -10,7 +10,7 @@ import {
 } from "../api/client.js";
 
 const INVENTORY_INTENTS = new Set([
-  "inventory_search", "inventory_item_code", "inventory_refresh",
+  "inventory_search", "inventory_item_code", "inventory_refresh", "inventory_item_warehouse_search",
 ]);
 const INVENTORY_ANALYSIS_INTENTS = new Set([
   "inventory_compare",
@@ -77,6 +77,9 @@ export function buildConversationContext(inventoryResponse, intent = "inventory_
     last_intent: intent,
     searched_at: new Date().toISOString(),
     last_warehouse_filter: null,
+    last_warehouse_keyword: null,
+    pending_warehouse_keyword: null,
+    pending_warehouse_expression: null,
     search_keyword: null,
     product_candidates: [],
     inventory_result: {
@@ -84,6 +87,71 @@ export function buildConversationContext(inventoryResponse, intent = "inventory_
       warehouses: Array.isArray(item.warehouses) ? item.warehouses : [],
     },
   };
+}
+
+export function filterInventoryForWarehouse(inventoryResponse, warehouseKeyword) {
+  const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
+  if (items.length !== 1 || !warehouseKeyword) {
+    return { inventoryResponse, context: buildConversationContext(inventoryResponse), answer: null, analysis: null };
+  }
+  const item = items[0];
+  const allWarehouses = Array.isArray(item.warehouses) ? item.warehouses : [];
+  const normalizedKeyword = normalizeWarehouseText(warehouseKeyword);
+  const rawKeyword = normalizeWarehouseSpacing(warehouseKeyword);
+  const exact = allWarehouses.filter((warehouse) => (
+    normalizeWarehouseSpacing(warehouse.warehouse_name) === rawKeyword
+  ));
+  const matched = exact.length ? exact : allWarehouses.filter((warehouse) => (
+    normalizeWarehouseText(warehouse.warehouse_name).includes(normalizedKeyword)
+  ));
+  const filteredQuantity = sumDecimalQuantities(matched.map((warehouse) => warehouse.quantity));
+  const filteredItem = { ...item, total_quantity: String(filteredQuantity), warehouses: matched };
+  const nextContext = buildConversationContext(inventoryResponse, "inventory_item_warehouse_search");
+  if (nextContext) {
+    nextContext.last_warehouse_filter = warehouseKeyword;
+    nextContext.last_warehouse_keyword = warehouseKeyword;
+    nextContext.pending_warehouse_keyword = null;
+  }
+  const name = item.item_name || item.item_code;
+  const answer = matched.length
+    ? `${name}의 ${warehouseKeyword} 관련 창고 재고는 총 ${formatQuantity(filteredQuantity)}개입니다.\n${matched.map((warehouse) => `• ${warehouse.warehouse_name || warehouse.warehouse_code || "창고"}: ${formatQuantity(warehouse.quantity)}개`).join("\n")}`
+    : `'${name}'의 재고 결과에서 '${warehouseKeyword}'와 일치하는 창고를 찾지 못했습니다.`;
+  return {
+    inventoryResponse: { ...inventoryResponse, items: [filteredItem] },
+    context: nextContext,
+    answer,
+    analysis: {
+      type: "inventory_warehouse_filter", label: `창고 필터: ${warehouseKeyword}`,
+      warehouse_keyword: warehouseKeyword, match_count: matched.length,
+      filtered_quantity: filteredQuantity, total_quantity: item.total_quantity,
+    },
+  };
+}
+
+function normalizeWarehouseText(value) {
+  return normalizeWarehouseSpacing(value).replace(/창고$/, "").trim();
+}
+
+function normalizeWarehouseSpacing(value) {
+  return String(value || "").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function sumDecimalQuantities(values) {
+  const parsed = values.map((value) => {
+    const match = String(value ?? "0").replace(/,/g, "").trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+    return match ? { negative: match[1] === "-", whole: match[2], fraction: match[3] || "" } : null;
+  }).filter(Boolean);
+  const scale = parsed.reduce((maximum, value) => Math.max(maximum, value.fraction.length), 0);
+  const total = parsed.reduce((sum, value) => {
+    const digits = BigInt(`${value.whole}${value.fraction.padEnd(scale, "0")}` || "0");
+    return sum + (value.negative ? -digits : digits);
+  }, 0n);
+  const negative = total < 0n;
+  const absolute = (negative ? -total : total).toString().padStart(scale + 1, "0");
+  if (!scale) return `${negative ? "-" : ""}${absolute}`;
+  const whole = absolute.slice(0, -scale) || "0";
+  const fraction = absolute.slice(-scale).replace(/0+$/, "");
+  return `${negative ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
 }
 
 export function isInventoryAnalysisIntent(intent) {

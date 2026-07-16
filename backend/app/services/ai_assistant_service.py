@@ -15,6 +15,7 @@ from app.services.ai_inventory_context_service import (
     select_context_item,
 )
 from app.services.ai_intent_service import IntentResult, analyze_intent
+from app.services.ai_inventory_query_service import extract_compound_inventory_entities, match_warehouses
 from app.services.ecount_api_service import EcountConfigurationError
 from app.services.inventory_service import InventoryError, InventoryRateLimitError, InventoryService
 from app.services.product_match_service import normalize_product_text
@@ -65,7 +66,7 @@ class AiAssistantService:
             )
             return response
         result = analyze_intent(message)
-        if not result.read_only_violation and result.intent in {"unknown", "inventory_search"}:
+        if not result.read_only_violation and result.intent in {"unknown", "inventory_search", "inventory_item_warehouse_search"}:
             resolved = self._resolve_inventory_products(result, message, user_id, user)
             if isinstance(resolved, dict):
                 logger.info(
@@ -94,7 +95,9 @@ class AiAssistantService:
             raise
 
     def _resolve_inventory_products(self, result, message, user_id, user):
-        candidate = str(result.entities.get("keyword") or (message or "").strip()).strip()
+        candidate = str(
+            result.entities.get("keyword") or result.entities.get("item_code") or (message or "").strip()
+        ).strip()
         if not candidate or len(candidate) > 40:
             return result
 
@@ -155,13 +158,15 @@ class AiAssistantService:
         if recommendation["total"] == 1 and match_type in {
             "exact_code", "exact_name", "space_normalized",
         }:
-            return IntentResult(
-                "inventory_search", result.normalized_message,
-                {
+            entities = dict(result.entities)
+            entities.update({
                     "item_code": items[0]["item_code"],
                     "_resolved_product": items[0],
                     "_product_search_cache_hit": bool(recommendation.get("cache_hit")),
-                },
+                })
+            return IntentResult(
+                result.intent if result.intent == "inventory_item_warehouse_search" else "inventory_search",
+                result.normalized_message, entities,
                 result.read_only_violation,
             )
         recommendation["type"] = "product_candidates"
@@ -180,6 +185,9 @@ class AiAssistantService:
             "selected_item_code": None, "selected_item_name": None, "unit": None, "size": None,
             "last_intent": "inventory_recommendation", "searched_at": None,
             "last_warehouse_filter": None, "search_keyword": candidate,
+            "pending_warehouse_keyword": result.entities.get("warehouse_keyword"),
+            "pending_warehouse_expression": result.entities.get("warehouse_expression"),
+            "last_warehouse_keyword": None,
             "product_candidates": recommendation["items"][:8], "inventory_result": None,
         }
         return response
@@ -205,7 +213,7 @@ class AiAssistantService:
                 DEFAULT_SUGGESTIONS,
             )
 
-        if result.intent in {"inventory_search", "inventory_item_code"}:
+        if result.intent in {"inventory_search", "inventory_item_code", "inventory_item_warehouse_search"}:
             return self._execute_inventory_query(result, user_id)
 
         if result.intent == "inventory_low_stock":
@@ -304,6 +312,10 @@ class AiAssistantService:
                 selected_item_code=items[0].get("item_code") if len(items) == 1 else None,
             )
 
+        if result.intent == "inventory_item_warehouse_search" and len(items) == 1:
+            return self._build_warehouse_inventory_response(
+                result, inventory_response, items[0], user_id,
+            )
         message = self._build_inventory_message(result.intent, inventory_response, threshold)
         data = {
             key: value for key, value in result.entities.items()
@@ -320,6 +332,57 @@ class AiAssistantService:
             response["context"] = context_from_item(
                 items[0], result.intent, datetime.now(timezone.utc).isoformat(),
             )
+        return response
+
+    def _build_warehouse_inventory_response(self, result, inventory_response, item, user_id):
+        keyword = str(result.entities.get("warehouse_keyword") or "").strip()
+        all_warehouses = item.get("warehouses") or []
+        matched, match_type = match_warehouses(
+            all_warehouses, result.entities.get("warehouse_expression") or keyword,
+        )
+        filtered_quantity = self._sum_quantities(matched)
+        name = item.get("item_name") or item.get("item_code")
+        filtered_item = dict(item)
+        filtered_item["warehouses"] = matched
+        filtered_item["total_quantity"] = filtered_quantity
+        filtered_response = dict(inventory_response)
+        filtered_response["items"] = [filtered_item]
+        if matched:
+            message = "{}의 {} 관련 창고 재고는 총 {}개입니다.".format(
+                name, keyword, self._format_quantity(filtered_quantity),
+            )
+            lines = [
+                "• {}: {}개".format(
+                    row.get("warehouse_name") or row.get("warehouse_code") or "창고",
+                    self._format_quantity(row.get("quantity")),
+                )
+                for row in matched
+            ]
+            if lines:
+                message += "\n" + "\n".join(lines)
+        else:
+            message = "'{}'의 재고 결과에서 '{}'와 일치하는 창고를 찾지 못했습니다.".format(name, keyword)
+        data = {
+            "type": "inventory_warehouse_result", "inventory_response": filtered_response,
+            "item_code": item.get("item_code"), "item_name": item.get("item_name"),
+            "selected_item_code": item.get("item_code"), "warehouse_keyword": keyword,
+            "warehouse_match_type": match_type, "warehouse_match_count": len(matched),
+            "total_quantity": item.get("total_quantity"),
+            "filtered_quantity": filtered_quantity, "warehouses": matched,
+            "all_warehouses": all_warehouses, "base_date": InventoryService._korea_today(),
+        }
+        response = self._response(result.intent, message, data, INVENTORY_SUGGESTIONS)
+        response["context"] = context_from_item(
+            item, result.intent, datetime.now(timezone.utc).isoformat(),
+        )
+        response["context"]["last_warehouse_filter"] = keyword
+        response["context"]["last_warehouse_keyword"] = keyword
+        response["context"]["pending_warehouse_keyword"] = None
+        response["context"]["pending_warehouse_expression"] = None
+        logger.info(
+            "AI inventory warehouse filter intent=%s item_code=%s warehouse_match_count=%s context_used=false external_inventory_call=false",
+            result.intent, item.get("item_code"), len(matched),
+        )
         return response
 
     def _build_client_context_response(self, message, intent, context):
@@ -339,7 +402,15 @@ class AiAssistantService:
         next_context["last_intent"] = intent
 
         if intent == "inventory_refresh":
-            result = IntentResult("inventory_search", "", {"item_code": context["selected_item_code"]})
+            compound = extract_compound_inventory_entities(message)
+            warehouse_keyword = compound.get("warehouse_keyword") if compound else None
+            result = IntentResult(
+                "inventory_item_warehouse_search" if warehouse_keyword else "inventory_search", "",
+                {
+                    "item_code": context["selected_item_code"], "warehouse_keyword": warehouse_keyword,
+                    "warehouse_expression": compound.get("warehouse_expression") if compound else None,
+                },
+            )
             response = self._execute_inventory_query(result, None)
             response["intent"] = "inventory_refresh"
             if response.get("context"):
@@ -350,7 +421,7 @@ class AiAssistantService:
             keyword = re.sub(r"(?:관련\s*)?창고|만|보여줘|알려줘|조회해줘", "", normalized).strip()
             if keyword == "해당" and context.get("last_warehouse_filter"):
                 keyword = context["last_warehouse_filter"]
-            filtered = [row for row in warehouses if keyword.casefold() in str(row.get("warehouse_name") or "").casefold()]
+            filtered, _ = match_warehouses(warehouses, keyword)
             next_context["last_warehouse_filter"] = keyword
             if not filtered:
                 response = self._response(intent, "직전 조회 결과에서 '{}'와 일치하는 창고를 찾지 못했습니다.".format(keyword), {"type": "inventory_result", "inventory_response": self._inventory_payload([], item_name, context)}, INVENTORY_SUGGESTIONS)

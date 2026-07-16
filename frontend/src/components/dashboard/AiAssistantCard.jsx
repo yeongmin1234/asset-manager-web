@@ -6,6 +6,7 @@ import {
   fetchInventoryAlertsForAi,
   fetchRecommendedInventoryItem,
   buildConversationContext,
+  filterInventoryForWarehouse,
   isInventoryAnalysisIntent,
   isInventoryChangeIntent,
   isInventoryAlertIntent,
@@ -185,7 +186,14 @@ function AiAssistantCard({ onInventoryStateChange }) {
           selectedItemCode: items[0]?.item_code || null,
           searchedAt: new Date().toISOString(),
           errorMessage: null,
-          analysis: null,
+          analysis: response.data?.type === "inventory_warehouse_result" ? {
+            type: "inventory_warehouse_filter",
+            label: `창고 필터: ${response.data.warehouse_keyword}`,
+            warehouse_keyword: response.data.warehouse_keyword,
+            match_count: response.data.warehouse_match_count,
+            filtered_quantity: response.data.filtered_quantity,
+            total_quantity: response.data.total_quantity,
+          } : null,
         });
       }
       setMessages((current) => current.map((message) => (
@@ -238,8 +246,14 @@ function AiAssistantCard({ onInventoryStateChange }) {
     });
     try {
       const inventory = await fetchRecommendedInventoryItem(item);
-      const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
-      setConversationContext(buildConversationContext(inventory.inventoryResponse));
+      const pendingWarehouse = conversationContext?.pending_warehouse_expression
+        || conversationContext?.pending_warehouse_keyword;
+      const filtered = pendingWarehouse
+        ? filterInventoryForWarehouse(inventory.inventoryResponse, pendingWarehouse)
+        : null;
+      const displayedResponse = filtered?.inventoryResponse || inventory.inventoryResponse;
+      const items = Array.isArray(displayedResponse?.items) ? displayedResponse.items : [];
+      setConversationContext(filtered?.context || buildConversationContext(inventory.inventoryResponse));
       await rememberInventoryContext({
         aiResponse: { intent: "inventory_search", data: { item_code: item.item_code } },
         query: item.item_name || item.item_code,
@@ -248,11 +262,11 @@ function AiAssistantCard({ onInventoryStateChange }) {
       onInventoryStateChange?.({
         status: items.length ? "success" : "empty", query: item.item_name || item.item_code,
         items, selectedItemCode: item.item_code, searchedAt: new Date().toISOString(),
-        errorMessage: null, analysis: null,
+        errorMessage: null, analysis: filtered?.analysis || null,
       });
       setMessages((current) => current.map((message) => (
         message.id === pendingId
-          ? { id: `assistant-selection-${requestId}`, role: "assistant", content: inventory.answer }
+          ? { id: `assistant-selection-${requestId}`, role: "assistant", content: filtered?.answer || inventory.answer }
           : message
       )));
     } catch (error) {

@@ -2,6 +2,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.services.ai_inventory_query_service import extract_compound_inventory_entities
+
 
 MAX_MESSAGE_LENGTH = 500
 
@@ -98,6 +100,9 @@ def analyze_intent(message: str) -> IntentResult:
             else "inventory_change_compare"
         )
         return IntentResult(intent, normalized, _parse_entities("history_change", normalized), read_only_violation)
+    compound = extract_compound_inventory_entities(normalized)
+    if compound:
+        return IntentResult("inventory_item_warehouse_search", normalized, compound, read_only_violation)
     for rule in INTENT_RULES:
         if any(keyword in normalized for keyword in rule.keywords):
             entities = _parse_entities(rule.parser, normalized)

@@ -63,6 +63,13 @@ function InventoryResultPanel({ state, isVisible = true }) {
           <span>일치 {items.length}건</span>
           {state.analysis.limited ? <em>최대 {state.analysis.scope_limit}개 범위</em> : null}
           {state.analysis.selection_note ? <em>{state.analysis.selection_note}</em> : null}
+          {state.analysis.type === "inventory_warehouse_filter" ? (
+            <>
+              <em>일치 창고 {state.analysis.match_count || 0}개</em>
+              <em>필터 합계 {formatInventoryQuantity(state.analysis.filtered_quantity)}</em>
+              <em>전체 총재고 {formatInventoryQuantity(state.analysis.total_quantity)}</em>
+            </>
+          ) : null}
           {state.analysis.data_source_label ? <em>데이터: {state.analysis.data_source_label}</em> : null}
           {formatSnapshotAt(state.analysis.snapshot_at) ? (
             <em>기준: {formatSnapshotAt(state.analysis.snapshot_at)}</em>

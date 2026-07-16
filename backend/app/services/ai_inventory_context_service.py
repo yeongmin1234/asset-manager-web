@@ -162,6 +162,9 @@ def sanitize_client_context(value: Optional[Dict[str, Any]]) -> Optional[Dict[st
         "last_intent": _short(value.get("last_intent"), 80),
         "searched_at": _short(value.get("searched_at"), 80),
         "last_warehouse_filter": _short(value.get("last_warehouse_filter"), 160),
+        "last_warehouse_keyword": _short(value.get("last_warehouse_keyword"), 160),
+        "pending_warehouse_keyword": _short(value.get("pending_warehouse_keyword"), 160),
+        "pending_warehouse_expression": _short(value.get("pending_warehouse_expression"), 160),
         "search_keyword": _short(value.get("search_keyword"), 160),
         "product_candidates": [_sanitize_candidate(row) for row in candidates[:MAX_CONTEXT_CANDIDATES] if isinstance(row, dict)],
         "inventory_result": {
@@ -177,6 +180,8 @@ def context_from_item(item: Dict[str, Any], intent: str, searched_at: Optional[s
         "selected_item_code": safe["item_code"], "selected_item_name": safe["item_name"],
         "unit": safe["unit"], "size": safe["size"], "last_intent": intent,
         "searched_at": searched_at, "last_warehouse_filter": None,
+        "last_warehouse_keyword": None, "pending_warehouse_keyword": None,
+        "pending_warehouse_expression": None,
         "search_keyword": None, "product_candidates": [],
         "inventory_result": {"total_quantity": safe["total_quantity"], "warehouses": safe["warehouses"]},
     }
