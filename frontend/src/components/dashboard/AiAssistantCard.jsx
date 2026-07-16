@@ -28,7 +28,6 @@ import ProductPickerModal from "./ProductPickerModal.jsx";
 const EXAMPLE_QUESTIONS = [
   "품목명으로 재고 조회",
   "품목코드로 재고 조회",
-  "창고·백화점별 품목 조회",
 ];
 
 const INITIAL_MESSAGES = [
@@ -376,10 +375,6 @@ function AiAssistantCard({ onInventoryStateChange }) {
     if (question === "품목코드로 재고 조회") {
       setInputPlaceholder("품목코드를 입력하세요");
       inputRef.current?.focus();
-      return;
-    }
-    if (question === "창고·백화점별 품목 조회") {
-      setIsWarehousePickerOpen(true);
       return;
     }
     setIsProductPickerOpen(true);
