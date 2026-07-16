@@ -1,4 +1,5 @@
 import copy
+import logging
 import threading
 import time
 from decimal import Decimal, InvalidOperation
@@ -21,6 +22,11 @@ _warehouse_inventory_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
 _warehouse_list_lock = threading.Lock()
 _warehouse_inventory_locks: Dict[str, threading.Lock] = {}
 _warehouse_inventory_locks_guard = threading.Lock()
+logger = logging.getLogger(__name__)
+
+
+class WarehouseMasterUnavailableError(Exception):
+    pass
 
 
 class WarehouseInventoryService:
@@ -83,7 +89,7 @@ class WarehouseInventoryService:
             stale = cached if cached and cached[1] > now else None
             try:
                 rows = self._load_warehouses()
-            except SQLAlchemyError:
+            except (SQLAlchemyError, WarehouseMasterUnavailableError):
                 if stale:
                     return copy.deepcopy(stale[2]), "stale"
                 raise
@@ -97,15 +103,67 @@ class WarehouseInventoryService:
             InventorySnapshot.row_type == "warehouse", InventorySnapshot.warehouse_code != "",
         ).order_by(InventorySnapshot.snapshot_at.desc())
         snapshots = self.db.execute(statement).scalars().all()
+        source_rows = [{
+            "warehouse_code": row.warehouse_code,
+            "warehouse_name": row.warehouse_name,
+        } for row in snapshots]
+        cached_locations = self.inventory_service.list_cached_warehouse_locations()
+        if isinstance(cached_locations, list):
+            source_rows.extend(cached_locations)
         found = {}
-        for row in snapshots:
-            code = str(row.warehouse_code or "").strip().upper()
+        for row in source_rows:
+            code = str(row.get("warehouse_code") or row.get("WH_CD") or row.get("LOCATION_CD") or row.get("DEPT_CD") or "").strip().upper()
             if not code or len(code) > 5 or code in found:
                 continue
-            name = str(row.warehouse_name or code).strip()
-            location_type = "department_store" if "백화점" in name else "warehouse"
-            found[code] = {"warehouse_code": code, "warehouse_name": name, "location_type": location_type, "search_value": self._normalize_search("{} {}".format(code, name))}
-        return sorted(found.values(), key=lambda row: (row["warehouse_name"].casefold(), row["warehouse_code"]))
+            name = str(row.get("warehouse_name") or row.get("WH_DES") or row.get("LOCATION_DES") or row.get("DEPT_DES") or "").strip()
+            if not name:
+                continue
+            department_store_name = str(row.get("department_store_name") or row.get("DEPT_DES") or "").strip() or None
+            branch_name = str(row.get("branch_name") or row.get("BRANCH_DES") or row.get("BRANCH_NAME") or "").strip() or None
+            location_type = self._classify_location(name, row.get("source_location_type") or row.get("LOCATION_TYPE") or row.get("WH_TYPE"))
+            display_name = " ".join(value for value in (department_store_name, branch_name) if value) or name
+            found[code] = {
+                "warehouse_code": code, "warehouse_name": name, "location_type": location_type,
+                "department_store_name": department_store_name, "branch_name": branch_name,
+                "display_name": display_name,
+                "search_value": self._normalize_search("{} {} {} {}".format(code, name, department_store_name or "", branch_name or "")),
+            }
+        if source_rows and not found:
+            logger.warning(
+                "warehouse_master_mapping_empty source_count=%s normalized_count=0 cache_hit=false stale_used=false",
+                len(source_rows),
+            )
+            raise WarehouseMasterUnavailableError("창고 목록 원본 필드 매핑을 확인해주세요.")
+        if not found:
+            logger.warning("warehouse_master_mapping_empty source_count=0 normalized_count=0 cache_hit=false stale_used=false")
+            raise WarehouseMasterUnavailableError("사용 가능한 창고 목록 원본이 없습니다.")
+        return sorted(found.values(), key=self._warehouse_sort_key)
+
+    @classmethod
+    def _warehouse_sort_key(cls, row):
+        name = str(row.get("display_name") or row.get("warehouse_name") or "")
+        compact = cls._normalize_search(name)
+        if "파주" in compact:
+            exact_rank = 0 if compact == "파주창고" else 1 if compact == "파주rma" else 2 if compact == "파주as창고" else 3
+            return (0, exact_rank, name.casefold(), row["warehouse_code"])
+        if row.get("location_type") == "department_store":
+            return (1, 0, name.casefold(), row["warehouse_code"])
+        if row.get("location_type") == "warehouse":
+            return (2, 0, name.casefold(), row["warehouse_code"])
+        return (3, 0, name.casefold(), row["warehouse_code"])
+
+    @staticmethod
+    def _classify_location(name, raw_type=None):
+        normalized_type = str(raw_type or "").strip().casefold()
+        if normalized_type in {"department_store", "department", "dept", "백화점"}:
+            return "department_store"
+        if normalized_type in {"warehouse", "wh", "창고"}:
+            return "warehouse"
+        compact = str(name or "").replace(" ", "").casefold()
+        department_tokens = ("백화점", "롯데", "현대", "신세계", "갤러리아", "ak", "nc", "아울렛")
+        if any(token in compact for token in department_tokens):
+            return "department_store"
+        return "warehouse" if "창고" in compact or "rma" in compact else "other"
 
     def _get_inventory_rows(self, code):
         now = time.monotonic()

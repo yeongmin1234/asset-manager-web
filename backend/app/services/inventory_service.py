@@ -349,6 +349,30 @@ class InventoryService:
         raw_items = self._fetch_with_single_reauthentication(payload, LOCATION_INVENTORY_ENDPOINT)
         return [self._normalize_location_item(item) for item in raw_items[:limit]]
 
+    @staticmethod
+    def list_cached_warehouse_locations() -> List[Dict[str, Any]]:
+        """Return warehouse identity fields already observed in cached ECOUNT responses.
+
+        This method is intentionally read-only: opening the warehouse picker must never
+        cause an inventory request.
+        """
+        found: Dict[str, Dict[str, Any]] = {}
+        with _query_cache_lock:
+            cached_results = [copy.deepcopy(entry[1]) for entry in _query_cache.values()]
+        for raw_items in cached_results:
+            for raw in raw_items:
+                code = str(raw.get("WH_CD") or raw.get("LOCATION_CD") or raw.get("DEPT_CD") or "").strip().upper()
+                name = str(raw.get("WH_DES") or raw.get("LOCATION_DES") or raw.get("DEPT_DES") or "").strip()
+                if code and name and code not in found:
+                    found[code] = {
+                        "warehouse_code": code,
+                        "warehouse_name": name,
+                        "department_store_name": str(raw.get("DEPT_DES") or "").strip() or None,
+                        "branch_name": str(raw.get("BRANCH_DES") or raw.get("BRANCH_NAME") or "").strip() or None,
+                        "source_location_type": str(raw.get("LOCATION_TYPE") or raw.get("WH_TYPE") or "").strip() or None,
+                    }
+        return list(found.values())
+
     def search_inventory_by_keyword(
         self,
         keyword: str,

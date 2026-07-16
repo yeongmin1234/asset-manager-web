@@ -37,7 +37,7 @@ from app.services.inventory_snapshot_query_service import (
     get_snapshot_history,
 )
 from app.services.inventory_change_analysis_service import InventoryChangeAnalysisService
-from app.services.warehouse_inventory_service import WarehouseInventoryService
+from app.services.warehouse_inventory_service import WarehouseInventoryService, WarehouseMasterUnavailableError
 from app.models.inventory_alert import InventoryAlert
 
 
@@ -56,6 +56,8 @@ def list_inventory_warehouses(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="창고 목록을 불러올 수 없습니다.") from exc
+    except WarehouseMasterUnavailableError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="창고 목록을 불러올 수 없습니다.") from exc
 
 

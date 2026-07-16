@@ -6,7 +6,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from app.services.inventory_service import InventoryRateLimitError
-from app.services.warehouse_inventory_service import WarehouseInventoryService, clear_warehouse_caches
+from app.services.warehouse_inventory_service import (
+    WarehouseInventoryService, WarehouseMasterUnavailableError, clear_warehouse_caches,
+)
 import app.services.warehouse_inventory_service as warehouse_module
 from sqlalchemy.exc import OperationalError
 
@@ -38,6 +40,39 @@ class WarehouseInventoryServiceTest(unittest.TestCase):
         self.assertEqual(first["items"][0]["location_type"], "department_store")
         self.assertEqual(second["total"], 2)
         db.execute.assert_called_once()
+
+    def test_empty_keyword_returns_all_and_paju_department_store_warehouse_order(self):
+        rows = self.snapshots() + [SimpleNamespace(warehouse_code="00002", warehouse_name="본사창고")]
+        db = Mock(); db.execute.return_value = ScalarResult(rows)
+        service = WarehouseInventoryService(db=db, inventory_service=Mock())
+        omitted = service.list_warehouses()
+        empty = service.list_warehouses(keyword="  ")
+        expected = ["파주창고", "롯데백화점 본점", "본사창고"]
+        self.assertEqual([row["display_name"] for row in omitted["items"]], expected)
+        self.assertEqual([row["display_name"] for row in empty["items"]], expected)
+
+    def test_search_ignores_case_and_spaces_and_matches_code(self):
+        rows = self.snapshots() + [SimpleNamespace(warehouse_code="A0002", warehouse_name="파주 RMA")]
+        db = Mock(); db.execute.return_value = ScalarResult(rows)
+        service = WarehouseInventoryService(db=db, inventory_service=Mock())
+        self.assertEqual(service.list_warehouses(keyword="파 주 rMa")["items"][0]["warehouse_code"], "A0002")
+        self.assertEqual(service.list_warehouses(keyword="d0 01")["items"][0]["warehouse_code"], "D001")
+
+    def test_cached_ecount_location_mapping_is_merged_without_inventory_call(self):
+        db = Mock(); db.execute.return_value = ScalarResult([])
+        inventory = Mock()
+        inventory.list_cached_warehouse_locations.return_value = [{
+            "warehouse_code": "D014", "warehouse_name": "현대백화점 판교점",
+            "department_store_name": "현대백화점", "branch_name": "판교점",
+        }]
+        result = WarehouseInventoryService(db=db, inventory_service=inventory).list_warehouses(keyword="판교")
+        self.assertEqual(result["items"][0]["display_name"], "현대백화점 판교점")
+        inventory.get_inventory_by_location.assert_not_called()
+
+    def test_nonempty_source_mapping_to_zero_is_an_error(self):
+        db = Mock(); db.execute.return_value = ScalarResult([SimpleNamespace(warehouse_code="", warehouse_name=None)])
+        with self.assertRaises(WarehouseMasterUnavailableError):
+            WarehouseInventoryService(db=db, inventory_service=Mock()).list_warehouses()
 
     def test_opening_warehouse_list_does_not_call_inventory_api(self):
         db = Mock(); db.execute.return_value = ScalarResult(self.snapshots())

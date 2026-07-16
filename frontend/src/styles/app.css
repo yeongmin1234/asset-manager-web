@@ -16077,3 +16077,14 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 @media (max-width: 1000px) { .hr-account-quick-form { grid-template-columns: repeat(3, minmax(140px, 1fr)); } .hr-account-quick-form button { justify-self: end; min-width: 86px; } }
 @media (max-width: 760px) { .hr-account-page .hr-account-heading { align-items: stretch; flex-direction: column; } .hr-account-page .hr-account-heading .hr-primary-button { align-self: flex-end; } .hr-account-excel-attachment { justify-content: flex-end; } .hr-account-excel-error { text-align: right; } .hr-account-toolbar { align-items: stretch; flex-wrap: wrap; } .hr-account-toolbar form { flex: 1 1 100%; flex-wrap: wrap; } .hr-account-toolbar input { flex-basis: 100%; } .hr-account-quick-form { grid-template-columns: repeat(2, minmax(120px, 1fr)); } .hr-account-form-grid { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .hr-account-import-backdrop { padding: 10px; } .hr-account-import-modal { width: calc(100vw - 20px); max-height: calc(100vh - 20px); padding: 12px; } .hr-account-import-heading { align-items: stretch; flex-direction: column; } .hr-account-import-heading-actions { justify-content: stretch; } .hr-account-import-heading-actions button { flex: 1 1 auto; } .hr-account-import-summary { grid-template-columns: repeat(2, minmax(100px, 1fr)); } }
+/* Warehouse picker groups keep the existing product-picker geometry and scroll area. */
+.warehouse-picker-group > h4 {
+  margin: 12px 4px 6px;
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.warehouse-picker-group:first-child > h4 {
+  margin-top: 2px;
+}

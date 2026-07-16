@@ -75,6 +75,9 @@ class WarehouseMasterItem(BaseModel):
     warehouse_code: str
     warehouse_name: str
     location_type: str = "warehouse"
+    department_store_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    display_name: str
 
 
 class WarehouseMasterListResponse(BaseModel):
