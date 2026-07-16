@@ -5,6 +5,7 @@ import {
   fetchInventoryChangeForAi,
   fetchInventoryAlertsForAi,
   fetchRecommendedInventoryItem,
+  buildConversationContext,
   isInventoryAnalysisIntent,
   isInventoryChangeIntent,
   isInventoryAlertIntent,
@@ -37,6 +38,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
   const [isSending, setIsSending] = useState(false);
   const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
   const [inputPlaceholder, setInputPlaceholder] = useState("질문을 입력하세요");
+  const [conversationContext, setConversationContext] = useState(null);
   const conversationRef = useRef(null);
   const inputRef = useRef(null);
   const requestLockRef = useRef(false);
@@ -72,7 +74,9 @@ function AiAssistantCard({ onInventoryStateChange }) {
     setIsSending(true);
 
     try {
-      const response = await sendAiAssistantMessage(trimmedQuestion);
+      const response = await sendAiAssistantMessage(trimmedQuestion, conversationContext);
+      if (response.context) setConversationContext(response.context);
+      else if (response.intent === "context_clear") setConversationContext(null);
       let answer = response.message;
       let recommendations = null;
       const responseType = response.data?.type;
@@ -235,6 +239,7 @@ function AiAssistantCard({ onInventoryStateChange }) {
     try {
       const inventory = await fetchRecommendedInventoryItem(item);
       const items = Array.isArray(inventory.inventoryResponse?.items) ? inventory.inventoryResponse.items : [];
+      setConversationContext(buildConversationContext(inventory.inventoryResponse));
       await rememberInventoryContext({
         aiResponse: { intent: "inventory_search", data: { item_code: item.item_code } },
         query: item.item_name || item.item_code,
@@ -288,6 +293,16 @@ function AiAssistantCard({ onInventoryStateChange }) {
     }
   };
 
+  const handleConversationReset = () => {
+    if (isSending) return;
+    setConversationContext(null);
+    setMessages(INITIAL_MESSAGES);
+    setInput("");
+    setInputPlaceholder("질문을 입력하세요");
+    setIsProductPickerOpen(false);
+    recommendationLocksRef.current.clear();
+  };
+
   return (
     <section className="dashboard-panel ai-assistant-card" aria-labelledby="ai-assistant-title">
       <div className="ai-assistant-heading">
@@ -295,6 +310,9 @@ function AiAssistantCard({ onInventoryStateChange }) {
           <h3 id="ai-assistant-title">AI 업무 도우미</h3>
           <p>재고 및 사내 업무 정보를 질문해보세요.</p>
         </div>
+        <button type="button" className="ai-assistant-reset" onClick={handleConversationReset} disabled={isSending}>
+          대화 초기화
+        </button>
       </div>
 
       <div className="ai-assistant-conversation" ref={conversationRef} aria-live="polite">

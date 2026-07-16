@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class AiChatRequest(BaseModel):
     message: str
+    context: Optional[Dict[str, Any]] = None
 
 
 class AiChatResponse(BaseModel):
@@ -13,6 +14,7 @@ class AiChatResponse(BaseModel):
     message: str
     data: Optional[Dict[str, Any]] = None
     suggestions: List[str] = Field(default_factory=list)
+    context: Optional[Dict[str, Any]] = None
 
 
 class AiInventoryContextRequest(BaseModel):

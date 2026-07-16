@@ -24,7 +24,9 @@ def chat(
     current_user: User = Depends(get_current_user),
 ) -> AiChatResponse:
     try:
-        return AiChatResponse(**AiAssistantService().process_message(payload.message, current_user.id, current_user))
+        return AiChatResponse(**AiAssistantService().process_message(
+            payload.message, current_user.id, current_user, context=payload.context,
+        ))
     except AiAssistantPermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="해당 기능을 사용할 권한이 없습니다.") from exc
     except InventoryRateLimitError as exc:

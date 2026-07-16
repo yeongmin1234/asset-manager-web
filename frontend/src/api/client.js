@@ -283,10 +283,10 @@ export async function getHealth() {
   return request("/health");
 }
 
-export async function postAiChat(message) {
+export async function postAiChat(message, context = null) {
   return request("/ai/chat", {
     method: "POST",
-    body: { message },
+    body: { message, context },
   });
 }
 

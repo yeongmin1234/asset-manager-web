@@ -1,3 +1,4 @@
+import copy
 import logging
 import re
 import time
@@ -7,8 +8,10 @@ from typing import Any, Dict, List, Optional
 
 from app.services.ai_inventory_context_service import (
     classify_inventory_followup,
+    context_from_item,
     get_inventory_context,
     save_inventory_context,
+    sanitize_client_context,
     select_context_item,
 )
 from app.services.ai_intent_service import IntentResult, analyze_intent
@@ -28,6 +31,7 @@ INVENTORY_SUGGESTIONS = [
     "품목코드로 재고 조회",
     "창고별 재고 조회",
 ]
+_CONTEXT_UNSET = object()
 
 
 class AiAssistantPermissionError(PermissionError):
@@ -38,15 +42,24 @@ class AiAssistantService:
     def __init__(self, inventory_service=None):
         self.inventory_service = inventory_service
 
-    def process_message(self, message: str, user_id: Optional[int] = None, user=None) -> Dict[str, Any]:
+    def process_message(self, message: str, user_id: Optional[int] = None, user=None, context=_CONTEXT_UNSET) -> Dict[str, Any]:
         started_at = time.monotonic()
+        has_client_context = context is not _CONTEXT_UNSET
+        client_context = sanitize_client_context(context) if has_client_context else None
         followup_intent = classify_inventory_followup(message)
-        if followup_intent and user_id is not None:
+        if followup_intent and (has_client_context or user_id is not None):
             self._ensure_permission("inventory_search", user)
-            response = self._build_context_response(user_id, followup_intent)
+            legacy_intent = (
+                "inventory_context_total"
+                if not has_client_context and followup_intent == "inventory_total_followup"
+                else followup_intent
+            )
+            response = self._build_client_context_response(
+                message, followup_intent, client_context,
+            ) if has_client_context else self._build_context_response(user_id, legacy_intent)
             logger.info(
                 "AI assistant processed intent=%s success=true response_time_ms=%s",
-                followup_intent,
+                response.get("intent") or followup_intent,
                 max(0, int((time.monotonic() - started_at) * 1000)),
             )
             return response
@@ -145,9 +158,16 @@ class AiAssistantService:
         message_text = "'{}'와 일치하는 품목이 여러 개입니다.\n조회할 품목을 선택해주세요.".format(candidate)
         if recommendation["has_more"]:
             message_text += "\n'{}'와 일치하는 품목이 많습니다. 품목명을 조금 더 구체적으로 입력해주세요.".format(candidate)
-        return self._response(
+        response = self._response(
             "inventory_recommendation", message_text, recommendation, INVENTORY_SUGGESTIONS,
         )
+        response["context"] = {
+            "selected_item_code": None, "selected_item_name": None, "unit": None, "size": None,
+            "last_intent": "inventory_recommendation", "searched_at": None,
+            "last_warehouse_filter": None, "search_keyword": candidate,
+            "product_candidates": recommendation["items"][:8], "inventory_result": None,
+        }
+        return response
 
     @staticmethod
     def _ensure_permission(intent: str, user) -> None:
@@ -280,7 +300,85 @@ class AiAssistantService:
             "selected_item_code": items[0].get("item_code") if len(items) == 1 else None,
             "base_date": InventoryService._korea_today(),
         })
-        return self._response(result.intent, message, data, INVENTORY_SUGGESTIONS)
+        response = self._response(result.intent, message, data, INVENTORY_SUGGESTIONS)
+        if len(items) == 1:
+            response["context"] = context_from_item(
+                items[0], result.intent, datetime.now(timezone.utc).isoformat(),
+            )
+        return response
+
+    def _build_client_context_response(self, message, intent, context):
+        if intent == "context_clear":
+            return self._response(intent, "대화 문맥을 초기화했습니다. 새 품목을 조회해주세요.", None, INVENTORY_SUGGESTIONS)
+        if not context or not context.get("selected_item_code"):
+            response = self._response(
+                intent, "먼저 조회할 품목을 선택하거나 품목명·품목코드를 입력해주세요.",
+                {"type": "context_missing"}, INVENTORY_SUGGESTIONS,
+            )
+            response["context"] = None
+            return response
+        item_name = context.get("selected_item_name") or context["selected_item_code"]
+        inventory = context.get("inventory_result") or {}
+        warehouses = inventory.get("warehouses") or []
+        next_context = copy.deepcopy(context)
+        next_context["last_intent"] = intent
+
+        if intent == "inventory_refresh":
+            result = IntentResult("inventory_search", "", {"item_code": context["selected_item_code"]})
+            response = self._execute_inventory_query(result, None)
+            response["intent"] = "inventory_refresh"
+            if response.get("context"):
+                response["context"]["last_intent"] = "inventory_refresh"
+            return response
+        if intent == "inventory_warehouse_filter":
+            normalized = re.sub(r"\s+", " ", message.strip().lower())
+            keyword = re.sub(r"(?:관련\s*)?창고|만|보여줘|알려줘|조회해줘", "", normalized).strip()
+            if keyword == "해당" and context.get("last_warehouse_filter"):
+                keyword = context["last_warehouse_filter"]
+            filtered = [row for row in warehouses if keyword.casefold() in str(row.get("warehouse_name") or "").casefold()]
+            next_context["last_warehouse_filter"] = keyword
+            if not filtered:
+                response = self._response(intent, "직전 조회 결과에서 '{}'와 일치하는 창고를 찾지 못했습니다.".format(keyword), {"type": "inventory_result", "inventory_response": self._inventory_payload([], item_name, context)}, INVENTORY_SUGGESTIONS)
+            else:
+                total = self._sum_quantities(filtered)
+                response = self._response(intent, "{}의 {} 관련 창고 재고는 총 {}개입니다.".format(item_name, keyword, self._format_quantity(total)), {"type": "inventory_result", "inventory_response": self._inventory_payload(filtered, item_name, context), "selected_item_code": context["selected_item_code"]}, INVENTORY_SUGGESTIONS)
+        elif intent == "inventory_other_warehouses":
+            excluded = context.get("last_warehouse_filter")
+            if not excluded:
+                response = self._response(intent, "어느 창고를 제외할지 먼저 알려주세요.", None, INVENTORY_SUGGESTIONS)
+            else:
+                filtered = [row for row in warehouses if excluded.casefold() not in str(row.get("warehouse_name") or "").casefold()]
+                response = self._response(intent, "{}의 나머지 창고 재고를 표시합니다.".format(item_name), {"type": "inventory_result", "inventory_response": self._inventory_payload(filtered, item_name, context), "selected_item_code": context["selected_item_code"]}, INVENTORY_SUGGESTIONS)
+        elif intent in ("inventory_show_all_warehouses", "inventory_context_warehouses"):
+            response = self._response(intent, "{}의 창고별 재고를 표시합니다.".format(item_name), {"type": "inventory_result", "inventory_response": self._inventory_payload(warehouses, item_name, context), "selected_item_code": context["selected_item_code"]}, INVENTORY_SUGGESTIONS)
+        elif intent in ("inventory_total_followup", "inventory_context_total"):
+            response = self._response(intent, "{}의 현재 총재고는 {}개입니다.".format(item_name, self._format_quantity(inventory.get("total_quantity"))), None, INVENTORY_SUGGESTIONS)
+        elif intent == "inventory_item_code_followup":
+            response = self._response(intent, "{}의 품목코드는 {}입니다.".format(item_name, context["selected_item_code"]), None, INVENTORY_SUGGESTIONS)
+        elif intent == "inventory_item_name_followup":
+            response = self._response(intent, "선택한 품목명은 {}입니다.".format(item_name), None, INVENTORY_SUGGESTIONS)
+        elif intent == "inventory_unit_followup":
+            response = self._response(intent, "{}의 단위는 {}입니다.".format(item_name, context.get("unit") or "확인할 수 없음"), None, INVENTORY_SUGGESTIONS)
+        elif intent == "inventory_size_followup":
+            response = self._response(intent, "{}의 규격은 {}입니다.".format(item_name, context.get("size") or "확인할 수 없음"), None, INVENTORY_SUGGESTIONS)
+        else:
+            response = self._response(intent, self._item_summary({"item_name": item_name, "total_quantity": inventory.get("total_quantity")}), None, INVENTORY_SUGGESTIONS)
+        response["context"] = next_context
+        return response
+
+    @staticmethod
+    def _inventory_payload(warehouses, item_name, context):
+        return {"success": True, "authenticated": True, "total": 1, "items": [{"item_code": context["selected_item_code"], "item_name": item_name, "size": context.get("size"), "unit": context.get("unit"), "total_quantity": str(AiAssistantService._sum_quantities(warehouses)), "warehouses": warehouses}], "message": "직전 재고 조회 결과입니다.", "response_time_ms": 0}
+
+    @staticmethod
+    def _sum_quantities(warehouses):
+        total = Decimal("0")
+        for row in warehouses:
+            try:
+                total += Decimal(str(row.get("quantity") or "0"))
+            except (InvalidOperation, ValueError):
+                continue
+        return total
 
     def _build_inventory_message(
         self, intent: str, inventory_response: Dict[str, Any], threshold: Any,

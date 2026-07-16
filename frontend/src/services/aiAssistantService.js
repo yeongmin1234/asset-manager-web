@@ -36,9 +36,9 @@ const INVENTORY_ALERT_INTENTS = new Set([
   "inventory_rapid_decrease", "inventory_alert_low_stock",
 ]);
 
-export async function sendAiAssistantMessage(message) {
+export async function sendAiAssistantMessage(message, context = null) {
   try {
-    return await postAiChat(message);
+    return await postAiChat(message, context);
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.status === 401) throw new Error("로그인이 만료되었습니다.");
@@ -59,7 +59,31 @@ export function isInventoryIntent(intent) {
 }
 
 export function isInventoryContextIntent(intent) {
-  return String(intent || "").startsWith("inventory_context_");
+  return new Set([
+    "inventory_warehouse_filter", "inventory_show_all_warehouses", "inventory_other_warehouses",
+    "inventory_context_warehouses",
+  ]).has(String(intent || ""));
+}
+
+export function buildConversationContext(inventoryResponse, intent = "inventory_search") {
+  const items = Array.isArray(inventoryResponse?.items) ? inventoryResponse.items : [];
+  if (items.length !== 1) return null;
+  const item = items[0];
+  return {
+    selected_item_code: item.item_code || null,
+    selected_item_name: item.item_name || null,
+    unit: item.unit || null,
+    size: item.size || null,
+    last_intent: intent,
+    searched_at: new Date().toISOString(),
+    last_warehouse_filter: null,
+    search_keyword: null,
+    product_candidates: [],
+    inventory_result: {
+      total_quantity: item.total_quantity ?? null,
+      warehouses: Array.isArray(item.warehouses) ? item.warehouses : [],
+    },
+  };
 }
 
 export function isInventoryAnalysisIntent(intent) {
