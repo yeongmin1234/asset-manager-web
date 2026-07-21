@@ -20,8 +20,11 @@ from app.services.activity_log_service import record_activity_log
 
 
 UPLOAD_CHUNK_SIZE = 1024 * 1024
+MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
 ALLOWED_ATTACHMENT_EXTENSIONS = {
     ".pdf",
+    ".gif",
+    ".bmp",
     ".png",
     ".jpg",
     ".jpeg",
@@ -80,7 +83,7 @@ ENTITY_MENU_NAME_MAP = {
     AttachmentEntityType.FIRE_INSURANCE: "파주화재보험",
     AttachmentEntityType.EXPIRATION_SCHEDULE: "점검·만료 관리",
 }
-IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/x-ms-bmp"}
 PDF_MIME_TYPES = {"application/pdf"}
 PREVIEW_MIME_TYPES = IMAGE_MIME_TYPES | PDF_MIME_TYPES
 
@@ -90,6 +93,10 @@ class AttachmentNotFoundError(Exception):
 
 
 class AttachmentValidationError(Exception):
+    pass
+
+
+class AttachmentSizeError(AttachmentValidationError):
     pass
 
 
@@ -147,7 +154,7 @@ async def create_attachment(
                     break
                 file_size += len(chunk)
                 if file_size > max_size:
-                    raise AttachmentValidationError("파일 크기는 20MB 이하만 업로드할 수 있습니다.")
+                    raise AttachmentSizeError("첨부파일은 최대 20MB까지 등록할 수 있습니다.")
                 file_handle.write(chunk)
         temp_path.replace(final_path)
     except Exception:
@@ -168,17 +175,25 @@ async def create_attachment(
         description=(description or "").strip() or None,
         uploaded_by=get_user_label(current_user),
     )
-    db.add(attachment)
-    db.flush()
-    record_attachment_activity(
-        db,
-        attachment,
-        action_type="upload",
-        current_user=current_user,
-        actor_ip=actor_ip,
-        user_agent=user_agent,
-    )
-    db.commit()
+    try:
+        db.add(attachment)
+        db.flush()
+        record_attachment_activity(
+            db,
+            attachment,
+            action_type="upload",
+            current_user=current_user,
+            actor_ip=actor_ip,
+            user_agent=user_agent,
+        )
+        db.commit()
+    except Exception:
+        try:
+            if final_path.exists() and final_path.is_file():
+                final_path.unlink()
+        except OSError:
+            pass
+        raise
     db.refresh(attachment)
     return _prepare_attachment(attachment)
 
@@ -237,7 +252,7 @@ def get_upload_root() -> Path:
 
 
 def get_max_attachment_size() -> int:
-    return int(settings.attachment_max_size_mb or 20) * 1024 * 1024
+    return MAX_ATTACHMENT_SIZE
 
 
 def validate_original_filename(filename: str) -> Tuple[str, str]:
@@ -248,9 +263,10 @@ def validate_original_filename(filename: str) -> Tuple[str, str]:
         raise AttachmentValidationError("파일명을 확인해 주세요.")
     if ".." in original_filename or "/" in original_filename or "\\" in original_filename:
         raise AttachmentValidationError("파일명을 확인해 주세요.")
-    extension = Path(original_filename).suffix.lower()
-    if extension in BLOCKED_ATTACHMENT_EXTENSIONS or extension not in ALLOWED_ATTACHMENT_EXTENSIONS:
-        raise AttachmentValidationError("허용되지 않는 파일 형식입니다.")
+    suffixes = [suffix.lower() for suffix in Path(original_filename).suffixes]
+    extension = suffixes[-1] if suffixes else ""
+    if any(suffix in BLOCKED_ATTACHMENT_EXTENSIONS for suffix in suffixes) or extension not in ALLOWED_ATTACHMENT_EXTENSIONS:
+        raise AttachmentValidationError("지원하지 않는 파일 형식입니다.")
     return original_filename, extension
 
 
@@ -262,11 +278,13 @@ def normalize_mime_type(content_type: Optional[str], filename: str) -> str:
 
 def validate_mime_type(extension: str, mime_type: str) -> None:
     allowed_prefixes = {
-        ".pdf": ("application/pdf",),
-        ".png": ("image/png",),
-        ".jpg": ("image/jpeg",),
-        ".jpeg": ("image/jpeg",),
-        ".webp": ("image/webp",),
+        ".pdf": ("application/pdf", "application/octet-stream"),
+        ".png": ("image/png", "application/octet-stream"),
+        ".jpg": ("image/jpeg", "application/octet-stream"),
+        ".jpeg": ("image/jpeg", "application/octet-stream"),
+        ".gif": ("image/gif", "application/octet-stream"),
+        ".webp": ("image/webp", "application/octet-stream"),
+        ".bmp": ("image/bmp", "image/x-ms-bmp", "application/octet-stream"),
         ".txt": ("text/plain", "application/octet-stream"),
         ".zip": ("application/zip", "application/x-zip-compressed", "application/octet-stream"),
         ".xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"),
@@ -277,8 +295,20 @@ def validate_mime_type(extension: str, mime_type: str) -> None:
         ".ppt": ("application/vnd.ms-powerpoint", "application/octet-stream"),
     }
     allowed_mime_types = allowed_prefixes.get(extension, ())
-    if mime_type not in allowed_mime_types:
-        raise AttachmentValidationError("파일 MIME type을 확인해 주세요.")
+    dangerous_mime_types = {
+        "application/x-msdownload",
+        "application/x-msdos-program",
+        "application/x-executable",
+        "application/javascript",
+        "text/javascript",
+        "text/html",
+        "application/x-httpd-php",
+    }
+    # The extension is authoritative because browsers and operating systems may
+    # send an empty, generic, or non-standard MIME value. MIME is used only as
+    # a secondary signal to reject an explicitly executable/script payload.
+    if mime_type not in allowed_mime_types and mime_type in dangerous_mime_types:
+        raise AttachmentValidationError("지원하지 않는 파일 형식입니다.")
 
 
 def can_preview_attachment(attachment: Attachment) -> bool:

@@ -394,9 +394,29 @@ export async function uploadAttachment({ entity_type, entity_id, file, descripti
   formData.append("entity_id", String(entity_id));
   formData.append("description", description || "");
   formData.append("file", file);
-  return requestFormData("/attachments/upload", formData, {
-    timeoutMs: 60000,
-  });
+  try {
+    return await requestFormData("/attachments/upload", formData, {
+      timeoutMs: 60000,
+    });
+  } catch (error) {
+    const messages = {
+      401: "로그인이 만료되었습니다. 다시 로그인해주세요.",
+      403: "첨부파일 등록 권한이 없습니다.",
+      413: "첨부파일은 최대 20MB까지 등록할 수 있습니다.",
+      422: "첨부파일 정보를 확인해주세요.",
+      500: "첨부파일 저장 중 오류가 발생했습니다.",
+      503: "첨부파일 저장 중 오류가 발생했습니다.",
+    };
+    if (messages[error?.status]) {
+      throw new ApiError(messages[error.status], {
+        status: error.status,
+        detail: error.detail,
+        url: error.url,
+        method: error.method,
+      });
+    }
+    throw error;
+  }
 }
 
 export async function deleteAttachment(attachmentId) {

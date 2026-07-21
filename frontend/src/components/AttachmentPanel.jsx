@@ -6,10 +6,11 @@ import {
   previewAttachment,
   uploadAttachment,
 } from "../api/client.js";
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "txt", "zip"];
-const BLOCKED_EXTENSIONS = ["exe", "bat", "cmd", "ps1", "sh", "js", "html", "php", "py", "dll", "msi"];
+import {
+  ATTACHMENT_ACCEPT,
+  getAttachmentExtension,
+  validateAttachmentFile,
+} from "../utils/attachmentRules.js";
 
 function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨부파일" }) {
   const [items, setItems] = useState([]);
@@ -55,7 +56,12 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
 
   const handleUpload = async (event) => {
     event.preventDefault();
-    if (!selectedFile || !canManage) {
+    if (!canManage || state.isUploading) {
+      return;
+    }
+    const validationError = validateAttachmentFile(selectedFile);
+    if (validationError) {
+      setState((current) => ({ ...current, error: validationError }));
       return;
     }
     setState((current) => ({ ...current, error: "", isUploading: true, message: "" }));
@@ -113,7 +119,7 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
     <section className="attachment-panel">
       <div className="attachment-panel-heading">
         <h3>{title} {items.length ? <span>{items.length}개</span> : null}</h3>
-        <small>PDF, 이미지, Office, TXT, ZIP · 최대 20MB</small>
+        <small>PDF, JPG/JPEG/PNG/GIF/WEBP/BMP, DOC/DOCX/XLS/XLSX/PPT/PPTX, TXT, ZIP · 최대 20MB</small>
       </div>
 
       {canManage ? (
@@ -134,6 +140,7 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
           <input
             ref={fileInputRef}
             type="file"
+            accept={ATTACHMENT_ACCEPT}
             onChange={(event) => handleFileSelect(event.target.files?.[0])}
           />
           <input
@@ -184,27 +191,22 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
 }
 
 function validateFile(file) {
-  if (file.size > MAX_FILE_SIZE) {
-    return "파일 크기는 20MB 이하만 업로드할 수 있습니다.";
-  }
-  const extension = getExtension(file.name);
-  if (BLOCKED_EXTENSIONS.includes(extension) || !ALLOWED_EXTENSIONS.includes(extension)) {
-    return "허용되지 않는 파일 형식입니다.";
-  }
-  return "";
+  return validateAttachmentFile(file);
 }
 
 function canPreview(item) {
-  return ["application/pdf", "image/png", "image/jpeg", "image/webp"].includes(String(item.mime_type || "").toLowerCase());
+  return [
+    "application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/x-ms-bmp",
+  ].includes(String(item.mime_type || "").toLowerCase());
 }
 
 function getExtension(filename) {
-  return String(filename || "").split(".").pop().toLowerCase();
+  return getAttachmentExtension(filename);
 }
 
 function getFileIcon(filename) {
   const extension = getExtension(filename);
-  if (["png", "jpg", "jpeg", "webp"].includes(extension)) return "IMG";
+  if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(extension)) return "IMG";
   if (extension === "pdf") return "PDF";
   if (["xlsx", "xls"].includes(extension)) return "XLS";
   if (["docx", "doc"].includes(extension)) return "DOC";

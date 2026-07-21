@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.attachment import AttachmentRead
 from app.services.attachment_service import (
     AttachmentNotFoundError,
+    AttachmentSizeError,
     AttachmentValidationError,
     can_preview_attachment,
     create_attachment,
@@ -71,14 +72,23 @@ async def upload_attachment(
             actor_ip=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
+    except AttachmentSizeError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
     except AttachmentValidationError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="첨부파일을 등록하는 중 DB 연결에 실패했습니다.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="첨부파일 저장 중 오류가 발생했습니다.",
+        ) from exc
+    except OSError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="첨부파일 저장 중 오류가 발생했습니다.",
         ) from exc
 
 
