@@ -975,7 +975,7 @@ function App({ currentUser, onLogout }) {
     }
 
     if (activeSection === "work-manuals") {
-      return <WorkManualPage currentUser={currentUser} />;
+      return <WorkManualPage currentUser={currentUser} initialManualId={getWorkManualIdFromPath()} />;
     }
 
     if (activeSection === "vendor-contacts") {
@@ -1432,7 +1432,14 @@ function getFallbackExcelFilename() {
 function getSectionFromPath() {
   if (typeof window === "undefined") return "dashboard";
   if (window.location.pathname === "/network" || window.location.pathname === "/network-status") return "equipment-status";
+  if (/^\/work-manuals\/\d+$/.test(window.location.pathname)) return "work-manuals";
   return MENU_ITEMS.find((item) => item.routePath === window.location.pathname)?.id || "dashboard";
+}
+
+function getWorkManualIdFromPath() {
+  if (typeof window === "undefined") return null;
+  const match = window.location.pathname.match(/^\/work-manuals\/(\d+)$/);
+  return match ? Number(match[1]) : null;
 }
 
 function getStoredProtectedMenus() {

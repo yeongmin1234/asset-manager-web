@@ -13340,7 +13340,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   text-align: left !important;
 }
 
-.work-manual-title-cell button {
+.work-manual-title-cell .work-manual-title-link {
   appearance: none;
   background: transparent !important;
   border: 0 !important;
@@ -13361,7 +13361,7 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   width: 100%;
 }
 
-.work-manual-title-cell button:hover {
+.work-manual-title-cell .work-manual-title-link:not(:disabled):hover {
   background: transparent !important;
   box-shadow: none !important;
   color: #374151 !important;
@@ -13370,11 +13370,18 @@ button[role="tab"]:not(.primary-action):not(.primary-button):focus-visible {
   text-underline-offset: 3px;
 }
 
-.work-manual-title-cell button:focus,
-.work-manual-title-cell button:focus-visible {
+.work-manual-title-cell .work-manual-title-link:focus,
+.work-manual-title-cell .work-manual-title-link:focus-visible {
   box-shadow: none !important;
   outline: 1px solid rgba(17, 24, 39, 0.16);
   outline-offset: 2px;
+}
+
+/* Keep board titles link-like even against the global primary-button selector. */
+.work-manual-table .work-manual-title-cell .work-manual-title-link {
+  background: transparent !important;
+  border: 0 !important;
+  color: #111827 !important;
 }
 
 .work-manual-table-compact .work-manual-table th:nth-child(1),

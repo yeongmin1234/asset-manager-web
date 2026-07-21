@@ -30,7 +30,7 @@ const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const BASE64_IMAGE_PATTERN = /data:image\/[a-z0-9.+-]+;base64,[^\s"'<)]+/gi;
 
-function WorkManualPage({ currentUser }) {
+function WorkManualPage({ currentUser, initialManualId = null }) {
   const [manuals, setManuals] = useState([]);
   const [listState, setListState] = useState({ error: "", isLoading: false });
   const [filters, setFilters] = useState({ keyword: "", category: "다우오피스" });
@@ -73,6 +73,13 @@ function WorkManualPage({ currentUser }) {
   useEffect(() => {
     loadManuals();
   }, [loadManuals]);
+
+  useEffect(() => {
+    if (!initialManualId) {
+      return;
+    }
+    handleSelectManual({ id: initialManualId }, { updateHistory: false });
+  }, [initialManualId]);
 
   useEffect(() => {
     if (filters.category !== "다우오피스" || manuals.length === 0) {
@@ -133,10 +140,13 @@ function WorkManualPage({ currentUser }) {
     }
     if (selectedManual.category !== filters.category) {
       setSelectedManual(null);
+      if (typeof window !== "undefined" && window.location.pathname !== "/work-manuals") {
+        window.history.pushState({}, "", "/work-manuals");
+      }
     }
   }, [filters.category, selectedManual]);
 
-  const handleSelectManual = async (manual) => {
+  const handleSelectManual = async (manual, { updateHistory = true } = {}) => {
     setDetailState({ error: "", isLoading: true });
     try {
       const detail = await getWorkManual(manual.id);
@@ -144,9 +154,22 @@ function WorkManualPage({ currentUser }) {
       setManuals((current) =>
         current.map((item) => (item.id === detail.id ? { ...item, ...detail } : item)),
       );
+      if (updateHistory && typeof window !== "undefined") {
+        const detailPath = `/work-manuals/${detail.id}`;
+        if (window.location.pathname !== detailPath) {
+          window.history.pushState({}, "", detailPath);
+        }
+      }
       setDetailState({ error: "", isLoading: false });
     } catch (error) {
       setDetailState({ error: error.message, isLoading: false });
+    }
+  };
+
+  const closeManual = () => {
+    setSelectedManual(null);
+    if (typeof window !== "undefined" && window.location.pathname !== "/work-manuals") {
+      window.history.pushState({}, "", "/work-manuals");
     }
   };
 
@@ -205,6 +228,9 @@ function WorkManualPage({ currentUser }) {
       await deleteWorkManual(deleteState.manual.id);
       if (selectedManual?.id === deleteState.manual.id) {
         setSelectedManual(null);
+        if (typeof window !== "undefined" && window.location.pathname !== "/work-manuals") {
+          window.history.replaceState({}, "", "/work-manuals");
+        }
       }
       closeDelete();
       await loadManuals();
@@ -290,7 +316,7 @@ function WorkManualPage({ currentUser }) {
           <WorkManualPreview
             isLoading={detailState.isLoading}
             manual={selectedManual}
-            onClose={() => setSelectedManual(null)}
+            onClose={closeManual}
             onDelete={openDelete}
             onEdit={openEditForm}
             currentUser={currentUser}
@@ -363,7 +389,15 @@ function WorkManualTable({
                   <span className="work-manual-category-badge">{formatText(manual.category)}</span>
                 </td>
                 <td className="work-manual-title-cell">
-                  <button type="button" title={formatText(manual.title)}>
+                  <button
+                    type="button"
+                    className="work-manual-title-link"
+                    title={formatText(manual.title)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectManual?.(manual);
+                    }}
+                  >
                     {manual.is_pinned ? "[고정] " : ""}{formatText(manual.title)}
                   </button>
                 </td>
