@@ -1,0 +1,120 @@
+@layer components {
+  .ai-button-wrap {
+    isolation: isolate;
+    position: relative;
+    width: 100%;
+  }
+
+  .ai-button-particles {
+    inset: -16px;
+    opacity: 0;
+    overflow: visible;
+    pointer-events: none;
+    position: absolute;
+    transition: opacity 180ms ease;
+    z-index: -1;
+  }
+
+  .ai-button-wrap.is-hovering .ai-button-particles { opacity: 0.72; }
+
+  .ai-button {
+    align-items: center;
+    background: linear-gradient(100deg, #2563eb 0%, #4f46e5 55%, #6d4bc3 100%);
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(30, 64, 175, 0.14), inset 0 1px rgba(255, 255, 255, 0.13);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    font-weight: 700;
+    gap: 10px;
+    justify-content: center;
+    min-height: 44px;
+    overflow: hidden;
+    padding: 0 16px;
+    position: relative;
+    transform: scale(1);
+    transition: box-shadow 180ms ease, filter 180ms ease, transform 180ms ease;
+    width: 100%;
+    z-index: 1;
+  }
+
+  .ai-button::before {
+    background: linear-gradient(110deg, transparent 25%, rgba(255, 255, 255, 0.16) 48%, transparent 70%);
+    content: "";
+    inset: 0;
+    position: absolute;
+    transform: translateX(-110%);
+    transition: transform 500ms ease;
+  }
+
+  .ai-button:hover:not(:disabled) {
+    box-shadow: 0 7px 18px rgba(67, 56, 202, 0.22), inset 0 1px rgba(255, 255, 255, 0.16);
+    filter: saturate(1.06);
+    transform: scale(1.02);
+  }
+
+  .ai-button:hover:not(:disabled)::before { transform: translateX(110%); }
+  .ai-button:active:not(:disabled) { transform: scale(0.98); }
+
+  .ai-button:focus-visible {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), 0 7px 18px rgba(67, 56, 202, 0.18);
+    outline: none;
+  }
+
+  .ai-button:disabled {
+    cursor: not-allowed;
+    filter: saturate(0.7);
+    opacity: 0.64;
+  }
+
+  .ai-button-content {
+    align-items: center;
+    display: inline-flex;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .ai-button-sparkle {
+    animation: ai-sparkle 2s ease-in-out infinite;
+    display: block;
+    flex: 0 0 auto;
+    height: 16px;
+    width: 16px;
+  }
+
+  .ai-button-mini-sparkle {
+    animation: ai-sparkle 2.4s 500ms ease-in-out infinite;
+    height: 5px;
+    opacity: 0.7;
+    position: absolute;
+    right: 22%;
+    top: 8px;
+    width: 5px;
+  }
+
+  .ai-button-spinner {
+    animation: ai-button-spin 700ms linear infinite;
+    border: 2px solid rgba(255, 255, 255, 0.38);
+    border-radius: 50%;
+    border-top-color: #fff;
+    height: 15px;
+    width: 15px;
+  }
+
+  @keyframes ai-sparkle {
+    0%, 100% { opacity: 0.75; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes ai-button-spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-button-particles { display: none; }
+    .ai-button, .ai-button::before { transition-duration: 0.01ms; }
+    .ai-button:hover:not(:disabled), .ai-button:active:not(:disabled) { transform: none; }
+    .ai-button-sparkle, .ai-button-mini-sparkle, .ai-button-spinner { animation: none; }
+  }
+}

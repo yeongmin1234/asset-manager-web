@@ -1,0 +1,63 @@
+@layer components {
+  @keyframes meteor {
+    0% {
+      transform: translateY(-20%) translateX(-50%);
+      opacity: 0;
+    }
+
+    12% { opacity: var(--opacity, 1); }
+    88% { opacity: var(--opacity, 1); }
+
+    100% {
+      transform: translateY(300%) translateX(-50%);
+      opacity: 0;
+    }
+  }
+
+  .animated-beam {
+    background: linear-gradient(145deg, #172033 0%, #111827 48%, #0b1120 100%);
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .ab-lanes {
+    display: grid;
+    grid-template-columns: repeat(64, minmax(0, 1fr));
+    height: 100%;
+    inset: 0;
+    position: absolute;
+    transform: skewX(-18deg) scaleX(1.18);
+    transform-origin: center;
+  }
+
+  .ab-lane {
+    border-left: 1px solid rgba(241, 245, 249, 0.035);
+    height: 100%;
+    position: relative;
+  }
+
+  .ab-beam {
+    animation: meteor var(--duration) var(--delay) ease-in-out infinite backwards;
+    height: 38%;
+    left: 50%;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+  }
+
+  .ab-beam-streak {
+    background: linear-gradient(to bottom, rgba(248, 250, 252, 0.02), rgba(219, 234, 254, 0.72) 75%, rgba(255, 255, 255, 0.92));
+    clip-path: polygon(54% 0, 54% 0, 60% 100%, 40% 100%);
+    height: var(--length);
+    width: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ab-beam {
+      animation: none !important;
+      opacity: 0 !important;
+    }
+  }
+}

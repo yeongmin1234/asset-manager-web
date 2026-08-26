@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import AiButton from "./animata/button/AiButton.jsx";
+import LoginVisual from "./LoginVisual.jsx";
 
 const SAVED_USERNAME_KEY = "asset_manager_saved_username";
 
@@ -26,31 +28,44 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
 
   return (
     <main className="login-page">
-      <section className="login-card">
-        <div className="login-brand">
-          <img src="/logo.png" alt="Asset Manager" />
-          <h1>자산관리 시스템</h1>
-          <p>계속하려면 계정으로 로그인하세요.</p>
+      <section className="login-panel">
+        <div className="login-company">
+          <img src="/logo.png" alt="" />
+          <span>자산관리 시스템</span>
         </div>
-        <form onSubmit={handleSubmit}>
-          <label>ID
-            <input autoComplete="username" autoFocus value={username} onChange={(event) => setUsername(event.target.value)} required />
-          </label>
-          <label>비밀번호
-            <input autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-          </label>
-          <label className="login-remember">
-            <input
-              type="checkbox"
-              checked={rememberUsername}
-              onChange={handleRememberUsername}
-            />
-            <span>아이디 저장</span>
-          </label>
-          {error ? <p className="login-error">{error}</p> : null}
-          <button disabled={isSubmitting} type="submit">{isSubmitting ? "로그인 중..." : "로그인"}</button>
-        </form>
+
+        <div className="login-form-wrap">
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-heading">
+              <h1>로그인</h1>
+              <p>계정 정보를 입력하여 시스템에 로그인하세요.</p>
+            </div>
+
+            <div className="login-fields">
+              <label>
+                <span>아이디</span>
+                <input autoComplete="username" autoFocus value={username} onChange={(event) => setUsername(event.target.value)} required />
+              </label>
+              <label>
+                <span>비밀번호</span>
+                <input autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+              </label>
+              <label className="login-remember">
+                <input
+                  type="checkbox"
+                  checked={rememberUsername}
+                  onChange={handleRememberUsername}
+                />
+                <span>아이디 저장</span>
+              </label>
+              {error ? <p className="login-error" role="alert">{error}</p> : null}
+              <AiButton disabled={isSubmitting} loading={isSubmitting} type="submit">로그인</AiButton>
+            </div>
+          </form>
+        </div>
       </section>
+
+      <LoginVisual />
     </main>
   );
 }
