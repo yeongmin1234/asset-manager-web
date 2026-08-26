@@ -35,33 +35,35 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
         </div>
 
         <div className="login-form-wrap">
-          <form className="login-form" onSubmit={handleSubmit}>
-            <div className="login-heading">
-              <h1>로그인</h1>
-              <p>계정 정보를 입력하여 시스템에 로그인하세요.</p>
-            </div>
+          <div className="login-form-card">
+            <form className="login-form" onSubmit={handleSubmit}>
+              <div className="login-heading">
+                <h1>로그인</h1>
+                <p>계정 정보를 입력하여 시스템에 로그인하세요.</p>
+              </div>
 
-            <div className="login-fields">
-              <label>
-                <span>아이디</span>
-                <input autoComplete="username" autoFocus value={username} onChange={(event) => setUsername(event.target.value)} required />
-              </label>
-              <label>
-                <span>비밀번호</span>
-                <input autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-              </label>
-              <label className="login-remember">
-                <input
-                  type="checkbox"
-                  checked={rememberUsername}
-                  onChange={handleRememberUsername}
-                />
-                <span>아이디 저장</span>
-              </label>
-              {error ? <p className="login-error" role="alert">{error}</p> : null}
-              <AiButton disabled={isSubmitting} loading={isSubmitting} type="submit">로그인</AiButton>
-            </div>
-          </form>
+              <div className="login-fields">
+                <label>
+                  <span>아이디</span>
+                  <input autoComplete="username" autoFocus value={username} onChange={(event) => setUsername(event.target.value)} required />
+                </label>
+                <label>
+                  <span>비밀번호</span>
+                  <input autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+                </label>
+                <label className="login-remember">
+                  <input
+                    type="checkbox"
+                    checked={rememberUsername}
+                    onChange={handleRememberUsername}
+                  />
+                  <span>아이디 저장</span>
+                </label>
+                {error ? <p className="login-error" role="alert">{error}</p> : null}
+                <AiButton disabled={isSubmitting} loading={isSubmitting} type="submit">로그인</AiButton>
+              </div>
+            </form>
+          </div>
         </div>
       </section>
 

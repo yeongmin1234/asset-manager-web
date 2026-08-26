@@ -9451,6 +9451,24 @@ button:disabled,
   padding: 64px 0 104px;
 }
 
+.login-form-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+  max-width: 400px;
+  padding: 32px;
+  transition: background-color 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out;
+  width: 100%;
+}
+
+.login-form-card:hover {
+  background: #fff;
+  border-color: #e2e8f0;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
+  transform: translateY(-4px);
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
@@ -9663,7 +9681,13 @@ button:disabled,
   .login-panel { padding: 20px 24px 24px; }
   .login-company { justify-content: center; }
   .login-form-wrap { padding: 48px 0 88px; }
+  .login-form-card { padding: 24px; }
   .login-form { max-width: 360px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-form-card { transition: none; }
+  .login-form-card:hover { transform: none; }
 }
 .portal-logout-button {
   background: transparent;
