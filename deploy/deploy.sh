@@ -383,6 +383,8 @@ run_deploy() {
   cd "$ROOT_DIR"
   validate_project_root || return 1
   print_checkout_status || return 1
+  restore_package_lock_if_only_dirty \
+    "Cleaning package-lock change before deployment." || return 1
   ensure_tracked_checkout_clean || return 1
   if [ "$DEPLOY_MODE" = "pull" ]; then
     pull_checkout || return 1
@@ -412,8 +414,14 @@ run_deploy() {
   cd "$ROOT_DIR/frontend"
   if [ -f "package-lock.json" ]; then
     npm ci || return 1
+
+    restore_package_lock_if_only_dirty \
+      "Checking for package-lock changes after npm ci." || return 1
   else
     npm install || return 1
+
+    restore_package_lock_if_only_dirty \
+      "Checking for package-lock changes after npm install." || return 1
   fi
   dist_dir="$ROOT_DIR/frontend/dist"
   if [ "$dist_dir" != "$ROOT_DIR/frontend/dist" ]; then
