@@ -10,6 +10,7 @@ from app.core.auth import require_admin
 from app.models.user import User
 from app.models.install_file import InstallFile
 from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
+from app.services.download_service import disposition
 from app.schemas.install_file import (
     InstallFileDeleteRequest,
     InstallFileListResponse,
@@ -280,9 +281,10 @@ def delete_existing_install_file(
 
 
 @router.get("/{file_id}/download")
-def download_install_file(file_id: int, db: Session = Depends(get_db)) -> FileResponse:
+def download_install_file(request: Request, file_id: int, db: Session = Depends(get_db)) -> FileResponse:
     try:
         item = get_install_file(db, file_id)
+        request.state.download_filename = item.original_filename
         file_path = resolve_install_file_path(item)
         if not file_path.exists() or not file_path.is_file():
             raise HTTPException(
@@ -294,6 +296,7 @@ def download_install_file(file_id: int, db: Session = Depends(get_db)) -> FileRe
             str(file_path),
             media_type="application/octet-stream",
             filename=item.original_filename,
+            headers={"Content-Disposition": disposition(item.original_filename)},
         )
     except InstallFileNotFoundError as exc:
         raise HTTPException(

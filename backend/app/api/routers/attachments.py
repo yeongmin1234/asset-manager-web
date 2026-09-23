@@ -10,6 +10,7 @@ from app.db.database import get_db
 from app.models.attachment import AttachmentEntityType
 from app.models.user import User
 from app.schemas.attachment import AttachmentRead
+from app.services.download_service import disposition
 from app.services.attachment_service import (
     AttachmentNotFoundError,
     AttachmentSizeError,
@@ -94,12 +95,14 @@ async def upload_attachment(
 
 @router.get("/{attachment_id}/download")
 def download_attachment(
+    request: Request,
     attachment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> FileResponse:
     try:
         attachment = get_attachment(db, attachment_id)
+        request.state.download_filename = attachment.original_filename
         ensure_attachment_access(current_user, attachment.entity_type)
         file_path = resolve_attachment_path(attachment)
         if not file_path.exists() or not file_path.is_file():
@@ -111,6 +114,7 @@ def download_attachment(
             str(file_path),
             media_type=attachment.mime_type or "application/octet-stream",
             filename=attachment.original_filename,
+            headers={"Content-Disposition": disposition(attachment.original_filename)},
         )
     except AttachmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="첨부파일을 찾을 수 없습니다.") from exc
@@ -120,12 +124,14 @@ def download_attachment(
 
 @router.get("/{attachment_id}/preview")
 def preview_attachment(
+    request: Request,
     attachment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> FileResponse:
     try:
         attachment = get_attachment(db, attachment_id)
+        request.state.download_filename = attachment.original_filename
         ensure_attachment_access(current_user, attachment.entity_type)
         if not can_preview_attachment(attachment):
             raise HTTPException(
@@ -142,7 +148,7 @@ def preview_attachment(
             str(file_path),
             media_type=attachment.mime_type or "application/octet-stream",
             filename=attachment.original_filename,
-            headers={"Content-Disposition": 'inline; filename="{}"'.format(attachment.original_filename.replace('"', ""))},
+            headers={"Content-Disposition": disposition(attachment.original_filename, "inline")},
         )
     except AttachmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="첨부파일을 찾을 수 없습니다.") from exc

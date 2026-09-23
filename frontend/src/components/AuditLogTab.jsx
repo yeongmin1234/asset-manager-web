@@ -1,3 +1,4 @@
+import useDownloadStatus from "../hooks/useDownloadStatus.js";
 import React, { useCallback, useEffect, useState } from "react";
 import { downloadAuditLogs, getAuditLog, getAuditLogs } from "../api/client.js";
 
@@ -8,6 +9,7 @@ const FIELD_LABELS = { department: "부서", name: "이름", dowoffice: "다우�
 const PERMISSION_LABELS = { dashboard: "대시보드", assets: "자산 관리", software: "SW 현황", company_cars: "법인차량 관리", fire_insurance: "파주화재보험", access_info: "접속정보 관리", equipment_status: "장비 현황", hr_list: "인사업무 리스트", statistics: "통계 / 리포트", changelog: "변경 이력", work_manual: "업무설명서", vendor_contacts: "업체연락처", expiration_schedules: "점검·만료 관리", drink_orders: "음료주문기록" };
 
 export default function AuditLogTab() {
+  const downloadBusy = useDownloadStatus();
   const [filters, setFilters] = useState(EMPTY);
   const [applied, setApplied] = useState(EMPTY);
   const [page, setPage] = useState(1);
@@ -28,7 +30,7 @@ export default function AuditLogTab() {
   const reset = () => { setFilters(EMPTY); setApplied(EMPTY); setPage(1); };
   const quick = (field, value) => { const next = { ...filters, [field]: filters[field] === value ? "" : value }; if (field === "period") Object.assign(next, { startDate: "", endDate: "" }); setFilters(next); setApplied(next); setPage(1); };
   const openDetail = async (id) => { setDetail({ open: true, loading: true, item: null, error: "" }); try { setDetail({ open: true, loading: false, item: await getAuditLog(id), error: "" }); } catch (error) { setDetail({ open: true, loading: false, item: null, error: error?.message || "상세 정보를 불러오지 못했습니다." }); } };
-  const exportExcel = async () => { setDownloading(true); try { const { blob, filename } = await downloadAuditLogs(buildQuery(applied)); downloadBlob(blob, filename || "감사로그.xlsx"); } catch (error) { setState((value) => ({ ...value, error: error?.message || "엑셀 다운로드에 실패했습니다." })); } finally { setDownloading(false); } };
+  const exportExcel = async () => { setDownloading(true); try { await downloadAuditLogs(buildQuery(applied)); } catch (error) { setState((value) => ({ ...value, error: error?.message || "엑셀 다운로드에 실패했습니다." })); } finally { setDownloading(false); } };
   return <section className="audit-log-tab">
     <form className="access-log-filter-panel" onSubmit={apply}>
       <div className="audit-log-filter-row">
@@ -47,7 +49,7 @@ export default function AuditLogTab() {
       </div>
     </form>
     {state.error ? <p className="user-management-error">{state.error}</p> : null}
-    <div className="audit-log-summary-row"><span>총 {state.total.toLocaleString("ko-KR")}건</span><button type="button" className="audit-export-button" onClick={exportExcel} disabled={downloading}>{downloading ? "다운로드 중..." : "엑셀 다운로드"}</button></div>
+    <div className="audit-log-summary-row"><span>총 {state.total.toLocaleString("ko-KR")}건</span><button type="button" className="audit-export-button" onClick={exportExcel} disabled={downloadBusy || downloading}>{downloading ? "준비 중..." : "엑셀 다운로드"}</button></div>
     <div className="access-log-table-wrap"><table className="access-log-table audit-log-table"><thead><tr><th>작업 상태</th><th>작업 유형</th><th>사용자 ID</th><th>사용자 이름</th><th>메뉴</th><th>대상</th><th>작업 내용</th><th>접속 IP</th><th>접속 구분</th><th>작업 일시</th><th>상세</th></tr></thead><tbody>
       {state.loading ? <tr><td colSpan="11">불러오는 중...</td></tr> : null}
       {!state.loading && state.items.length === 0 ? <tr className="access-log-empty-row"><td colSpan="11">조회된 감사로그가 없습니다.</td></tr> : null}
@@ -65,6 +67,5 @@ function formatDate(value) { const date = new Date(value); if (Number.isNaN(date
 function labelField(field) { return FIELD_LABELS[field] || field; }
 function normalizeField(value) { const entry = Object.entries(FIELD_LABELS).find(([, label]) => label.toLowerCase() === value.trim().toLowerCase()); return entry ? entry[0] : value.trim(); }
 function displayValue(value, field) { if (value === null || value === undefined) return "-"; if (value === "") return "(빈 값)"; if (Array.isArray(value)) return value.map((item) => field === "menu_permissions" ? (PERMISSION_LABELS[item] || item) : item).join(", ") || "(빈 값)"; if (typeof value === "object") return Object.entries(value).map(([key, item]) => `${labelField(key)}: ${displayValue(item, key)}`).join(" / "); return String(value); }
-function downloadBlob(blob, filename) { const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
 
 function AuditDetailModal({ state, onClose }) { const item = state.item; const fields = item?.changed_fields || []; const mode = item?.action_type === "create" ? "등록 정보" : item?.action_type === "delete" ? "삭제된 정보" : "변경 상세"; const displayFields = fields.length ? fields : Object.keys(item?.after_data || item?.before_data || {}); return <div className="audit-detail-backdrop" onMouseDown={onClose}><section className="audit-detail-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}><header><div><h3>감사로그 상세</h3><p>{item?.action_summary || "작업 상세 정보"}</p></div><button type="button" onClick={onClose}>닫기</button></header>{state.loading ? <p>불러오는 중...</p> : null}{state.error ? <p className="user-management-error">{state.error}</p> : null}{item ? <><dl className="audit-detail-meta"><div><dt>작업 일시</dt><dd>{formatDate(item.occurred_at)}</dd></div><div><dt>사용자</dt><dd>{item.username} / {item.user_name}</dd></div><div><dt>메뉴</dt><dd>{item.menu_name}</dd></div><div><dt>작업 유형</dt><dd>{ACTION_LABELS[item.action_type] || item.action_type}</dd></div><div><dt>대상</dt><dd>{item.target_type} / {item.target_name || "-"}</dd></div><div><dt>접속 정보</dt><dd>{item.ip_address || "-"} / {item.access_type === "internal" ? "내부망" : "외부망"}</dd></div><div><dt>환경</dt><dd>{item.browser || "-"} / {item.operating_system || "-"}</dd></div></dl><h4>{mode}</h4>{displayFields.length ? <div className="audit-detail-table-wrap"><table><thead><tr><th>항목</th>{item.action_type !== "create" ? <th>변경 전</th> : null}{item.action_type !== "delete" ? <th>변경 후</th> : null}</tr></thead><tbody>{displayFields.map((field) => <tr key={field}><th>{labelField(field)}</th>{item.action_type !== "create" ? <td>{displayValue(item.before_data?.[field], field)}</td> : null}{item.action_type !== "delete" ? <td>{displayValue(item.after_data?.[field], field)}</td> : null}</tr>)}</tbody></table></div> : <p className="audit-detail-empty">상세 변경 정보가 없습니다.</p>}</> : null}</section></div>; }

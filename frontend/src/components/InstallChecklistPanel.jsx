@@ -1,8 +1,10 @@
+import useDownloadStatus from "../hooks/useDownloadStatus.js";
 import React, { useEffect, useMemo, useState } from "react";
 
 const CHECKLIST_STORAGE_KEY = "assetManager.installLibraryChecklist";
 
 function InstallChecklistPanel({ items = [], onDownload }) {
+  const downloadBusy = useDownloadStatus();
   const requiredItems = useMemo(
     () =>
       items
@@ -84,9 +86,9 @@ function InstallChecklistPanel({ items = [], onDownload }) {
                 <button
                   type="button"
                   className="secondary-button install-checklist-download"
-                  onClick={() => onDownload?.(item)}
+                  disabled={downloadBusy} aria-busy={downloadBusy} onClick={() => onDownload?.(item)}
                 >
-                  다운로드
+                  {downloadBusy ? "준비 중…" : "다운로드"}
                 </button>
               )}
             </article>

@@ -1,3 +1,4 @@
+import useDownloadStatus from "../hooks/useDownloadStatus.js";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteAttachment,
@@ -13,6 +14,7 @@ import {
 } from "../utils/attachmentRules.js";
 
 function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨부파일" }) {
+  const downloadBusy = useDownloadStatus();
   const [items, setItems] = useState([]);
   const [description, setDescription] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -86,8 +88,7 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
 
   const handleDownload = async (item) => {
     try {
-      const { blob, filename } = await downloadAttachment(item.id);
-      openBlob(blob, filename || item.original_filename, false);
+      await downloadAttachment(item.id);
     } catch (error) {
       setState((current) => ({ ...current, error: error.message }));
     }
@@ -95,8 +96,7 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
 
   const handlePreview = async (item) => {
     try {
-      const { blob, filename } = await previewAttachment(item.id);
-      openBlob(blob, filename || item.original_filename, true);
+      await previewAttachment(item.id);
     } catch (error) {
       setState((current) => ({ ...current, error: error.message }));
     }
@@ -176,9 +176,9 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
             </div>
             <div className="attachment-actions">
               {canPreview(item) ? (
-                <button type="button" className="ghost-button" onClick={() => handlePreview(item)}>미리보기</button>
+                <button type="button" className="ghost-button" disabled={downloadBusy} onClick={() => handlePreview(item)}>{downloadBusy ? "준비 중…" : "미리보기"}</button>
               ) : null}
-              <button type="button" className="ghost-button" onClick={() => handleDownload(item)}>다운로드</button>
+              <button type="button" className="ghost-button" disabled={downloadBusy} onClick={() => handleDownload(item)}>{downloadBusy ? "준비 중…" : "다운로드"}</button>
               {canManage ? (
                 <button type="button" className="danger-outline-button" onClick={() => handleDelete(item)}>삭제</button>
               ) : null}
@@ -232,20 +232,5 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("ko-KR");
 }
 
-function openBlob(blob, filename, preview) {
-  const objectUrl = window.URL.createObjectURL(blob);
-  if (preview) {
-    window.open(objectUrl, "_blank", "noopener,noreferrer");
-    window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 30000);
-    return;
-  }
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename || "attachment";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(objectUrl);
-}
 
 export default AttachmentPanel;

@@ -1,3 +1,4 @@
+import useDownloadStatus from "../hooks/useDownloadStatus.js";
 import React, { useMemo, useRef, useState } from "react";
 import {
   commitAssetExcelImport,
@@ -6,6 +7,7 @@ import {
 } from "../api/client.js";
 
 function AssetExcelTools({ onImportCommitted, onExportExcel, isExporting = false, exportError = "" }) {
+  const downloadBusy = useDownloadStatus();
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewResult, setPreviewResult] = useState(null);
@@ -33,8 +35,7 @@ function AssetExcelTools({ onImportCommitted, onExportExcel, isExporting = false
     setMessage("");
 
     try {
-      const { blob, filename } = await downloadAssetImportTemplate();
-      downloadBlob(blob, filename || "asset_import_template.xlsx");
+      await downloadAssetImportTemplate();
     } catch (downloadError) {
       setError(downloadError.message);
     } finally {
@@ -129,18 +130,18 @@ function AssetExcelTools({ onImportCommitted, onExportExcel, isExporting = false
             type="button"
             className="primary-action"
             onClick={handleTemplateDownload}
-            disabled={toolState.isTemplateDownloading}
+            disabled={downloadBusy || toolState.isTemplateDownloading}
           >
-            {toolState.isTemplateDownloading ? "다운로드 중..." : "엑셀 양식 다운로드"}
+            {toolState.isTemplateDownloading ? "준비 중..." : "엑셀 양식 다운로드"}
           </button>
           {onExportExcel && (
             <button
               type="button"
               className="secondary-button export-button"
               onClick={onExportExcel}
-              disabled={isExporting}
+              disabled={downloadBusy || isExporting}
             >
-              {isExporting ? "다운로드 중..." : "엑셀 내보내기"}
+              {isExporting ? "준비 중..." : "엑셀 내보내기"}
             </button>
           )}
         </div>
@@ -306,15 +307,5 @@ function AssetExcelTools({ onImportCommitted, onExportExcel, isExporting = false
   );
 }
 
-function downloadBlob(blob, filename) {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
 
 export default AssetExcelTools;

@@ -41,6 +41,7 @@ from app.api.routers import (
 )
 from app.routers import assets, categories, departments, health
 from app.services.inventory_scheduler_service import get_inventory_scheduler
+from app.services.download_service import DownloadMiddleware, router as downloads_router
 
 
 def get_cors_origins() -> List[str]:
@@ -62,6 +63,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.add_middleware(DownloadMiddleware)
 cors_origins = get_cors_origins()
 logging.getLogger("uvicorn.error").info(
     "CORS allow_origins=%s",
@@ -74,6 +76,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "Content-Length", "Content-Range", "Accept-Ranges"],
 )
 
 Path(settings.upload_dir).resolve().mkdir(parents=True, exist_ok=True)
@@ -84,6 +87,7 @@ app.mount(
 )
 
 app.include_router(health.router)
+app.include_router(downloads_router)
 app.include_router(auth.router)
 app.include_router(menu_access_logs.router)
 app.include_router(attachments.router)

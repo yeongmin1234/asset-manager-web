@@ -42,9 +42,19 @@ def create_access_token(user: User) -> str:
 
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
+    native_user_id = request.scope.get("state", {}).get("native_download_user_id")
+    if native_user_id is not None:
+        user = db.get(User, native_user_id)
+        if user is None or not user.is_active:
+            raise _unauthorized()
+        request.state.download_user_id = user.id
+        from app.services.download_service import check_target
+        check_target(request.url.path, db, user, request.scope["state"])
+        return user
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized()
     try:
@@ -60,6 +70,8 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise _unauthorized()
+    request.state.download_user_id = user.id
+    request.state.auth_expires_at = payload.get("exp")
     return user
 
 

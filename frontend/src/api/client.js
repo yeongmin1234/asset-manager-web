@@ -1,3 +1,4 @@
+import { downloadFile } from "../utils/downloadFile.js";
 const DEFAULT_API_PORT = "8010";
 const AUTH_TOKEN_STORAGE_KEY = "assetManager.accessToken";
 const HR_ACCOUNTS_API_PATH = "/hr/accounts";
@@ -104,70 +105,14 @@ async function request(path, options = {}) {
   return data;
 }
 
-async function requestBlob(path, options = {}) {
-  const url = new URL(`${API_BASE_URL}${path}`);
-  const controller = new AbortController();
-  const timeoutMs = Number(options.timeoutMs || REQUEST_TIMEOUT_MS);
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
-  if (options.query) {
-    Object.entries(options.query).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        url.searchParams.set(key, value);
-      }
-    });
-  }
-
-  let response;
-  try {
-    response = await fetch(url, {
-      method: options.method || "GET",
-      signal: controller.signal,
-      headers: {
-        Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ...getAuthHeaders(),
-        ...options.headers,
-      },
-    });
-  } catch (error) {
-    logApiFailure({ error, method: options.method || "GET", path, url });
-    const message =
-      error.name === "AbortError"
-        ? "Backend 응답 시간이 초과되었습니다."
-        : "백엔드 서버에 연결할 수 없습니다.";
-    throw new ApiError(message, {
-      detail: error.message,
-      method: options.method || "GET",
-      url: url.toString(),
-    });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-
-  if (!response.ok) {
-    handleUnauthorized(response);
-    const contentType = response.headers.get("content-type") || "";
-    let data = null;
-    try {
-      data = contentType.includes("application/json")
-        ? await response.json()
-        : await response.text();
-    } catch {
-      data = null;
-    }
-    logApiFailure({ data, method: options.method || "GET", path, response, url });
-    throw new ApiError(getErrorMessage(data, response.status), {
-      status: response.status,
-      detail: data,
-      method: options.method || "GET",
-      url: url.toString(),
-    });
-  }
-
-  return {
-    blob: await response.blob(),
-    filename: getDownloadFilename(response.headers.get("content-disposition")),
-  };
+function requestDownload(path, options = {}) {
+  const query = new URLSearchParams();
+  Object.entries(options.query || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+  return downloadFile(`${path}?${query}`, () => request("/downloads/prepare", {
+    query: { path, query: query.toString() }, timeoutMs: 30000,
+  }), `${API_BASE_URL}/downloads/transfer`);
 }
 
 async function requestFormData(path, formData, options = {}) {
@@ -426,13 +371,13 @@ export async function deleteAttachment(attachmentId) {
 }
 
 export async function downloadAttachment(attachmentId) {
-  return requestBlob(`/attachments/${attachmentId}/download`, {
+  return requestDownload(`/attachments/${attachmentId}/download`, {
     timeoutMs: 60000,
   });
 }
 
 export async function previewAttachment(attachmentId) {
-  return requestBlob(`/attachments/${attachmentId}/preview`, {
+  return requestDownload(`/attachments/${attachmentId}/preview`, {
     timeoutMs: 60000,
   });
 }
@@ -477,7 +422,7 @@ export async function getAuditLog(auditLogId) {
 }
 
 export async function downloadAuditLogs(filters = {}) {
-  return requestBlob("/admin/audit-logs/export", { query: filters, timeoutMs: 60000 });
+  return requestDownload("/admin/audit-logs/export", { query: filters, timeoutMs: 60000 });
 }
 
 export async function recordMenuAccess(payload) {
@@ -622,7 +567,7 @@ export async function deleteInstallFile(fileId, adminPassword) {
 }
 
 export async function downloadInstallFile(fileId) {
-  return requestBlob(`/install-files/${fileId}/download`, {
+  return requestDownload(`/install-files/${fileId}/download`, {
     timeoutMs: 120000,
   });
 }
@@ -657,11 +602,11 @@ export async function getAssets(filters = {}) {
 }
 
 export async function downloadAssetsExcel(filters = {}) {
-  return requestBlob("/assets/export/excel", { query: filters });
+  return requestDownload("/assets/export/excel", { query: filters });
 }
 
 export async function downloadAssetImportTemplate() {
-  return requestBlob("/assets/import/template");
+  return requestDownload("/assets/import/template");
 }
 
 export async function previewAssetExcelImport(file) {
@@ -1084,20 +1029,6 @@ function normalizeCollection(data) {
   return [];
 }
 
-function getDownloadFilename(contentDisposition) {
-  if (!contentDisposition) {
-    return "";
-  }
-
-  const utfFilename = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utfFilename?.[1]) {
-    return decodeURIComponent(utfFilename[1]);
-  }
-
-  const asciiFilename = contentDisposition.match(/filename="?([^";]+)"?/i);
-  return asciiFilename?.[1] || "";
-}
-
 function buildAssetFormData(asset) {
   const formData = new FormData();
   Object.entries(asset || {}).forEach(([key, value]) => {
@@ -1190,7 +1121,7 @@ export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
 }
 
 export async function downloadHrAccountImportTemplate() {
-  return requestBlob(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000 });
+  return requestDownload(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000 });
 }
 
 function getAuthHeaders() {

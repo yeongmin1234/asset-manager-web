@@ -647,11 +647,11 @@ function App({ currentUser, onLogout }) {
   const handleExportExcel = async () => {
     setExportState({ isLoading: true, error: "" });
     try {
-      const { blob, filename } = await downloadAssetsExcel(activeFilters);
-      downloadBlob(blob, filename || getFallbackExcelFilename());
-      setExportState({ isLoading: false, error: "" });
+      await downloadAssetsExcel(activeFilters);
     } catch (error) {
-      setExportState({ isLoading: false, error: error.message });
+      setExportState((current) => ({ ...current, error: error.message }));
+    } finally {
+      setExportState((current) => ({ ...current, isLoading: false }));
     }
   };
 
@@ -1413,21 +1413,6 @@ function formatNotificationDateTime(value) {
   return `${datePart} ${timePart}`;
 }
 
-function downloadBlob(blob, filename) {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
-
-function getFallbackExcelFilename() {
-  const today = new Date().toISOString().slice(0, 10);
-  return `asset_list_${today}.xlsx`;
-}
 
 function getSectionFromPath() {
   if (typeof window === "undefined") return "dashboard";

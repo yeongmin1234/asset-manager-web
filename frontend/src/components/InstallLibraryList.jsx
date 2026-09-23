@@ -1,3 +1,4 @@
+import useDownloadStatus from "../hooks/useDownloadStatus.js";
 import React from "react";
 import useResizableColumns from "../hooks/useResizableColumns.js";
 
@@ -23,6 +24,7 @@ function InstallLibraryList({
   onEdit,
   onOpenDetail,
 }) {
+  const downloadBusy = useDownloadStatus();
   const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
     INSTALL_LIBRARY_COLUMNS,
     INSTALL_LIBRARY_COLUMN_WIDTH_STORAGE_KEY,
@@ -86,8 +88,8 @@ function InstallLibraryList({
               <td>{formatDate(item.created_at)}</td>
               <td>
                 <div className="install-library-row-actions">
-                  <button type="button" className="secondary-button" onClick={() => onDownload?.(item)}>
-                    다운로드
+                  <button type="button" className="secondary-button" disabled={downloadBusy} aria-busy={downloadBusy} onClick={() => onDownload?.(item)}>
+                    {downloadBusy ? "준비 중…" : "다운로드"}
                   </button>
                   <button type="button" className="ghost-button" onClick={() => onOpenDetail?.(item)}>
                     안내

@@ -228,9 +228,8 @@ function InstallLibraryPage() {
 
   const handleDownload = async (item) => {
     try {
-      const { blob, filename } = await downloadInstallFile(item.id);
-      downloadBlob(blob, filename || item.original_filename || "install-file");
-      await loadInstallLibrary();
+      await downloadInstallFile(item.id);
+      setToastMessage("브라우저 다운로드 목록에서 진행 상태를 확인해 주세요.");
     } catch (error) {
       setToastMessage(error.message);
     }
@@ -469,16 +468,6 @@ function SummaryCard({ label, value }) {
   );
 }
 
-function downloadBlob(blob, filename) {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
 
 function formatBytes(value) {
   const bytes = Number(value || 0);

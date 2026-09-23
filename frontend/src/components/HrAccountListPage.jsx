@@ -1,3 +1,4 @@
+import useDownloadStatus from "../hooks/useDownloadStatus.js";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   commitHrAccountExcelImport, createHrAccount, deleteHrAccount,
@@ -29,6 +30,7 @@ const EMPTY_EXCEL_STATE = {
 };
 
 export default function HrAccountListPage({ currentUser }) {
+  const downloadBusy = useDownloadStatus();
   const isAdmin = currentUser?.role === "admin";
   const [items, setItems] = useState([]);
   const [keyword, setKeyword] = useState("");
@@ -237,8 +239,7 @@ export default function HrAccountListPage({ currentUser }) {
 
   const downloadExcelTemplate = async () => {
     try {
-      const { blob, filename } = await downloadHrAccountImportTemplate();
-      saveDownload(blob, filename || "인사업무_계정등록_양식.xlsx");
+      await downloadHrAccountImportTemplate();
     } catch (error) {
       setExcelState((value) => ({ ...value, error: formatExcelError(error, "엑셀 양식을 내려받지 못했습니다.") }));
     }
@@ -475,7 +476,7 @@ export default function HrAccountListPage({ currentUser }) {
             <div className="hr-account-modal-heading hr-account-import-heading">
               <div><h3 id="hr-import-title">엑셀 일괄등록</h3><p>{excelState.fileName || "선택한 파일의 첫 번째 시트를 분석합니다."}</p></div>
               <div className="hr-account-import-heading-actions">
-                <button type="button" onClick={downloadExcelTemplate}>엑셀 양식 다운로드</button>
+                <button type="button" disabled={downloadBusy} onClick={downloadExcelTemplate}>{downloadBusy ? "준비 중…" : "엑셀 양식 다운로드"}</button>
                 <button type="button" onClick={() => excelFileInputRef.current?.click()} disabled={excelState.loading || excelState.saving}>파일 다시 선택</button>
                 <button type="button" onClick={closeExcelModal} disabled={excelState.loading || excelState.saving}>닫기</button>
               </div>
@@ -652,15 +653,4 @@ function formatExcelError(error, fallbackMessage) {
 
 function importStatusLabel(status) {
   return { valid: "정상", duplicate: "중복", error: "오류" }[status] || status;
-}
-
-function saveDownload(blob, filename) {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
 }
