@@ -9,7 +9,7 @@
 | 설치자료실 목록 | InstallLibraryPage.jsx, InstallLibraryList.jsx | /install-files/{id}/download | FileResponse → 전체 Blob → a.click → 즉시 revoke; 대용량 메모리, 무진행 표시, 중복 클릭 |
 | 설치 체크리스트 | InstallChecklistPanel.jsx | 동일 | 목록과 같은 콜백, 같은 문제 |
 | 공통 첨부파일 | AttachmentPanel.jsx | /attachments/{id}/download | FileResponse → Blob → 즉시 revoke, 중복 클릭 방지 없음 |
-| PDF/이미지 미리보기 | AttachmentPanel.jsx | /attachments/{id}/preview | await 이후 window.open, 30초 후 URL 해제; 팝업 차단, 한글 inline 헤더 오류 |
+| PDF/이미지 미리보기 | AttachmentPanel.jsx | /attachments/{id}/preview | 기존 await 이후 window.open과 팝업 차단 문제를 제거하고 현재 화면 모달 미리보기로 변경 |
 | 자산 Excel 내보내기 | App.jsx, AssetExcelTools.jsx | /assets/export/excel | StreamingResponse → Blob, 즉시 revoke, 기본 헤더 대기 제한 6초 |
 | 자산 Excel 등록 양식 | AssetExcelTools.jsx | /assets/import/template | StreamingResponse → Blob, 즉시 revoke |
 | 감사로그 Excel | AuditLogTab.jsx | /admin/audit-logs/export | StreamingResponse → Blob, 즉시 revoke |
@@ -57,9 +57,9 @@
 
 ## 4. 수정 내용
 
-전체 다운로드를 네이티브 전송으로 전환했다. 클릭 즉시 메모리 Set으로 중복 준비를 막고 React 화면에 준비 상태를 공유한다. 공통 try/catch/finally로 창·임시 form·잠금을 정리한다. 기존 화면별 오류 영역을 유지한다. 인증 실패는 기존 로그인 해제 처리로 전달한다.
+전체 다운로드를 네이티브 전송으로 전환했다. 클릭 즉시 메모리 Set으로 중복 준비를 막고 React 화면에 준비 상태를 공유한다. 공통 try/catch/finally로 숨겨진 form과 잠금을 정리한다. 기존 화면별 오류 영역을 유지한다. 인증 실패는 기존 로그인 해제 처리로 전달한다.
 
-클릭 제스처 안에서 먼저 안내 창을 열고, 팝업 차단을 검사한다. HTTP LAN에서도 동작하도록 secure-context 전용 randomUUID를 사용하지 않는다. 서버 준비 실패는 원래 화면에 표시하고 안내 창을 닫는다. 준비 후 전송 단계의 401/403/404/서버 오류는 안내 창에 한국어 오류 페이지로 나타난다. 본문 전송 중 연결 단절은 서버 로그 및 브라우저 다운로드 목록에서 확인한다.
+초기 구현에서 클릭 제스처 안에 열던 안내 창은 제거했다. 준비가 끝나면 현재 문서의 hidden iframe으로 숨겨진 form POST를 보내며, 현재 페이지와 탭 구성을 유지한다. 준비 단계 오류는 호출 화면에 표시한다. 준비 이후 401/403/404/서버 오류는 다운로드 ID가 일치하는 hidden iframe에서 `postMessage`로 부모 화면에 전달하고, API origin과 iframe window를 검증한 뒤 기존 오류 영역에 표시한다. 본문 전송 중 연결 단절은 서버 로그 및 브라우저 다운로드 목록에서 확인한다.
 
 파일 응답은 ASCII filename fallback과 UTF-8 filename*를 제공한다. 기존 경로 정규화/저장 루트 제한을 유지하며 준비 및 실제 전송에서 파일 존재·읽기 가능 여부·권한을 확인한다. 서버 로그는 사용자 ID, 파일 ID, 파일명, UTC 요청 시각, API, HTTP 상태, 실패 유형을 기록한다. 인증 실패로 사용자를 확인할 수 없거나 메타데이터 조회 전 거부되면 해당 값은 null이다. 비밀번호/인증 헤더/전송 티켓/요청 본문을 기록하지 않는다. 본문 전송 중 예외는 로그 후 재발생시켜 잘린 파일을 정상 완료로 처리하지 않는다.
 
@@ -67,10 +67,10 @@
 
 ## 5. 공통 다운로드 처리 방식
 
-1. 클릭 즉시 안내 창 생성 + 동일 작업 중복 잠금.
+1. 클릭 즉시 동일 작업 중복 잠금. 현재 화면에는 `준비 중…` 상태만 표시.
 2. Bearer 인증으로 GET /downloads/prepare?path=...&query=... 요청.
 3. 서버가 허용된 다운로드 경로, 기존 권한, 파일 상태를 검증하고 다운로드 전용 audience를 가진 서명 티켓 발급. 최대 90초이며 원래 로그인 만료 시각을 넘지 않는다.
-4. 안내 창에서 POST /downloads/transfer의 form 본문으로 티켓 전달. URL·접근 로그에 티켓을 넣지 않는다.
+4. 현재 문서의 고유 hidden iframe을 대상으로 숨겨진 form이 POST /downloads/transfer의 본문에 티켓과 서명된 다운로드 ID를 전달. URL·접근 로그에 티켓을 넣지 않는다.
 5. 서버가 티켓 서명을 확인하고 허용된 기존 GET 다운로드 라우트로 내부 전달. 실제 사용자 활성 상태 및 메뉴 권한을 재검증한다. 원래 GET + Bearer API도 유지한다.
 6. 파일은 FileResponse, Excel은 기존 StreamingResponse가 직접 전송. 파일명은 브라우저가 서버 헤더를 사용한다.
 7. 프론트 준비 잠금은 전송 요청 인계 후 해제한다. 파일 완료 상태로 표시하지 않으며 전송 상태는 브라우저 목록에서 확인한다.
@@ -83,7 +83,7 @@
 
 파일 본문을 JS fetch/blob/arraybuffer로 수신하지 않는다. 브라우저 기본 다운로드가 서버 청크를 받으므로 React 메뉴 생명주기와 파일 수신이 분리된다. 서버 FileResponse를 유지하며 미들웨어는 ASGI 응답 청크를 버퍼링하지 않고 그대로 전달한다.
 
-32MiB 및 1740MiB(약 1.7GiB) ZIP을 임시 생성했다. ASGI 청크 테스트와 별도의 실제 loopback HTTP POST 전송 테스트를 모두 수행했다. 테스트 서버는 실제 앱 DB/스케줄러를 사용하지 않는 격리 서버이며 OS 임의 포트를 사용한다(80/8080 제외). 테스트 후 종료하고 임시 파일을 정리한다. 실제 운영 NAS 원본의 무결성을 검증한 것은 아니다.
+128MiB 및 1740MiB(약 1.7GiB) ZIP을 임시 생성했다. ASGI 청크 테스트와 별도의 실제 loopback HTTP POST 전송 테스트를 모두 수행했다. 테스트 서버는 실제 앱 DB/스케줄러를 사용하지 않는 격리 서버이며 OS 임의 포트를 사용한다(80/8080 제외). 테스트 후 종료하고 임시 파일을 정리한다. 실제 운영 NAS 원본의 무결성을 검증한 것은 아니다.
 
 ## 7. 테스트 결과
 
@@ -92,7 +92,7 @@
 | 요청 테스트 | 결과 및 범위 |
 | --- | --- |
 | 소형 파일 | 서버 준비 → POST 전송, 원본 바이트 일치 통과 |
-| 10~100MB | 32MiB ZIP의 ASGI 및 실제 HTTP 전송, 크기/해시 일치 통과 |
+| 100MB 이상 | 128MiB ZIP의 ASGI 및 실제 HTTP 전송, 크기/해시 일치 통과 |
 | 1GB 이상 | 1740MiB ZIP의 ASGI 및 실제 HTTP 전송, 크기/SHA-256 일치 통과 |
 | 한글 / 공백 / 괄호 / 특수문자 | UTF-8 헤더 및 ASCII fallback 테스트 통과 |
 | ZIP | 소형 ZIP/XLSX, 32MiB/1740MiB ZIP CRC 무결성 통과 |
@@ -124,7 +124,7 @@ $env:DOWNLOAD_LARGE_TESTS='1'
 
 - 운영 NAS 파일·실제 Chrome UI·overlay·프록시 timeout·메모리 사용량 실측은 미검증이다. 브라우저 도구 초기화가 sandboxPolicy 누락 오류로 실패했다. 로컬 저장소 uploads에는 운영 1.7GB 원본이 없었다.
 - 네이티브 다운로드는 웹페이지에 완료/중단 이벤트를 제공하지 않는다. 버튼은 준비 중 잠그고 인계 후 복구하며, 진행/실패/완료는 브라우저 다운로드 목록을 확인해야 한다. 인계 이후 새로 클릭하면 별도 다운로드가 시작될 수 있다.
-- 팝업이 정책으로 차단되면 오류 안내 후 사용자가 이 사이트 팝업을 허용해야 한다. 안내 창은 자동으로 닫지 않는다. 미리보기는 이 창에 열린다.
+- 다운로드는 팝업 권한을 사용하지 않는다. 첨부 PDF/이미지 미리보기는 현재 페이지 안의 모달에서만 열리며, 최대 20MB 첨부 제한 안에서만 Blob URL을 사용한다. 대용량 다운로드는 Blob을 사용하지 않는다.
 - POST 네이티브 전송의 중단 지점 재개는 보장하지 않는다. 실패 후 버튼으로 재시도할 수 있다.
 - 파일이 확인 이후 삭제되거나 저장소 연결이 전송 중 끊기면 실패할 수 있으며 로그에 남긴다. 이미 전송한 HTTP 헤더 상태는 도중에 변경할 수 없다.
 - 기존 Excel 생성기의 서버 메모리 사용량, DB/프록시 운영 장애는 별도이다. 기존 DB 연결 실패의 503 상태는 유지하고 일반 서버 전송 예외는 500으로 처리한다.

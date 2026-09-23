@@ -16,9 +16,10 @@ import {
 function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨부파일" }) {
   const downloadBusy = useDownloadStatus();
   const [items, setItems] = useState([]);
+  const [preview, setPreview] = useState(null);
   const [description, setDescription] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
-  const [state, setState] = useState({ error: "", isDragging: false, isLoading: false, isUploading: false, message: "" });
+  const [state, setState] = useState({ error: "", isDragging: false, isLoading: false, isPreviewing: false, isUploading: false, message: "" });
   const fileInputRef = useRef(null);
 
   const loadAttachments = useCallback(async () => {
@@ -40,6 +41,10 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
   useEffect(() => {
     loadAttachments();
   }, [loadAttachments]);
+
+  useEffect(() => () => {
+    if (preview?.url) window.URL.revokeObjectURL(preview.url);
+  }, [preview]);
 
   const handleFileSelect = (file) => {
     setState((current) => ({ ...current, error: "", message: "" }));
@@ -88,17 +93,24 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
 
   const handleDownload = async (item) => {
     try {
-      await downloadAttachment(item.id);
+      setState((current) => ({ ...current, error: "" }));
+      await downloadAttachment(item.id, {
+        onTransferError: (message) => setState((current) => ({ ...current, error: message })),
+      });
     } catch (error) {
       setState((current) => ({ ...current, error: error.message }));
     }
   };
 
   const handlePreview = async (item) => {
+    setState((current) => ({ ...current, error: "", isPreviewing: true }));
     try {
-      await previewAttachment(item.id);
+      const { blob, contentType } = await previewAttachment(item.id);
+      setPreview({ contentType, filename: item.original_filename, url: window.URL.createObjectURL(blob) });
     } catch (error) {
       setState((current) => ({ ...current, error: error.message }));
+    } finally {
+      setState((current) => ({ ...current, isPreviewing: false }));
     }
   };
 
@@ -176,7 +188,7 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
             </div>
             <div className="attachment-actions">
               {canPreview(item) ? (
-                <button type="button" className="ghost-button" disabled={downloadBusy} onClick={() => handlePreview(item)}>{downloadBusy ? "준비 중…" : "미리보기"}</button>
+                <button type="button" className="ghost-button" disabled={state.isPreviewing} onClick={() => handlePreview(item)}>{state.isPreviewing ? "불러오는 중…" : "미리보기"}</button>
               ) : null}
               <button type="button" className="ghost-button" disabled={downloadBusy} onClick={() => handleDownload(item)}>{downloadBusy ? "준비 중…" : "다운로드"}</button>
               {canManage ? (
@@ -186,6 +198,21 @@ function AttachmentPanel({ canManage = false, entityId, entityType, title = "첨
           </div>
         ))}
       </div>
+      {preview ? (
+        <div className="attachment-preview-backdrop" role="presentation" onMouseDown={() => setPreview(null)}>
+          <section className="attachment-preview-modal" role="dialog" aria-modal="true" aria-label={`${preview.filename} 미리보기`} onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <strong>{preview.filename}</strong>
+              <button type="button" className="ghost-button" onClick={() => setPreview(null)}>닫기</button>
+            </header>
+            {preview.contentType === "application/pdf" ? (
+              <iframe title={`${preview.filename} 미리보기`} src={preview.url} />
+            ) : (
+              <img src={preview.url} alt={preview.filename} />
+            )}
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -63,13 +63,19 @@ class NativeDownloadsTest(unittest.TestCase):
     def prepare(self, path="/install-files/1/download", **kwargs):
         return self.client.get("/downloads/prepare", params={"path": path, **kwargs}, headers=self.bearer())
 
-    def transfer(self, ticket):
-        return self.client.post("/downloads/transfer", data={"ticket": ticket})
+    def transfer(self, ticket, download_id=None):
+        if download_id is None:
+            try:
+                download_id = jwt.decode(ticket, options={"verify_signature": False})["jti"]
+            except (jwt.PyJWTError, KeyError):
+                download_id = "0" * 32
+        return self.client.post("/downloads/transfer", data={"ticket": ticket, "download_id": download_id})
 
     def test_native_zip_exact_bytes_unicode_headers_and_single_counter(self):
         response = self.prepare()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["cache-control"], "no-store")
+        self.assertRegex(response.json()["download_id"], r"^[a-f0-9]{32}$")
         self.count.assert_not_called()
         result = self.transfer(response.json()["ticket"])
         self.assertEqual(result.status_code, 200)
@@ -106,6 +112,9 @@ class NativeDownloadsTest(unittest.TestCase):
         response = self.transfer(ticket)
         self.assertEqual(response.status_code, 404)
         self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn("asset-manager-download-error", response.text)
+        self.assertNotIn("<h1>", response.text)
+        self.assertNotIn("원래 화면", response.text)
 
     def test_ticket_cannot_authenticate_other_routes_or_be_changed(self):
         ticket = self.prepare().json()["ticket"]
@@ -157,8 +166,8 @@ class NativeDownloadsTest(unittest.TestCase):
 
 
 class BoundedFileStreamingTest(unittest.IsolatedAsyncioTestCase):
-    async def test_32mb_and_optional_1740mb_zip(self):
-        sizes = [32 * 1024 * 1024]
+    async def test_128mb_and_optional_1740mb_zip(self):
+        sizes = [128 * 1024 * 1024]
         if os.environ.get("DOWNLOAD_LARGE_TESTS") == "1":
             sizes.append(1740 * 1024 * 1024)
         for size in sizes:
@@ -215,12 +224,13 @@ class BoundedFileStreamingTest(unittest.IsolatedAsyncioTestCase):
                     worker.start()
                     try:
                         self.assertTrue(await asyncio.to_thread(ready.wait, 10))
-                        ticket = jwt.encode({"sub": "91", "aud": "native-download", "path": scope["path"], "query": "", "iat": datetime.now(timezone.utc), "exp": datetime.now(timezone.utc) + timedelta(seconds=90)}, SECRET, algorithm="HS256")
+                        download_id = "1" * 32
+                        ticket = jwt.encode({"sub": "91", "aud": "native-download", "jti": download_id, "path": scope["path"], "query": "", "iat": datetime.now(timezone.utc), "exp": datetime.now(timezone.utc) + timedelta(seconds=90)}, SECRET, algorithm="HS256")
 
                         def receive_http():
                             digest = hashlib.sha256()
                             total = 0
-                            with httpx.stream("POST", "http://127.0.0.1:{}/downloads/transfer".format(port), data={"ticket": ticket}, timeout=60, trust_env=False) as result:
+                            with httpx.stream("POST", "http://127.0.0.1:{}/downloads/transfer".format(port), data={"ticket": ticket, "download_id": download_id}, timeout=60, trust_env=False) as result:
                                 result.raise_for_status()
                                 self.assertEqual(int(result.headers["content-length"]), path.stat().st_size)
                                 for block in result.iter_bytes(65536):

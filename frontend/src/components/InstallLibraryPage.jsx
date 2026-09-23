@@ -228,8 +228,8 @@ function InstallLibraryPage() {
 
   const handleDownload = async (item) => {
     try {
-      await downloadInstallFile(item.id);
-      setToastMessage("브라우저 다운로드 목록에서 진행 상태를 확인해 주세요.");
+      setToastMessage("");
+      await downloadInstallFile(item.id, { onTransferError: setToastMessage });
     } catch (error) {
       setToastMessage(error.message);
     }

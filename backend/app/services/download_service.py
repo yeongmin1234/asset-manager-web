@@ -3,8 +3,8 @@ import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from html import escape
 from urllib.parse import parse_qs, quote
+from uuid import uuid4
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -80,15 +80,16 @@ def prepare_download(request: Request, response: Response, path: str, query: str
     if len(query) > 8192:
         raise HTTPException(400, "다운로드 조건이 너무 깁니다.")
     now = datetime.now(timezone.utc)
+    download_id = uuid4().hex
     expires = now + timedelta(seconds=90)
     session_expiry = request.scope["state"].get("auth_expires_at")
     if session_expiry is not None:
         expires = min(expires, datetime.fromtimestamp(session_expiry, timezone.utc))
-    ticket = jwt.encode({"sub": str(user.id), "aud": "native-download", "path": path,
+    ticket = jwt.encode({"sub": str(user.id), "aud": "native-download", "jti": download_id, "path": path,
                          "query": query, "iat": now, "exp": expires},
                         _get_jwt_secret(), algorithm="HS256")
     response.headers["Cache-Control"] = "no-store"
-    return {"ticket": ticket}
+    return {"ticket": ticket, "download_id": download_id}
 
 
 class DownloadMiddleware:
@@ -120,7 +121,13 @@ class DownloadMiddleware:
         suppress_body = False
 
         async def error_response(status, detail):
-            await HTMLResponse('<!doctype html><html lang="ko"><meta charset="utf-8"><title>다운로드 실패</title><h1>다운로드 실패</h1><p>{}</p><p>원래 화면에서 다시 시도해 주세요.</p></html>'.format(escape(detail)), status_code=status,
+            payload = json.dumps({
+                "type": "asset-manager-download-error",
+                "downloadId": state.get("download_id"),
+                "message": detail,
+                "status": status,
+            }, ensure_ascii=False).replace("<", "\\u003c")
+            await HTMLResponse('<!doctype html><meta charset="utf-8"><script>window.parent.postMessage({}, "*");</script>'.format(payload), status_code=status,
                                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})(scope, receive, send)
 
         async def tracked_send(message):
@@ -158,12 +165,17 @@ class DownloadMiddleware:
                         raise HTTPException(413, "잘못된 다운로드 요청입니다.")
                     if not message.get("more_body"):
                         break
+                form = parse_qs(body.decode("ascii", errors="replace"))
+                submitted_download_id = form.get("download_id", [""])[0]
+                if re.fullmatch(r"[a-f0-9]{32}", submitted_download_id):
+                    state["download_id"] = submitted_download_id
                 try:
-                    token = parse_qs(body.decode("ascii")).get("ticket", [""])[0]
+                    token = form.get("ticket", [""])[0]
                     payload = jwt.decode(token, _get_jwt_secret(), algorithms=["HS256"], audience="native-download",
-                                         options={"require": ["sub", "exp", "iat", "path", "query"]})
-                    if not is_download_path(payload["path"]):
+                                         options={"require": ["sub", "exp", "iat", "jti", "path", "query"]})
+                    if not is_download_path(payload["path"]) or payload["jti"] != submitted_download_id:
                         raise ValueError("invalid target")
+                    state["download_id"] = payload["jti"]
                     state["native_download_user_id"] = int(payload["sub"])
                 except (jwt.PyJWTError, ValueError, KeyError, TypeError):
                     raise HTTPException(401, "다운로드 요청이 만료되었습니다. 다시 시도해 주세요.")

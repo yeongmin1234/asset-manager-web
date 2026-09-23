@@ -112,7 +112,36 @@ function requestDownload(path, options = {}) {
   });
   return downloadFile(`${path}?${query}`, () => request("/downloads/prepare", {
     query: { path, query: query.toString() }, timeoutMs: 30000,
-  }), `${API_BASE_URL}/downloads/transfer`);
+  }), `${API_BASE_URL}/downloads/transfer`, { onTransferError: options.onTransferError });
+}
+
+async function requestPreviewBlob(path) {
+  const url = new URL(`${API_BASE_URL}${path}`);
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/pdf,image/*", ...getAuthHeaders() },
+    });
+    if (!response.ok) {
+      handleUnauthorized(response);
+      const data = await response.json().catch(() => null);
+      throw new ApiError(getErrorMessage(data, response.status), { status: response.status, detail: data, method: "GET", url: url.toString() });
+    }
+    const contentType = (response.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+    if (contentType !== "application/pdf" && !contentType.startsWith("image/")) {
+      throw new ApiError("미리보기 파일 형식을 확인할 수 없습니다.", { status: response.status, method: "GET", url: url.toString() });
+    }
+    return { blob: await response.blob(), contentType };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.name === "AbortError" ? "미리보기 응답 시간이 초과되었습니다." : "백엔드 서버에 연결할 수 없습니다.", {
+      detail: error.message, method: "GET", url: url.toString(),
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 async function requestFormData(path, formData, options = {}) {
@@ -370,16 +399,15 @@ export async function deleteAttachment(attachmentId) {
   });
 }
 
-export async function downloadAttachment(attachmentId) {
+export async function downloadAttachment(attachmentId, options = {}) {
   return requestDownload(`/attachments/${attachmentId}/download`, {
     timeoutMs: 60000,
+    ...options,
   });
 }
 
 export async function previewAttachment(attachmentId) {
-  return requestDownload(`/attachments/${attachmentId}/preview`, {
-    timeoutMs: 60000,
-  });
+  return requestPreviewBlob(`/attachments/${attachmentId}/preview`);
 }
 
 export async function getUsers() {
@@ -421,8 +449,8 @@ export async function getAuditLog(auditLogId) {
   return request(`/admin/audit-logs/${auditLogId}`);
 }
 
-export async function downloadAuditLogs(filters = {}) {
-  return requestDownload("/admin/audit-logs/export", { query: filters, timeoutMs: 60000 });
+export async function downloadAuditLogs(filters = {}, options = {}) {
+  return requestDownload("/admin/audit-logs/export", { query: filters, timeoutMs: 60000, ...options });
 }
 
 export async function recordMenuAccess(payload) {
@@ -566,9 +594,10 @@ export async function deleteInstallFile(fileId, adminPassword) {
   });
 }
 
-export async function downloadInstallFile(fileId) {
+export async function downloadInstallFile(fileId, options = {}) {
   return requestDownload(`/install-files/${fileId}/download`, {
     timeoutMs: 120000,
+    ...options,
   });
 }
 
@@ -601,12 +630,12 @@ export async function getAssets(filters = {}) {
   return normalizeCollection(await request("/assets", { query: filters }));
 }
 
-export async function downloadAssetsExcel(filters = {}) {
-  return requestDownload("/assets/export/excel", { query: filters });
+export async function downloadAssetsExcel(filters = {}, options = {}) {
+  return requestDownload("/assets/export/excel", { query: filters, ...options });
 }
 
-export async function downloadAssetImportTemplate() {
-  return requestDownload("/assets/import/template");
+export async function downloadAssetImportTemplate(options = {}) {
+  return requestDownload("/assets/import/template", options);
 }
 
 export async function previewAssetExcelImport(file) {
@@ -1120,8 +1149,8 @@ export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
   });
 }
 
-export async function downloadHrAccountImportTemplate() {
-  return requestDownload(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000 });
+export async function downloadHrAccountImportTemplate(options = {}) {
+  return requestDownload(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000, ...options });
 }
 
 function getAuthHeaders() {

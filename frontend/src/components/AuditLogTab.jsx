@@ -30,7 +30,7 @@ export default function AuditLogTab() {
   const reset = () => { setFilters(EMPTY); setApplied(EMPTY); setPage(1); };
   const quick = (field, value) => { const next = { ...filters, [field]: filters[field] === value ? "" : value }; if (field === "period") Object.assign(next, { startDate: "", endDate: "" }); setFilters(next); setApplied(next); setPage(1); };
   const openDetail = async (id) => { setDetail({ open: true, loading: true, item: null, error: "" }); try { setDetail({ open: true, loading: false, item: await getAuditLog(id), error: "" }); } catch (error) { setDetail({ open: true, loading: false, item: null, error: error?.message || "상세 정보를 불러오지 못했습니다." }); } };
-  const exportExcel = async () => { setDownloading(true); try { await downloadAuditLogs(buildQuery(applied)); } catch (error) { setState((value) => ({ ...value, error: error?.message || "엑셀 다운로드에 실패했습니다." })); } finally { setDownloading(false); } };
+  const exportExcel = async () => { setDownloading(true); try { await downloadAuditLogs(buildQuery(applied), { onTransferError: (message) => setState((value) => ({ ...value, error: message })) }); } catch (error) { setState((value) => ({ ...value, error: error?.message || "엑셀 다운로드에 실패했습니다." })); } finally { setDownloading(false); } };
   return <section className="audit-log-tab">
     <form className="access-log-filter-panel" onSubmit={apply}>
       <div className="audit-log-filter-row">

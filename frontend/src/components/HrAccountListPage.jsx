@@ -239,7 +239,9 @@ export default function HrAccountListPage({ currentUser }) {
 
   const downloadExcelTemplate = async () => {
     try {
-      await downloadHrAccountImportTemplate();
+      await downloadHrAccountImportTemplate({
+        onTransferError: (message) => setExcelState((value) => ({ ...value, error: message })),
+      });
     } catch (error) {
       setExcelState((value) => ({ ...value, error: formatExcelError(error, "엑셀 양식을 내려받지 못했습니다.") }));
     }

@@ -647,7 +647,9 @@ function App({ currentUser, onLogout }) {
   const handleExportExcel = async () => {
     setExportState({ isLoading: true, error: "" });
     try {
-      await downloadAssetsExcel(activeFilters);
+      await downloadAssetsExcel(activeFilters, {
+        onTransferError: (message) => setExportState((current) => ({ ...current, error: message })),
+      });
     } catch (error) {
       setExportState((current) => ({ ...current, error: error.message }));
     } finally {

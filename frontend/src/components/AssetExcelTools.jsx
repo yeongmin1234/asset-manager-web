@@ -35,7 +35,7 @@ function AssetExcelTools({ onImportCommitted, onExportExcel, isExporting = false
     setMessage("");
 
     try {
-      await downloadAssetImportTemplate();
+      await downloadAssetImportTemplate({ onTransferError: setError });
     } catch (downloadError) {
       setError(downloadError.message);
     } finally {
