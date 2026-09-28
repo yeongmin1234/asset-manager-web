@@ -38,27 +38,43 @@ stop_backend_pid() {
   return 0
 }
 
-if [ -f "$PID_FILE" ]; then
-  saved_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-  if backend_pid_matches "$saved_pid"; then
-    stop_backend_pid "$saved_pid" || exit 1
-  else
-    echo "Ignoring stale or unrelated backend PID file. pid=${saved_pid:-missing}"
-  fi
+saved_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+if [ -n "$saved_pid" ] && ! backend_pid_matches "$saved_pid"; then
+  echo "Removing stale or unrelated backend PID file. pid=$saved_pid"
   rm -f "$PID_FILE"
-else
-  echo "Backend PID file not found; checking port $BACKEND_PORT."
+  saved_pid=""
 fi
 
-# Docker is not part of direct deploy. Never stop a container based on port alone.
-listener_pids="$(backend_listener_pids | sort -u)"
-for listener_pid in $listener_pids; do
-  if backend_pid_matches "$listener_pid"; then
-    stop_backend_pid "$listener_pid" || exit 1
-  else
-    echo "Leaving unrelated or unverifiable port $BACKEND_PORT listener alone. pid=$listener_pid"
+# Listener tools can omit PID on Synology. Collect the PID file, listener tools,
+# and ps candidates, then verify every candidate against the exact command.
+candidate_pids="$(printf '%s\n%s\n%s\n' "$saved_pid" "$(backend_listener_pids)" "$(backend_ps_pids)" |
+  grep -E '^[0-9]+$' | sort -u || true)"
+verified_pids=""
+for candidate_pid in $candidate_pids; do
+  if backend_pid_matches "$candidate_pid"; then
+    verified_pids="${verified_pids}${verified_pids:+ }$candidate_pid"
   fi
 done
+set -- $verified_pids
+if [ "$#" -gt 1 ]; then
+  echo "Multiple verified asset-manager backends; refusing to stop any. pids=$verified_pids" >&2
+  exit 1
+fi
+if [ "$#" -eq 1 ]; then
+  stop_backend_pid "$1" || exit 1
+fi
+rm -f "$PID_FILE"
+
+remaining_pids=""
+for candidate_pid in $(backend_ps_pids); do
+  if backend_pid_matches "$candidate_pid"; then
+    remaining_pids="${remaining_pids}${remaining_pids:+ }$candidate_pid"
+  fi
+done
+if [ -n "$remaining_pids" ]; then
+  echo "Verified backend processes remain after stop. pids=$remaining_pids" >&2
+  exit 1
+fi
 
 if backend_port_status; then
   echo "Backend port $BACKEND_PORT is still in use; refusing to report a successful stop." >&2

@@ -37,6 +37,8 @@ PULL_LOG="$LOG_DIR/git-pull.$$.tmp"
 CANDIDATE_DIST=""
 CANDIDATE_CREATED=false
 PREVIOUS_DIST=""
+DEPLOY_STAGE="PRECHECK"
+DEPLOY_REASON="See the failed stage in the deploy log."
 trap 'rm -f "$TMP_LOG" "$BUILD_LOG" "$PULL_LOG"; if [ "$CANDIDATE_CREATED" = true ] && [ -d "$CANDIDATE_DIST" ]; then rm -rf -- "$CANDIDATE_DIST"; fi' EXIT
 
 git_status_without_generated_dist() {
@@ -75,6 +77,90 @@ check_url() {
   fi
 }
 
+check_http_200() {
+  label="$1"
+  url="$2"
+  status="$(curl --max-time 3 -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+  if [ "$status" = "200" ]; then
+    echo "OK  $label $url (200)"
+    return 0
+  fi
+  echo "FAIL $label $url (HTTP ${status:-unreachable})"
+  return 1
+}
+
+check_current_backend() {
+  check_backend_pid_running || return 1
+  check_http_200 "Backend health" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || return 1
+  check_http_200 "Backend DB" "http://127.0.0.1:${BACKEND_PORT:-8010}/health/db" || return 1
+  openapi_file="$LOG_DIR/backend-openapi.$$.tmp"
+  if ! curl -fsS "http://127.0.0.1:${BACKEND_PORT:-8010}/openapi.json" > "$openapi_file"; then
+    rm -f "$openapi_file"
+    echo "FAIL Backend OpenAPI is unavailable."
+    return 1
+  fi
+  required_path="${REQUIRED_OPENAPI_PATH:-/online/recall/applications/preview}"
+  if ! grep -F -q "\"$required_path\"" "$openapi_file"; then
+    rm -f "$openapi_file"
+    echo "FAIL Backend OpenAPI route missing: $required_path"
+    return 1
+  fi
+  rm -f "$openapi_file"
+  echo "OK  Backend OpenAPI route: $required_path"
+}
+
+rollback_frontend() {
+  echo "Restoring the previous frontend after a failed cutover."
+  if ! "$ROOT_DIR/deploy/stop_frontend.sh"; then
+    echo "FAIL Cannot stop the new frontend; manual recovery may be needed."
+    return 1
+  fi
+  if [ -d "$PREVIOUS_DIST" ]; then
+    if [ -d "$ROOT_DIR/frontend/dist" ]; then
+      CANDIDATE_DIST="$ROOT_DIR/frontend/dist.next.$$"
+      mv -- "$ROOT_DIR/frontend/dist" "$CANDIDATE_DIST" || return 1
+      CANDIDATE_CREATED=true
+    fi
+    mv -- "$PREVIOUS_DIST" "$ROOT_DIR/frontend/dist" || return 1
+    PREVIOUS_DIST=""
+    "$ROOT_DIR/deploy/start_frontend.sh" || return 1
+    check_http_200 "Restored frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/" || return 1
+    echo "OK  Previous frontend restored."
+  else
+    echo "Previous frontend dist is unavailable; cannot restart it."
+    return 1
+  fi
+}
+
+report_deploy_result() {
+  echo "========================================"
+  if [ "$DEPLOY_STATUS" -eq 0 ]; then
+    echo "DEPLOY SUCCESS"
+    echo "Commit: $(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    echo "Backend PID: $(cat "$LOG_DIR/backend.pid" 2>/dev/null || echo missing)"
+    echo "Backend ${BACKEND_PORT:-8010}: OK"
+    echo "Frontend PID: $(cat "$LOG_DIR/frontend.pid" 2>/dev/null || echo missing)"
+    echo "Frontend ${FRONTEND_PORT:-3010}: OK"
+    echo "Database: OK"
+    echo "Frontend bundle: $(get_frontend_bundle "$ROOT_DIR/frontend/dist/index.html")"
+  else
+    echo "DEPLOY FAILED"
+    echo "Stage: $DEPLOY_STAGE"
+    echo "Reason: $DEPLOY_REASON"
+    if check_http_200 "Current frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/"; then
+      echo "Current frontend: RUNNING"
+    else
+      echo "Current frontend: STOPPED/UNREACHABLE"
+    fi
+    if check_http_200 "Current backend" "http://127.0.0.1:${BACKEND_PORT:-8010}/health"; then
+      echo "Current backend: RUNNING"
+    else
+      echo "Current backend: STOPPED/UNREACHABLE"
+    fi
+  fi
+  echo "========================================"
+}
+
 show_backend_failure() {
   stage="$1"
   pid="$(cat "$LOG_DIR/backend.pid" 2>/dev/null || echo missing)"
@@ -92,7 +178,9 @@ show_backend_failure() {
 
 check_backend_pid_running() {
   pid="$(cat "$LOG_DIR/backend.pid" 2>/dev/null || true)"
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+  . "$ROOT_DIR/deploy/backend_process.sh"
+  BACKEND_PORT="${BACKEND_PORT:-8010}"
+  if [ -n "$pid" ] && backend_pid_matches "$pid" && kill -0 "$pid" 2>/dev/null; then
     echo "OK  Backend PID running: $pid"
     return 0
   fi
@@ -384,7 +472,12 @@ run_deploy() {
   print_checkout_status || return 1
   ensure_checkout_clean || return 1
   if [ "$DEPLOY_MODE" = "pull" ]; then
+    DEPLOY_STAGE="GIT_PULL"
+    DEPLOY_REASON="Git pull failed; see the Git output above."
     pull_checkout || return 1
+    DEPLOY_STAGE="GIT_CLEAN"
+    DEPLOY_REASON="Working tree changed after Git pull."
+    ensure_checkout_clean || return 1
     echo "Checkout after pull:"
     git log -1 --oneline || return 1
     git status --short || return 1
@@ -393,6 +486,8 @@ run_deploy() {
   fi
 
   echo "== Backend dependency check =="
+  DEPLOY_STAGE="BACKEND_PREPARE"
+  DEPLOY_REASON="Backend dependency, import, or migration check failed."
   unset DATABASE_URL
   cd "$ROOT_DIR/backend"
   if [ ! -d ".venv" ]; then
@@ -411,6 +506,8 @@ run_deploy() {
   alembic upgrade head || return 1
 
   echo "== Frontend build =="
+  DEPLOY_STAGE="FRONTEND_BUILD"
+  DEPLOY_REASON="Frontend candidate build or artifact validation failed."
   cd "$ROOT_DIR/frontend"
   if [ -f "package-lock.json" ]; then
     npm ci --include=optional || return 1
@@ -432,39 +529,72 @@ run_deploy() {
   run_frontend_build "$CANDIDATE_DIST" || return 1
   check_frontend_artifacts "$CANDIDATE_DIST" || return 1
 
-  echo "== Restart services =="
-  "$ROOT_DIR/deploy/stop_all.sh" || return 1
+  echo "== Stop backend (frontend remains online) =="
+  DEPLOY_STAGE="STOP_BACKEND"
+  DEPLOY_REASON="Could not identify or stop the existing backend on port ${BACKEND_PORT:-8010}; frontend was not stopped."
+  "$ROOT_DIR/deploy/stop_backend.sh" || return 1
+
+  echo "== Start and verify backend =="
+  DEPLOY_STAGE="START_BACKEND"
+  DEPLOY_REASON="New backend did not start or remain healthy; frontend was not stopped."
+  start_backend_once || return 1
+  check_current_backend || return 1
+
+  echo "== Stop frontend =="
+  DEPLOY_STAGE="STOP_FRONTEND"
+  DEPLOY_REASON="Could not stop the existing frontend; dist was not changed."
+  if ! "$ROOT_DIR/deploy/stop_frontend.sh"; then
+    "$ROOT_DIR/deploy/start_frontend.sh" || true
+    return 1
+  fi
+
+  echo "== Replace frontend dist =="
+  DEPLOY_STAGE="FRONTEND_CUTOVER"
+  DEPLOY_REASON="Frontend dist replacement or startup failed."
   PREVIOUS_DIST="$ROOT_DIR/frontend/dist.previous.$$"
   if [ -e "$PREVIOUS_DIST" ]; then
     echo "FAIL Frontend previous directory already exists: $PREVIOUS_DIST"
+    "$ROOT_DIR/deploy/start_frontend.sh" || true
     return 1
   fi
   if [ -d "$ROOT_DIR/frontend/dist" ]; then
-    mv -- "$ROOT_DIR/frontend/dist" "$PREVIOUS_DIST" || return 1
+    if ! mv -- "$ROOT_DIR/frontend/dist" "$PREVIOUS_DIST"; then
+      "$ROOT_DIR/deploy/start_frontend.sh" || true
+      return 1
+    fi
   fi
   if ! mv -- "$CANDIDATE_DIST" "$ROOT_DIR/frontend/dist"; then
-    if [ -d "$PREVIOUS_DIST" ]; then mv -- "$PREVIOUS_DIST" "$ROOT_DIR/frontend/dist"; fi
+    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
     return 1
   fi
   CANDIDATE_DIST=""
   CANDIDATE_CREATED=false
-  start_backend_once || return 1
-  check_url "Backend health before frontend start" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || {
-    show_backend_failure "backend pre-frontend health"
+  if ! "$ROOT_DIR/deploy/start_frontend.sh"; then
+    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
     return 1
-  }
-  "$ROOT_DIR/deploy/start_frontend.sh" || return 1
+  fi
+  if ! check_http_200 "Frontend after start" "http://127.0.0.1:${FRONTEND_PORT:-3010}/"; then
+    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    return 1
+  fi
 
   echo "== Health check =="
-  "$ROOT_DIR/deploy/health_check.sh" || return 1
-  check_cors_origin "http://192.168.222.210:3010" || return 1
-  check_cors_origin "http://112.216.230.162:3010" || return 1
-  verify_frontend_bundle || return 1
+  DEPLOY_STAGE="HEALTH_CHECK"
+  DEPLOY_REASON="Final health, CORS, or frontend bundle verification failed."
+  if ! "$ROOT_DIR/deploy/health_check.sh" ||
+     ! check_cors_origin "http://192.168.222.210:3010" ||
+     ! check_cors_origin "http://112.216.230.162:3010" ||
+     ! verify_frontend_bundle; then
+    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    return 1
+  fi
 
   echo "== Direct endpoint check =="
-  check_url "Backend health" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || return 1
-  check_url "Backend DB health" "http://127.0.0.1:${BACKEND_PORT:-8010}/health/db" || return 1
-  check_url "Frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}" || return 1
+  if ! check_current_backend ||
+     ! check_http_200 "Frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/"; then
+    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    return 1
+  fi
   if [ -d "$PREVIOUS_DIST" ]; then
     rm -rf -- "$PREVIOUS_DIST" || return 1
   fi
@@ -485,5 +615,8 @@ else
   DEPLOY_STATUS=$?
 fi
 
+if [ "$DEPLOY_MODE" != "check" ]; then
+  report_deploy_result >> "$TMP_LOG"
+fi
 tee -a "$LOG_FILE" < "$TMP_LOG"
 exit "$DEPLOY_STATUS"

@@ -22,7 +22,16 @@ echo "Current branch: ${current_branch:-DETACHED_HEAD}"
 echo "Current commit: $current_commit"
 
 echo "[1/2] Pulling the latest Git changes..."
-git pull --ff-only
+if ! git pull --ff-only; then
+  echo "========================================"
+  echo "DEPLOY FAILED"
+  echo "Stage: GIT_PULL"
+  echo "Reason: Git pull --ff-only failed."
+  echo "Current frontend: UNCHANGED"
+  echo "Current backend: UNCHANGED"
+  echo "========================================"
+  exit 1
+fi
 echo "Updated commit: $(git rev-parse --short HEAD)"
 
 echo "[2/2] Running deployment, migration, and final health checks..."

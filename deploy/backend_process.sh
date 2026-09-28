@@ -13,16 +13,57 @@ backend_cmdline_matches() {
   '
 }
 
+backend_ps_command_matches() {
+  printf '%s\n' "$1" | awk -v port="$BACKEND_PORT" '
+    {
+      count = split($0, fields, /[[:space:]]+/)
+      application = ($0 ~ /(^|\/)python([0-9.]*)?[[:space:]]+-m[[:space:]]+uvicorn[[:space:]]+app\.main:app([[:space:]]|$)/)
+      for (field = 2; field <= count; field++) {
+        if (fields[field - 1] == "--port") {
+          port_count++
+          if (fields[field] == port) matching_port = 1
+        }
+      }
+    }
+    END { exit !(application && matching_port && port_count == 1) }
+  '
+}
+
+backend_ps_command_for_pid() {
+  backend_ps_target="$1"
+  if ps -p "$backend_ps_target" -o args= >/dev/null 2>&1; then
+    ps -p "$backend_ps_target" -o args= 2>/dev/null
+  else
+    ps -ef 2>/dev/null | awk -v pid="$backend_ps_target" '
+      $2 == pid { for (field = 8; field <= NF; field++) printf "%s%s", $field, (field < NF ? " " : "\n") }
+    '
+  fi
+}
+
 backend_pid_matches() {
   backend_check_pid="$1"
   case "$backend_check_pid" in
     ""|*[!0-9]*) return 1 ;;
   esac
-  [ -r "/proc/$backend_check_pid/cmdline" ] || return 1
+  # Root-owned processes may deny access to /proc; ps is a read-only fallback.
+  if [ -r "/proc/$backend_check_pid/cmdline" ] &&
+     backend_cmdline_matches "/proc/$backend_check_pid/cmdline" 2>/dev/null; then
+    return 0
+  fi
+  backend_ps_command="$(backend_ps_command_for_pid "$backend_check_pid")" || return 1
+  [ -n "$backend_ps_command" ] && backend_ps_command_matches "$backend_ps_command"
+}
 
-  # Root-owned processes may deny access to /proc/<pid>/cwd and kill -0.
-  # Identify the backend only from its readable command line and port.
-  backend_cmdline_matches "/proc/$backend_check_pid/cmdline"
+backend_ps_pids() {
+  if ps -eo pid=,args= >/dev/null 2>&1; then
+    ps -eo pid=,args= 2>/dev/null | awk '
+      { pid = $1; $1 = ""; if ($0 ~ /uvicorn/ && $0 ~ /app\.main:app/ && $0 ~ /--port/) print pid }
+    '
+  else
+    ps -ef 2>/dev/null | awk '
+      $0 ~ /uvicorn/ && $0 ~ /app\.main:app/ && $0 ~ /--port/ { print $2 }
+    '
+  fi
 }
 
 # Return 0 when occupied, 1 when free, and 2 when no usable inspection tool exists.
