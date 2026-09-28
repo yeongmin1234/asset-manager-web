@@ -29,6 +29,7 @@ from app.api.routers import (
     network_credentials,
     network_status,
     paju_fire_insurance,
+    recall_preview,
     server_operations,
     sidebar_menu_labels,
     software,
@@ -116,6 +117,7 @@ app.include_router(expiration_schedules.router, dependencies=[Depends(require_me
 app.include_router(work_manuals.router, dependencies=[Depends(require_menu_permission("work_manual"))])
 app.include_router(vendor_contacts.router, dependencies=[Depends(require_menu_permission("vendor_contacts"))])
 app.include_router(hr_accounts.router, dependencies=[Depends(require_menu_permission("hr_list"))])
+app.include_router(recall_preview.router)
 app.include_router(visitors.router, dependencies=authenticated_user)
 
 # Management and operational surfaces are admin-only.

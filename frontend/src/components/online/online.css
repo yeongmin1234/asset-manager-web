@@ -197,6 +197,192 @@
   text-align: center;
 }
 
+.online-upload-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.online-upload-modal {
+  background: #fff;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 900px);
+  overflow: hidden;
+  width: min(1380px, 100%);
+}
+
+.online-upload-header,
+.online-upload-footer {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 12px 18px;
+}
+
+.online-upload-header {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.online-upload-header h2 {
+  color: #172033;
+  font-size: 1.12rem;
+  margin: 0;
+}
+
+.online-upload-header p,
+.online-preview-sheet {
+  color: #64748b;
+  font-size: 0.82rem;
+  margin: 3px 0 0;
+}
+
+.online-upload-form {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+}
+
+.online-upload-form label {
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.online-upload-controls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.online-upload-controls input {
+  flex: 1;
+  min-width: 0;
+}
+
+.online-upload-error {
+  background: #fff7f7;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  color: #b91c1c;
+  font-size: 0.86rem;
+  margin: 0 18px 12px;
+  padding: 9px 12px;
+}
+
+.online-upload-notice {
+  color: #475569;
+  margin: 0;
+  padding: 24px 18px;
+}
+
+.online-preview-result {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.online-preview-sheet {
+  margin: 0 18px 10px;
+}
+
+.online-preview-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  padding: 0 18px 12px;
+}
+
+.online-preview-summary > div {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: grid;
+  gap: 3px;
+  padding: 9px 12px;
+}
+
+.online-preview-summary span {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.online-preview-summary strong {
+  color: #172033;
+  font-size: 1.08rem;
+}
+
+.online-preview-table-wrap {
+  min-height: 0;
+  overflow: auto;
+}
+
+.online-preview-table {
+  border-collapse: collapse;
+  min-width: 1700px;
+  width: 100%;
+}
+
+.online-preview-table th,
+.online-preview-table td {
+  border-bottom: 1px solid #e8edf3;
+  font-size: 0.78rem;
+  padding: 9px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.online-preview-table th {
+  background: #f8fafc;
+  color: #475569;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.online-preview-table td.online-preview-issues {
+  min-width: 190px;
+  white-space: normal;
+}
+
+.online-preview-badge {
+  background: #f1f5f9;
+  border-radius: 4px;
+  color: #475569;
+  display: inline-block;
+  font-size: 0.73rem;
+  font-weight: 800;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.online-preview-badge-valid { background: #ecfdf5; color: #047857; }
+.online-preview-badge-duplicate,
+.online-preview-badge-review { background: #fffbeb; color: #92400e; }
+.online-preview-badge-error { background: #fef2f2; color: #b91c1c; }
+
+.online-upload-footer {
+  border-top: 1px solid #e2e8f0;
+  justify-content: flex-end;
+}
+
+.online-upload-header button,
+.online-upload-footer button,
+.online-upload-controls button {
+  min-height: 34px;
+  padding: 0 13px;
+}
+
 @media (max-width: 1000px) {
   .online-feature-grid {
     grid-template-columns: 1fr;
@@ -204,6 +390,10 @@
 }
 
 @media (max-width: 700px) {
+  .online-preview-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .online-recall-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -214,6 +404,10 @@
 }
 
 @media (max-width: 560px) {
+  .online-upload-backdrop { padding: 10px; }
+  .online-upload-controls { align-items: stretch; flex-direction: column; }
+  .online-preview-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
   .portal-content:has(> .portal-main > .online-page) {
     padding: 12px 10px 16px;
   }

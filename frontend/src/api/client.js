@@ -1141,6 +1141,12 @@ export async function previewHrAccountExcelImport(file) {
   return requestFormData(`${HR_ACCOUNTS_API_PATH}/import/preview`, formData, { timeoutMs: 60000 });
 }
 
+export async function previewRecallApplicationExcel(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestFormData("/online/recall/applications/preview", formData, { timeoutMs: 60000 });
+}
+
 export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
   return request(`${HR_ACCOUNTS_API_PATH}/import`, {
     method: "POST",

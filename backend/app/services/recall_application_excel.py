@@ -34,6 +34,8 @@ EXCEL_COLUMNS = {
 REQUIRED_FIELDS = ("customer_name", "phone_original", "address")
 DATE_FIELDS = ("application_date", "pickup_date")
 AGREEMENT_FIELDS = ("pickup_agreement", "replacement_shipping_agreement")
+MAX_PREVIEW_ROWS = 20000
+MAX_PREVIEW_COLUMNS = 100
 INSTRUCTION_MARKERS = (
     "중복값 체크", "중복 값 확인", "주소 오류 체크", "카테고리 이동", "진행 중과 처리 완료",
 )
@@ -108,6 +110,8 @@ def preview_recall_applications(
 
     try:
         sheet, header_number, indexes, headers = _find_header(workbook)
+        if sheet.max_row - header_number > MAX_PREVIEW_ROWS or sheet.max_column > MAX_PREVIEW_COLUMNS:
+            raise RecallApplicationExcelError("Excel 미리보기 범위가 너무 큽니다.")
         existing_serials, existing_phones = _index_existing(existing_records)
         seen_serials = {}
         seen_phones = {}
