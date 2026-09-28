@@ -24,7 +24,7 @@ from app.services.recall_application_service import (
     get_recall_summary,
     list_recall_applications,
     change_recall_application_status,
-    bulk_ship_recall_applications,
+    bulk_change_recall_applications,
 )
 
 
@@ -216,7 +216,7 @@ def update_recall_applications_bulk_status(
     db: Session = Depends(get_db),
 ):
     try:
-        result = bulk_ship_recall_applications(
+        result = bulk_change_recall_applications(
             db, ids=payload.ids, status=payload.status,
             reason=payload.reason, user_id=current_user.id,
         )
@@ -232,11 +232,11 @@ def update_recall_applications_bulk_status(
         menu_name="온라인 TEAM > 리콜 관리",
         target_type="recall_application_bulk",
         target_id=None,
-        target_name="일괄 발송 완료",
-        action_summary="리콜 일괄 발송 완료: 요청 {}건, 성공 {}건, 제외 {}건, 실패 {}건, user_id={}".format(
-            result["requested"], result["updated"], result["skipped"], result["failed"], current_user.id
+        target_name="리콜 일괄 상태 변경",
+        action_summary="리콜 일괄 상태 변경: 상태 {}, 요청 {}건, 성공 {}건, user_id={}".format(
+            payload.status, result["requested"], result["updated"], current_user.id
         ),
-        after_data={key: result[key] for key in ("requested", "updated", "skipped", "failed")},
+        after_data={"status": payload.status, **{key: result[key] for key in ("requested", "updated", "skipped", "failed")}},
     )
     return result
 

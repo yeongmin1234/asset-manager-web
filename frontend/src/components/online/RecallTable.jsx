@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { displayRecallStatus, formatPhoneForDisplay, formatRecallDate, isRecallBulkShippable, recallStatusClass } from "./onlineDisplayUtils.js";
+import { displayRecallStatus, formatPhoneForDisplay, formatRecallDate, isRecallBulkSelectable, recallStatusClass } from "./onlineDisplayUtils.js";
 
 const COLUMNS = [
   { label: "선택", width: 48 },
@@ -22,7 +22,7 @@ const show = (value) => value === null || value === undefined || value === "" ? 
 
 function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, error = "", selectedIds, onToggleSelection, onTogglePage, onOpenDetail }) {
   const selectAllRef = useRef(null);
-  const eligibleItems = items.filter((item) => isRecallBulkShippable(item.current_status));
+  const eligibleItems = items.filter((item) => isRecallBulkSelectable(item.current_status));
   const selectedOnPage = eligibleItems.filter((item) => selectedIds.has(item.id)).length;
   const allSelected = eligibleItems.length > 0 && selectedOnPage === eligibleItems.length;
 
@@ -41,7 +41,7 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, er
     content = items.map((item) => (
       <tr key={item.id}>
         <td>
-          <input type="checkbox" checked={selectedIds.has(item.id)} disabled={isLoading || isBulkUpdating || !isRecallBulkShippable(item.current_status)} onChange={() => onToggleSelection(item.id)} aria-label={`${item.customer_name} 발송 완료 처리 선택`} title={!isRecallBulkShippable(item.current_status) ? "접수 완료 또는 진행중 상태만 선택할 수 있습니다." : undefined} />
+          <input type="checkbox" checked={selectedIds.has(item.id)} disabled={isLoading || isBulkUpdating || !isRecallBulkSelectable(item.current_status)} onChange={() => onToggleSelection(item.id)} aria-label={`${item.customer_name} 상태 변경 선택`} title={!isRecallBulkSelectable(item.current_status) ? "접수 완료 또는 진행중 상태만 선택할 수 있습니다." : undefined} />
         </td>
         <td>{formatRecallDate(item.application_date)}</td>
         <td>{show(item.quantity)}</td>
@@ -65,7 +65,7 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, er
       <table className="online-recall-table">
         <colgroup>{COLUMNS.map((column) => <col key={column.label} style={{ width: column.width }} />)}</colgroup>
         <thead><tr>{COLUMNS.map((column) => <th scope="col" key={column.label}>
-          {column.label === "선택" ? <input ref={selectAllRef} type="checkbox" checked={allSelected} disabled={isLoading || isBulkUpdating || eligibleItems.length === 0} onChange={(event) => onTogglePage(event.target.checked)} aria-label="현재 페이지 발송 가능 건 전체 선택" /> : column.label}
+          {column.label === "선택" ? <input ref={selectAllRef} type="checkbox" checked={allSelected} disabled={isLoading || isBulkUpdating || eligibleItems.length === 0} onChange={(event) => onTogglePage(event.target.checked)} aria-label="현재 페이지 상태 변경 가능 건 전체 선택" /> : column.label}
         </th>)}</tr></thead>
         <tbody>{content}</tbody>
       </table>

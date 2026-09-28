@@ -30,8 +30,25 @@ export function recallStatusClass(value) {
   return "online-recall-status-received";
 }
 
-export function isRecallBulkShippable(value) {
+export function isRecallBulkSelectable(value) {
   return value === "APPLICATION_RECEIVED" || value === "IN_PROGRESS";
+}
+
+export function nextRecallBulkStatus(statuses) {
+  if (!statuses.length || !statuses.every((status) => status === statuses[0])) return null;
+  if (statuses[0] === "APPLICATION_RECEIVED") return "IN_PROGRESS";
+  if (statuses[0] === "IN_PROGRESS") return "SHIPPED";
+  return null;
+}
+
+export function recallManualTargets(currentStatus) {
+  const transitions = {
+    APPLICATION_RECEIVED: ["IN_PROGRESS", "REVIEW_REQUIRED", "STOPPED"],
+    IN_PROGRESS: ["REVIEW_REQUIRED", "STOPPED"],
+    REVIEW_REQUIRED: ["APPLICATION_RECEIVED", "STOPPED"],
+    STOPPED: ["APPLICATION_RECEIVED", "REVIEW_REQUIRED"],
+  };
+  return RECALL_STATUS_OPTIONS.filter((option) => (transitions[currentStatus] || []).includes(option.value));
 }
 
 export function formatRecallDate(value) {

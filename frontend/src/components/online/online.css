@@ -151,6 +151,7 @@
 .online-recall-list {
   min-width: 0;
   overflow: hidden;
+  text-align: center;
 }
 
 .online-recall-filters {
@@ -170,6 +171,7 @@
   min-height: 34px;
   min-width: 0;
   padding: 0 10px;
+  text-align: center;
   width: 100%;
 }
 
@@ -234,6 +236,8 @@
   padding: 0 12px;
 }
 
+.online-recall-bulk-hint { color: #b45309; }
+
 .online-recall-bulk-message,
 .online-recall-bulk-error {
   font-size: 0.82rem;
@@ -245,7 +249,7 @@
 .online-recall-bulk-error { color: #b91c1c; }
 
 .online-recall-table .online-recall-long-cell {
-  text-align: left;
+  text-align: center;
 }
 
 .online-recall-long-cell span {
@@ -341,6 +345,9 @@
 }
 
 .online-detail-field { min-width: 0; }
+.online-detail-section,
+.online-detail-field dt,
+.online-detail-field dd { text-align: center; }
 .online-detail-field-wide { grid-column: 1 / -1; }
 .online-detail-field dt { color: #64748b; font-size: 0.76rem; margin-bottom: 3px; }
 .online-detail-field dd { color: #334155; font-size: 0.85rem; margin: 0; overflow-wrap: anywhere; }
@@ -355,7 +362,7 @@
   padding-top: 12px;
 }
 
-.online-detail-status-form label { color: #475569; display: grid; font-size: 0.78rem; gap: 4px; }
+.online-detail-status-form label { color: #475569; display: grid; font-size: 0.78rem; gap: 4px; text-align: center; }
 .online-detail-status-form input,
 .online-detail-status-form select {
   background: #fff;
@@ -365,6 +372,7 @@
   height: 34px;
   min-width: 0;
   padding: 0 9px;
+  text-align: center;
   width: 100%;
 }
 .online-detail-status-form button { min-height: 34px; padding: 0 12px; }
@@ -381,7 +389,9 @@
   flex-wrap: wrap;
   font-size: 0.79rem;
   gap: 4px 12px;
+  justify-content: center;
   padding: 4px 0 8px;
+  text-align: center;
 }
 .online-detail-history-item:last-child { border-bottom: 0; }
 .online-detail-history-item strong { color: #334155; }
@@ -391,7 +401,9 @@
   color: #64748b;
   display: flex;
   font-size: 0.8rem;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
   padding: 8px 12px;
 }
 

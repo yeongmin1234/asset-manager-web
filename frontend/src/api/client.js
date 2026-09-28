@@ -1174,10 +1174,10 @@ export async function updateRecallApplicationStatus(applicationId, status, reaso
   });
 }
 
-export async function bulkShipRecallApplications(ids) {
+export async function bulkChangeRecallApplications(ids, status) {
   return request("/online/recall/applications/bulk-status", {
     method: "PATCH",
-    body: { ids, status: "SHIPPED", reason: "일괄 발송 완료 처리" },
+    body: { ids, status, reason: status === "IN_PROGRESS" ? "일괄 진행중 변경" : "일괄 발송 완료 처리" },
     timeoutMs: 30000,
   });
 }

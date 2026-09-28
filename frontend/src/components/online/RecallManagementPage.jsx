@@ -1,14 +1,27 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { bulkShipRecallApplications, getRecallApplications, getRecallApplicationSummary } from "../../api/client.js";
+import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary } from "../../api/client.js";
 import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
 import RecallUploadModal from "./RecallUploadModal.jsx";
 import RecallDetailModal from "./RecallDetailModal.jsx";
-import { isRecallBulkShippable } from "./onlineDisplayUtils.js";
+import { isRecallBulkSelectable, nextRecallBulkStatus } from "./onlineDisplayUtils.js";
 import "./online.css";
 
 const EMPTY_SUMMARY = { total_count: 0, received_count: 0, remaining_count: 0, in_progress_count: 0, shipped_count: 0 };
+
+export function RecallBulkBar({ selectedCount, nextStatus, disabled, isBulkUpdating, onChange }) {
+  const actionLabel = nextStatus === "IN_PROGRESS" ? "진행중으로 변경" : nextStatus === "SHIPPED" ? "발송완료로 변경" : "다음 단계로 변경";
+  return (
+    <div className="online-recall-bulk-bar">
+      <span>현재 페이지 선택 {selectedCount}건</span>
+      {selectedCount > 0 && !nextStatus && <span className="online-recall-bulk-hint" role="status">같은 상태의 항목만 선택해야 합니다.</span>}
+      <button type="button" className="primary-action" disabled={!nextStatus || disabled || isBulkUpdating} onClick={onChange}>
+        {isBulkUpdating ? "처리 중..." : `${actionLabel} (${selectedCount})`}
+      </button>
+    </div>
+  );
+}
 
 function RecallManagementPage() {
   const [uploadMode, setUploadMode] = useState(null);
@@ -37,7 +50,7 @@ function RecallManagementPage() {
         getRecallApplicationSummary(),
       ]);
       setItems(listResult.items || []);
-      const selectableIds = new Set((listResult.items || []).filter((item) => isRecallBulkShippable(item.current_status)).map((item) => item.id));
+      const selectableIds = new Set((listResult.items || []).filter((item) => isRecallBulkSelectable(item.current_status)).map((item) => item.id));
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
       setTotal(listResult.total || 0);
       setTotalPages(listResult.total_pages || 1);
@@ -77,7 +90,7 @@ function RecallManagementPage() {
   };
 
   const handleToggleSelection = (id) => {
-    if (!items.some((item) => item.id === id && isRecallBulkShippable(item.current_status))) return;
+    if (!items.some((item) => item.id === id && isRecallBulkSelectable(item.current_status))) return;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -87,23 +100,26 @@ function RecallManagementPage() {
   };
 
   const handleTogglePage = (checked) => {
-    setSelectedIds(new Set(checked ? items.filter((item) => isRecallBulkShippable(item.current_status)).map((item) => item.id) : []));
+    setSelectedIds(new Set(checked ? items.filter((item) => isRecallBulkSelectable(item.current_status)).map((item) => item.id) : []));
   };
 
-  const handleBulkShip = async () => {
+  const selectedStatuses = items.filter((item) => selectedIds.has(item.id)).map((item) => item.current_status);
+  const nextStatus = nextRecallBulkStatus(selectedStatuses);
+
+  const handleBulkChange = async () => {
     const ids = [...selectedIds];
-    if (!ids.length || isBulkUpdating) return;
-    if (!window.confirm(`선택한 ${ids.length}건을 발송 완료로 변경하시겠습니까?`)) return;
+    if (!ids.length || !nextStatus || isBulkUpdating) return;
+    if (!window.confirm(`선택한 ${ids.length}건을 ${nextStatus === "IN_PROGRESS" ? "진행중" : "발송완료"}으로 변경하시겠습니까?`)) return;
     setIsBulkUpdating(true);
     setBulkError("");
     setBulkMessage("");
     try {
-      const result = await bulkShipRecallApplications(ids);
+      const result = await bulkChangeRecallApplications(ids, nextStatus);
       setSelectedIds(new Set());
-      setBulkMessage(`발송 완료 처리 결과: 성공 ${result.updated}건 / 제외 ${result.skipped}건 / 실패 ${result.failed}건`);
+      setBulkMessage(`${nextStatus === "IN_PROGRESS" ? "진행중" : "발송완료"} 변경 완료: ${result.updated}건`);
       setRefreshKey((value) => value + 1);
     } catch (caught) {
-      setBulkError(caught?.message || "일괄 발송 완료 처리에 실패했습니다.");
+      setBulkError(caught?.message || "일괄 상태 변경에 실패했습니다.");
     } finally {
       setIsBulkUpdating(false);
     }
@@ -137,10 +153,7 @@ function RecallManagementPage() {
           onReset={handleReset}
           isLoading={isLoading || isBulkUpdating}
         />
-        <div className="online-recall-bulk-bar">
-          <span>현재 페이지 선택 {selectedIds.size}건</span>
-          <button type="button" className="primary-action" disabled={selectedIds.size === 0 || isLoading || isBulkUpdating || Boolean(loadError)} onClick={handleBulkShip}>{isBulkUpdating ? "처리 중..." : `선택 발송 완료 (${selectedIds.size})`}</button>
-        </div>
+        <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />
         {bulkMessage && <p className="online-recall-bulk-message" role="status">{bulkMessage}</p>}
         {bulkError && <p className="online-recall-bulk-error" role="alert">{bulkError}</p>}
         <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />

@@ -21,7 +21,7 @@ from app.models.recall_application import (
 )
 from app.models.user import User
 from app.services.recall_application_service import (
-    bulk_ship_recall_applications, change_recall_application_status, commit_recall_applications,
+    bulk_change_recall_applications, change_recall_application_status, commit_recall_applications,
 )
 from tests.test_recall_application_phase3 import row, workbook
 
@@ -69,7 +69,7 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         )
         return self.db.scalar(select(RecallApplication.id).where(RecallApplication.customer_name == name))
 
-    def bulk_change(self, client, ids, status=SHIPPED, reason="일괄 발송 완료 처리"):
+    def bulk_change(self, client, ids, status=IN_PROGRESS, reason="일괄 상태 변경"):
         return client.patch("/online/recall/applications/bulk-status", json={"ids": ids, "status": status, "reason": reason})
 
     def test_detail_contains_application_batch_and_latest_history(self):
@@ -144,6 +144,15 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual((forbidden.status_code, empty_reason.status_code), (400, 400))
         self.assertEqual(len(self.histories()), 1)
 
+    def test_manual_status_cannot_reverse_progress_or_shipped(self):
+        with TestClient(self.app) as client:
+            self.assertEqual(self.change(client, IN_PROGRESS).status_code, 200)
+            reverse = self.change(client, APPLICATION_RECEIVED)
+            self.assertEqual(self.bulk_change(client, [self.application_id], status=SHIPPED).status_code, 200)
+            shipped_reverse = self.change(client, IN_PROGRESS)
+        self.assertEqual([reverse.status_code, shipped_reverse.status_code], [400, 400])
+        self.assertEqual(self.db.get(RecallApplication, self.application_id).current_status, SHIPPED)
+
     def test_failed_status_commit_rolls_back_application_and_history(self):
         with patch.object(self.db, "commit", side_effect=OperationalError("commit", {}, Exception("failure"))):
             with TestClient(self.app) as client:
@@ -164,23 +173,23 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual(filtered.json()["items"][0]["current_status"], REVIEW_REQUIRED)
         self.assertEqual(received.json()["total"], 0)
         self.assertEqual(summary.json()["remaining_count"], 0)
-        self.assertEqual(summary.json()["received_count"], 1)
+        self.assertEqual(summary.json()["received_count"], 0)
 
     def test_manual_progress_then_bulk_ship_updates_summary_api(self):
         with TestClient(self.app) as client:
             progress = self.change(client, IN_PROGRESS, "처리 시작")
             progress_summary = client.get("/online/recall/applications/summary")
             progress_list = client.get("/online/recall/applications", params={"status": IN_PROGRESS})
-            shipped = self.bulk_change(client, [self.application_id])
+            shipped = self.bulk_change(client, [self.application_id], status=SHIPPED)
             shipped_summary = client.get("/online/recall/applications/summary")
         self.assertEqual((progress.status_code, shipped.status_code), (200, 200))
         self.assertEqual(progress_list.json()["total"], 1)
         self.assertEqual(progress_summary.json(), {
-            "total_count": 1, "received_count": 1, "remaining_count": 0,
+            "total_count": 1, "received_count": 0, "remaining_count": 0,
             "in_progress_count": 1, "shipped_count": 0,
         })
         self.assertEqual(shipped_summary.json(), {
-            "total_count": 1, "received_count": 1, "remaining_count": 0,
+            "total_count": 1, "received_count": 0, "remaining_count": 0,
             "in_progress_count": 0, "shipped_count": 1,
         })
         self.assertEqual(self.histories()[-1].previous_status, IN_PROGRESS)
@@ -204,45 +213,55 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual(self.db.scalar(select(func.count()).select_from(RecallApplication)), 1)
         self.assertEqual(self.histories()[0].change_type, "EXCEL_REGISTRATION")
 
-    def test_bulk_ship_updates_each_history_summary_and_audit(self):
+    def test_bulk_next_stage_updates_each_history_summary_and_audit(self):
         second_id = self.add_application("김둘", "01022223333", "SER-002")
         with TestClient(self.app) as client:
-            response = self.bulk_change(client, [self.application_id, second_id])
+            progress = self.bulk_change(client, [self.application_id, second_id])
+            progress_summary = client.get("/online/recall/applications/summary")
+            response = self.bulk_change(client, [self.application_id, second_id], status=SHIPPED)
             summary = client.get("/online/recall/applications/summary")
             listing = client.get("/online/recall/applications", params={"status": SHIPPED})
             detail = client.get(self.path())
+        self.assertEqual(progress.status_code, 200)
+        self.assertEqual(progress_summary.json(), {
+            "total_count": 2, "received_count": 0, "remaining_count": 0,
+            "in_progress_count": 2, "shipped_count": 0,
+        })
         self.assertEqual(response.status_code, 200)
         self.assertEqual((response.json()["requested"], response.json()["updated"], response.json()["skipped"], response.json()["failed"]), (2, 2, 0, 0))
         self.assertEqual([item["result"] for item in response.json()["results"]], ["UPDATED", "UPDATED"])
-        self.assertEqual((summary.json()["remaining_count"], summary.json()["received_count"], summary.json()["shipped_count"], listing.json()["total"]), (0, 2, 2, 2))
+        self.assertEqual((summary.json()["remaining_count"], summary.json()["received_count"], summary.json()["shipped_count"], listing.json()["total"]), (0, 0, 2, 2))
         self.assertEqual(detail.json()["status_history"][0]["new_status"], SHIPPED)
         bulk_histories = [entry for entry in self.histories() if entry.change_type == "BULK"]
-        self.assertEqual(len(bulk_histories), 2)
+        self.assertEqual(len(bulk_histories), 4)
         self.assertEqual({(entry.previous_status, entry.new_status, entry.changed_by, entry.reason) for entry in bulk_histories},
-                         {(APPLICATION_RECEIVED, SHIPPED, 1, "일괄 발송 완료 처리")})
-        self.audit_mock.assert_called_once()
-        self.assertNotIn("홍길동", self.audit_mock.call_args.kwargs["action_summary"])
-        self.assertNotIn("010", self.audit_mock.call_args.kwargs["action_summary"])
+                         {(APPLICATION_RECEIVED, IN_PROGRESS, 1, "일괄 상태 변경"),
+                          (IN_PROGRESS, SHIPPED, 1, "일괄 상태 변경")})
+        self.assertEqual(self.audit_mock.call_count, 2)
+        for audit_call in self.audit_mock.call_args_list:
+            self.assertNotIn("홍길동", audit_call.kwargs["action_summary"])
+            self.assertNotIn("010", audit_call.kwargs["action_summary"])
 
-    def test_bulk_ship_skips_shipped_and_rejects_other_states_or_missing_ids(self):
+    def test_bulk_rejects_mixed_statuses_and_missing_ids_without_partial_writes(self):
         shipped_id = self.add_application("김발송", "01022223333", "SER-002")
         stopped_id = self.add_application("김중지", "01033334444", "SER-003")
         review_id = self.add_application("김확인", "01044445555", "SER-004")
-        bulk_ship_recall_applications(self.db, ids=[shipped_id], status=SHIPPED, reason="선처리", user_id=1)
+        bulk_change_recall_applications(self.db, ids=[shipped_id], status=IN_PROGRESS, reason="진행", user_id=1)
+        bulk_change_recall_applications(self.db, ids=[shipped_id], status=SHIPPED, reason="발송", user_id=1)
         change_recall_application_status(self.db, application_id=stopped_id, status=STOPPED, reason="중지", user_id=1)
         change_recall_application_status(self.db, application_id=review_id, status=REVIEW_REQUIRED, reason="확인", user_id=1)
         before = len(self.histories())
         with TestClient(self.app) as client:
-            response = self.bulk_change(client, [self.application_id, shipped_id, stopped_id, review_id, 99999])
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual((response.json()["requested"], response.json()["updated"], response.json()["skipped"], response.json()["failed"]), (5, 1, 1, 3))
-        self.assertEqual([item["reason_code"] for item in response.json()["results"]],
-                         [None, "ALREADY_SHIPPED", "INVALID_CURRENT_STATUS", "INVALID_CURRENT_STATUS", "NOT_FOUND"])
-        self.assertEqual(len(self.histories()), before + 1)
+            mixed = self.bulk_change(client, [self.application_id, shipped_id, stopped_id, review_id])
+            missing = self.bulk_change(client, [self.application_id, 99999])
+            direct_ship = self.bulk_change(client, [self.application_id], status=SHIPPED)
+        self.assertEqual([mixed.status_code, missing.status_code, direct_ship.status_code], [400, 400, 400])
+        self.assertEqual(len(self.histories()), before)
+        self.assertEqual(self.db.get(RecallApplication, self.application_id).current_status, APPLICATION_RECEIVED)
         self.assertEqual(self.db.get(RecallApplication, stopped_id).current_status, STOPPED)
         self.assertEqual(self.db.get(RecallApplication, review_id).current_status, REVIEW_REQUIRED)
 
-    def test_bulk_ship_rejects_invalid_payload_without_writes(self):
+    def test_bulk_rejects_invalid_payload_without_writes(self):
         with TestClient(self.app) as client:
             invalid_status = self.bulk_change(client, [self.application_id], status=STOPPED)
             duplicate_ids = self.bulk_change(client, [self.application_id, self.application_id])
@@ -252,14 +271,14 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual(len(self.histories()), 1)
         self.audit_mock.assert_not_called()
 
-    def test_bulk_ship_requires_online_recall_permission(self):
+    def test_bulk_requires_online_recall_permission(self):
         self.user.menu_permissions = ["assets"]
         with TestClient(self.app) as client:
             response = self.bulk_change(client, [self.application_id])
         self.assertEqual(response.status_code, 403)
         self.assertEqual(len(self.histories()), 1)
 
-    def test_bulk_ship_commit_failure_rolls_back_all_rows_and_histories(self):
+    def test_bulk_commit_failure_rolls_back_all_rows_and_histories(self):
         second_id = self.add_application("김둘", "01022223333", "SER-002")
         with patch.object(self.db, "commit", side_effect=OperationalError("commit", {}, Exception("failure"))):
             with TestClient(self.app) as client:

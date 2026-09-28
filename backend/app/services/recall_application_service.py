@@ -218,9 +218,10 @@ def get_recall_summary(db: Session) -> dict:
             .group_by(RecallApplication.current_status)
         ).all()
     }
-    received_count = sum(status_counts.values())
+    registered_count = sum(status_counts.values())
+    received_count = status_counts.get(APPLICATION_RECEIVED, 0)
     return {
-        "total_count": _get_total_target_count(received_count),
+        "total_count": _get_total_target_count(registered_count),
         "received_count": received_count,
         "remaining_count": status_counts.get(APPLICATION_RECEIVED, 0),
         "in_progress_count": status_counts.get(IN_PROGRESS, 0),
@@ -233,14 +234,24 @@ def _get_total_target_count(registered_application_count: int) -> int:
     return registered_application_count
 
 
-MANUAL_STATUSES = (APPLICATION_RECEIVED, IN_PROGRESS, REVIEW_REQUIRED, STOPPED)
+MANUAL_TRANSITIONS = {
+    APPLICATION_RECEIVED: (IN_PROGRESS, REVIEW_REQUIRED, STOPPED),
+    IN_PROGRESS: (REVIEW_REQUIRED, STOPPED),
+    REVIEW_REQUIRED: (APPLICATION_RECEIVED, STOPPED),
+    STOPPED: (APPLICATION_RECEIVED, REVIEW_REQUIRED),
+    SHIPPED: (),
+}
+BULK_TRANSITIONS = {
+    APPLICATION_RECEIVED: IN_PROGRESS,
+    IN_PROGRESS: SHIPPED,
+}
 
 
-def bulk_ship_recall_applications(
+def bulk_change_recall_applications(
     db: Session, *, ids: Sequence[int], status: str, reason: str, user_id: int
 ) -> dict:
-    if status != SHIPPED:
-        raise ValueError("일괄 변경은 발송 완료 상태만 지원합니다.")
+    if status not in BULK_TRANSITIONS.values():
+        raise ValueError("일괄 변경은 진행중 또는 발송 완료만 지원합니다.")
     if not ids or len(ids) > 100 or any(type(value) is not int or value < 1 for value in ids):
         raise ValueError("처리할 ID를 1~100개 선택해주세요.")
     if len(set(ids)) != len(ids):
@@ -256,37 +267,33 @@ def bulk_ship_recall_applications(
                 .order_by(RecallApplication.id).with_for_update()
             ).all()
         }
-        results = []
-        updated = skipped = failed = 0
-        for application_id in ids:
-            application = applications.get(application_id)
-            if application is None:
-                failed += 1
-                results.append({"id": application_id, "result": "FAILED", "reason_code": "NOT_FOUND"})
-            elif application.current_status == SHIPPED:
-                skipped += 1
-                results.append({"id": application_id, "result": "SKIPPED", "reason_code": "ALREADY_SHIPPED"})
-            elif application.current_status not in (APPLICATION_RECEIVED, IN_PROGRESS):
-                failed += 1
-                results.append({"id": application_id, "result": "FAILED", "reason_code": "INVALID_CURRENT_STATUS"})
-            else:
-                previous_status = application.current_status
-                application.current_status = SHIPPED
-                db.add(RecallStatusHistory(
-                    recall_application_id=application_id,
-                    previous_status=previous_status,
-                    new_status=SHIPPED,
-                    changed_by=user_id,
-                    change_type="BULK",
-                    reason=cleaned_reason,
-                ))
-                updated += 1
-                results.append({"id": application_id, "result": "UPDATED", "reason_code": None})
-        if updated:
-            db.commit()
-        else:
+        if len(applications) != len(ids):
             db.rollback()
-        return {"requested": len(ids), "updated": updated, "skipped": skipped, "failed": failed, "results": results}
+            raise ValueError("선택한 항목 중 찾을 수 없는 접수 데이터가 있습니다.")
+        current_statuses = {applications[application_id].current_status for application_id in ids}
+        if len(current_statuses) != 1:
+            db.rollback()
+            raise ValueError("같은 상태의 항목만 선택해야 합니다.")
+        previous_status = current_statuses.pop()
+        if BULK_TRANSITIONS.get(previous_status) != status:
+            db.rollback()
+            raise ValueError("선택한 항목은 허용된 다음 단계로만 변경할 수 있습니다.")
+
+        for application_id in ids:
+            applications[application_id].current_status = status
+            db.add(RecallStatusHistory(
+                recall_application_id=application_id,
+                previous_status=previous_status,
+                new_status=status,
+                changed_by=user_id,
+                change_type="BULK",
+                reason=cleaned_reason,
+            ))
+        db.commit()
+        return {
+            "requested": len(ids), "updated": len(ids), "skipped": 0, "failed": 0,
+            "results": [{"id": application_id, "result": "UPDATED", "reason_code": None} for application_id in ids],
+        }
     except Exception:
         db.rollback()
         raise
@@ -349,7 +356,7 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
 def change_recall_application_status(
     db: Session, *, application_id: int, status: str, reason: str, user_id: int
 ) -> Optional[dict]:
-    if status not in MANUAL_STATUSES:
+    if status not in MANUAL_TRANSITIONS:
         raise ValueError("변경할 수 없는 상태입니다.")
     cleaned_reason = reason.strip()
     if not cleaned_reason:
@@ -367,6 +374,9 @@ def change_recall_application_status(
         if previous_status == status:
             db.rollback()
             return {"changed": False, "previous_status": previous_status}
+        if status not in MANUAL_TRANSITIONS.get(previous_status, ()):
+            db.rollback()
+            raise ValueError("허용되지 않은 상태 전이입니다.")
 
         application.current_status = status
         db.add(RecallStatusHistory(

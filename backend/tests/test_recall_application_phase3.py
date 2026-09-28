@@ -28,7 +28,7 @@ from app.models.recall_application import (
 from app.models.user import User
 from app.services.recall_application_excel import EXCEL_COLUMNS
 from app.services.recall_application_service import (
-    bulk_ship_recall_applications,
+    bulk_change_recall_applications,
     change_recall_application_status,
     commit_recall_applications,
     get_recall_summary,
@@ -161,7 +161,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
             "in_progress_count": 0, "shipped_count": 0,
         })
 
-    def test_summary_workflow_keeps_cumulative_counts(self):
+    def test_summary_workflow_tracks_current_received_count(self):
         rows = [row(**{
             "성함": "고객{}".format(index),
             "*연락처": "010{:08d}".format(index),
@@ -181,16 +181,16 @@ class RecallApplicationPhase3Test(unittest.TestCase):
                 reason="진행 시작", user_id=1,
             )
         self.assertEqual(get_recall_summary(self.db), {
-            "total_count": 20, "received_count": 20, "remaining_count": 15,
+            "total_count": 20, "received_count": 15, "remaining_count": 15,
             "in_progress_count": 5, "shipped_count": 0,
         })
 
-        bulk_ship_recall_applications(
+        bulk_change_recall_applications(
             self.db, ids=application_ids[:2], status=SHIPPED,
             reason="발송 완료", user_id=1,
         )
         self.assertEqual(get_recall_summary(self.db), {
-            "total_count": 20, "received_count": 20, "remaining_count": 15,
+            "total_count": 20, "received_count": 15, "remaining_count": 15,
             "in_progress_count": 3, "shipped_count": 2,
         })
 
@@ -203,7 +203,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
             reason="진행 중지", user_id=1,
         )
         self.assertEqual(get_recall_summary(self.db), {
-            "total_count": 20, "received_count": 20, "remaining_count": 13,
+            "total_count": 20, "received_count": 13, "remaining_count": 13,
             "in_progress_count": 3, "shipped_count": 2,
         })
 
