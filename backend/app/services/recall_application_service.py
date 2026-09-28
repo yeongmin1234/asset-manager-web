@@ -4,7 +4,7 @@ import hashlib
 import math
 import re
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ class CommitResult:
     rows: tuple
 
 
-def existing_application_records(db: Session) -> list[dict]:
+def existing_application_records(db: Session) -> List[Dict[str, Any]]:
     return [
         {
             "id": row.id,
