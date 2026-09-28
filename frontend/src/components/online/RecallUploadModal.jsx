@@ -27,10 +27,34 @@ const FIELD_LABELS = {
   customer_name: "고객명", phone_original: "연락처", address: "주소",
   serial_number: "시리얼번호", quantity: "수량", application_date: "신청일자", pickup_date: "회수 일자",
 };
+const PREVIEW_COLUMNS = [
+  ["상태", "status"],
+  ["행 번호", "row-number"],
+  ["신청일자", "date"],
+  ["수량", "quantity"],
+  ["고객명", "customer"],
+  ["연락처", "phone"],
+  ["주소", "address"],
+  ["메모", "memo"],
+  ["시리얼번호", "serial"],
+  ["LOT 번호", "lot"],
+  ["회수 동의", "agreement"],
+  ["회수 일자", "date"],
+  ["대체 필터 출고 동의", "agreement"],
+  ["검증 결과", "issues"],
+];
 
 function displayValue(row, field, sourceHeader) {
   const value = row.data?.[field] ?? row.raw_data?.[sourceHeader];
   return value === null || value === undefined || value === "" ? "-" : String(value);
+}
+
+function formatPhoneForDisplay(value) {
+  const original = value === null || value === undefined ? "" : String(value);
+  const digits = original.replace(/\D/g, "");
+  return digits.length === 11
+    ? `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+    : original;
 }
 
 function issueDescription(row) {
@@ -49,31 +73,35 @@ function RecallPreviewTable({ rows }) {
   return (
     <div className="online-preview-table-wrap">
       <table className="online-preview-table">
+        <colgroup>
+          {PREVIEW_COLUMNS.map(([header, column], index) => (
+            <col className={`online-preview-column-${column}`} key={`${header}-${index}`} />
+          ))}
+        </colgroup>
         <thead><tr>
-          {[
-            "상태", "행 번호", "신청일자", "수량", "고객명", "연락처", "주소", "메모",
-            "시리얼번호", "LOT 번호", "회수 동의", "회수 일자", "대체 필터 출고 동의", "검증 결과",
-          ].map((header) => <th scope="col" key={header}>{header}</th>)}
+          {PREVIEW_COLUMNS.map(([header, column], index) => (
+            <th className={`online-preview-cell-${column}`} scope="col" key={`${header}-${index}`}>{header}</th>
+          ))}
         </tr></thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.raw_row_number}>
-              <td><span className={`online-preview-badge online-preview-badge-${row.status}`}>{STATUS_LABELS[row.status] || row.status}</span></td>
-              <td>{row.raw_row_number}</td>
-              <td>{displayValue(row, "application_date", "신청일자")}</td>
-              <td>{displayValue(row, "quantity", "수량")}</td>
-              <td>{displayValue(row, "customer_name", "성함")}</td>
-              <td title={row.data?.phone_normalized ? `비교용: ${row.data.phone_normalized}` : undefined}>
-                {displayValue(row, "phone_original", "*연락처")}
+              <td className="online-preview-cell-status"><span className={`online-preview-badge online-preview-badge-${row.status}`}>{STATUS_LABELS[row.status] || row.status}</span></td>
+              <td className="online-preview-cell-row-number">{row.raw_row_number}</td>
+              <td className="online-preview-cell-date">{displayValue(row, "application_date", "신청일자")}</td>
+              <td className="online-preview-cell-quantity">{displayValue(row, "quantity", "수량")}</td>
+              <td className="online-preview-cell-customer">{displayValue(row, "customer_name", "성함")}</td>
+              <td className="online-preview-cell-phone" title={row.data?.phone_normalized ? `비교용: ${row.data.phone_normalized}` : undefined}>
+                {formatPhoneForDisplay(displayValue(row, "phone_original", "*연락처"))}
               </td>
-              <td>{displayValue(row, "address", "주소지")}</td>
-              <td>{displayValue(row, "memo", "메모")}</td>
-              <td>{displayValue(row, "serial_number", "*시리얼번호")}</td>
-              <td>{displayValue(row, "lot_number", "LOT 번호")}</td>
-              <td>{displayValue(row, "pickup_agreement", "기존 필터 회수 동의")}</td>
-              <td>{displayValue(row, "pickup_date", "회수 일자")}</td>
-              <td>{displayValue(row, "replacement_shipping_agreement", "대체 필터 출고 동의")}</td>
-              <td className="online-preview-issues">{issueDescription(row)}</td>
+              <td className="online-preview-cell-address" title={displayValue(row, "address", "주소지")}>{displayValue(row, "address", "주소지")}</td>
+              <td className="online-preview-cell-memo" title={displayValue(row, "memo", "메모")}>{displayValue(row, "memo", "메모")}</td>
+              <td className="online-preview-cell-serial">{displayValue(row, "serial_number", "*시리얼번호")}</td>
+              <td className="online-preview-cell-lot">{displayValue(row, "lot_number", "LOT 번호")}</td>
+              <td className="online-preview-cell-agreement">{displayValue(row, "pickup_agreement", "기존 필터 회수 동의")}</td>
+              <td className="online-preview-cell-date">{displayValue(row, "pickup_date", "회수 일자")}</td>
+              <td className="online-preview-cell-agreement">{displayValue(row, "replacement_shipping_agreement", "대체 필터 출고 동의")}</td>
+              <td className="online-preview-cell-issues">{issueDescription(row)}</td>
             </tr>
           ))}
         </tbody>

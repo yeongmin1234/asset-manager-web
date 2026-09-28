@@ -329,7 +329,8 @@
 
 .online-preview-table {
   border-collapse: collapse;
-  min-width: 1700px;
+  min-width: 1540px;
+  table-layout: fixed;
   width: 100%;
 }
 
@@ -337,8 +338,11 @@
 .online-preview-table td {
   border-bottom: 1px solid #e8edf3;
   font-size: 0.78rem;
-  padding: 9px 10px;
-  text-align: left;
+  height: 36px;
+  line-height: 1.35;
+  padding: 6px 7px;
+  text-align: center;
+  vertical-align: middle;
   white-space: nowrap;
 }
 
@@ -350,8 +354,31 @@
   z-index: 1;
 }
 
-.online-preview-table td.online-preview-issues {
-  min-width: 190px;
+.online-preview-column-status { width: 72px; }
+.online-preview-column-row-number { width: 64px; }
+.online-preview-column-date { width: 92px; }
+.online-preview-column-quantity { width: 54px; }
+.online-preview-column-customer { width: 84px; }
+.online-preview-column-phone { width: 112px; }
+.online-preview-column-address { width: 170px; }
+.online-preview-column-memo { width: 170px; }
+.online-preview-column-serial { width: 120px; }
+.online-preview-column-lot { width: 100px; }
+.online-preview-column-agreement { width: 130px; }
+.online-preview-column-issues { width: 210px; }
+
+.online-preview-table .online-preview-cell-date {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.online-preview-table td.online-preview-cell-address,
+.online-preview-table td.online-preview-cell-memo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.online-preview-table td.online-preview-cell-issues {
   white-space: normal;
 }
 
@@ -362,7 +389,10 @@
   display: inline-block;
   font-size: 0.73rem;
   font-weight: 800;
+  line-height: 1.2;
   padding: 3px 7px;
+  text-align: center;
+  vertical-align: middle;
   white-space: nowrap;
 }
 
