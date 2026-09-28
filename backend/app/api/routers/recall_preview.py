@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import asdict
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
@@ -24,6 +24,7 @@ from app.services.recall_application_service import (
     get_recall_summary,
     list_recall_applications,
     change_recall_application_status,
+    bulk_ship_recall_applications,
 )
 
 
@@ -32,6 +33,12 @@ MAX_PREVIEW_FILE_SIZE = 5 * 1024 * 1024
 
 
 class RecallStatusChangeRequest(BaseModel):
+    status: str
+    reason: str
+
+
+class RecallBulkStatusChangeRequest(BaseModel):
+    ids: List[int]
     status: str
     reason: str
 
@@ -199,6 +206,39 @@ def read_recall_applications(
             for item in result["items"]
         ],
     })
+
+
+@router.patch("/bulk-status")
+def update_recall_applications_bulk_status(
+    payload: RecallBulkStatusChangeRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = bulk_ship_recall_applications(
+            db, ids=payload.ids, status=payload.status,
+            reason=payload.reason, user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="일괄 상태를 변경하지 못했습니다. 잠시 후 다시 시도해주세요.") from exc
+
+    record_audit_log(
+        db, request, current_user,
+        action_type="update",
+        menu_key="online_recall",
+        menu_name="온라인 TEAM > 리콜 관리",
+        target_type="recall_application_bulk",
+        target_id=None,
+        target_name="일괄 발송 완료",
+        action_summary="리콜 일괄 발송 완료: 요청 {}건, 성공 {}건, 제외 {}건, 실패 {}건, user_id={}".format(
+            result["requested"], result["updated"], result["skipped"], result["failed"], current_user.id
+        ),
+        after_data={key: result[key] for key in ("requested", "updated", "skipped", "failed")},
+    )
+    return result
 
 
 @router.get("/{application_id}")

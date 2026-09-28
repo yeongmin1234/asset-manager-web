@@ -1,5 +1,5 @@
 import React from "react";
-import { RECALL_STATUS_OPTIONS } from "./onlineDisplayUtils.js";
+import { RECALL_FILTER_STATUS_OPTIONS } from "./onlineDisplayUtils.js";
 
 function RecallFilters({ values, onChange, onSearch, onReset, isLoading }) {
   const update = (key, value) => onChange({ ...values, [key]: value });
@@ -14,7 +14,7 @@ function RecallFilters({ values, onChange, onSearch, onReset, isLoading }) {
       />
       <select value={values.status} onChange={(event) => update("status", event.target.value)} aria-label="상태 필터">
         <option value="">전체 상태</option>
-        {RECALL_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        {RECALL_FILTER_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
       <select value="" aria-label="채널 필터" disabled title="판매 채널 데이터 형식 확정 후 지원 예정">
         <option value="">전체 채널</option>

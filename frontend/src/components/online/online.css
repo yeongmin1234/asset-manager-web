@@ -46,6 +46,10 @@
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+.online-summary-grid.online-recall-summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .online-summary-card,
 .online-feature-card,
 .online-recall-list {
@@ -181,7 +185,7 @@
 .online-recall-table {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1709px;
+  min-width: 1757px;
   table-layout: fixed;
   width: 100%;
 }
@@ -206,6 +210,39 @@
   vertical-align: middle;
   white-space: nowrap;
 }
+
+.online-recall-table input[type="checkbox"] {
+  height: 15px;
+  margin: 0;
+  vertical-align: middle;
+  width: 15px;
+}
+
+.online-recall-bulk-bar {
+  align-items: center;
+  border-top: 1px solid #edf1f5;
+  color: #475569;
+  display: flex;
+  font-size: 0.8rem;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 8px 12px;
+}
+
+.online-recall-bulk-bar button {
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.online-recall-bulk-message,
+.online-recall-bulk-error {
+  font-size: 0.82rem;
+  margin: 0;
+  padding: 4px 12px 8px;
+}
+
+.online-recall-bulk-message { color: #047857; }
+.online-recall-bulk-error { color: #b91c1c; }
 
 .online-recall-table .online-recall-long-cell {
   text-align: left;
@@ -256,7 +293,9 @@
 }
 
 .online-recall-status-review { background: #fffbeb; color: #92400e; }
+.online-recall-status-progress { background: #eff6ff; color: #1d4ed8; }
 .online-recall-status-stopped { background: #f1f5f9; color: #475569; }
+.online-recall-status-shipped { background: #ecfdf5; color: #047857; }
 
 .online-recall-detail-button {
   min-height: 28px;
@@ -628,6 +667,7 @@ body.online-preview-column-resizing {
 }
 
 @media (max-width: 1000px) {
+  .online-summary-grid.online-recall-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .online-feature-grid {
     grid-template-columns: 1fr;
   }
@@ -649,6 +689,7 @@ body.online-preview-column-resizing {
 }
 
 @media (max-width: 560px) {
+  .online-summary-grid.online-recall-summary-grid { grid-template-columns: 1fr; }
   .online-detail-grid { grid-template-columns: 1fr; }
   .online-upload-backdrop { padding: 10px; }
   .online-upload-controls { align-items: stretch; flex-direction: column; }

@@ -8,8 +8,10 @@ from app.db.base import Base
 
 
 APPLICATION_RECEIVED = "APPLICATION_RECEIVED"
+IN_PROGRESS = "IN_PROGRESS"
 REVIEW_REQUIRED = "REVIEW_REQUIRED"
 STOPPED = "STOPPED"
+SHIPPED = "SHIPPED"
 
 
 class RecallApplicationUploadBatch(Base):

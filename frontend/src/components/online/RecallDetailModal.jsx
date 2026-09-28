@@ -109,10 +109,11 @@ function RecallDetailModal({ applicationId, onClose, onChanged }) {
               </dl>
               <form className="online-detail-status-form" onSubmit={handleSubmit}>
                 <label>변경 상태<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={saving}>
+                  {detail.current_status === "SHIPPED" && <option value="SHIPPED" disabled>발송 완료</option>}
                   {RECALL_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select></label>
                 <label>변경 사유<input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={255} placeholder="변경 사유를 입력해주세요" disabled={saving} /></label>
-                <button type="submit" className="primary-action" disabled={saving || !reason.trim()}>{saving ? "저장 중..." : "상태 변경"}</button>
+                <button type="submit" className="primary-action" disabled={saving || !reason.trim() || !RECALL_STATUS_OPTIONS.some((option) => option.value === status)}>{saving ? "저장 중..." : "상태 변경"}</button>
               </form>
               {error && <p className="online-detail-error" role="alert">{error}</p>}
               {message && <p className="online-detail-success" role="status">{message}</p>}

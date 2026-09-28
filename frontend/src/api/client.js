@@ -1174,6 +1174,14 @@ export async function updateRecallApplicationStatus(applicationId, status, reaso
   });
 }
 
+export async function bulkShipRecallApplications(ids) {
+  return request("/online/recall/applications/bulk-status", {
+    method: "PATCH",
+    body: { ids, status: "SHIPPED", reason: "일괄 발송 완료 처리" },
+    timeoutMs: 30000,
+  });
+}
+
 export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
   return request(`${HR_ACCOUNTS_API_PATH}/import`, {
     method: "POST",

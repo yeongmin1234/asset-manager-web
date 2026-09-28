@@ -17,6 +17,10 @@ from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.recall_application import (
     APPLICATION_RECEIVED,
+    IN_PROGRESS,
+    REVIEW_REQUIRED,
+    STOPPED,
+    SHIPPED,
     RecallApplication,
     RecallApplicationUploadBatch,
     RecallStatusHistory,
@@ -24,6 +28,8 @@ from app.models.recall_application import (
 from app.models.user import User
 from app.services.recall_application_excel import EXCEL_COLUMNS
 from app.services.recall_application_service import (
+    bulk_ship_recall_applications,
+    change_recall_application_status,
     commit_recall_applications,
     get_recall_summary,
     list_recall_applications,
@@ -148,9 +154,58 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         )
         self.assertEqual(formatted_phone_page["total"], 1)
 
-    def test_14_summary_only_increases_received(self):
+    def test_14_summary_counts_registered_application(self):
         self.commit(workbook(row()))
-        self.assertEqual(get_recall_summary(self.db), {"total": 0, "received": 1, "orders": 0, "shipped": 0})
+        self.assertEqual(get_recall_summary(self.db), {
+            "total_count": 1, "received_count": 1, "remaining_count": 1,
+            "in_progress_count": 0, "shipped_count": 0,
+        })
+
+    def test_summary_workflow_keeps_cumulative_counts(self):
+        rows = [row(**{
+            "성함": "고객{}".format(index),
+            "*연락처": "010{:08d}".format(index),
+            "*시리얼번호": "SER-{:03d}".format(index),
+        }) for index in range(20)]
+        result = self.commit(workbook(*rows), selected=tuple(range(2, 22)))
+        self.assertEqual(result.registered, 20)
+        self.assertEqual(get_recall_summary(self.db), {
+            "total_count": 20, "received_count": 20, "remaining_count": 20,
+            "in_progress_count": 0, "shipped_count": 0,
+        })
+
+        application_ids = list(self.db.scalars(select(RecallApplication.id).order_by(RecallApplication.id)).all())
+        for application_id in application_ids[:5]:
+            change_recall_application_status(
+                self.db, application_id=application_id, status=IN_PROGRESS,
+                reason="진행 시작", user_id=1,
+            )
+        self.assertEqual(get_recall_summary(self.db), {
+            "total_count": 20, "received_count": 20, "remaining_count": 15,
+            "in_progress_count": 5, "shipped_count": 0,
+        })
+
+        bulk_ship_recall_applications(
+            self.db, ids=application_ids[:2], status=SHIPPED,
+            reason="발송 완료", user_id=1,
+        )
+        self.assertEqual(get_recall_summary(self.db), {
+            "total_count": 20, "received_count": 20, "remaining_count": 15,
+            "in_progress_count": 3, "shipped_count": 2,
+        })
+
+        change_recall_application_status(
+            self.db, application_id=application_ids[5], status=REVIEW_REQUIRED,
+            reason="확인 필요", user_id=1,
+        )
+        change_recall_application_status(
+            self.db, application_id=application_ids[6], status=STOPPED,
+            reason="진행 중지", user_id=1,
+        )
+        self.assertEqual(get_recall_summary(self.db), {
+            "total_count": 20, "received_count": 20, "remaining_count": 13,
+            "in_progress_count": 3, "shipped_count": 2,
+        })
 
     def test_15_unexpected_db_error_rolls_back_all_rows(self):
         content = workbook(row())
@@ -210,7 +265,10 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual(response.json()["registered"], 1)
         self.assertEqual(listing.json()["items"][0]["customer_name"], "홍길동")
         self.assertEqual(listing.json()["items"][0]["application_date"], "2026-09-22")
-        self.assertEqual(summary.json(), {"total": 0, "received": 1, "orders": 0, "shipped": 0})
+        self.assertEqual(summary.json(), {
+            "total_count": 1, "received_count": 1, "remaining_count": 1,
+            "in_progress_count": 0, "shipped_count": 0,
+        })
 
     def test_hidden_recall_menu_blocks_commit_list_and_summary(self):
         self.db.add(MenuVisibilitySetting(menu_key="online_recall", visible=False))

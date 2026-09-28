@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.models.recall_application import (
     APPLICATION_RECEIVED,
+    IN_PROGRESS,
     REVIEW_REQUIRED,
     STOPPED,
+    SHIPPED,
     RecallApplication,
     RecallApplicationUploadBatch,
     RecallStatusHistory,
@@ -210,15 +212,84 @@ def list_recall_applications(
 
 
 def get_recall_summary(db: Session) -> dict:
-    received = int(db.scalar(
-        select(func.count()).select_from(RecallApplication).where(
-            RecallApplication.current_status == APPLICATION_RECEIVED
-        )
-    ) or 0)
-    return {"total": 0, "received": received, "orders": 0, "shipped": 0}
+    status_counts = {
+        status: int(count) for status, count in db.execute(
+            select(RecallApplication.current_status, func.count())
+            .group_by(RecallApplication.current_status)
+        ).all()
+    }
+    received_count = sum(status_counts.values())
+    return {
+        "total_count": _get_total_target_count(received_count),
+        "received_count": received_count,
+        "remaining_count": status_counts.get(APPLICATION_RECEIVED, 0),
+        "in_progress_count": status_counts.get(IN_PROGRESS, 0),
+        "shipped_count": status_counts.get(SHIPPED, 0),
+    }
 
 
-MANUAL_STATUSES = (APPLICATION_RECEIVED, REVIEW_REQUIRED, STOPPED)
+def _get_total_target_count(registered_application_count: int) -> int:
+    # Until recall Raw Data has its own source, every registered application is a target.
+    return registered_application_count
+
+
+MANUAL_STATUSES = (APPLICATION_RECEIVED, IN_PROGRESS, REVIEW_REQUIRED, STOPPED)
+
+
+def bulk_ship_recall_applications(
+    db: Session, *, ids: Sequence[int], status: str, reason: str, user_id: int
+) -> dict:
+    if status != SHIPPED:
+        raise ValueError("일괄 변경은 발송 완료 상태만 지원합니다.")
+    if not ids or len(ids) > 100 or any(type(value) is not int or value < 1 for value in ids):
+        raise ValueError("처리할 ID를 1~100개 선택해주세요.")
+    if len(set(ids)) != len(ids):
+        raise ValueError("중복된 ID가 포함되어 있습니다.")
+    cleaned_reason = reason.strip()
+    if not cleaned_reason or len(cleaned_reason) > 255:
+        raise ValueError("변경 사유는 1~255자로 입력해주세요.")
+
+    try:
+        applications = {
+            application.id: application for application in db.scalars(
+                select(RecallApplication).where(RecallApplication.id.in_(ids))
+                .order_by(RecallApplication.id).with_for_update()
+            ).all()
+        }
+        results = []
+        updated = skipped = failed = 0
+        for application_id in ids:
+            application = applications.get(application_id)
+            if application is None:
+                failed += 1
+                results.append({"id": application_id, "result": "FAILED", "reason_code": "NOT_FOUND"})
+            elif application.current_status == SHIPPED:
+                skipped += 1
+                results.append({"id": application_id, "result": "SKIPPED", "reason_code": "ALREADY_SHIPPED"})
+            elif application.current_status not in (APPLICATION_RECEIVED, IN_PROGRESS):
+                failed += 1
+                results.append({"id": application_id, "result": "FAILED", "reason_code": "INVALID_CURRENT_STATUS"})
+            else:
+                previous_status = application.current_status
+                application.current_status = SHIPPED
+                db.add(RecallStatusHistory(
+                    recall_application_id=application_id,
+                    previous_status=previous_status,
+                    new_status=SHIPPED,
+                    changed_by=user_id,
+                    change_type="BULK",
+                    reason=cleaned_reason,
+                ))
+                updated += 1
+                results.append({"id": application_id, "result": "UPDATED", "reason_code": None})
+        if updated:
+            db.commit()
+        else:
+            db.rollback()
+        return {"requested": len(ids), "updated": updated, "skipped": skipped, "failed": failed, "results": results}
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_recall_application_detail(db: Session, application_id: int) -> Optional[dict]:
