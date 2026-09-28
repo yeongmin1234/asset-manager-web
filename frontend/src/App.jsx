@@ -42,6 +42,8 @@ import HrAccountListPage from "./components/HrAccountListPage.jsx";
 import InstallLibraryPage from "./components/InstallLibraryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
+import OnlineTeamHomePage from "./components/online/OnlineTeamHomePage.jsx";
+import RecallManagementPage from "./components/online/RecallManagementPage.jsx";
 import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
 import PortalSidebar, { MENU_ITEMS } from "./components/PortalSidebar.jsx";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
@@ -101,6 +103,8 @@ const DEFAULT_MENU_VISIBILITY = {
   history: true,
   install_files: true,
   hr_list: true,
+  online_home: true,
+  online_recall: true,
   scm: true,
   user_management: true,
   settings: true,
@@ -234,7 +238,7 @@ function App({ currentUser, onLogout }) {
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [activeSection, setActiveSection] = useState(() => getSectionFromPath());
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
-  useMenuAccessLog(activeSection, Boolean(currentUser) && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
+  useMenuAccessLog(activeSection, Boolean(currentUser) && !activeSection.startsWith("online-") && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
   useEffect(() => {
     let active = true;
     getMenuVisibility()
@@ -972,6 +976,14 @@ function App({ currentUser, onLogout }) {
       return renderAssetManagement();
     }
 
+    if (activeSection === "online-home") {
+      return <OnlineTeamHomePage onNavigate={handleNavigate} />;
+    }
+
+    if (activeSection === "online-recall") {
+      return <RecallManagementPage />;
+    }
+
     if (activeSection === "beverage-orders") {
       return <BeverageOrderPage />;
     }
@@ -1191,6 +1203,8 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "equipment-status"
                 || activeSection === "install-library"
                 || activeSection === "hr-list"
+                || activeSection === "online-home"
+                || activeSection === "online-recall"
                 || activeSection === "scm"
                 || activeSection === "users"
                 ? "portal-content portal-content-wide"
@@ -1199,7 +1213,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "scm" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>

@@ -43,6 +43,8 @@ const SECTION_PERMISSION_MAP = {
   stats: "statistics",
   history: "changelog",
   "hr-list": "hr_list",
+  "online-home": "dashboard",
+  "online-recall": "dashboard",
 };
 
 export function getPermissionForSection(sectionId) {

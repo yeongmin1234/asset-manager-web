@@ -18,6 +18,8 @@ export const MENU_ITEMS = [
   { id: "history", label: "변경 이력", icon: "◷", menuKey: "history", routePath: "/history" },
   { id: "install-library", label: "설치자료실", icon: "▩", menuKey: "install_files", routePath: "/install-library" },
   { id: "hr-list", label: "리스트", accessLabel: "인사업무 > 리스트", icon: "♙", menuKey: "hr_list", routePath: "/hr/list" },
+  { id: "online-home", label: "온라인 TEAM 홈", icon: "⌂", menuKey: "online_home", routePath: "/online" },
+  { id: "online-recall", label: "리콜 관리", icon: "▤", menuKey: "online_recall", routePath: "/online/recall" },
   { id: "scm", label: "SCM", icon: "S", menuKey: "scm", routePath: "/scm" },
   { id: "users", label: "사용자 관리", icon: "♙", menuKey: "user_management", routePath: "/admin/users" },
   { id: "settings", label: "설정", icon: "⚙", menuKey: "settings", routePath: "/settings" },
@@ -38,7 +40,7 @@ const MENU_GROUPS = [
   },
   {
     title: "온라인 Team",
-    itemIds: [],
+    itemIds: ["online-home", "online-recall"],
   },
   {
     title: "오프라인 Team",
@@ -319,6 +321,8 @@ function PortalSidebar({
                             className="sidebar-menu-label-input"
                             value={draftMenuLabels[item.menuKey] ?? menuLabels[item.menuKey] ?? item.label}
                             maxLength={30}
+                            readOnly={item.id.startsWith("online-")}
+                            title={item.id.startsWith("online-") ? "온라인 TEAM 메뉴 이름은 현재 고정되어 있습니다." : undefined}
                             onChange={(event) => setDraftMenuLabels((current) => ({ ...current, [item.menuKey]: event.target.value }))}
                             onClick={(event) => event.stopPropagation()}
                             onKeyDown={(event) => event.stopPropagation()}
