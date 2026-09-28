@@ -179,8 +179,10 @@
 }
 
 .online-recall-table {
-  border-collapse: collapse;
-  min-width: 960px;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1709px;
+  table-layout: fixed;
   width: 100%;
 }
 
@@ -190,7 +192,7 @@
   border-top: 1px solid #e2e8f0;
   color: #475569;
   font-size: 0.78rem;
-  padding: 9px 10px;
+  padding: 8px 7px;
   text-align: center;
   white-space: nowrap;
 }
@@ -199,10 +201,37 @@
   border-bottom: 1px solid #edf1f5;
   color: #334155;
   font-size: 0.82rem;
-  padding: 9px 10px;
+  padding: 7px 7px;
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.online-recall-table .online-recall-long-cell {
+  text-align: left;
+}
+
+.online-recall-long-cell span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.online-recall-table th:last-child,
+.online-recall-table td:last-child:not(.online-recall-empty) {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+}
+
+.online-recall-table th:last-child {
+  box-shadow: -1px 0 #e2e8f0;
+  z-index: 2;
+}
+
+.online-recall-table td:last-child:not(.online-recall-empty) {
+  background: #fff;
+  box-shadow: -1px 0 #edf1f5;
 }
 
 .online-recall-table td.online-recall-empty {
@@ -476,9 +505,7 @@
 
 .online-preview-table {
   border-collapse: collapse;
-  min-width: 1540px;
   table-layout: fixed;
-  width: 100%;
 }
 
 .online-preview-table th,
@@ -496,26 +523,44 @@
 .online-preview-table th {
   background: #f8fafc;
   color: #475569;
+  padding-right: 12px;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.online-preview-column-status { width: 72px; }
-.online-preview-column-select { width: 48px; }
-.online-preview-column-row-number { width: 64px; }
-.online-preview-column-date { width: 92px; }
-.online-preview-column-quantity { width: 54px; }
-.online-preview-column-customer { width: 84px; }
-.online-preview-column-phone { width: 112px; }
-.online-preview-column-address { width: 170px; }
-.online-preview-column-memo { width: 170px; }
-.online-preview-column-serial { width: 120px; }
-.online-preview-column-lot { width: 100px; }
-.online-preview-column-agreement { width: 130px; }
-.online-preview-column-issues { width: 210px; }
+.online-preview-heading {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
 
-.online-preview-table .online-preview-cell-date {
+.online-preview-table .online-preview-resize-handle {
+  background: transparent;
+  right: 0;
+  width: 9px;
+}
+
+.online-preview-table .online-preview-resize-handle::after {
+  background: #94a3b8;
+  opacity: 0.5;
+}
+
+.online-preview-table .online-preview-resize-handle:hover::after,
+body.online-preview-column-resizing .online-preview-table .online-preview-resize-handle::after {
+  background: #2563eb;
+  opacity: 1;
+}
+
+body.online-preview-column-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.online-preview-table .online-preview-cell-application-date,
+.online-preview-table .online-preview-cell-pickup-date {
   padding-left: 5px;
   padding-right: 5px;
 }
@@ -552,9 +597,9 @@
 }
 
 .online-preview-badge-valid { background: #ecfdf5; color: #047857; }
-.online-preview-badge-duplicate,
 .online-preview-badge-review { background: #fffbeb; color: #92400e; }
-.online-preview-badge-error { background: #fef2f2; color: #b91c1c; }
+.online-preview-badge-duplicate { background: #fff1f2; color: #be123c; }
+.online-preview-badge-error { background: #fef2f2; color: #991b1b; }
 
 .online-upload-footer {
   border-top: 1px solid #e2e8f0;

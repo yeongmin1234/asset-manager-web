@@ -1,10 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function useResizableColumns(columns, storageKey, resizeClassName = "table-column-resizing") {
   const [columnWidths, setColumnWidths] = useState(() =>
     getInitialColumnWidths(columns, storageKey),
   );
   const resizeStateRef = useRef(null);
+  const cleanupResizeRef = useRef(null);
+
+  useEffect(() => () => cleanupResizeRef.current?.(), []);
 
   const tableWidth = useMemo(
     () => columns.reduce((total, column) => total + columnWidths[column.key], 0),
@@ -23,6 +26,7 @@ function useResizableColumns(columns, storageKey, resizeClassName = "table-colum
   const handleColumnResizeStart = (event, column) => {
     event.preventDefault();
     event.stopPropagation();
+    cleanupResizeRef.current?.();
     resizeStateRef.current = {
       key: column.key,
       minWidth: column.minWidth || 80,
@@ -47,15 +51,17 @@ function useResizableColumns(columns, storageKey, resizeClassName = "table-colum
       });
     };
 
-    const handleMouseUp = () => {
+    const stopResize = () => {
       resizeStateRef.current = null;
       document.body.classList.remove(resizeClassName);
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseup", stopResize);
+      cleanupResizeRef.current = null;
     };
+    cleanupResizeRef.current = stopResize;
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseup", stopResize);
   };
 
   return {
@@ -72,7 +78,7 @@ function getInitialColumnWidths(columns, storageKey) {
     {},
   );
 
-  if (typeof window === "undefined") {
+  if (!storageKey || typeof window === "undefined") {
     return defaultWidths;
   }
 
@@ -93,7 +99,7 @@ function getInitialColumnWidths(columns, storageKey) {
 }
 
 function saveColumnWidths(storageKey, widths) {
-  if (typeof window === "undefined") {
+  if (!storageKey || typeof window === "undefined") {
     return;
   }
 

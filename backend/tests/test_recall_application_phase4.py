@@ -152,6 +152,21 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual(received.json()["total"], 0)
         self.assertEqual(summary.json()["received"], 0)
 
+    def test_listing_returns_existing_excel_columns(self):
+        with TestClient(self.app) as client:
+            response = client.get("/online/recall/applications", params={"keyword": "홍길동", "status": APPLICATION_RECEIVED})
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["items"][0]
+        self.assertEqual(
+            [item[key] for key in (
+                "application_date", "quantity", "customer_name", "phone_original", "address", "memo",
+                "serial_number", "lot_number", "pickup_agreement", "pickup_date",
+                "replacement_shipping_agreement", "current_status",
+            )],
+            ["2026-09-22", 1, "홍길동", "010-1111-2222", "서울시 마포구 월드컵로 10", "방문 전 연락",
+             "SER-001", "LOT-A", "동의", None, "동의", APPLICATION_RECEIVED],
+        )
+
     def test_phase3_registration_still_has_initial_history(self):
         self.assertEqual(self.db.scalar(select(func.count()).select_from(RecallApplication)), 1)
         self.assertEqual(self.histories()[0].change_type, "EXCEL_REGISTRATION")

@@ -181,12 +181,19 @@ def read_recall_applications(
         "items": [
             {
                 "id": item.id,
+                "application_date": item.application_date,
+                "quantity": item.quantity,
                 "customer_name": item.customer_name,
                 "phone_original": item.phone_original,
                 "phone_normalized": item.phone_normalized,
+                "address": item.address,
+                "memo": item.memo,
                 "serial_number": item.serial_number,
+                "lot_number": item.lot_number,
+                "pickup_agreement": item.pickup_agreement,
+                "pickup_date": item.pickup_date,
+                "replacement_shipping_agreement": item.replacement_shipping_agreement,
                 "current_status": item.current_status,
-                "application_date": item.application_date,
                 "created_at": item.created_at,
             }
             for item in result["items"]

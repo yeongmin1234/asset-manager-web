@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { commitRecallApplicationExcel, previewRecallApplicationExcel } from "../../api/client.js";
 import { formatPhoneForDisplay } from "./onlineDisplayUtils.js";
+import useResizableColumns from "../../hooks/useResizableColumns.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const SUMMARY_ITEMS = [
@@ -29,21 +30,21 @@ const FIELD_LABELS = {
   serial_number: "시리얼번호", quantity: "수량", application_date: "신청일자", pickup_date: "회수 일자",
 };
 const PREVIEW_COLUMNS = [
-  ["선택", "select"],
-  ["상태", "status"],
-  ["행 번호", "row-number"],
-  ["신청일자", "date"],
-  ["수량", "quantity"],
-  ["고객명", "customer"],
-  ["연락처", "phone"],
-  ["주소", "address"],
-  ["메모", "memo"],
-  ["시리얼번호", "serial"],
-  ["LOT 번호", "lot"],
-  ["회수 동의", "agreement"],
-  ["회수 일자", "date"],
-  ["대체 필터 출고 동의", "agreement"],
-  ["검증 결과", "issues"],
+  { key: "select", label: "선택", initialWidth: 48, minWidth: 42 },
+  { key: "status", label: "상태", initialWidth: 80, minWidth: 70 },
+  { key: "row-number", label: "행 번호", initialWidth: 68, minWidth: 60 },
+  { key: "application-date", label: "신청일자", initialWidth: 100, minWidth: 90 },
+  { key: "quantity", label: "수량", initialWidth: 60, minWidth: 54 },
+  { key: "customer", label: "고객명", initialWidth: 90, minWidth: 70 },
+  { key: "phone", label: "연락처", initialWidth: 125, minWidth: 110 },
+  { key: "address", label: "주소", initialWidth: 220, minWidth: 140 },
+  { key: "memo", label: "메모", initialWidth: 220, minWidth: 140 },
+  { key: "serial", label: "시리얼번호", initialWidth: 135, minWidth: 100 },
+  { key: "lot", label: "LOT 번호", initialWidth: 105, minWidth: 80 },
+  { key: "pickup-agreement", label: "회수 동의", initialWidth: 130, minWidth: 110 },
+  { key: "pickup-date", label: "회수 일자", initialWidth: 100, minWidth: 90 },
+  { key: "replacement-agreement", label: "대체 필터 출고 동의", initialWidth: 145, minWidth: 125 },
+  { key: "issues", label: "검증 결과", initialWidth: 220, minWidth: 150 },
 ];
 
 function displayValue(row, field, sourceHeader) {
@@ -63,23 +64,24 @@ function issueDescription(row) {
   }).join(" / ");
 }
 
-function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll }) {
+function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll, columnWidths, tableWidth, onResizeStart }) {
   const selectableRows = rows.filter((row) => row.status === "valid" || row.status === "review");
   const allSelected = selectableRows.length > 0 && selectableRows.every((row) => selectedRows.has(row.raw_row_number));
   return (
     <div className="online-preview-table-wrap">
-      <table className="online-preview-table">
+      <table className="online-preview-table" style={{ width: tableWidth, minWidth: tableWidth }}>
         <colgroup>
-          {PREVIEW_COLUMNS.map(([header, column], index) => (
-            <col className={`online-preview-column-${column}`} key={`${header}-${index}`} />
+          {PREVIEW_COLUMNS.map((column) => (
+            <col key={column.key} style={{ width: columnWidths[column.key] }} />
           ))}
         </colgroup>
         <thead><tr>
-          {PREVIEW_COLUMNS.map(([header, column], index) => (
-            <th className={`online-preview-cell-${column}`} scope="col" key={`${header}-${index}`}>
-              {column === "select" ? (
+          {PREVIEW_COLUMNS.map((column) => (
+            <th className={`online-preview-cell-${column.key}`} scope="col" key={column.key} title={column.label}>
+              {column.key === "select" ? (
                 <input type="checkbox" checked={allSelected} onChange={(event) => onToggleAll(event.target.checked)} aria-label="등록 가능한 행 전체 선택" />
-              ) : header}
+              ) : <span className="online-preview-heading">{column.label}</span>}
+              <span className="table-column-resize-handle online-preview-resize-handle" aria-hidden="true" title={`${column.label} 너비 조절`} onMouseDown={(event) => onResizeStart(event, column)} />
             </th>
           ))}
         </tr></thead>
@@ -98,7 +100,7 @@ function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll }) {
               </td>
               <td className="online-preview-cell-status"><span className={`online-preview-badge online-preview-badge-${row.status}`}>{STATUS_LABELS[row.status] || row.status}</span></td>
               <td className="online-preview-cell-row-number">{row.raw_row_number}</td>
-              <td className="online-preview-cell-date">{displayValue(row, "application_date", "신청일자")}</td>
+              <td className="online-preview-cell-application-date">{displayValue(row, "application_date", "신청일자")}</td>
               <td className="online-preview-cell-quantity">{displayValue(row, "quantity", "수량")}</td>
               <td className="online-preview-cell-customer">{displayValue(row, "customer_name", "성함")}</td>
               <td className="online-preview-cell-phone" title={row.data?.phone_normalized ? `비교용: ${row.data.phone_normalized}` : undefined}>
@@ -108,9 +110,9 @@ function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll }) {
               <td className="online-preview-cell-memo" title={displayValue(row, "memo", "메모")}>{displayValue(row, "memo", "메모")}</td>
               <td className="online-preview-cell-serial">{displayValue(row, "serial_number", "*시리얼번호")}</td>
               <td className="online-preview-cell-lot">{displayValue(row, "lot_number", "LOT 번호")}</td>
-              <td className="online-preview-cell-agreement">{displayValue(row, "pickup_agreement", "기존 필터 회수 동의")}</td>
-              <td className="online-preview-cell-date">{displayValue(row, "pickup_date", "회수 일자")}</td>
-              <td className="online-preview-cell-agreement">{displayValue(row, "replacement_shipping_agreement", "대체 필터 출고 동의")}</td>
+              <td className="online-preview-cell-pickup-agreement">{displayValue(row, "pickup_agreement", "기존 필터 회수 동의")}</td>
+              <td className="online-preview-cell-pickup-date">{displayValue(row, "pickup_date", "회수 일자")}</td>
+              <td className="online-preview-cell-replacement-agreement">{displayValue(row, "replacement_shipping_agreement", "대체 필터 출고 동의")}</td>
               <td className="online-preview-cell-issues">{issueDescription(row)}</td>
             </tr>
           ))}
@@ -129,6 +131,9 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [registrationResult, setRegistrationResult] = useState(null);
   const fileInputRef = useRef(null);
+  const { columnWidths, handleColumnResizeStart, tableWidth } = useResizableColumns(
+    PREVIEW_COLUMNS, null, "online-preview-column-resizing",
+  );
   const isApplication = mode === "application";
   const isBusy = isLoading || isCommitting;
 
@@ -244,7 +249,7 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
                   ))}
                 </div>
                 <p className="online-preview-selection">정상 행은 기본 선택됩니다. 확인 필요 행은 내용을 검토한 뒤 직접 선택해주세요. · 선택 {selectedRows.size}건</p>
-                <RecallPreviewTable rows={preview.rows || []} selectedRows={selectedRows} onToggle={handleToggle} onToggleAll={handleToggleAll} />
+                <RecallPreviewTable rows={preview.rows || []} selectedRows={selectedRows} onToggle={handleToggle} onToggleAll={handleToggleAll} columnWidths={columnWidths} tableWidth={tableWidth} onResizeStart={handleColumnResizeStart} />
               </div>
             )}
             {registrationResult && (
