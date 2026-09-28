@@ -1,18 +1,49 @@
+.portal-content:has(> .portal-main > .online-page) {
+  padding: 16px 20px 20px;
+}
+
+.portal-main:has(> .online-page) {
+  align-content: start;
+}
+
 .online-page {
+  align-content: start;
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 
 .online-page .portal-screen-heading {
   box-shadow: none;
-  padding: 17px 20px;
+  min-height: 0;
+  padding: 10px 16px;
+}
+
+.online-page .portal-screen-heading h2 {
+  font-size: 1.13rem;
+  margin: 0;
+}
+
+.online-page .portal-screen-heading p {
+  font-size: 0.84rem;
+  margin-top: 2px;
+}
+
+.online-page .portal-screen-heading:not(.online-recall-heading) {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.online-page .portal-screen-heading:not(.online-recall-heading) p {
+  margin: 0;
 }
 
 .online-summary-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .online-summary-card,
@@ -25,8 +56,8 @@
 
 .online-summary-card {
   display: grid;
-  gap: 8px;
-  padding: 15px 18px;
+  gap: 3px;
+  padding: 10px 14px;
 }
 
 .online-summary-card span {
@@ -37,23 +68,23 @@
 
 .online-summary-card strong {
   color: var(--text-main, #172033);
-  font-size: 1.45rem;
+  font-size: 1.25rem;
   line-height: 1;
 }
 
 .online-feature-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .online-feature-card {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  justify-content: space-between;
-  min-height: 145px;
-  padding: 18px 20px;
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 86px;
+  padding: 12px 16px;
   transition: border-color 0.16s ease;
 }
 
@@ -63,8 +94,8 @@
 
 .online-feature-card h3 {
   color: var(--text-main, #172033);
-  font-size: 1rem;
-  margin: 0 0 7px;
+  font-size: 0.96rem;
+  margin: 0 0 4px;
 }
 
 .online-feature-card p {
@@ -75,12 +106,12 @@
 
 .online-feature-card .secondary-button,
 .online-pending-label {
-  align-self: flex-start;
+  align-self: center;
 }
 
 .online-feature-card .secondary-button {
-  min-height: 34px;
-  padding: 0 15px;
+  min-height: 32px;
+  padding: 0 12px;
 }
 
 .online-pending-label {
@@ -90,13 +121,14 @@
   color: #64748b;
   font-size: 0.8rem;
   font-weight: 700;
-  padding: 7px 12px;
+  padding: 6px 10px;
 }
 
-.online-recall-heading {
+.online-page .online-recall-heading {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px 12px;
   justify-content: space-between;
 }
 
@@ -104,11 +136,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-left: auto;
 }
 
 .online-recall-actions button {
-  min-height: 35px;
-  padding: 0 13px;
+  min-height: 32px;
+  padding: 0 12px;
 }
 
 .online-recall-list {
@@ -117,10 +150,10 @@
 }
 
 .online-recall-filters {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
-  padding: 14px;
+  grid-template-columns: minmax(260px, 1fr) 150px 150px;
+  padding: 10px 12px;
 }
 
 .online-recall-filters input,
@@ -129,13 +162,11 @@
   border: 1px solid #d9e1eb;
   border-radius: 6px;
   color: var(--text-main, #172033);
-  height: 36px;
-  min-width: 150px;
-  padding: 0 11px;
-}
-
-.online-recall-filters input {
-  flex: 1 1 260px;
+  height: 34px;
+  min-height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  width: 100%;
 }
 
 .online-recall-table-wrap {
@@ -154,7 +185,7 @@
   border-top: 1px solid #e2e8f0;
   color: #475569;
   font-size: 0.78rem;
-  padding: 12px 10px;
+  padding: 9px 10px;
   text-align: center;
   white-space: nowrap;
 }
@@ -162,20 +193,37 @@
 .online-recall-table td.online-recall-empty {
   color: #64748b;
   font-size: 0.88rem;
-  padding: 38px 12px;
+  padding: 18px 12px;
   text-align: center;
 }
 
-@media (max-width: 900px) {
-  .online-summary-grid,
+@media (max-width: 1000px) {
   .online-feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .online-recall-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .online-recall-filters input {
+    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 560px) {
+  .portal-content:has(> .portal-main > .online-page) {
+    padding: 12px 10px 16px;
+  }
+
   .online-summary-grid,
-  .online-feature-grid {
+  .online-recall-filters {
     grid-template-columns: 1fr;
+  }
+
+  .online-recall-filters input {
+    grid-column: auto;
   }
 }
