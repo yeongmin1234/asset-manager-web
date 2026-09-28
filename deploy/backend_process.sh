@@ -2,27 +2,27 @@
 # Shared, read-only process checks for direct backend deployment.
 # ROOT_DIR and BACKEND_PORT must be set by the caller.
 
+backend_cmdline_matches() {
+  tr '\000' '\n' < "$1" | awk -v port="$BACKEND_PORT" '
+    NR == 1 && $0 !~ /(^|\/)python([0-9.]*)?$/ { interpreter = 0; next }
+    NR == 1 { interpreter = 1 }
+    previous_two == "-m" && previous == "uvicorn" && $0 == "app.main:app" { application = 1 }
+    previous == "--port" { port_count++; if ($0 == port) matching_port = 1 }
+    { previous_two = previous; previous = $0 }
+    END { exit !(interpreter && application && matching_port && port_count == 1) }
+  '
+}
+
 backend_pid_matches() {
   backend_check_pid="$1"
   case "$backend_check_pid" in
     ""|*[!0-9]*) return 1 ;;
   esac
   [ -r "/proc/$backend_check_pid/cmdline" ] || return 1
-  kill -0 "$backend_check_pid" 2>/dev/null || return 1
 
-  backend_expected_cwd="$(CDPATH= cd -- "$ROOT_DIR/backend" && pwd -P)" || return 1
-  backend_actual_cwd="$(readlink "/proc/$backend_check_pid/cwd" 2>/dev/null)" || return 1
-  [ "$backend_actual_cwd" = "$backend_expected_cwd" ] || return 1
-
-  tr '\000' '\n' < "/proc/$backend_check_pid/cmdline" | awk -v port="$BACKEND_PORT" '
-    NR == 1 && $0 !~ /(^|\/)python([0-9.]*)?$/ { interpreter = 0; next }
-    NR == 1 { interpreter = 1 }
-    previous == "-m" && $0 == "uvicorn" { module = 1 }
-    previous == "uvicorn" && $0 == "app.main:app" { application = 1 }
-    previous == "--port" && $0 == port { matching_port = 1 }
-    { previous = $0 }
-    END { exit !(interpreter && module && application && matching_port) }
-  '
+  # Root-owned processes may deny access to /proc/<pid>/cwd and kill -0.
+  # Identify the backend only from its readable command line and port.
+  backend_cmdline_matches "/proc/$backend_check_pid/cmdline"
 }
 
 # Return 0 when occupied, 1 when free, and 2 when no usable inspection tool exists.

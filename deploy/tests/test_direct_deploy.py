@@ -97,15 +97,48 @@ kill() {
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("4242", (self.root / "events").read_text(encoding="utf-8"))
 
+    def test_stop_backend_finds_verified_listener_after_stale_pid_file(self):
+        extra = self.mock_backend_processes()
+        (self.root / "alive").touch()
+        (self.root / "logs/backend.pid").write_text("9999\n", encoding="utf-8")
+        extra["TEST_LISTENER_PID"] = "4242"
+        result = self.run_script("stop_backend.sh", extra_env=extra)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("4242", (self.root / "events").read_text(encoding="utf-8"))
+        self.assertFalse((self.root / "logs/backend.pid").exists())
+
     @unittest.skipUnless(AWK, "awk is required")
-    def test_backend_command_matcher_awk_accepts_only_matching_port(self):
+    def test_backend_command_matcher_awk_accepts_only_target_app_and_port(self):
         source = (REPO / "deploy/backend_process.sh").read_text(encoding="utf-8")
         program = source.split('awk -v port="$BACKEND_PORT" \'', 1)[1].split("\n  '\n", 1)[0]
-        tokens = "python3.8\n-m\nuvicorn\napp.main:app\n--port\n8010\n"
-        good = subprocess.run([AWK, "-v", "port=8010", program], input=tokens, text=True, capture_output=True)
-        bad = subprocess.run([AWK, "-v", "port=3010", program], input=tokens, text=True, capture_output=True)
-        self.assertEqual(good.returncode, 0, good.stderr)
-        self.assertNotEqual(bad.returncode, 0)
+        cases = (
+            ("python3.8\n-m\nuvicorn\napp.main:app\n--port\n8010\n", 0),
+            ("python3.8\n-m\nuvicorn\napp.main:app\n--port\n8011\n", 1),
+            ("python3.8\n-m\nuvicorn\napp.main:app\n--port\n8010\n--port\n8011\n", 1),
+            ("python3.8\n-m\nhttp.server\napp.main:app\n--port\n8010\n", 1),
+            ("python3.8\n-m\nuvicorn\nother.main:app\n--port\n8010\n", 1),
+        )
+        for tokens, expected in cases:
+            with self.subTest(tokens=tokens):
+                result = subprocess.run([AWK, "-v", "port=8010", program], input=tokens, text=True, capture_output=True)
+                self.assertEqual(result.returncode, expected, result.stderr)
+
+    def test_backend_matcher_does_not_require_cwd_or_kill_probe(self):
+        source = (REPO / "deploy/backend_process.sh").read_text(encoding="utf-8")
+        matcher = source.split("backend_pid_matches() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("readlink", matcher)
+        self.assertNotIn("/cwd", matcher.split("#", 1)[0])
+        self.assertNotIn("kill -0", matcher.split("#", 1)[0])
+
+        cmdline = self.root / "cmdline"
+        cmdline.write_bytes(b"python3.8\0-m\0uvicorn\0app.main:app\0--port\08010\0")
+        env = self.env.copy()
+        env.update({"BACKEND_PORT": "8010", "TEST_CMDLINE": shell_path(cmdline), "TEST_HELPER": shell_path(REPO / "deploy/backend_process.sh")})
+        result = subprocess.run(
+            [BASH, "-c", '. "$TEST_HELPER"; readlink() { return 1; }; kill() { return 1; }; backend_cmdline_matches "$TEST_CMDLINE"'],
+            env=env, text=True, encoding="utf-8", errors="replace", capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     @unittest.skipUnless(AWK, "awk is required")
     def test_frontend_command_matcher_awk_requires_3010(self):

@@ -4,12 +4,14 @@ import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
 import RecallUploadModal from "./RecallUploadModal.jsx";
+import RecallDetailModal from "./RecallDetailModal.jsx";
 import "./online.css";
 
 const EMPTY_SUMMARY = { total: 0, received: 0, orders: 0, shipped: 0 };
 
 function RecallManagementPage() {
   const [uploadMode, setUploadMode] = useState(null);
+  const [detailId, setDetailId] = useState(null);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [items, setItems] = useState([]);
   const [filterValues, setFilterValues] = useState({ keyword: "", status: "" });
@@ -80,7 +82,7 @@ function RecallManagementPage() {
           onReset={handleReset}
           isLoading={isLoading}
         />
-        <RecallTable items={items} isLoading={isLoading} error={loadError} />
+        <RecallTable items={items} isLoading={isLoading} error={loadError} onOpenDetail={setDetailId} />
         <div className="online-recall-pagination">
           <span>총 {total}건 · {page}/{totalPages} 페이지</span>
           <div>
@@ -90,6 +92,7 @@ function RecallManagementPage() {
         </div>
       </section>
       {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
+      {detailId !== null && <RecallDetailModal applicationId={detailId} onClose={() => setDetailId(null)} onChanged={() => setRefreshKey((value) => value + 1)} />}
     </div>
   );
 }

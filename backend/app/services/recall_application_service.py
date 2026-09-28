@@ -11,10 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.models.recall_application import (
     APPLICATION_RECEIVED,
+    REVIEW_REQUIRED,
+    STOPPED,
     RecallApplication,
     RecallApplicationUploadBatch,
     RecallStatusHistory,
 )
+from app.models.user import User
 from app.services.recall_application_excel import preview_recall_applications
 
 
@@ -213,3 +216,98 @@ def get_recall_summary(db: Session) -> dict:
         )
     ) or 0)
     return {"total": 0, "received": received, "orders": 0, "shipped": 0}
+
+
+MANUAL_STATUSES = (APPLICATION_RECEIVED, REVIEW_REQUIRED, STOPPED)
+
+
+def get_recall_application_detail(db: Session, application_id: int) -> Optional[dict]:
+    application = db.get(RecallApplication, application_id)
+    if application is None:
+        return None
+    batch = db.get(RecallApplicationUploadBatch, application.upload_batch_id)
+    history = list(db.scalars(
+        select(RecallStatusHistory)
+        .where(RecallStatusHistory.recall_application_id == application_id)
+        .order_by(RecallStatusHistory.changed_at.desc(), RecallStatusHistory.id.desc())
+    ).all())
+    user_ids = {application.created_by}
+    user_ids.update(item.changed_by for item in history)
+    names = {
+        user.id: user.name for user in db.scalars(select(User).where(User.id.in_(user_ids))).all()
+    }
+    return {
+        "id": application.id,
+        "application_date": application.application_date,
+        "quantity": application.quantity,
+        "customer_name": application.customer_name,
+        "phone_original": application.phone_original,
+        "phone_normalized": application.phone_normalized,
+        "address": application.address,
+        "memo": application.memo,
+        "serial_number": application.serial_number,
+        "lot_number": application.lot_number,
+        "pickup_agreement": application.pickup_agreement,
+        "pickup_date": application.pickup_date,
+        "replacement_shipping_agreement": application.replacement_shipping_agreement,
+        "current_status": application.current_status,
+        "created_at": application.created_at,
+        "created_by": application.created_by,
+        "created_by_name": names.get(application.created_by),
+        "upload_batch": {
+            "id": batch.id,
+            "source_filename": batch.source_filename,
+            "uploaded_at": batch.uploaded_at,
+        } if batch is not None else None,
+        "status_history": [
+            {
+                "id": item.id,
+                "previous_status": item.previous_status,
+                "new_status": item.new_status,
+                "changed_at": item.changed_at,
+                "changed_by": item.changed_by,
+                "changed_by_name": names.get(item.changed_by),
+                "change_type": item.change_type,
+                "reason": item.reason,
+            }
+            for item in history
+        ],
+    }
+
+
+def change_recall_application_status(
+    db: Session, *, application_id: int, status: str, reason: str, user_id: int
+) -> Optional[dict]:
+    if status not in MANUAL_STATUSES:
+        raise ValueError("변경할 수 없는 상태입니다.")
+    cleaned_reason = reason.strip()
+    if not cleaned_reason:
+        raise ValueError("상태 변경 사유를 입력해주세요.")
+    if len(cleaned_reason) > 255:
+        raise ValueError("상태 변경 사유는 255자 이내로 입력해주세요.")
+
+    try:
+        application = db.scalar(
+            select(RecallApplication).where(RecallApplication.id == application_id).with_for_update()
+        )
+        if application is None:
+            return None
+        previous_status = application.current_status
+        if previous_status == status:
+            db.rollback()
+            return {"changed": False, "previous_status": previous_status}
+
+        application.current_status = status
+        db.add(RecallStatusHistory(
+            recall_application_id=application_id,
+            previous_status=previous_status,
+            new_status=status,
+            changed_by=user_id,
+            change_type="MANUAL",
+            reason=cleaned_reason,
+        ))
+        db.commit()
+        return {"changed": True, "previous_status": previous_status}
+    except Exception:
+        db.rollback()
+        raise

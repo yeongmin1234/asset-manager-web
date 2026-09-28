@@ -1162,6 +1162,18 @@ export async function getRecallApplicationSummary() {
   return request("/online/recall/applications/summary", { timeoutMs: 10000 });
 }
 
+export async function getRecallApplication(applicationId) {
+  return request(`/online/recall/applications/${applicationId}`, { timeoutMs: 10000 });
+}
+
+export async function updateRecallApplicationStatus(applicationId, status, reason) {
+  return request(`/online/recall/applications/${applicationId}/status`, {
+    method: "PATCH",
+    body: { status, reason },
+    timeoutMs: 10000,
+  });
+}
+
 export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
   return request(`${HR_ACCOUNTS_API_PATH}/import`, {
     method: "POST",

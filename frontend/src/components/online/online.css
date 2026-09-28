@@ -226,6 +226,98 @@
   padding: 3px 7px;
 }
 
+.online-recall-status-review { background: #fffbeb; color: #92400e; }
+.online-recall-status-stopped { background: #f1f5f9; color: #475569; }
+
+.online-recall-detail-button {
+  min-height: 28px;
+  padding: 0 9px;
+}
+
+.online-detail-modal {
+  background: #fff;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 950px);
+  overflow: hidden;
+  width: min(860px, 100%);
+}
+
+.online-detail-body {
+  display: grid;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 14px 18px 18px;
+}
+
+.online-detail-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.online-detail-section h3 {
+  color: #172033;
+  font-size: 0.9rem;
+  margin: 0 0 10px;
+}
+
+.online-detail-grid {
+  display: grid;
+  gap: 10px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.online-detail-field { min-width: 0; }
+.online-detail-field-wide { grid-column: 1 / -1; }
+.online-detail-field dt { color: #64748b; font-size: 0.76rem; margin-bottom: 3px; }
+.online-detail-field dd { color: #334155; font-size: 0.85rem; margin: 0; overflow-wrap: anywhere; }
+
+.online-detail-status-form {
+  align-items: end;
+  border-top: 1px solid #edf1f5;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.online-detail-status-form label { color: #475569; display: grid; font-size: 0.78rem; gap: 4px; }
+.online-detail-status-form input,
+.online-detail-status-form select {
+  background: #fff;
+  border: 1px solid #d9e1eb;
+  border-radius: 6px;
+  color: #172033;
+  height: 34px;
+  min-width: 0;
+  padding: 0 9px;
+  width: 100%;
+}
+.online-detail-status-form button { min-height: 34px; padding: 0 12px; }
+.online-detail-error { color: #b91c1c; font-size: 0.82rem; margin: 8px 0 0; }
+.online-detail-success { color: #047857; font-size: 0.82rem; margin: 8px 0 0; }
+.online-detail-message { color: #64748b; font-size: 0.83rem; margin: 0; }
+
+.online-detail-history { display: grid; gap: 7px; }
+.online-detail-history-item {
+  align-items: baseline;
+  border-bottom: 1px solid #edf1f5;
+  color: #475569;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.79rem;
+  gap: 4px 12px;
+  padding: 4px 0 8px;
+}
+.online-detail-history-item:last-child { border-bottom: 0; }
+.online-detail-history-item strong { color: #334155; }
+
 .online-recall-pagination {
   align-items: center;
   color: #64748b;
@@ -497,6 +589,7 @@
 }
 
 @media (max-width: 700px) {
+  .online-detail-status-form { grid-template-columns: 1fr; }
   .online-preview-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -511,6 +604,7 @@
 }
 
 @media (max-width: 560px) {
+  .online-detail-grid { grid-template-columns: 1fr; }
   .online-upload-backdrop { padding: 10px; }
   .online-upload-controls { align-items: stretch; flex-direction: column; }
   .online-preview-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

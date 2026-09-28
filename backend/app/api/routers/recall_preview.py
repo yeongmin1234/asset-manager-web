@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -19,13 +20,20 @@ from app.services.recall_application_excel import RecallApplicationExcelError, p
 from app.services.recall_application_service import (
     commit_recall_applications,
     existing_application_records,
+    get_recall_application_detail,
     get_recall_summary,
     list_recall_applications,
+    change_recall_application_status,
 )
 
 
 router = APIRouter(prefix="/online/recall/applications", tags=["online-recall"])
 MAX_PREVIEW_FILE_SIZE = 5 * 1024 * 1024
+
+
+class RecallStatusChangeRequest(BaseModel):
+    status: str
+    reason: str
 
 
 def require_recall_preview_access(
@@ -184,3 +192,54 @@ def read_recall_applications(
             for item in result["items"]
         ],
     })
+
+
+@router.get("/{application_id}")
+def read_recall_application_detail(
+    application_id: int,
+    _user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    detail = get_recall_application_detail(db, application_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="리콜 접수 데이터를 찾을 수 없습니다.")
+    return jsonable_encoder(detail)
+
+
+@router.patch("/{application_id}/status")
+def update_recall_application_status(
+    application_id: int,
+    payload: RecallStatusChangeRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = change_recall_application_status(
+            db, application_id=application_id, status=payload.status,
+            reason=payload.reason, user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="상태를 변경하지 못했습니다. 잠시 후 다시 시도해주세요.") from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="리콜 접수 데이터를 찾을 수 없습니다.")
+
+    if result["changed"]:
+        record_audit_log(
+            db, request, current_user,
+            action_type="update",
+            menu_key="online_recall",
+            menu_name="온라인 TEAM > 리콜 관리",
+            target_type="recall_application",
+            target_id=application_id,
+            target_name="리콜 상태 변경",
+            action_summary="리콜 상태 변경: application_id={} {} → {} user_id={}".format(
+                application_id, result["previous_status"], payload.status, current_user.id
+            ),
+            before_data={"current_status": result["previous_status"]},
+            after_data={"current_status": payload.status},
+        )
+    detail = get_recall_application_detail(db, application_id)
+    return jsonable_encoder({"changed": result["changed"], "application": detail})
