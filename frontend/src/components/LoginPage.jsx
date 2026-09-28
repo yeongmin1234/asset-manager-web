@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AiButton from "./animata/button/AiButton.jsx";
-import LoginVisual from "./LoginVisual.jsx";
+import LoginClock from "./LoginClock.jsx";
 
 const SAVED_USERNAME_KEY = "asset_manager_saved_username";
 
@@ -28,13 +28,13 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
 
   return (
     <main className="login-page">
+      <div className="login-company">
+        <img src="/logo.png" alt="" />
+        <span>자산관리 시스템</span>
+      </div>
       <section className="login-panel">
-        <div className="login-company">
-          <img src="/logo.png" alt="" />
-          <span>자산관리 시스템</span>
-        </div>
-
         <div className="login-form-wrap">
+          <LoginClock />
           <div className="login-form-card">
             <form className="login-form" onSubmit={handleSubmit}>
               <div className="login-heading">
@@ -67,7 +67,6 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
         </div>
       </section>
 
-      <LoginVisual />
     </main>
   );
 }

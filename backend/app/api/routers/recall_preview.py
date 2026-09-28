@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
@@ -110,8 +110,10 @@ async def commit_recall_application_excel(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except SQLAlchemyError as exc:
+        except IntegrityError as exc:
             raise HTTPException(status_code=409, detail="등록 중 데이터가 변경되었습니다. 미리보기 후 다시 시도해주세요.") from exc
+        except SQLAlchemyError as exc:
+            raise HTTPException(status_code=500, detail="접수 데이터를 등록하지 못했습니다. 잠시 후 다시 시도해주세요.") from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail="접수 데이터를 등록하지 못했습니다.") from exc
 
@@ -166,6 +168,7 @@ def read_recall_applications(
                 "phone_normalized": item.phone_normalized,
                 "serial_number": item.serial_number,
                 "current_status": item.current_status,
+                "application_date": item.application_date,
                 "created_at": item.created_at,
             }
             for item in result["items"]

@@ -142,6 +142,10 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.commit(workbook(row()))
         page = list_recall_applications(self.db, keyword="11112222", status=APPLICATION_RECEIVED, page=1, page_size=10)
         self.assertEqual((page["total"], page["items"][0].customer_name), (1, "홍길동"))
+        formatted_phone_page = list_recall_applications(
+            self.db, keyword="010-1111-2222", status=APPLICATION_RECEIVED, page=1, page_size=10
+        )
+        self.assertEqual(formatted_phone_page["total"], 1)
 
     def test_14_summary_only_increases_received(self):
         self.commit(workbook(row()))
@@ -204,6 +208,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["registered"], 1)
         self.assertEqual(listing.json()["items"][0]["customer_name"], "홍길동")
+        self.assertEqual(listing.json()["items"][0]["application_date"], "2026-09-22")
         self.assertEqual(summary.json(), {"total": 0, "received": 1, "orders": 0, "shipped": 0})
 
 

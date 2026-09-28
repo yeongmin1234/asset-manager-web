@@ -227,15 +227,15 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
 
         {isApplication ? (
           <>
-            <form className="online-upload-form" onSubmit={handlePreview}>
+            {!registrationResult && <form className="online-upload-form" onSubmit={handlePreview}>
               <label htmlFor="online-application-file">접수 데이터 Excel (.xlsx, 최대 5MB)</label>
               <div className="online-upload-controls">
                 <input id="online-application-file" ref={fileInputRef} type="file" accept=".xlsx" onChange={handleFileChange} disabled={isBusy} />
                 <button type="submit" className="primary-action" disabled={!file || isBusy}>{isLoading ? "분석 중..." : "미리보기"}</button>
               </div>
-            </form>
+            </form>}
             {error && <p className="online-upload-error" role="alert">{error}</p>}
-            {preview && (
+            {preview && !registrationResult && (
               <div className="online-preview-result">
                 <p className="online-preview-sheet">시트: {preview.sheet_name} · 전체 행은 헤더를 제외한 행 수입니다.</p>
                 <div className="online-preview-summary" aria-label="Excel 미리보기 요약">

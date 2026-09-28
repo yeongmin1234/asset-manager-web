@@ -25,7 +25,7 @@ function RecallTable({ items = [], isLoading = false, error = "" }) {
         <td title={item.phone_normalized ? `비교용: ${item.phone_normalized}` : undefined}>{formatPhoneForDisplay(item.phone_original) || "-"}</td>
         <td>{item.serial_number || "-"}</td>
         <td><span className="online-recall-status">{displayRecallStatus(item.current_status)}</span></td>
-        <td>{formatDate(item.created_at)}</td>
+        <td>{formatDate(item.application_date)}</td>
         <td>-</td>
         <td>-</td>
       </tr>

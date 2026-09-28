@@ -2,6 +2,7 @@
 
 import hashlib
 import math
+import re
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
@@ -175,11 +176,16 @@ def list_recall_applications(
 ) -> dict:
     conditions = []
     if keyword and keyword.strip():
-        pattern = "%{}%".format(keyword.strip())
+        search_text = keyword.strip()
+        pattern = "%{}%".format(search_text)
+        phone_search = re.sub(r"[\s-]", "", search_text)
+        phone_conditions = [RecallApplication.phone_normalized.ilike(pattern)]
+        if phone_search != search_text and phone_search.isdigit():
+            phone_conditions.append(RecallApplication.phone_normalized.ilike("%{}%".format(phone_search)))
         conditions.append(or_(
             RecallApplication.customer_name.ilike(pattern),
             RecallApplication.phone_original.ilike(pattern),
-            RecallApplication.phone_normalized.ilike(pattern),
+            *phone_conditions,
             RecallApplication.serial_number.ilike(pattern),
         ))
     if status:

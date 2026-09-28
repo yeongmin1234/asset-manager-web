@@ -19,8 +19,9 @@ function RecallManagementPage() {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadData = useCallback(async (targetPage = page, filters = appliedFilters) => {
+  const loadData = useCallback(async (targetPage, filters) => {
     setIsLoading(true);
     setLoadError("");
     try {
@@ -37,9 +38,9 @@ function RecallManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [appliedFilters, page]);
+  }, []);
 
-  useEffect(() => { loadData(page, appliedFilters); }, [loadData, page, appliedFilters]);
+  useEffect(() => { loadData(page, appliedFilters); }, [loadData, page, appliedFilters, refreshKey]);
 
   const handleSearch = () => {
     setPage(1);
@@ -53,9 +54,9 @@ function RecallManagementPage() {
     setAppliedFilters(cleared);
   };
 
-  const handleRegistered = async () => {
+  const handleRegistered = () => {
     setPage(1);
-    await loadData(1, appliedFilters);
+    setRefreshKey((value) => value + 1);
   };
 
   return (
