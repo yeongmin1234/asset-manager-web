@@ -4,11 +4,12 @@
 
 ## 운영 기준
 
-- Backend: Python venv + uvicorn, 포트 `8001`
+- Backend: Python venv + uvicorn, 포트 `8010`
 - Frontend: `frontend/dist` 정적 파일 제공, 포트 `3010`
 - DB: 신규 자산관리 전용 PostgreSQL 또는 전용 DB
 - 금지 포트: `80`, `8080`
 - 기존 SCM 서버, SCM MySQL, NAS 서비스는 변경하지 않습니다.
+- `full_deploy.sh`와 `deploy.sh`의 자동 실행 경로는 Docker 컨테이너를 중지하거나 재시작하지 않습니다.
 
 ## 스크립트
 

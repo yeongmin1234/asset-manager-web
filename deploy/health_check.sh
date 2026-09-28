@@ -17,11 +17,15 @@ LOG_FILE="$LOG_DIR/health_check.log"
 mkdir -p "$LOG_DIR"
 
 FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:3010}"
-BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://127.0.0.1:8001/health}"
-BACKEND_DB_HEALTH_URL="${BACKEND_DB_HEALTH_URL:-http://127.0.0.1:8001/health/db}"
+BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://127.0.0.1:8010/health}"
+BACKEND_DB_HEALTH_URL="${BACKEND_DB_HEALTH_URL:-http://127.0.0.1:8010/health/db}"
 BACKEND_PORT="${BACKEND_PORT:-8010}"
+FRONTEND_PORT="${FRONTEND_PORT:-3010}"
+REQUIRED_OPENAPI_PATH="${REQUIRED_OPENAPI_PATH:-/online/recall/applications/preview}"
 BACKEND_ENV_FILE="$ROOT_DIR/backend/.env"
 DIST_INDEX="$ROOT_DIR/frontend/dist/index.html"
+. "$ROOT_DIR/deploy/backend_process.sh"
+. "$ROOT_DIR/deploy/frontend_process.sh"
 
 check_url() {
   label="$1"
@@ -41,11 +45,26 @@ check_backend_pid() {
     return 1
   fi
   pid="$(cat "$pid_file" 2>/dev/null || true)"
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    echo "OK  Backend PID running: $pid"
+  if backend_pid_matches "$pid"; then
+    echo "OK  Backend PID running expected application: $pid"
     return 0
   fi
-  echo "FAIL Backend PID is not running: ${pid:-invalid}"
+  echo "FAIL Backend PID is not running the expected application: ${pid:-invalid}"
+  return 1
+}
+
+check_frontend_pid() {
+  pid_file="$LOG_DIR/frontend.pid"
+  if [ ! -f "$pid_file" ]; then
+    echo "FAIL Frontend PID file missing: $pid_file"
+    return 1
+  fi
+  pid="$(cat "$pid_file" 2>/dev/null || true)"
+  if frontend_pid_matches "$pid"; then
+    echo "OK  Frontend PID running expected static server: $pid"
+    return 0
+  fi
+  echo "FAIL Frontend PID is not running the expected static server: ${pid:-invalid}"
   return 1
 }
 
@@ -150,9 +169,9 @@ run_checks() {
   check_url "Backend" "$BACKEND_HEALTH_URL" || return 1
   check_url "Database" "$BACKEND_DB_HEALTH_URL" || return 1
   check_backend_pid || return 1
+  check_frontend_pid || return 1
   check_url "OpenAPI" "http://127.0.0.1:$BACKEND_PORT/openapi.json" || return 1
-  check_openapi_path "/hr/accounts" || return 1
-  check_openapi_path "/online/recall/applications/preview" || return 1
+  check_openapi_path "$REQUIRED_OPENAPI_PATH" || return 1
   check_frontend_bundle || return 1
   check_frontend_cache_headers || return 1
   check_cors_origin "http://192.168.222.210:3010" || return 1

@@ -33,65 +33,67 @@ if [ ! -d "$BACKEND_DIR/.venv" ]; then
 fi
 
 BACKEND_HOST="${BACKEND_HOST:-${HOST:-0.0.0.0}}"
-BACKEND_PORT="${BACKEND_PORT:-${PORT:-8001}}"
-
-is_port_in_use() {
-  if command -v ss >/dev/null 2>&1; then
-    ss -ltn 2>/dev/null | grep -q ":$BACKEND_PORT "
-  elif command -v netstat >/dev/null 2>&1; then
-    netstat -ltn 2>/dev/null | grep -q ":$BACKEND_PORT "
-  elif command -v lsof >/dev/null 2>&1; then
-    lsof -ti tcp:"$BACKEND_PORT" -sTCP:LISTEN >/dev/null 2>&1
-  elif command -v fuser >/dev/null 2>&1; then
-    fuser "$BACKEND_PORT/tcp" >/dev/null 2>&1
-  else
-    return 1
-  fi
-}
+BACKEND_PORT="${BACKEND_PORT:-${PORT:-8010}}"
+. "$ROOT_DIR/deploy/backend_process.sh"
 
 if [ -f "$PID_FILE" ]; then
   EXISTING_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
-  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
-    echo "Existing backend process found. Restarting pid=$EXISTING_PID"
-    "$ROOT_DIR/deploy/stop_backend.sh"
+  if backend_pid_matches "$EXISTING_PID"; then
+    echo "Existing asset-manager backend is running. Stop it before starting another. pid=$EXISTING_PID" >&2
+    exit 1
   else
     echo "Removing stale backend pid file. pid=${EXISTING_PID:-unknown}"
     rm -f "$PID_FILE"
   fi
 fi
 
-if command -v ss >/dev/null 2>&1 ||
-   command -v netstat >/dev/null 2>&1 ||
-   command -v lsof >/dev/null 2>&1 ||
-   command -v fuser >/dev/null 2>&1; then
-  if is_port_in_use; then
-    echo "Backend port $BACKEND_PORT is already in use. Run deploy/stop_backend.sh first."
+if backend_port_status; then
+  echo "Backend port $BACKEND_PORT is already in use; refusing to stop its listener." >&2
+  for listener_pid in $(backend_listener_pids | sort -u); do
+    if backend_pid_matches "$listener_pid"; then
+      echo "Existing asset-manager backend listener: pid=$listener_pid" >&2
+    else
+      echo "Unrelated or unverifiable listener: pid=$listener_pid" >&2
+    fi
+  done
+  exit 1
+else
+  port_result=$?
+  if [ "$port_result" -ne 1 ]; then
+    echo "Cannot verify that backend port $BACKEND_PORT is free." >&2
     exit 1
   fi
-else
-  echo "Port check skipped: no supported port inspection tool"
 fi
 
 cd "$BACKEND_DIR"
 . .venv/bin/activate
+if ! python -c "from app.main import app; print('IMPORT_OK')"; then
+  echo "Backend import check failed; startup cancelled." >&2
+  exit 1
+fi
 
 echo "Backend CORS origins: ${CORS_ORIGINS:-<application defaults>}"
 nohup python -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" >> "$LOG_FILE" 2>&1 &
 NEW_PID="$!"
+echo "$NEW_PID" > "$PID_FILE"
 
 attempt=1
 while [ "$attempt" -le 15 ]; do
   sleep 1
 
-  if ! kill -0 "$NEW_PID" 2>/dev/null; then
-    echo "Backend process exited during startup."
+  if ! backend_pid_matches "$NEW_PID"; then
+    echo "Backend process exited or did not match the expected command during startup."
     tail -n 50 "$LOG_FILE" 2>/dev/null || true
-    rm -f "$PID_FILE"
+    if kill -0 "$NEW_PID" 2>/dev/null; then
+      echo "Unverified process is still running; retaining PID file for inspection. pid=$NEW_PID" >&2
+    else
+      rm -f "$PID_FILE"
+    fi
     exit 1
   fi
 
-  if curl -fsS "http://127.0.0.1:$BACKEND_PORT/health" >/dev/null 2>&1; then
-    echo "$NEW_PID" > "$PID_FILE"
+  health_status="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$BACKEND_PORT/health" 2>/dev/null || true)"
+  if [ "$health_status" = "200" ] && backend_pid_matches "$NEW_PID"; then
     echo "Backend started. pid=$NEW_PID, port=$BACKEND_PORT, log=$LOG_FILE"
     exit 0
   fi
@@ -101,6 +103,12 @@ done
 
 echo "Backend health check timed out."
 tail -n 50 "$LOG_FILE" 2>/dev/null || true
-kill "$NEW_PID" 2>/dev/null || true
-rm -f "$PID_FILE"
+if backend_pid_matches "$NEW_PID"; then
+  kill "$NEW_PID" 2>/dev/null || true
+fi
+if kill -0 "$NEW_PID" 2>/dev/null; then
+  echo "Backend process remains alive after timeout; retaining PID file. pid=$NEW_PID" >&2
+else
+  rm -f "$PID_FILE"
+fi
 exit 1

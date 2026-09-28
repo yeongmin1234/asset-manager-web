@@ -10,13 +10,8 @@ if [[ ! -d .git ]]; then
   exit 1
 fi
 
-if [[ ! -x backend/.venv/bin/alembic ]]; then
-  echo "ERROR: Alembic executable not found: $PROJECT_DIR/backend/.venv/bin/alembic" >&2
-  exit 1
-fi
-
-if [[ ! -x deploy/deploy.sh || ! -x deploy/health_check.sh ]]; then
-  echo "ERROR: Existing deployment scripts are missing or not executable." >&2
+if [[ ! -x deploy/deploy.sh ]]; then
+  echo "ERROR: Deployment script is missing or not executable." >&2
   exit 1
 fi
 
@@ -26,20 +21,11 @@ echo "Project: $PROJECT_DIR"
 echo "Current branch: ${current_branch:-DETACHED_HEAD}"
 echo "Current commit: $current_commit"
 
-echo "[1/4] Pulling the latest Git changes..."
+echo "[1/2] Pulling the latest Git changes..."
 git pull --ff-only
 echo "Updated commit: $(git rev-parse --short HEAD)"
 
-echo "[2/4] Applying backend Alembic migrations..."
-(
-  cd -- "$PROJECT_DIR/backend"
-  ./.venv/bin/alembic upgrade head
-)
-
-echo "[3/4] Running the existing deployment script..."
+echo "[2/2] Running deployment, migration, and final health checks..."
 "$PROJECT_DIR/deploy/deploy.sh" --no-pull
-
-echo "[4/4] Running deployment health checks..."
-"$PROJECT_DIR/deploy/health_check.sh"
 
 echo "Asset Manager 운영 배포가 완료되었습니다."
