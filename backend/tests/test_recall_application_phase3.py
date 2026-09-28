@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.routers.recall_preview import router
 from app.core.auth import get_current_user
 from app.db.database import get_db
+from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.recall_application import (
     APPLICATION_RECEIVED,
     RecallApplication,
@@ -59,7 +60,7 @@ def workbook(*rows):
 class RecallApplicationPhase3Test(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        for table in (User.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
+        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
             table.create(self.engine, checkfirst=True)
         self.db = Session(self.engine)
 
@@ -178,7 +179,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         app = FastAPI()
         app.include_router(router)
         app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-            id=1, username="tester", name="테스터", role="user", menu_permissions=["dashboard"]
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["online_recall"]
         )
         app.dependency_overrides[get_db] = lambda: self.db
         with TestClient(app) as client:
@@ -193,7 +194,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         app = FastAPI()
         app.include_router(router)
         app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-            id=1, username="tester", name="테스터", role="user", menu_permissions=["dashboard"]
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["online_recall"]
         )
         app.dependency_overrides[get_db] = lambda: self.db
         with patch("app.api.routers.recall_preview.record_audit_log", return_value=True):
@@ -210,6 +211,26 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual(listing.json()["items"][0]["customer_name"], "홍길동")
         self.assertEqual(listing.json()["items"][0]["application_date"], "2026-09-22")
         self.assertEqual(summary.json(), {"total": 0, "received": 1, "orders": 0, "shipped": 0})
+
+    def test_hidden_recall_menu_blocks_commit_list_and_summary(self):
+        self.db.add(MenuVisibilitySetting(menu_key="online_recall", visible=False))
+        self.db.commit()
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["online_recall"]
+        )
+        app.dependency_overrides[get_db] = lambda: self.db
+        with TestClient(app) as client:
+            commit = client.post(
+                "/online/recall/applications/commit",
+                data={"selected_row_numbers": "[2]"},
+                files={"file": ("sample.xlsx", workbook(row()), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            )
+            listing = client.get("/online/recall/applications")
+            summary = client.get("/online/recall/applications/summary")
+        self.assertEqual([commit.status_code, listing.status_code, summary.status_code], [403, 403, 403])
+        self.assertEqual(self.count(RecallApplication), 0)
 
 
 if __name__ == "__main__":

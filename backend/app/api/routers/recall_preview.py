@@ -6,11 +6,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.db.database import get_db
+from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.user import User
 from app.services.audit_log_service import record_audit_log
 from app.services.recall_application_excel import RecallApplicationExcelError, preview_recall_applications
@@ -26,9 +28,17 @@ router = APIRouter(prefix="/online/recall/applications", tags=["online-recall"])
 MAX_PREVIEW_FILE_SIZE = 5 * 1024 * 1024
 
 
-def require_recall_preview_access(user: User = Depends(get_current_user)) -> User:
-    if user.role != "admin" and "dashboard" not in (user.menu_permissions or []):
+def require_recall_preview_access(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    if user.role != "admin" and "online_recall" not in (user.menu_permissions or []):
         raise HTTPException(status_code=403, detail="이 메뉴에 접근할 권한이 없습니다.")
+    visibility = db.scalar(
+        select(MenuVisibilitySetting.visible).where(MenuVisibilitySetting.menu_key == "online_recall")
+    )
+    if visibility is False:
+        raise HTTPException(status_code=403, detail="현재 숨김 처리된 메뉴입니다.")
     return user
 
 

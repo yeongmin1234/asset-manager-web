@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.routers.recall_preview import router
 from app.core.auth import get_current_user
 from app.db.database import get_db
+from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.recall_application import RecallApplication, RecallApplicationUploadBatch, RecallStatusHistory
 from app.models.user import User
 from app.services.recall_application_excel import EXCEL_COLUMNS
@@ -49,13 +50,13 @@ class RecallPreviewApiTest(unittest.TestCase):
 
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        for table in (User.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
+        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
             table.create(self.engine, checkfirst=True)
         self.db = Session(self.engine)
         self.app = FastAPI()
         self.app.include_router(router)
         self.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-            id=1, username="tester", name="테스터", role="user", menu_permissions=["dashboard"]
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["online_recall"]
         )
         self.app.dependency_overrides[get_db] = lambda: self.db
         self.client = TestClient(self.app)
@@ -108,10 +109,15 @@ class RecallPreviewApiTest(unittest.TestCase):
         response = self.upload("huge-range.xlsx", output.getvalue())
         self.assertEqual(response.status_code, 400)
 
-    def test_existing_dashboard_permission_is_required(self):
+    def test_online_recall_permission_is_required(self):
         self.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-            role="user", menu_permissions=["assets"]
+            role="user", menu_permissions=["dashboard"]
         )
+        self.assertEqual(self.upload("sample.xlsx", sample_excel()).status_code, 403)
+
+    def test_global_visibility_off_blocks_preview_even_with_permission(self):
+        self.db.add(MenuVisibilitySetting(menu_key="online_recall", visible=False))
+        self.db.commit()
         self.assertEqual(self.upload("sample.xlsx", sample_excel()).status_code, 403)
 
 

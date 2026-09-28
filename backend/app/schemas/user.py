@@ -20,6 +20,8 @@ ALLOWED_MENU_PERMISSIONS = {
     "statistics",
     "changelog",
     "hr_list",
+    "online_home",
+    "online_recall",
 }
 
 LEGACY_MENU_PERMISSION_MAP = {

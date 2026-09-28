@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { API_BASE_URL } from "../api/client.js";
+import { MENU_VISIBILITY_GROUPS } from "../config/menuDefinitions.js";
 
 const currentFrontendUrl =
   typeof window !== "undefined" && window.location?.origin
@@ -20,55 +21,6 @@ const SETTINGS_SECTIONS = [
   { id: "admin", label: "관리자 설정", description: "보호 메뉴와 인증 상태", icon: "P" },
   { id: "handover", label: "인수인계", description: "담당자 변경 시 확인", icon: "H" },
   { id: "caution", label: "주의사항", description: "절대 금지 항목", icon: "X" },
-];
-
-const MENU_VISIBILITY_ITEMS = [
-  { id: "beverage-orders", menuKey: "drink_orders", label: "음료주문기록", description: "음료 주문 기록 메뉴" },
-  { id: "work-manuals", menuKey: "work_manual", label: "업무설명서", description: "사내 업무설명서 메뉴" },
-  { id: "vendor-contacts", menuKey: "vendor_contacts", label: "업체연락처", description: "업체 연락처 관리 메뉴" },
-  { id: "expiration_schedules", menuKey: "expiration_schedules", label: "점검·만료 관리", description: "점검 및 만료 일정 관리 메뉴" },
-  { id: "software", menuKey: "software", label: "SW 현황", description: "소프트웨어 라이선스 현황 메뉴" },
-  { id: "vehicles", menuKey: "company_cars", label: "법인차량 관리", description: "법인차량과 보험 이력 관리 메뉴" },
-  {
-    id: "excel",
-    menuKey: "excel_management",
-    label: "엑셀 관리",
-    description: "엑셀 양식 다운로드와 일괄 등록 메뉴",
-  },
-  {
-    id: "stats",
-    menuKey: "statistics",
-    label: "통계 / 리포트",
-    description: "자산 통계와 리포트 메뉴",
-  },
-  {
-    id: "history",
-    menuKey: "history",
-    label: "변경 이력",
-    description: "자산 변경 이력 조회 메뉴",
-  },
-  {
-    id: "install-library",
-    menuKey: "install_files",
-    label: "설치자료실",
-    description: "사내 설치 파일 자료실 메뉴",
-  },
-  {
-    id: "scm",
-    menuKey: "scm",
-    label: "SCM",
-    description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴",
-  },
-  { id: "access-info", menuKey: "access_info", label: "접속정보 관리", description: "서버 및 시스템 접속정보 관리 메뉴" },
-  { id: "equipment-status", menuKey: "equipment_status", label: "장비 현황", description: "네트워크 및 주요 장비 상태 메뉴" },
-  {
-    id: "paju-fire-insurance",
-    menuKey: "fire_insurance",
-    label: "파주화재보험",
-    description: "파주 화재보험 계약 관리 메뉴",
-  },
-  { id: "hr-list", menuKey: "hr_list", label: "인사업무 리스트", description: "직원별 시스템 계정 현황 메뉴" },
-  { id: "users", menuKey: "user_management", label: "사용자 관리", description: "사용자와 접속기록 관리 메뉴" },
 ];
 
 const PROTECTED_MENU_ITEMS = [
@@ -259,29 +211,35 @@ function SettingsPage({
             title="메뉴 표시 설정"
             description="사이드바에 표시할 메뉴를 선택합니다. 숨김 처리해도 기능은 삭제되지 않습니다."
           >
-            <div className="settings-menu-visibility-list">
-              {MENU_VISIBILITY_ITEMS.map((item) => {
-                const isVisible = menuVisibility[item.menuKey] !== false;
-
-                return (
-                  <label className="settings-menu-toggle" key={item.id}>
-                    <span className="settings-menu-toggle-text">
-                      <strong>{item.label}</strong>
-                      <small>{item.description}</small>
-                    </span>
-                    <span className="settings-menu-toggle-control">
-                      <input
-                        type="checkbox"
-                        checked={isVisible}
-                        onChange={(event) => {
-                          Promise.resolve(onMenuVisibilityChange?.(item.menuKey, event.target.checked)).catch(() => {});
-                        }}
-                      />
-                      <span className="settings-menu-toggle-switch" aria-hidden="true" />
-                    </span>
-                  </label>
-                );
-              })}
+            <div className="settings-menu-visibility-groups">
+              {MENU_VISIBILITY_GROUPS.map((group) => (
+                <section className="settings-menu-visibility-group" key={group.title} aria-label={`${group.title} 메뉴 표시`}>
+                  <h3>{group.title}</h3>
+                  <div className="settings-menu-visibility-list">
+                    {group.items.map((item) => {
+                      const isVisible = menuVisibility[item.menuKey] !== false;
+                      return (
+                        <label className="settings-menu-toggle" key={item.id}>
+                          <span className="settings-menu-toggle-text">
+                            <strong>{item.permissionLabel || item.label}</strong>
+                            <small>{item.description}</small>
+                          </span>
+                          <span className="settings-menu-toggle-control">
+                            <input
+                              type="checkbox"
+                              checked={isVisible}
+                              onChange={(event) => {
+                                Promise.resolve(onMenuVisibilityChange?.(item.menuKey, event.target.checked)).catch(() => {});
+                              }}
+                            />
+                            <span className="settings-menu-toggle-switch" aria-hidden="true" />
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
             {menuVisibilityError ? <p className="settings-inline-error">{menuVisibilityError}</p> : null}
             <p className="settings-muted">

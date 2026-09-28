@@ -1,56 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getSidebarMenuLabels, updateSidebarMenuLabel } from "../api/client.js";
+import { MENU_GROUPS, MENU_ITEMS } from "../config/menuDefinitions.js";
+import { canAccessSection } from "../utils/menuPermissions.js";
 
-export const MENU_ITEMS = [
-  { id: "dashboard", label: "대시보드", icon: "⌂", menuKey: "dashboard", routePath: "/dashboard" },
-  { id: "beverage-orders", label: "음료주문기록", icon: "▥", menuKey: "drink_orders", routePath: "/beverage-orders" },
-  { id: "work-manuals", label: "업무설명서", icon: "▤", menuKey: "work_manual", routePath: "/work-manuals" },
-  { id: "vendor-contacts", label: "업체연락처", icon: "☎", menuKey: "vendor_contacts", routePath: "/vendor-contacts" },
-  { id: "expiration_schedules", label: "점검·만료 관리", icon: "!", menuKey: "expiration_schedules", routePath: "/expiration-schedules" },
-  { id: "assets", label: "자산 관리", icon: "▣", menuKey: "assets", routePath: "/assets" },
-  { id: "software", label: "SW 현황", icon: "▧", menuKey: "software", routePath: "/software" },
-  { id: "vehicles", label: "법인차량 관리", icon: "▦", menuKey: "company_cars", routePath: "/vehicles" },
-  { id: "paju-fire-insurance", label: "파주화재보험", icon: "▨", menuKey: "fire_insurance", routePath: "/paju-fire-insurance" },
-  { id: "access-info", label: "접속정보 관리", icon: "⌁", menuKey: "access_info", routePath: "/access-info" },
-  { id: "equipment-status", label: "장비 현황", icon: "◌", menuKey: "equipment_status", routePath: "/equipment-status" },
-  { id: "excel", label: "엑셀 관리", icon: "▤", menuKey: "excel_management", routePath: "/excel" },
-  { id: "stats", label: "통계 / 리포트", icon: "▥", menuKey: "statistics", routePath: "/statistics" },
-  { id: "history", label: "변경 이력", icon: "◷", menuKey: "history", routePath: "/history" },
-  { id: "install-library", label: "설치자료실", icon: "▩", menuKey: "install_files", routePath: "/install-library" },
-  { id: "hr-list", label: "리스트", accessLabel: "인사업무 > 리스트", icon: "♙", menuKey: "hr_list", routePath: "/hr/list" },
-  { id: "online-home", label: "온라인 TEAM 홈", icon: "⌂", menuKey: "online_home", routePath: "/online" },
-  { id: "online-recall", label: "리콜 관리", icon: "▤", menuKey: "online_recall", routePath: "/online/recall" },
-  { id: "scm", label: "SCM", icon: "S", menuKey: "scm", routePath: "/scm" },
-  { id: "users", label: "사용자 관리", icon: "♙", menuKey: "user_management", routePath: "/admin/users" },
-  { id: "settings", label: "설정", icon: "⚙", menuKey: "settings", routePath: "/settings" },
-];
-
-const MENU_GROUPS = [
-  {
-    title: "업무",
-    itemIds: ["dashboard", "beverage-orders", "work-manuals", "vendor-contacts", "expiration_schedules", "install-library"],
-  },
-  {
-    title: "자산",
-    itemIds: ["assets", "software", "vehicles", "paju-fire-insurance", "access-info", "equipment-status"],
-  },
-  {
-    title: "인사업무",
-    itemIds: ["hr-list"],
-  },
-  {
-    title: "온라인 Team",
-    itemIds: ["online-home", "online-recall"],
-  },
-  {
-    title: "오프라인 Team",
-    itemIds: [],
-  },
-  {
-    title: "관리",
-    itemIds: ["excel", "stats", "history", "scm", "users", "settings"],
-  },
-];
+export { MENU_ITEMS } from "../config/menuDefinitions.js";
 const SIDEBAR_MENU_ORDER_STORAGE_KEY = "sidebar-menu-order-v1";
 
 function PortalSidebar({
@@ -77,10 +30,9 @@ function PortalSidebar({
       .catch(() => {});
     return () => { active = false; };
   }, []);
-  const visibleMenuItems = MENU_ITEMS.filter(
-    (item) =>
-      menuVisibility[item.menuKey] !== false &&
-      (!allowedMenuIds || allowedMenuIds.includes(item.id)),
+  const allowedSections = new Set(allowedMenuIds || []);
+  const visibleMenuItems = MENU_ITEMS.filter((item) =>
+    canAccessSection(item.id, menuVisibility, allowedSections, isAdmin),
   );
   const visibleMenuItemsById = visibleMenuItems.reduce(
     (itemsById, item) => ({ ...itemsById, [item.id]: item }),

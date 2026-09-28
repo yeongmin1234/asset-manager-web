@@ -1,19 +1,10 @@
-export const MENU_PERMISSION_OPTIONS = [
-  ["dashboard", "대시보드"],
-  ["drink_orders", "음료주문기록"],
-  ["work_manual", "업무설명서"],
-  ["vendor_contacts", "업체연락처"],
-  ["expiration_schedules", "점검·만료 관리"],
-  ["assets", "자산 관리"],
-  ["software", "SW 현황"],
-  ["company_cars", "법인차량 관리"],
-  ["fire_insurance", "파주화재보험"],
-  ["access_info", "접속정보 관리"],
-  ["equipment_status", "장비 현황"],
-  ["statistics", "통계 / 리포트"],
-  ["changelog", "변경 이력"],
-  ["hr_list", "인사업무 리스트"],
-];
+import { MENU_ITEMS, MENU_ITEMS_BY_ID, MENU_PERMISSION_GROUPS } from "../config/menuDefinitions.js";
+
+export { MENU_PERMISSION_GROUPS } from "../config/menuDefinitions.js";
+
+export const MENU_PERMISSION_OPTIONS = MENU_PERMISSION_GROUPS.flatMap((group) =>
+  group.items.map((item) => [item.permissionKey, item.permissionLabel || item.label]),
+);
 
 const MENU_PERMISSION_KEYS = new Set(MENU_PERMISSION_OPTIONS.map(([id]) => id));
 
@@ -28,24 +19,9 @@ const LEGACY_PERMISSION_MAP = {
   "hr-list": "hr_list",
 };
 
-const SECTION_PERMISSION_MAP = {
-  dashboard: "dashboard",
-  "beverage-orders": "drink_orders",
-  "work-manuals": "work_manual",
-  "vendor-contacts": "vendor_contacts",
-  expiration_schedules: "expiration_schedules",
-  assets: "assets",
-  software: "software",
-  vehicles: "company_cars",
-  "paju-fire-insurance": "fire_insurance",
-  "access-info": "access_info",
-  "equipment-status": "equipment_status",
-  stats: "statistics",
-  history: "changelog",
-  "hr-list": "hr_list",
-  "online-home": "dashboard",
-  "online-recall": "dashboard",
-};
+const SECTION_PERMISSION_MAP = Object.fromEntries(
+  MENU_ITEMS.filter((item) => item.permissionKey).map((item) => [item.id, item.permissionKey]),
+);
 
 export function getPermissionForSection(sectionId) {
   return SECTION_PERMISSION_MAP[sectionId] || sectionId;
@@ -56,6 +32,14 @@ export function getAllowedSectionIds(menuPermissions = []) {
   return Object.entries(SECTION_PERMISSION_MAP)
     .filter(([, permission]) => permissionSet.has(permission))
     .map(([sectionId]) => sectionId);
+}
+
+export function canAccessSection(sectionId, visibility, allowedSections, isAdmin) {
+  const item = MENU_ITEMS_BY_ID[sectionId];
+  return Boolean(
+    item && visibility?.[item.menuKey] !== false &&
+    (isAdmin || allowedSections?.has(sectionId)),
+  );
 }
 
 export function normalizeMenuPermissions(values) {

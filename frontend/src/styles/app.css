@@ -1806,6 +1806,27 @@ p {
   gap: 8px;
 }
 
+.settings-menu-visibility-groups,
+.user-permission-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-menu-visibility-group,
+.user-permission-group {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.settings-menu-visibility-group h3,
+.user-permission-group h4 {
+  color: #334155;
+  font-size: 0.88rem;
+  margin: 0 0 9px;
+}
+
 .settings-menu-toggle {
   align-items: center;
   background: #fbfdff;
@@ -10055,9 +10076,17 @@ button:disabled,
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+  max-height: min(90vh, 900px);
   max-width: 620px;
+  overflow-y: auto;
   padding: 20px;
   width: 100%;
+}
+
+.user-permission-admin-note {
+  color: #64748b;
+  font-size: 0.78rem;
+  margin: 0;
 }
 
 .user-permission-modal-heading {

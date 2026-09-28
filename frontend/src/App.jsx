@@ -46,6 +46,7 @@ import OnlineTeamHomePage from "./components/online/OnlineTeamHomePage.jsx";
 import RecallManagementPage from "./components/online/RecallManagementPage.jsx";
 import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
 import PortalSidebar, { MENU_ITEMS } from "./components/PortalSidebar.jsx";
+import { DEFAULT_MENU_VISIBILITY } from "./config/menuDefinitions.js";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
 import ScmPage from "./components/ScmPage.jsx";
@@ -63,7 +64,7 @@ import {
   SortSelect,
   sortItems,
 } from "./utils/sortOptions.jsx";
-import { getAllowedSectionIds } from "./utils/menuPermissions.js";
+import { canAccessSection, getAllowedSectionIds } from "./utils/menuPermissions.js";
 import useMenuAccessLog from "./hooks/useMenuAccessLog.js";
 import "./styles/app.css";
 
@@ -86,29 +87,6 @@ const INITIAL_STATS_SUMMARY = {
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "assetManager.sidebarCollapsed";
 const PROTECTED_MENU_STORAGE_KEY = "assetManager.protectedMenus";
 const ADMIN_AUTH_STORAGE_KEY = "assetManager.adminAuth";
-const DEFAULT_MENU_VISIBILITY = {
-  dashboard: true,
-  drink_orders: true,
-  work_manual: true,
-  vendor_contacts: true,
-  expiration_schedules: true,
-  assets: true,
-  software: true,
-  company_cars: true,
-  fire_insurance: true,
-  access_info: true,
-  equipment_status: true,
-  excel_management: true,
-  statistics: true,
-  history: true,
-  install_files: true,
-  hr_list: true,
-  online_home: true,
-  online_recall: true,
-  scm: true,
-  user_management: true,
-  settings: true,
-};
 const SECTION_MENU_KEYS = Object.fromEntries(MENU_ITEMS.map((item) => [item.id, item.menuKey]));
 const DEFAULT_PROTECTED_MENUS = {
   software: false,
@@ -172,7 +150,7 @@ function App({ currentUser, onLogout }) {
     }
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   });
-  const [menuVisibility, setMenuVisibility] = useState(DEFAULT_MENU_VISIBILITY);
+  const [menuVisibility, setMenuVisibility] = useState(() => mergeMenuVisibility());
   const [menuVisibilityError, setMenuVisibilityError] = useState("");
   const [protectedMenus, setProtectedMenus] = useState(() => getStoredProtectedMenus());
   const [adminStatus, setAdminStatus] = useState({
@@ -243,7 +221,7 @@ function App({ currentUser, onLogout }) {
     let active = true;
     getMenuVisibility()
       .then((response) => {
-        if (active) setMenuVisibility({ ...DEFAULT_MENU_VISIBILITY, ...(response?.visibility || {}) });
+        if (active) setMenuVisibility(mergeMenuVisibility(response?.visibility));
       })
       .catch(() => { if (active) setMenuVisibilityError("메뉴 표시 설정을 불러오지 못했습니다."); });
     return () => { active = false; };
@@ -668,7 +646,7 @@ function App({ currentUser, onLogout }) {
       activity: "history",
     };
     const nextSection = sectionMap[sectionId] || sectionId;
-    if (!isAdmin && !allowedSections.has(nextSection)) {
+    if (!canAccessSection(nextSection, menuVisibility, allowedSections, isAdmin)) {
       setAccessDeniedSection(nextSection);
       setActiveSection(nextSection);
       return;
@@ -823,7 +801,7 @@ function App({ currentUser, onLogout }) {
     setMenuVisibilityError("");
     try {
       const response = await updateMenuVisibility(menuKey, isVisible);
-      setMenuVisibility({ ...DEFAULT_MENU_VISIBILITY, ...(response?.visibility || {}) });
+      setMenuVisibility(mergeMenuVisibility(response?.visibility));
       if (!isVisible && SECTION_MENU_KEYS[activeSection] === menuKey) {
         setActiveSection("dashboard");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -963,11 +941,12 @@ function App({ currentUser, onLogout }) {
   );
 
   const renderActiveSection = () => {
-    if (accessDeniedSection || (!isAdmin && !allowedSections.has(activeSection))) {
+    const isGloballyHidden = menuVisibility[SECTION_MENU_KEYS[activeSection]] === false;
+    if (accessDeniedSection || !canAccessSection(activeSection, menuVisibility, allowedSections, isAdmin)) {
       return (
         <section className="access-denied-card">
           <h2>접근 권한이 없습니다.</h2>
-          <p>이 메뉴는 관리자만 사용할 수 있습니다.</p>
+          <p>{isGloballyHidden ? "현재 표시되지 않는 메뉴입니다." : "이 메뉴에 접근할 권한이 없습니다."}</p>
           <button type="button" onClick={() => handleNavigate("dashboard")}>대시보드로 이동</button>
         </section>
       );
@@ -1435,6 +1414,15 @@ function getSectionFromPath() {
   if (window.location.pathname === "/network" || window.location.pathname === "/network-status") return "equipment-status";
   if (/^\/work-manuals\/\d+$/.test(window.location.pathname)) return "work-manuals";
   return MENU_ITEMS.find((item) => item.routePath === window.location.pathname)?.id || "dashboard";
+}
+
+function mergeMenuVisibility(visibility = {}) {
+  return {
+    ...DEFAULT_MENU_VISIBILITY,
+    online_home: visibility.online_home === true,
+    online_recall: visibility.online_recall === true,
+    ...visibility,
+  };
 }
 
 function getWorkManualIdFromPath() {

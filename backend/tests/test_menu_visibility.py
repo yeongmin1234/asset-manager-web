@@ -47,6 +47,16 @@ class MenuVisibilityTest(unittest.TestCase):
         self.assertEqual(first["after_data"]["visible"], False)
         self.assertEqual(first["changed_fields"], ["visible"])
 
+    def test_online_visibility_is_independent_of_existing_setting(self):
+        self.db.add(MenuVisibilitySetting(menu_key="statistics", visible=False))
+        self.db.commit()
+        with patch("app.api.routers.menu_visibility.record_audit_log"):
+            hidden = update_menu_visibility("online_recall", MenuVisibilityUpdate(visible=False), make_request(), self.db, make_user())
+            shown = update_menu_visibility("online_home", MenuVisibilityUpdate(visible=True), make_request(), self.db, make_user())
+        self.assertFalse(hidden.visibility["online_recall"])
+        self.assertTrue(shown.visibility["online_home"])
+        self.assertFalse(shown.visibility["statistics"])
+
     def test_always_visible_menus_cannot_be_hidden(self):
         for menu_key in ("dashboard", "assets", "settings"):
             with self.assertRaises(HTTPException) as context:

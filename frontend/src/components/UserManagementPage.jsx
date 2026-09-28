@@ -8,9 +8,10 @@ import {
 } from "../api/client.js";
 import {
   haveSameMenuPermissions,
-  MENU_PERMISSION_OPTIONS,
+  MENU_PERMISSION_GROUPS,
   normalizeMenuPermissions,
 } from "../utils/menuPermissions.js";
+import { ADMIN_ONLY_MENU_ITEMS } from "../config/menuDefinitions.js";
 import LoginAccessLogTab from "./LoginAccessLogTab.jsx";
 import AuditLogTab from "./AuditLogTab.jsx";
 
@@ -281,19 +282,11 @@ function UserManagementPage({ currentUser }) {
         <button type="submit" className="user-create-submit" disabled={state.savingId !== null}>사용자 생성</button>
         <details className="user-create-permissions">
           <summary>기본 메뉴 권한</summary>
-          <div className="user-permission-grid">
-            {MENU_PERMISSION_OPTIONS.map(([id, label]) => (
-              <label key={id}>
-                <input
-                  type="checkbox"
-                  checked={createForm.role === "admin" || createForm.menu_permissions.includes(id)}
-                  disabled={createForm.role === "admin"}
-                  onChange={() => toggleCreatePermission(id)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
+          <MenuPermissionGroups
+            selected={createForm.menu_permissions}
+            role={createForm.role}
+            onToggle={toggleCreatePermission}
+          />
         </details>
       </form>
 
@@ -366,14 +359,11 @@ function UserManagementPage({ currentUser }) {
                 <div><h3>{user.username} 메뉴 권한</h3><p>{draft.role === "admin" ? "admin은 모든 메뉴에 접근할 수 있습니다." : "허용할 메뉴를 선택하세요."}</p></div>
                 <button type="button" className="ghost-button" onClick={() => setPermissionUserId(null)}>닫기</button>
               </div>
-              <div className="user-permission-grid">
-                {MENU_PERMISSION_OPTIONS.map(([id, label]) => (
-                  <label key={id}>
-                    <input type="checkbox" checked={draft.role === "admin" || draft.menu_permissions.includes(id)} disabled={draft.role === "admin"} onChange={() => togglePermission(user.id, id)} />
-                    {label}
-                  </label>
-                ))}
-              </div>
+              <MenuPermissionGroups
+                selected={draft.menu_permissions}
+                role={draft.role}
+                onToggle={(permission) => togglePermission(user.id, permission)}
+              />
               <div className="user-permission-modal-actions">
                 <button type="button" disabled={state.savingId !== null} onClick={async () => {
                   const saved = await handleUpdate(user.id, "메뉴 권한을 저장했습니다.");
@@ -408,6 +398,43 @@ function UserManagementPage({ currentUser }) {
       ) : null}
       </> : activeTab === "access-logs" ? <LoginAccessLogTab /> : <AuditLogTab />}
     </section>
+  );
+}
+
+function MenuPermissionGroups({ selected, role, onToggle }) {
+  return (
+    <div className="user-permission-groups">
+      {MENU_PERMISSION_GROUPS.map((group) => (
+        <section className="user-permission-group" key={group.title} aria-label={`${group.title} 메뉴 권한`}>
+          <h4>{group.title}</h4>
+          <div className="user-permission-grid">
+            {group.items.map((item) => (
+              <label key={item.permissionKey}>
+                <input
+                  type="checkbox"
+                  checked={role === "admin" || selected.includes(item.permissionKey)}
+                  disabled={role === "admin"}
+                  onChange={() => onToggle(item.permissionKey)}
+                />
+                {item.permissionLabel || item.label}
+              </label>
+            ))}
+          </div>
+        </section>
+      ))}
+      <section className="user-permission-group" aria-label="관리 메뉴 권한">
+        <h4>관리</h4>
+        <div className="user-permission-grid">
+          {ADMIN_ONLY_MENU_ITEMS.map((item) => (
+            <label key={item.id}>
+              <input type="checkbox" checked={role === "admin"} disabled />
+              {item.label}
+            </label>
+          ))}
+        </div>
+        <p className="user-permission-admin-note">관리자 역할에서만 사용할 수 있습니다.</p>
+      </section>
+    </div>
   );
 }
 
