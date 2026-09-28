@@ -33,7 +33,7 @@ class DirectDeploySafetyTest(unittest.TestCase):
         self.root = Path(self.temp.name)
         for name in ("deploy", "logs", "backend/.venv/bin", "backend/app", "frontend/dist", "bin"):
             (self.root / name).mkdir(parents=True, exist_ok=True)
-        (self.root / "backend/.venv/bin/activate").write_text("# test venv\n", encoding="utf-8")
+        (self.root / "backend/.venv/bin/activate").write_text('PATH="$NAS_PROJECT_DIR/bin:$PATH"; export PATH\n', encoding="utf-8")
         (self.root / "backend/app/main.py").write_text("app = object()\n", encoding="utf-8")
         (self.root / "frontend/package.json").write_text("{}\n", encoding="utf-8")
         (self.root / "frontend/package-lock.json").write_text("{}\n", encoding="utf-8")
@@ -50,6 +50,19 @@ class DirectDeploySafetyTest(unittest.TestCase):
         path = self.root / relative_path
         path.write_text(content, encoding="utf-8")
         path.chmod(0o755)
+
+    def init_git_checkout(self):
+        (self.root / ".gitignore").write_text(
+            "bin/\nlogs/\nbackend/.venv/\nfrontend/dist/\nfrontend/node_modules/\n"
+            "deploy/test.env\ndeploy/*.sh\nfirst-build-failed\nstarted\nstopped\n",
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        subprocess.run(["git", "-C", str(self.root), "add", ".gitignore", "frontend/package.json", "frontend/package-lock.json", "backend/app/main.py"], check=True)
+        subprocess.run([
+            "git", "-C", str(self.root), "-c", "user.name=Deploy Test", "-c", "user.email=deploy-test@example.invalid",
+            "commit", "-qm", "test checkout",
+        ], check=True)
 
     def run_script(self, filename, *args, extra_env=None):
         env = self.env.copy()
@@ -140,12 +153,7 @@ backend_listener_pids() { :; }
         self.assertFalse((self.root / "logs/backend.pid").exists())
 
     def test_failed_frontend_build_preserves_previous_dist_and_never_stops(self):
-        self.write("bin/git", """#!/bin/sh
-case " $* " in
-  *" log "*) echo "test commit" ;;
-esac
-exit 0
-""")
+        self.init_git_checkout()
         self.write("bin/python", """#!/bin/sh
 case "$1" in -c) echo IMPORT_OK ;; esac
 exit 0
@@ -162,11 +170,16 @@ exit 0
         self.assertFalse((self.root / "stopped").exists())
 
     def test_failed_stop_never_starts_backend_or_replaces_dist(self):
-        self.write("bin/git", "#!/bin/sh\nexit 0\n")
+        self.init_git_checkout()
         self.write("bin/python", "#!/bin/sh\nexit 0\n")
         self.write("bin/alembic", "#!/bin/sh\nexit 0\n")
         self.write("bin/npm", """#!/bin/sh
 if [ "$1" = "run" ]; then
+  if [ ! -f "$NAS_PROJECT_DIR/first-build-failed" ]; then
+    touch "$NAS_PROJECT_DIR/first-build-failed"
+    echo 'Cannot find module @rollup/rollup-linux-x64-gnu'
+    exit 1
+  fi
   mkdir -p "$5/assets"
   printf '<script type="module" src="/assets/index-test.js"></script>\\n' > "$5/index.html"
   printf 'ok\\n' > "$5/assets/index-test.js"
@@ -177,8 +190,50 @@ exit 0
         self.write("deploy/start_backend.sh", "#!/bin/sh\ntouch \"$NAS_PROJECT_DIR/started\"\n")
         result = self.run_script("deploy.sh", "--no-pull")
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Frontend build completed after Rollup optional dependency recovery.", result.stdout)
+        self.assertIn("== Restart services ==", result.stdout)
+        self.assertNotIn("Working tree is dirty", result.stdout)
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
+        self.assertEqual((self.root / "frontend/package-lock.json").read_text(encoding="utf-8"), "{}\n")
+        self.assertFalse(list((self.root / "frontend").glob("dist.next.*")))
         self.assertFalse((self.root / "started").exists())
+
+    def test_untracked_source_blocks_before_dependency_install(self):
+        self.init_git_checkout()
+        source_file = self.root / "frontend/src/new-feature.jsx"
+        source_file.parent.mkdir()
+        source_file.write_text("source change\n", encoding="utf-8")
+        self.write("bin/npm", "#!/bin/sh\ntouch \"$NAS_PROJECT_DIR/npm-ran\"\n")
+        result = self.run_script("deploy.sh", "--no-pull")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("frontend/src/new-feature.jsx", result.stdout)
+        self.assertFalse((self.root / "npm-ran").exists())
+
+    def test_tracked_source_blocks_before_dependency_install(self):
+        self.init_git_checkout()
+        (self.root / "frontend/package.json").write_text('{"changed": true}\n', encoding="utf-8")
+        self.write("bin/npm", "#!/bin/sh\ntouch \"$NAS_PROJECT_DIR/npm-ran\"\n")
+        result = self.run_script("deploy.sh", "--no-pull")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("frontend/package.json", result.stdout)
+        self.assertFalse((self.root / "npm-ran").exists())
+
+    def test_git_excludes_only_the_exact_generated_directory(self):
+        if not shutil.which("git"):
+            self.skipTest("git is required")
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        candidate = self.root / "frontend/dist.next.123"
+        candidate.mkdir()
+        (candidate / "index.html").write_text("generated", encoding="utf-8")
+        source_file = self.root / "frontend/src/new-feature.jsx"
+        source_file.parent.mkdir()
+        source_file.write_text("source", encoding="utf-8")
+        result = subprocess.run(
+            ["git", "-C", str(self.root), "status", "--porcelain", "--untracked-files=all", "--", ".", ":(exclude,literal)frontend/dist.next.123"],
+            check=True, text=True, encoding="utf-8", capture_output=True,
+        )
+        self.assertNotIn("frontend/dist.next.123", result.stdout)
+        self.assertIn("frontend/src/new-feature.jsx", result.stdout)
 
     def test_full_deploy_has_one_migration_and_one_health_path(self):
         wrapper = (REPO / "deploy/full_deploy.sh").read_text(encoding="utf-8")

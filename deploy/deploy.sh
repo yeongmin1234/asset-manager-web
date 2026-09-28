@@ -35,7 +35,21 @@ TMP_LOG="$LOG_DIR/deploy.$$.tmp"
 BUILD_LOG="$LOG_DIR/frontend-build.$$.tmp"
 PULL_LOG="$LOG_DIR/git-pull.$$.tmp"
 CANDIDATE_DIST=""
-trap 'rm -f "$TMP_LOG" "$BUILD_LOG" "$PULL_LOG"; if [ -n "$CANDIDATE_DIST" ] && [ -d "$CANDIDATE_DIST" ]; then rm -rf -- "$CANDIDATE_DIST"; fi' EXIT
+CANDIDATE_CREATED=false
+PREVIOUS_DIST=""
+trap 'rm -f "$TMP_LOG" "$BUILD_LOG" "$PULL_LOG"; if [ "$CANDIDATE_CREATED" = true ] && [ -d "$CANDIDATE_DIST" ]; then rm -rf -- "$CANDIDATE_DIST"; fi' EXIT
+
+git_status_without_generated_dist() {
+  # Exclude only this invocation's temporary directories, after the initial clean check.
+  set -- .
+  if [ -n "$CANDIDATE_DIST" ]; then
+    set -- "$@" ":(exclude,literal)frontend/dist.next.$$"
+  fi
+  if [ -n "$PREVIOUS_DIST" ]; then
+    set -- "$@" ":(exclude,literal)frontend/dist.previous.$$"
+  fi
+  git -C "$ROOT_DIR" status --porcelain --untracked-files=all -- "$@"
+}
 
 show_port_owner() {
   port="$1"
@@ -148,11 +162,11 @@ print_checkout_status() {
   git -C "$ROOT_DIR" status --short || return 1
 }
 
-ensure_tracked_checkout_clean() {
-  tracked_status="$(git -C "$ROOT_DIR" status --porcelain --untracked-files=no)"
-  if [ -n "$tracked_status" ]; then
-    echo "FAIL Tracked files have local changes; deployment will not overwrite them."
-    printf '%s\n' "$tracked_status"
+ensure_checkout_clean() {
+  checkout_status="$(git_status_without_generated_dist)" || return 1
+  if [ -n "$checkout_status" ]; then
+    echo "FAIL Tracked or untracked files have local changes; deployment will not overwrite them."
+    printf '%s\n' "$checkout_status"
     echo "Commit or stash the changes, then retry."
     return 1
   fi
@@ -286,7 +300,7 @@ restore_package_lock_if_only_dirty() {
   current_dir="$(pwd)"
   cd "$ROOT_DIR"
 
-  status="$(git status --porcelain)"
+  status="$(git_status_without_generated_dist)" || return 1
   if [ -z "$status" ]; then
     cd "$current_dir"
     return 0
@@ -296,7 +310,7 @@ restore_package_lock_if_only_dirty() {
   if [ -n "$other_changes" ]; then
     echo "Working tree is dirty. Commit, stash, or remove local changes before deploy."
     echo "Changed files:"
-    git status --short
+    git_status_without_generated_dist
     cd "$current_dir"
     return 1
   fi
@@ -308,10 +322,11 @@ restore_package_lock_if_only_dirty() {
     return 1
   }
 
-  if [ -n "$(git status --porcelain)" ]; then
+  status="$(git_status_without_generated_dist)" || return 1
+  if [ -n "$status" ]; then
     echo "Working tree is still dirty after restoring frontend/package-lock.json."
     echo "Changed files:"
-    git status --short
+    printf '%s\n' "$status"
     cd "$current_dir"
     return 1
   fi
@@ -367,9 +382,7 @@ run_deploy() {
   cd "$ROOT_DIR"
   validate_project_root || return 1
   print_checkout_status || return 1
-  restore_package_lock_if_only_dirty \
-    "Cleaning package-lock change before deployment." || return 1
-  ensure_tracked_checkout_clean || return 1
+  ensure_checkout_clean || return 1
   if [ "$DEPLOY_MODE" = "pull" ]; then
     pull_checkout || return 1
     echo "Checkout after pull:"
@@ -415,24 +428,26 @@ run_deploy() {
     echo "FAIL Frontend candidate directory already exists: $CANDIDATE_DIST"
     return 1
   fi
+  CANDIDATE_CREATED=true
   run_frontend_build "$CANDIDATE_DIST" || return 1
   check_frontend_artifacts "$CANDIDATE_DIST" || return 1
 
   echo "== Restart services =="
   "$ROOT_DIR/deploy/stop_all.sh" || return 1
-  previous_dist="$ROOT_DIR/frontend/dist.previous.$$"
-  if [ -e "$previous_dist" ]; then
-    echo "FAIL Frontend previous directory already exists: $previous_dist"
+  PREVIOUS_DIST="$ROOT_DIR/frontend/dist.previous.$$"
+  if [ -e "$PREVIOUS_DIST" ]; then
+    echo "FAIL Frontend previous directory already exists: $PREVIOUS_DIST"
     return 1
   fi
   if [ -d "$ROOT_DIR/frontend/dist" ]; then
-    mv -- "$ROOT_DIR/frontend/dist" "$previous_dist" || return 1
+    mv -- "$ROOT_DIR/frontend/dist" "$PREVIOUS_DIST" || return 1
   fi
   if ! mv -- "$CANDIDATE_DIST" "$ROOT_DIR/frontend/dist"; then
-    if [ -d "$previous_dist" ]; then mv -- "$previous_dist" "$ROOT_DIR/frontend/dist"; fi
+    if [ -d "$PREVIOUS_DIST" ]; then mv -- "$PREVIOUS_DIST" "$ROOT_DIR/frontend/dist"; fi
     return 1
   fi
   CANDIDATE_DIST=""
+  CANDIDATE_CREATED=false
   start_backend_once || return 1
   check_url "Backend health before frontend start" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || {
     show_backend_failure "backend pre-frontend health"
@@ -450,8 +465,8 @@ run_deploy() {
   check_url "Backend health" "http://127.0.0.1:${BACKEND_PORT:-8010}/health" || return 1
   check_url "Backend DB health" "http://127.0.0.1:${BACKEND_PORT:-8010}/health/db" || return 1
   check_url "Frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}" || return 1
-  if [ -d "$previous_dist" ]; then
-    rm -rf -- "$previous_dist" || return 1
+  if [ -d "$PREVIOUS_DIST" ]; then
+    rm -rf -- "$PREVIOUS_DIST" || return 1
   fi
   echo "== Deployment complete =="
   echo "Frontend: http://127.0.0.1:${FRONTEND_PORT:-3010}"
