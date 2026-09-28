@@ -32,6 +32,15 @@ def sample_excel():
 
 
 class RecallPreviewApiTest(unittest.TestCase):
+    def test_full_application_openapi_registers_preview_once(self):
+        from app.main import app
+
+        path = "/online/recall/applications/preview"
+        openapi = app.openapi()
+        self.assertIn(path, openapi["paths"])
+        self.assertEqual(list(openapi["paths"][path]), ["post"])
+        self.assertEqual(sum(route.path == path for route in app.routes), 1)
+
     def setUp(self):
         self.app = FastAPI()
         self.app.include_router(router)

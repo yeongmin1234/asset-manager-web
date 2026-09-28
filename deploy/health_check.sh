@@ -152,6 +152,7 @@ run_checks() {
   check_backend_pid || return 1
   check_url "OpenAPI" "http://127.0.0.1:$BACKEND_PORT/openapi.json" || return 1
   check_openapi_path "/hr/accounts" || return 1
+  check_openapi_path "/online/recall/applications/preview" || return 1
   check_frontend_bundle || return 1
   check_frontend_cache_headers || return 1
   check_cors_origin "http://192.168.222.210:3010" || return 1
