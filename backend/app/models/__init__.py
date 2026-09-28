@@ -36,6 +36,11 @@ from app.models.inventory_snapshot import InventorySnapshot
 from app.models.inventory_job_run import InventoryJobRun
 from app.models.inventory_alert_rule import InventoryAlertRule
 from app.models.inventory_alert import InventoryAlert
+from app.models.recall_application import (
+    RecallApplication,
+    RecallApplicationUploadBatch,
+    RecallStatusHistory,
+)
 
 __all__ = [
     "Asset",
@@ -78,4 +83,7 @@ __all__ = [
     "InventoryJobRun",
     "InventoryAlertRule",
     "InventoryAlert",
+    "RecallApplication",
+    "RecallApplicationUploadBatch",
+    "RecallStatusHistory",
 ]

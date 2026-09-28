@@ -1147,6 +1147,21 @@ export async function previewRecallApplicationExcel(file) {
   return requestFormData("/online/recall/applications/preview", formData, { timeoutMs: 60000 });
 }
 
+export async function commitRecallApplicationExcel(file, selectedRowNumbers) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("selected_row_numbers", JSON.stringify(selectedRowNumbers));
+  return requestFormData("/online/recall/applications/commit", formData, { timeoutMs: 60000 });
+}
+
+export async function getRecallApplications(filters = {}) {
+  return request("/online/recall/applications", { query: filters, timeoutMs: 10000 });
+}
+
+export async function getRecallApplicationSummary() {
+  return request("/online/recall/applications/summary", { timeoutMs: 10000 });
+}
+
 export async function commitHrAccountExcelImport(rows, duplicatePolicy) {
   return request(`${HR_ACCOUNTS_API_PATH}/import`, {
     method: "POST",

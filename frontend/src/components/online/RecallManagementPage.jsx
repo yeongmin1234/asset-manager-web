@@ -1,12 +1,62 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { getRecallApplications, getRecallApplicationSummary } from "../../api/client.js";
 import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
 import RecallUploadModal from "./RecallUploadModal.jsx";
 import "./online.css";
 
+const EMPTY_SUMMARY = { total: 0, received: 0, orders: 0, shipped: 0 };
+
 function RecallManagementPage() {
   const [uploadMode, setUploadMode] = useState(null);
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [items, setItems] = useState([]);
+  const [filterValues, setFilterValues] = useState({ keyword: "", status: "" });
+  const [appliedFilters, setAppliedFilters] = useState({ keyword: "", status: "" });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const loadData = useCallback(async (targetPage = page, filters = appliedFilters) => {
+    setIsLoading(true);
+    setLoadError("");
+    try {
+      const [listResult, summaryResult] = await Promise.all([
+        getRecallApplications({ ...filters, page: targetPage, page_size: 30 }),
+        getRecallApplicationSummary(),
+      ]);
+      setItems(listResult.items || []);
+      setTotal(listResult.total || 0);
+      setTotalPages(listResult.total_pages || 1);
+      setSummary(summaryResult || EMPTY_SUMMARY);
+    } catch (caught) {
+      setLoadError(caught?.message || "리콜 접수 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appliedFilters, page]);
+
+  useEffect(() => { loadData(page, appliedFilters); }, [loadData, page, appliedFilters]);
+
+  const handleSearch = () => {
+    setPage(1);
+    setAppliedFilters({ keyword: filterValues.keyword.trim(), status: filterValues.status });
+  };
+
+  const handleReset = () => {
+    const cleared = { keyword: "", status: "" };
+    setFilterValues(cleared);
+    setPage(1);
+    setAppliedFilters(cleared);
+  };
+
+  const handleRegistered = async () => {
+    setPage(1);
+    await loadData(1, appliedFilters);
+  };
 
   return (
     <div className="online-page">
@@ -20,12 +70,25 @@ function RecallManagementPage() {
           <button type="button" className="primary-action" onClick={() => setUploadMode("target")}>리콜 대상 등록</button>
         </div>
       </div>
-      <RecallSummaryCards />
+      <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
-        <RecallFilters />
-        <RecallTable />
+        <RecallFilters
+          values={filterValues}
+          onChange={setFilterValues}
+          onSearch={handleSearch}
+          onReset={handleReset}
+          isLoading={isLoading}
+        />
+        <RecallTable items={items} isLoading={isLoading} error={loadError} />
+        <div className="online-recall-pagination">
+          <span>총 {total}건 · {page}/{totalPages} 페이지</span>
+          <div>
+            <button type="button" className="secondary-button" disabled={page <= 1 || isLoading} onClick={() => setPage((value) => value - 1)}>이전</button>
+            <button type="button" className="secondary-button" disabled={page >= totalPages || isLoading} onClick={() => setPage((value) => value + 1)}>다음</button>
+          </div>
+        </div>
       </section>
-      {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} />}
+      {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
     </div>
   );
 }

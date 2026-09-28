@@ -5,9 +5,15 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from app.api.routers.recall_preview import router
 from app.core.auth import get_current_user
+from app.db.database import get_db
+from app.models.recall_application import RecallApplication, RecallApplicationUploadBatch, RecallStatusHistory
+from app.models.user import User
 from app.services.recall_application_excel import EXCEL_COLUMNS
 
 
@@ -42,15 +48,22 @@ class RecallPreviewApiTest(unittest.TestCase):
         self.assertEqual(sum(route.path == path for route in app.routes), 1)
 
     def setUp(self):
+        self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        for table in (User.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
+            table.create(self.engine, checkfirst=True)
+        self.db = Session(self.engine)
         self.app = FastAPI()
         self.app.include_router(router)
         self.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-            role="user", menu_permissions=["dashboard"]
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["dashboard"]
         )
+        self.app.dependency_overrides[get_db] = lambda: self.db
         self.client = TestClient(self.app)
 
     def tearDown(self):
         self.client.close()
+        self.db.close()
+        self.engine.dispose()
 
     def upload(self, filename, content):
         return self.client.post(

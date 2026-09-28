@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { previewRecallApplicationExcel } from "../../api/client.js";
+import { commitRecallApplicationExcel, previewRecallApplicationExcel } from "../../api/client.js";
+import { formatPhoneForDisplay } from "./onlineDisplayUtils.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const SUMMARY_ITEMS = [
@@ -28,6 +29,7 @@ const FIELD_LABELS = {
   serial_number: "시리얼번호", quantity: "수량", application_date: "신청일자", pickup_date: "회수 일자",
 };
 const PREVIEW_COLUMNS = [
+  ["선택", "select"],
   ["상태", "status"],
   ["행 번호", "row-number"],
   ["신청일자", "date"],
@@ -49,14 +51,6 @@ function displayValue(row, field, sourceHeader) {
   return value === null || value === undefined || value === "" ? "-" : String(value);
 }
 
-function formatPhoneForDisplay(value) {
-  const original = value === null || value === undefined ? "" : String(value);
-  const digits = original.replace(/\D/g, "");
-  return digits.length === 11
-    ? `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
-    : original;
-}
-
 function issueDescription(row) {
   if (row.status === "excluded") return row.row_kind === "blank" ? "빈 행" : "업무 안내 행";
   if (!row.issues?.length) return "정상";
@@ -69,7 +63,9 @@ function issueDescription(row) {
   }).join(" / ");
 }
 
-function RecallPreviewTable({ rows }) {
+function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll }) {
+  const selectableRows = rows.filter((row) => row.status === "valid" || row.status === "review");
+  const allSelected = selectableRows.length > 0 && selectableRows.every((row) => selectedRows.has(row.raw_row_number));
   return (
     <div className="online-preview-table-wrap">
       <table className="online-preview-table">
@@ -80,12 +76,26 @@ function RecallPreviewTable({ rows }) {
         </colgroup>
         <thead><tr>
           {PREVIEW_COLUMNS.map(([header, column], index) => (
-            <th className={`online-preview-cell-${column}`} scope="col" key={`${header}-${index}`}>{header}</th>
+            <th className={`online-preview-cell-${column}`} scope="col" key={`${header}-${index}`}>
+              {column === "select" ? (
+                <input type="checkbox" checked={allSelected} onChange={(event) => onToggleAll(event.target.checked)} aria-label="등록 가능한 행 전체 선택" />
+              ) : header}
+            </th>
           ))}
         </tr></thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.raw_row_number}>
+              <td className="online-preview-cell-select">
+                <input
+                  type="checkbox"
+                  checked={selectedRows.has(row.raw_row_number)}
+                  disabled={row.status !== "valid" && row.status !== "review"}
+                  onChange={() => onToggle(row.raw_row_number)}
+                  aria-label={`${row.raw_row_number}행 등록 선택`}
+                  title={row.status === "review" ? "확인 필요 행은 내용을 검토한 뒤 직접 선택해주세요." : undefined}
+                />
+              </td>
               <td className="online-preview-cell-status"><span className={`online-preview-badge online-preview-badge-${row.status}`}>{STATUS_LABELS[row.status] || row.status}</span></td>
               <td className="online-preview-cell-row-number">{row.raw_row_number}</td>
               <td className="online-preview-cell-date">{displayValue(row, "application_date", "신청일자")}</td>
@@ -110,27 +120,33 @@ function RecallPreviewTable({ rows }) {
   );
 }
 
-function RecallUploadModal({ mode, onClose }) {
+function RecallUploadModal({ mode, onClose, onRegistered }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [registrationResult, setRegistrationResult] = useState(null);
   const fileInputRef = useRef(null);
   const isApplication = mode === "application";
+  const isBusy = isLoading || isCommitting;
 
   useEffect(() => {
     if (isApplication) fileInputRef.current?.focus();
   }, [isApplication]);
 
   useEffect(() => {
-    const handleEscape = (event) => { if (event.key === "Escape" && !isLoading) onClose(); };
+    const handleEscape = (event) => { if (event.key === "Escape" && !isBusy) onClose(); };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isApplication, isLoading, onClose]);
+  }, [isApplication, isBusy, onClose]);
 
   const handleFileChange = (event) => {
     const selected = event.target.files?.[0] || null;
     setPreview(null);
+    setSelectedRows(new Set());
+    setRegistrationResult(null);
     setFile(null);
     setError("");
     if (!selected) return;
@@ -154,7 +170,11 @@ function RecallUploadModal({ mode, onClose }) {
     setError("");
     setPreview(null);
     try {
-      setPreview(await previewRecallApplicationExcel(file));
+      const result = await previewRecallApplicationExcel(file);
+      setPreview(result);
+      setSelectedRows(new Set(
+        (result.rows || []).filter((row) => row.status === "valid").map((row) => row.raw_row_number),
+      ));
     } catch (caught) {
       setError(caught?.message || "Excel 미리보기를 불러오지 못했습니다.");
     } finally {
@@ -162,15 +182,47 @@ function RecallUploadModal({ mode, onClose }) {
     }
   };
 
+  const handleToggle = (rowNumber) => {
+    setSelectedRows((current) => {
+      const next = new Set(current);
+      if (next.has(rowNumber)) next.delete(rowNumber);
+      else next.add(rowNumber);
+      return next;
+    });
+  };
+
+  const handleToggleAll = (checked) => {
+    const selectable = (preview?.rows || [])
+      .filter((row) => row.status === "valid" || row.status === "review")
+      .map((row) => row.raw_row_number);
+    setSelectedRows(checked ? new Set(selectable) : new Set());
+  };
+
+  const handleCommit = async () => {
+    if (!file || selectedRows.size === 0 || isBusy) return;
+    setIsCommitting(true);
+    setError("");
+    setRegistrationResult(null);
+    try {
+      const result = await commitRecallApplicationExcel(file, Array.from(selectedRows).sort((a, b) => a - b));
+      setRegistrationResult(result);
+      await onRegistered?.(result);
+    } catch (caught) {
+      setError(caught?.message || "접수 데이터를 등록하지 못했습니다.");
+    } finally {
+      setIsCommitting(false);
+    }
+  };
+
   return createPortal(
-    <div className="online-upload-backdrop" onMouseDown={() => { if (!isLoading) onClose(); }}>
+    <div className="online-upload-backdrop" onMouseDown={() => { if (!isBusy) onClose(); }}>
       <section className="online-upload-modal" role="dialog" aria-modal="true" aria-labelledby="online-upload-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="online-upload-header">
           <div>
             <h2 id="online-upload-title">{isApplication ? "접수 데이터 등록" : "리콜 대상 등록"}</h2>
             {isApplication && <p>Excel 신청 데이터를 검증하고 등록 전 결과를 확인합니다.</p>}
           </div>
-          <button type="button" className="secondary-button" onClick={onClose} disabled={isLoading} aria-label="닫기">닫기</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={isBusy} aria-label="닫기">닫기</button>
         </header>
 
         {isApplication ? (
@@ -178,8 +230,8 @@ function RecallUploadModal({ mode, onClose }) {
             <form className="online-upload-form" onSubmit={handlePreview}>
               <label htmlFor="online-application-file">접수 데이터 Excel (.xlsx, 최대 5MB)</label>
               <div className="online-upload-controls">
-                <input id="online-application-file" ref={fileInputRef} type="file" accept=".xlsx" onChange={handleFileChange} disabled={isLoading} />
-                <button type="submit" className="primary-action" disabled={!file || isLoading}>{isLoading ? "분석 중..." : "미리보기"}</button>
+                <input id="online-application-file" ref={fileInputRef} type="file" accept=".xlsx" onChange={handleFileChange} disabled={isBusy} />
+                <button type="submit" className="primary-action" disabled={!file || isBusy}>{isLoading ? "분석 중..." : "미리보기"}</button>
               </div>
             </form>
             {error && <p className="online-upload-error" role="alert">{error}</p>}
@@ -191,7 +243,17 @@ function RecallUploadModal({ mode, onClose }) {
                     <div key={key}><span>{label}</span><strong>{preview.summary?.[key] ?? 0}</strong></div>
                   ))}
                 </div>
-                <RecallPreviewTable rows={preview.rows || []} />
+                <p className="online-preview-selection">정상 행은 기본 선택됩니다. 확인 필요 행은 내용을 검토한 뒤 직접 선택해주세요. · 선택 {selectedRows.size}건</p>
+                <RecallPreviewTable rows={preview.rows || []} selectedRows={selectedRows} onToggle={handleToggle} onToggleAll={handleToggleAll} />
+              </div>
+            )}
+            {registrationResult && (
+              <div className="online-registration-result" role="status">
+                <strong>등록 처리가 완료되었습니다.</strong>
+                <span>신규 {registrationResult.registered ?? 0}건</span>
+                <span>중복 {registrationResult.duplicate ?? 0}건</span>
+                <span>등록 제외 {registrationResult.rejected ?? 0}건</span>
+                <span>확인 필요 미선택 {registrationResult.unselected_review ?? 0}건</span>
               </div>
             )}
           </>
@@ -200,8 +262,12 @@ function RecallUploadModal({ mode, onClose }) {
         )}
 
         <footer className="online-upload-footer">
-          <button type="button" className="secondary-button" onClick={onClose} disabled={isLoading}>닫기</button>
-          {isApplication && <button type="button" className="primary-action" disabled title="다음 Phase에서 지원 예정">최종 등록</button>}
+          <button type="button" className="secondary-button" onClick={onClose} disabled={isBusy}>닫기</button>
+          {isApplication && (
+            <button type="button" className="primary-action" disabled={selectedRows.size === 0 || isBusy || Boolean(registrationResult)} onClick={handleCommit}>
+              {isCommitting ? "등록 중..." : `최종 등록${selectedRows.size ? ` (${selectedRows.size})` : ""}`}
+            </button>
+          )}
         </footer>
       </section>
     </div>,
