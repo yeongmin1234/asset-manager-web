@@ -79,7 +79,7 @@ function RecallOrderTab({ isAdmin = false }) {
         setSummary(counts);
         setSelectedIds(new Set());
       })
-      .catch((caught) => { if (active) setError(caught?.message || "주문 대상을 불러오지 못했습니다."); })
+      .catch((caught) => { if (active) setError(caught?.message || "SCM 발주 대상을 불러오지 못했습니다."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [status, page, refreshKey]);
@@ -152,7 +152,7 @@ function RecallOrderTab({ isAdmin = false }) {
   };
 
   return (
-    <section className="online-recall-list online-order-panel" aria-label="SCM 주문 대상">
+    <section className="online-recall-list online-order-panel" aria-label="SCM 발주 대상">
       <div className="online-order-summary">
         {[["pending_count", "발주 대기"], ["exported_count", "Excel 생성 완료"], ["confirmed_count", "발주 완료"]].map(([key, label]) =>
           <div key={key}><span>{label}</span><strong>{summary[key] ?? 0}</strong></div>)}
@@ -172,7 +172,7 @@ function RecallOrderTab({ isAdmin = false }) {
             <th><input ref={selectAllRef} type="checkbox" aria-label="현재 페이지 발주 대기 전체 선택" checked={allSelected} disabled={!pendingItems.length || loading || busy} onChange={(event) => setSelectedIds(new Set(event.target.checked ? pendingItems.map((item) => item.id) : []))} /></th>
             {"신청일자,성함,연락처,주소지,수량,메모,현재 리콜 상태,주문 상태,작업".split(",").map((label) => <th key={label}>{label}</th>)}
           </tr></thead>
-          <tbody>{loading ? <tr><td colSpan={10} className="online-recall-empty">주문 대상을 불러오는 중입니다.</td></tr> : items.length ? items.map((item) => <tr key={item.id}>
+          <tbody>{loading ? <tr><td colSpan={10} className="online-recall-empty">SCM 발주 대상을 불러오는 중입니다.</td></tr> : items.length ? items.map((item) => <tr key={item.id}>
             <td><input type="checkbox" aria-label={`${item.customer_name} 발주 선택`} checked={selectedIds.has(item.id)} disabled={item.order_status !== "ORDER_PENDING" || busy} onChange={() => toggle(item.id)} /></td>
             <td>{formatRecallDate(item.application_date)}</td><td>{item.customer_name}</td>
             <td>{formatPhoneForDisplay(item.phone_original)}</td>
@@ -185,7 +185,7 @@ function RecallOrderTab({ isAdmin = false }) {
               {item.order_batch_id && <button type="button" className="secondary-button" disabled={busy} onClick={() => downloadBatch(item.order_batch_id)}>다시 받기</button>}
               {isAdmin && item.order_status === "ORDER_EXPORTED" && <button type="button" className="secondary-button" disabled={busy} onClick={() => confirm(item.id)}>발주 완료</button>}
             </td>
-          </tr>) : <tr><td colSpan={10} className="online-recall-empty">해당 주문 대상이 없습니다.</td></tr>}</tbody>
+          </tr>) : <tr><td colSpan={10} className="online-recall-empty">해당 SCM 발주 대상이 없습니다.</td></tr>}</tbody>
         </table>
       </div>
       <div className="online-recall-pagination"><span>총 {total}건 · {page}/{totalPages} 페이지</span><div>

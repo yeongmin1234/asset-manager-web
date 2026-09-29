@@ -148,7 +148,7 @@ function RecallManagementPage({ currentUser }) {
       </div>
       <nav className="online-recall-tabs" aria-label="리콜 관리 탭">
         <button type="button" className={activeTab === "applications" ? "active" : ""} aria-current={activeTab === "applications" ? "page" : undefined} onClick={() => setActiveTab("applications")}>접수 목록</button>
-        <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => setActiveTab("orders")}>주문 대상</button>
+        <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => setActiveTab("orders")}>SCM 발주 대상</button>
       </nav>
       {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} /> : <>
       <RecallSummaryCards summary={summary} />
