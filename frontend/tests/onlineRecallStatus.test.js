@@ -56,3 +56,34 @@ test("bulk controls show the allowed action and disable mixed selections", async
     await vite.close();
   }
 });
+
+test("detail shows recovery only for shipped and summary keeps five status tones", async () => {
+  const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const { RecallDetailStatusActions } = await vite.ssrLoadModule("/src/components/online/RecallDetailModal.jsx");
+    const { default: RecallSummaryCards } = await vite.ssrLoadModule("/src/components/online/RecallSummaryCards.jsx");
+    const props = {
+      status: "SHIPPED", reason: "", recoveryReason: "", saving: false,
+      onStatusChange() {}, onReasonChange() {}, onRecoveryReasonChange() {}, onSubmit() {}, onRecover() {},
+    };
+    const shipped = renderToStaticMarkup(React.createElement(RecallDetailStatusActions, { ...props, detail: { current_status: "SHIPPED" } }));
+    assert.match(shipped, /접수완료로 되돌리기/);
+    assert.match(shipped, /복구 사유/);
+    assert.match(shipped, /required=""/);
+    for (const currentStatus of ["APPLICATION_RECEIVED", "IN_PROGRESS", "REVIEW_REQUIRED", "STOPPED"]) {
+      const other = renderToStaticMarkup(React.createElement(RecallDetailStatusActions, { ...props, status: currentStatus, detail: { current_status: currentStatus } }));
+      assert.doesNotMatch(other, /접수완료로 되돌리기/);
+      assert.match(other, /변경 상태/);
+    }
+
+    const cards = renderToStaticMarkup(React.createElement(RecallSummaryCards, { summary: {
+      total_count: 20, received_count: 11, remaining_count: 11, in_progress_count: 5, shipped_count: 4,
+    } }));
+    for (const tone of ["total", "received", "remaining", "progress", "shipped"]) {
+      assert.match(cards, new RegExp(`data-tone="${tone}"`));
+    }
+    assert.match(cards, /발송완료<\/span><strong>4<\/strong>/);
+  } finally {
+    await vite.close();
+  }
+});

@@ -153,6 +153,38 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual([reverse.status_code, shipped_reverse.status_code], [400, 400])
         self.assertEqual(self.db.get(RecallApplication, self.application_id).current_status, SHIPPED)
 
+    def test_shipped_recovery_records_reason_history_audit_and_summary(self):
+        with TestClient(self.app) as client:
+            self.assertEqual(self.change(client, IN_PROGRESS, "진행 시작").status_code, 200)
+            self.assertEqual(self.bulk_change(client, [self.application_id], status=SHIPPED).status_code, 200)
+            before = client.get("/online/recall/applications/summary")
+            self.audit_mock.reset_mock()
+            missing_reason = self.change(client, APPLICATION_RECEIVED, "  ")
+            recovered = self.change(client, APPLICATION_RECEIVED, "발송 취소")
+            after = client.get("/online/recall/applications/summary")
+            detail = client.get(self.path())
+
+        self.assertEqual(missing_reason.status_code, 400)
+        self.assertEqual(recovered.status_code, 200)
+        self.assertEqual(before.json(), {
+            "total_count": 1, "received_count": 0, "remaining_count": 0,
+            "in_progress_count": 0, "shipped_count": 1,
+        })
+        self.assertEqual(after.json(), {
+            "total_count": 1, "received_count": 1, "remaining_count": 1,
+            "in_progress_count": 0, "shipped_count": 0,
+        })
+        self.assertEqual(detail.json()["current_status"], APPLICATION_RECEIVED)
+        history = self.histories()[-1]
+        self.assertEqual((history.previous_status, history.new_status, history.change_type, history.reason, history.changed_by),
+                         (SHIPPED, APPLICATION_RECEIVED, "MANUAL", "발송 취소", 1))
+        self.audit_mock.assert_called_once()
+        audit_kwargs = self.audit_mock.call_args.kwargs
+        self.assertEqual(audit_kwargs["before_data"], {"current_status": SHIPPED})
+        self.assertEqual(audit_kwargs["after_data"], {"current_status": APPLICATION_RECEIVED})
+        for private_value in ("홍길동", "010-1111-2222", "발송 취소"):
+            self.assertNotIn(private_value, audit_kwargs["action_summary"])
+
     def test_failed_status_commit_rolls_back_application_and_history(self):
         with patch.object(self.db, "commit", side_effect=OperationalError("commit", {}, Exception("failure"))):
             with TestClient(self.app) as client:

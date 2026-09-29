@@ -15,15 +15,48 @@ function Field({ label, children, wide = false }) {
   return <div className={`online-detail-field${wide ? " online-detail-field-wide" : ""}`}><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
+export function RecallRecoveryAction({ reason, onReasonChange, onSubmit, saving }) {
+  return (
+    <form className="online-detail-recovery-form" onSubmit={onSubmit}>
+      <label htmlFor="online-recall-recovery-reason">복구 사유</label>
+      <input id="online-recall-recovery-reason" list="online-recall-recovery-reasons" value={reason} onChange={(event) => onReasonChange(event.target.value)} maxLength={255} placeholder="사유를 선택하거나 직접 입력" required disabled={saving} />
+      <datalist id="online-recall-recovery-reasons">
+        <option value="오처리" />
+        <option value="잘못된 상태 변경" />
+        <option value="발송 취소" />
+        <option value="기타" />
+      </datalist>
+      <button type="submit" className="secondary-button" disabled={saving || !reason.trim()}>{saving ? "복구 중..." : "접수완료로 되돌리기"}</button>
+    </form>
+  );
+}
+
+export function RecallDetailStatusActions({ detail, status, onStatusChange, reason, onReasonChange, recoveryReason, onRecoveryReasonChange, onSubmit, onRecover, saving }) {
+  if (detail.current_status === "SHIPPED") {
+    return <RecallRecoveryAction reason={recoveryReason} onReasonChange={onRecoveryReasonChange} onSubmit={onRecover} saving={saving} />;
+  }
+  const manualTargets = recallManualTargets(detail.current_status);
+  return (
+    <form className="online-detail-status-form" onSubmit={onSubmit}>
+      <label>변경 상태<select value={status} onChange={(event) => onStatusChange(event.target.value)} disabled={saving || manualTargets.length === 0}>
+        <option value={detail.current_status} disabled>{displayRecallStatus(detail.current_status)} (현재)</option>
+        {manualTargets.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select></label>
+      <label>변경 사유<input value={reason} onChange={(event) => onReasonChange(event.target.value)} maxLength={255} placeholder="변경 사유를 입력해주세요" disabled={saving || manualTargets.length === 0} /></label>
+      <button type="submit" className="primary-action" disabled={saving || !reason.trim() || !manualTargets.some((option) => option.value === status)}>{saving ? "저장 중..." : "상태 변경"}</button>
+    </form>
+  );
+}
+
 function RecallDetailModal({ applicationId, onClose, onChanged }) {
   const [detail, setDetail] = useState(null);
   const [status, setStatus] = useState("");
   const [reason, setReason] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const manualTargets = recallManualTargets(detail?.current_status);
 
   useEffect(() => {
     let active = true;
@@ -63,6 +96,32 @@ function RecallDetailModal({ applicationId, onClose, onChanged }) {
       if (result.changed) onChanged();
     } catch (caught) {
       setError(caught?.message || "상태를 변경하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRecover = async (event) => {
+    event.preventDefault();
+    const cleanedReason = recoveryReason.trim();
+    if (detail?.current_status !== "SHIPPED" || saving) return;
+    if (!cleanedReason) {
+      setError("복구 사유를 입력해주세요.");
+      return;
+    }
+    if (!window.confirm("발송완료 상태를 접수완료로 되돌리시겠습니까?")) return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await updateRecallApplicationStatus(applicationId, "APPLICATION_RECEIVED", cleanedReason);
+      setDetail(result.application);
+      setStatus(result.application.current_status);
+      setRecoveryReason("");
+      setMessage(result.changed ? "접수완료 상태로 되돌렸습니다." : "이미 접수완료 상태입니다.");
+      if (result.changed) onChanged();
+    } catch (caught) {
+      setError(caught?.message || "발송완료 상태를 되돌리지 못했습니다.");
     } finally {
       setSaving(false);
     }
@@ -108,14 +167,7 @@ function RecallDetailModal({ applicationId, onClose, onChanged }) {
                 <Field label="등록일시">{formatRecallDateTime(detail.created_at)}</Field>
                 <Field label="등록자">{show(detail.created_by_name || (detail.created_by ? `사용자 #${detail.created_by}` : ""))}</Field>
               </dl>
-              <form className="online-detail-status-form" onSubmit={handleSubmit}>
-                <label>변경 상태<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={saving || manualTargets.length === 0}>
-                  <option value={detail.current_status} disabled>{displayRecallStatus(detail.current_status)} (현재)</option>
-                  {manualTargets.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select></label>
-                <label>변경 사유<input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={255} placeholder="변경 사유를 입력해주세요" disabled={saving || manualTargets.length === 0} /></label>
-                <button type="submit" className="primary-action" disabled={saving || !reason.trim() || !manualTargets.some((option) => option.value === status)}>{saving ? "저장 중..." : "상태 변경"}</button>
-              </form>
+              <RecallDetailStatusActions detail={detail} status={status} onStatusChange={setStatus} reason={reason} onReasonChange={setReason} recoveryReason={recoveryReason} onRecoveryReasonChange={setRecoveryReason} onSubmit={handleSubmit} onRecover={handleRecover} saving={saving} />
               {error && <p className="online-detail-error" role="alert">{error}</p>}
               {message && <p className="online-detail-success" role="status">{message}</p>}
             </section>
