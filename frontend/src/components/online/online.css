@@ -380,6 +380,20 @@
   box-shadow: -1px 0 #edf1f5;
 }
 
+.online-recall-table tbody tr.online-recall-duplicate-row td { background: #fff5f5; }
+.online-recall-table tbody tr.online-recall-duplicate-row:hover td { background: #ffeded; }
+.online-recall-duplicate-badge {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 4px;
+  color: #be123c;
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 3px auto 0;
+  padding: 3px 5px;
+}
+
 .online-recall-table td.online-recall-empty {
   color: #64748b;
   font-size: 0.88rem;

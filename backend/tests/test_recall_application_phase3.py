@@ -292,6 +292,12 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual(list_recall_applications(self.db, keyword=None, status=None, page=1, page_size=10)["total"], 1)
         self.assertEqual(list_recall_applications(self.db, keyword=None, status=None, page=1, page_size=10,
                                                   duplicate_only=True)["total"], 1)
+        all_items = list_recall_applications(self.db, keyword=None, status=None, page=1, page_size=10,
+                                             include_duplicates=True)
+        self.assertEqual(all_items["total"], 2)
+        self.assertEqual({item.duplicate_flag for item in all_items["items"]}, {False, True})
+        self.assertEqual(list_recall_applications(self.db, keyword="두번째 고객", status=APPLICATION_RECEIVED,
+                                                  page=1, page_size=10, include_duplicates=True)["total"], 1)
 
     def test_existing_phone_and_serial_duplicate_each_register(self):
         self.commit(workbook(row()))
@@ -312,6 +318,13 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual((result.registered, result.review, result.normal, result.rejected), (2, 1, 1, 1))
         review = self.db.scalar(select(RecallApplication).where(RecallApplication.customer_name == "홍길동"))
         self.assertEqual((review.current_status, review.phone_normalized), (REVIEW_REQUIRED, ""))
+        self.commit(workbook(row(**{"성함": "중복 고객", "*연락처": "010-3333-4444",
+                                    "*시리얼번호": "SER-D", "메모": "다른 신청"})), filename="duplicate.xlsx")
+        all_items = list_recall_applications(self.db, keyword=None, status=None, page=1, page_size=10,
+                                             include_duplicates=True)["items"]
+        self.assertEqual(len(all_items), 3)
+        self.assertEqual(sum(item.duplicate_flag for item in all_items), 1)
+        self.assertIn(REVIEW_REQUIRED, {item.current_status for item in all_items})
 
     def test_duplicate_resolution_api_records_history_and_releases_scm_only_after_normal(self):
         self.commit(workbook(row()))
@@ -332,6 +345,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         with patch("app.api.routers.recall_preview.record_audit_log", return_value=True) as audit:
             with TestClient(app) as client:
                 listing = client.get("/online/recall/applications", params={"duplicate_only": "true"})
+                all_listing = client.get("/online/recall/applications", params={"include_duplicates": "true"})
                 keep = client.patch("/online/recall/applications/duplicates/{}/resolve".format(duplicate.id),
                                     json={"action": "KEEP", "reason": "추가 검토 필요"})
                 normal = client.patch("/online/recall/applications/duplicates/{}/resolve".format(duplicate.id),
@@ -339,6 +353,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
                 detail = client.get("/online/recall/applications/{}".format(duplicate.id))
         self.assertEqual(listing.status_code, 200)
         self.assertEqual(listing.json()["total"], 1)
+        self.assertEqual(all_listing.json()["total"], 2)
         self.assertEqual(listing.json()["items"][0]["duplicate_reference"]["customer_name"], "홍길동")
         self.assertEqual((keep.status_code, keep.json()["duplicate_flag"]), (200, True))
         self.assertEqual((normal.status_code, normal.json()["duplicate_flag"]), (200, False))

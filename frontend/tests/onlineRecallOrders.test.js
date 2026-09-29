@@ -14,12 +14,35 @@ test("Phase 5 order tab keeps compact summary and pending-only selection control
     assert.match(page, /접수 목록/);
     assert.match(page, /중복 확인/);
     assert.match(page, /SCM 발주 대상/);
+    assert.ok(page.indexOf("전체 목록") < page.indexOf("접수 목록"));
+    assert.ok(page.indexOf("접수 목록") < page.indexOf("중복 확인"));
+    assert.ok(page.indexOf("중복 확인") < page.indexOf("SCM 발주 대상"));
     assert.match(orderTab, /발주 대기/);
     assert.match(orderTab, /Excel 생성 완료/);
     assert.match(orderTab, /발주 완료/);
     assert.match(orderTab, /SCM 발주 Excel 생성/);
     assert.match(orderTab, /현재 페이지 발주 대기 전체 선택/);
     assert.match(orderTab, /disabled=""/);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("all-list table marks only duplicate rows and retains review status", async () => {
+  const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const { default: RecallTable } = await vite.ssrLoadModule("/src/components/online/RecallTable.jsx");
+    const items = [
+      { id: 1, customer_name: "정상", current_status: "APPLICATION_RECEIVED", duplicate_flag: false },
+      { id: 2, customer_name: "확인", current_status: "REVIEW_REQUIRED", duplicate_flag: false },
+      { id: 3, customer_name: "중복", current_status: "APPLICATION_RECEIVED", duplicate_flag: true },
+    ];
+    const html = renderToStaticMarkup(React.createElement(RecallTable, {
+      items, selectedIds: new Set(), onToggleSelection() {}, onTogglePage() {}, onOpenDetail() {},
+    }));
+    assert.equal((html.match(/class="online-recall-duplicate-row"/g) || []).length, 1);
+    assert.equal((html.match(/online-recall-duplicate-badge/g) || []).length, 1);
+    assert.match(html, /online-recall-status-review/);
   } finally {
     await vite.close();
   }

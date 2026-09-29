@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary } from "../../api/client.js";
 import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
@@ -26,7 +26,7 @@ export function RecallBulkBar({ selectedCount, nextStatus, disabled, isBulkUpdat
 }
 
 function RecallManagementPage({ currentUser }) {
-  const [activeTab, setActiveTab] = useState("applications");
+  const [activeTab, setActiveTab] = useState("all");
   const [uploadMode, setUploadMode] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
@@ -43,15 +43,19 @@ function RecallManagementPage({ currentUser }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const loadRequestId = useRef(0);
 
-  const loadData = useCallback(async (targetPage, filters, duplicateOnly) => {
+  const loadData = useCallback(async (targetPage, filters, tab) => {
+    const requestId = ++loadRequestId.current;
     setIsLoading(true);
     setLoadError("");
     try {
       const [listResult, summaryResult] = await Promise.all([
-        getRecallApplications({ ...filters, page: targetPage, page_size: 30, duplicate_only: duplicateOnly }),
+        getRecallApplications({ ...filters, page: targetPage, page_size: 30,
+          duplicate_only: tab === "duplicates", include_duplicates: tab === "all" }),
         getRecallApplicationSummary(),
       ]);
+      if (requestId !== loadRequestId.current) return;
       setItems(listResult.items || []);
       const selectableIds = new Set((listResult.items || []).filter((item) => isRecallBulkSelectable(item.current_status)).map((item) => item.id));
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
@@ -59,14 +63,15 @@ function RecallManagementPage({ currentUser }) {
       setTotalPages(listResult.total_pages || 1);
       setSummary(summaryResult || EMPTY_SUMMARY);
     } catch (caught) {
+      if (requestId !== loadRequestId.current) return;
       setSelectedIds(new Set());
       setLoadError(caught?.message || "리콜 접수 목록을 불러오지 못했습니다.");
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestId.current) setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadData(page, appliedFilters, activeTab === "duplicates"); }, [loadData, page, appliedFilters, activeTab, refreshKey]);
+  useEffect(() => { loadData(page, appliedFilters, activeTab); }, [loadData, page, appliedFilters, activeTab, refreshKey]);
 
   const handleSearch = () => {
     setSelectedIds(new Set());
@@ -156,6 +161,7 @@ function RecallManagementPage({ currentUser }) {
         </div>
       </div>
       <nav className="online-recall-tabs" aria-label="리콜 관리 탭">
+        <button type="button" className={activeTab === "all" ? "active" : ""} aria-current={activeTab === "all" ? "page" : undefined} onClick={() => changeTab("all")}>전체 목록</button>
         <button type="button" className={activeTab === "applications" ? "active" : ""} aria-current={activeTab === "applications" ? "page" : undefined} onClick={() => changeTab("applications")}>접수 목록</button>
         <button type="button" className={activeTab === "duplicates" ? "active" : ""} aria-current={activeTab === "duplicates" ? "page" : undefined} onClick={() => changeTab("duplicates")}>중복 확인</button>
         <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => changeTab("orders")}>SCM 발주 대상</button>
@@ -170,7 +176,7 @@ function RecallManagementPage({ currentUser }) {
           onReset={handleReset}
           isLoading={isLoading || isBulkUpdating}
         />
-        {activeTab === "applications" && <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />}
+        {activeTab !== "duplicates" && <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />}
         {bulkMessage && <p className="online-recall-bulk-message" role="status">{bulkMessage}</p>}
         {bulkError && <p className="online-recall-bulk-error" role="alert">{bulkError}</p>}
         {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}

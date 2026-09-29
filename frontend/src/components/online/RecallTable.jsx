@@ -39,7 +39,7 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, er
     content = <tr><td colSpan={COLUMNS.length} className="online-recall-empty">등록된 리콜 데이터가 없습니다.</td></tr>;
   } else {
     content = items.map((item) => (
-      <tr key={item.id}>
+      <tr key={item.id} className={item.duplicate_flag ? "online-recall-duplicate-row" : undefined}>
         <td>
           <input type="checkbox" checked={selectedIds.has(item.id)} disabled={isLoading || isBulkUpdating || !isRecallBulkSelectable(item.current_status)} onChange={() => onToggleSelection(item.id)} aria-label={`${item.customer_name} 상태 변경 선택`} title={!isRecallBulkSelectable(item.current_status) ? "접수 완료 또는 진행중 상태만 선택할 수 있습니다." : undefined} />
         </td>
@@ -49,7 +49,7 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, er
         <td title={item.phone_normalized ? `비교용: ${item.phone_normalized}` : undefined}>{show(formatPhoneForDisplay(item.phone_original))}</td>
         <td className="online-recall-long-cell" title={item.address || undefined}><span>{show(item.address)}</span></td>
         <td className="online-recall-long-cell" title={item.memo || undefined}><span>{show(item.memo)}</span></td>
-        <td><span className={`online-recall-status ${recallStatusClass(item.current_status)}`}>{displayRecallStatus(item.current_status)}</span></td>
+        <td><span className={`online-recall-status ${recallStatusClass(item.current_status)}`}>{displayRecallStatus(item.current_status)}</span>{item.duplicate_flag && <span className="online-recall-duplicate-badge">중복 확인</span>}</td>
         <td>{show(item.serial_number)}</td>
         <td>{show(item.lot_number)}</td>
         <td>{show(item.pickup_agreement)}</td>

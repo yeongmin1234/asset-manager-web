@@ -196,11 +196,13 @@ def read_recall_applications(
     page: int = Query(1, ge=1),
     page_size: int = Query(30, ge=1, le=100),
     duplicate_only: bool = Query(False),
+    include_duplicates: bool = Query(False),
     _user: User = Depends(require_recall_preview_access),
     db: Session = Depends(get_db),
 ):
     result = list_recall_applications(db, keyword=keyword, status=status, page=page,
-                                      page_size=page_size, duplicate_only=duplicate_only)
+                                      page_size=page_size, duplicate_only=duplicate_only,
+                                      include_duplicates=include_duplicates)
     references = {
         reference_id: db.get(RecallApplication, reference_id)
         for reference_id in {item.duplicate_reference_id for item in result["items"] if item.duplicate_reference_id}

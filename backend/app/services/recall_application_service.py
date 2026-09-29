@@ -201,8 +201,9 @@ def list_recall_applications(
     page: int,
     page_size: int,
     duplicate_only: bool = False,
+    include_duplicates: bool = False,
 ) -> dict:
-    conditions = [RecallApplication.duplicate_flag.is_(duplicate_only)]
+    conditions = [] if include_duplicates else [RecallApplication.duplicate_flag.is_(duplicate_only)]
     if keyword and keyword.strip():
         search_text = keyword.strip()
         pattern = "%{}%".format(search_text)
