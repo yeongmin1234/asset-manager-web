@@ -13,6 +13,49 @@ test("bulk action offers only the next step for a uniform selection", () => {
   assert.equal(nextRecallBulkStatus(["SHIPPED"]), null);
 });
 
+test("review warnings retain their stage for bulk progression", async () => {
+  const items = [
+    { id: 1, customer_name: "정상", current_status: "APPLICATION_RECEIVED", workflow_status: "APPLICATION_RECEIVED", review_reason_codes: [] },
+    { id: 2, customer_name: "검토", current_status: "REVIEW_REQUIRED", workflow_status: "APPLICATION_RECEIVED", review_reason_codes: ["SERIAL_CHECK"] },
+  ];
+  const next = nextRecallBulkStatus(items.map((item) => item.workflow_status));
+  assert.equal(next, "IN_PROGRESS");
+  assert.equal(nextRecallBulkStatus(["IN_PROGRESS", "IN_PROGRESS"]), "SHIPPED");
+  const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const { default: RecallTable } = await vite.ssrLoadModule("/src/components/online/RecallTable.jsx");
+    const { RecallBulkBar } = await vite.ssrLoadModule("/src/components/online/RecallManagementPage.jsx");
+    const { RecallDetailStatusActions } = await vite.ssrLoadModule("/src/components/online/RecallDetailModal.jsx");
+    const table = renderToStaticMarkup(React.createElement(RecallTable, {
+      items, selectAllRows: true, selectedIds: new Set([1, 2]),
+      onToggleSelection() {}, onTogglePage() {}, onOpenDetail() {},
+    }));
+    assert.match(table, /확인 필요/);
+    assert.match(table, /시리얼번호 확인 필요/);
+    const progressed = renderToStaticMarkup(React.createElement(RecallTable, {
+      items: [{ ...items[1], current_status: "IN_PROGRESS", workflow_status: "IN_PROGRESS" }],
+      selectedIds: new Set(), onToggleSelection() {}, onTogglePage() {}, onOpenDetail() {},
+    }));
+    assert.match(progressed, /진행중/);
+    assert.match(progressed, /확인 필요/);
+    assert.match(progressed, /시리얼번호 확인 필요/);
+    const checkbox = table.match(/<input[^>]*aria-label="검토 선택"[^>]*>/)?.[0];
+    assert.doesNotMatch(checkbox, /disabled/);
+    const bar = renderToStaticMarkup(React.createElement(RecallBulkBar, {
+      selectedCount: 2, nextStatus: next, disabled: false, isBulkUpdating: false, onChange() {},
+    }));
+    assert.match(bar, /진행중으로 변경 \(2\)/);
+    assert.doesNotMatch(bar.match(/<button[^>]*>진행중으로 변경 \(2\)<\/button>/)?.[0], /disabled/);
+    const detail = renderToStaticMarkup(React.createElement(RecallDetailStatusActions, {
+      detail: items[1], status: "IN_PROGRESS", reason: "진행", recoveryReason: "", saving: false,
+      onStatusChange() {}, onReasonChange() {}, onRecoveryReasonChange() {}, onSubmit() {}, onRecover() {},
+    }));
+    assert.match(detail, /<option value="IN_PROGRESS"/);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("detail editor excludes reverse transitions after progress and shipping", () => {
   assert.equal(recallManualTargets("IN_PROGRESS").some((option) => option.value === "APPLICATION_RECEIVED"), false);
   assert.deepEqual(recallManualTargets("SHIPPED"), []);

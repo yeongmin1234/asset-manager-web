@@ -329,6 +329,19 @@ BULK_TRANSITIONS = {
 }
 
 
+def get_recall_workflow_status(db: Session, application: RecallApplication) -> str:
+    """Treat the historical review state as a warning over its previous stage."""
+    if application.current_status != REVIEW_REQUIRED:
+        return application.current_status
+    previous_statuses = db.scalars(
+        select(RecallStatusHistory.previous_status)
+        .where(RecallStatusHistory.recall_application_id == application.id,
+               RecallStatusHistory.new_status == REVIEW_REQUIRED)
+        .order_by(RecallStatusHistory.changed_at.desc(), RecallStatusHistory.id.desc())
+    ).all()
+    return next((status for status in previous_statuses if status and status != REVIEW_REQUIRED), APPLICATION_RECEIVED)
+
+
 def bulk_change_recall_applications(
     db: Session, *, ids: Sequence[int], status: str, reason: str, user_id: int
 ) -> dict:
@@ -352,16 +365,17 @@ def bulk_change_recall_applications(
         if len(applications) != len(ids):
             db.rollback()
             raise ValueError("선택한 항목 중 찾을 수 없는 접수 데이터가 있습니다.")
-        current_statuses = {applications[application_id].current_status for application_id in ids}
+        current_statuses = {get_recall_workflow_status(db, applications[application_id]) for application_id in ids}
         if len(current_statuses) != 1:
             db.rollback()
             raise ValueError("같은 상태의 항목만 선택해야 합니다.")
-        previous_status = current_statuses.pop()
-        if BULK_TRANSITIONS.get(previous_status) != status:
+        workflow_status = current_statuses.pop()
+        if BULK_TRANSITIONS.get(workflow_status) != status:
             db.rollback()
             raise ValueError("선택한 항목은 허용된 다음 단계로만 변경할 수 있습니다.")
 
         for application_id in ids:
+            previous_status = applications[application_id].current_status
             applications[application_id].current_status = status
             db.add(RecallStatusHistory(
                 recall_application_id=application_id,
@@ -420,15 +434,13 @@ def bulk_soft_delete_recall_applications(
 
 
 def get_recall_review_reason_codes(application: RecallApplication) -> List[str]:
-    if application.current_status != REVIEW_REQUIRED:
-        return []
     if application.review_reason_codes is not None:
-        return list(application.review_reason_codes) or ["MANUAL_REVIEW"]
+        return list(application.review_reason_codes)
     # Historical applications predate the coded column. Reapply the same Excel
     # validation to their stored fields without changing data or status.
     values = {field: getattr(application, field) for field in EDITABLE_FIELDS}
     _, issues = _validate_values(values, CALENDAR_WINDOWS_1900)
-    return list(review_reason_codes(issues)) or ["MANUAL_REVIEW"]
+    return list(review_reason_codes(issues)) or (["MANUAL_REVIEW"] if application.current_status == REVIEW_REQUIRED else [])
 
 
 def get_recall_application_detail(db: Session, application_id: int) -> Optional[dict]:
@@ -467,6 +479,7 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
         "pickup_date": application.pickup_date,
         "replacement_shipping_agreement": application.replacement_shipping_agreement,
         "current_status": application.current_status,
+        "workflow_status": get_recall_workflow_status(db, application),
         "review_reason_codes": get_recall_review_reason_codes(application),
         "duplicate_flag": application.duplicate_flag,
         "duplicate_reason": application.duplicate_reason,
@@ -577,7 +590,7 @@ def update_recall_application_fields(db: Session, *, application_id: int, values
                 reason="연락처 확인 필요",
             ))
         new_review_codes = list(review_reason_codes(issues))
-        if application.current_status == REVIEW_REQUIRED and not new_review_codes:
+        if application.current_status == REVIEW_REQUIRED and not new_review_codes and "MANUAL_REVIEW" in (application.review_reason_codes or []):
             new_review_codes = ["MANUAL_REVIEW"]
         if application.review_reason_codes != new_review_codes:
             changed_fields.append("review_reason_codes")
@@ -615,7 +628,9 @@ def change_recall_application_status(
         if previous_status == status:
             db.rollback()
             return {"changed": False, "previous_status": previous_status}
-        if status not in MANUAL_TRANSITIONS.get(previous_status, ()):
+        workflow_status = get_recall_workflow_status(db, application)
+        allowed = set(MANUAL_TRANSITIONS.get(previous_status, ())) | set(MANUAL_TRANSITIONS.get(workflow_status, ()))
+        if status not in allowed:
             db.rollback()
             raise ValueError("허용되지 않은 상태 전이입니다.")
 

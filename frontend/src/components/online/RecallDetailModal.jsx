@@ -38,11 +38,11 @@ export function RecallDetailStatusActions({ detail, status, onStatusChange, reas
   if (detail.current_status === "SHIPPED") {
     return <RecallRecoveryAction reason={recoveryReason} onReasonChange={onRecoveryReasonChange} onSubmit={onRecover} saving={saving} />;
   }
-  const manualTargets = recallManualTargets(detail.current_status);
+  const manualTargets = recallManualTargets(detail.workflow_status || detail.current_status).filter((option) => option.value !== detail.current_status);
   return (
     <form className="online-detail-status-form" onSubmit={onSubmit}>
       <label>변경 상태<select value={status} onChange={(event) => onStatusChange(event.target.value)} disabled={saving || manualTargets.length === 0}>
-        <option value={detail.current_status} disabled>{displayRecallStatus(detail.current_status)} (현재)</option>
+        <option value={detail.current_status} disabled>{displayRecallStatus(detail.workflow_status || detail.current_status)} (현재)</option>
         {manualTargets.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select></label>
       <label>변경 사유<input value={reason} onChange={(event) => onReasonChange(event.target.value)} maxLength={255} placeholder="변경 사유를 입력해주세요" disabled={saving || manualTargets.length === 0} /></label>
@@ -220,8 +220,8 @@ function RecallDetailModal({ applicationId, canEdit = false, onClose, onChanged 
             <section className="online-detail-section">
               <h3>상태 정보</h3>
               <dl className="online-detail-grid">
-                <Field label="현재 상태"><span className={`online-recall-status ${recallStatusClass(detail.current_status)}`}>{displayRecallStatus(detail.current_status)}</span></Field>
-                <Field label="확인 필요 사유" wide>{displayRecallReviewReasons(detail.current_status === "REVIEW_REQUIRED" ? detail.review_reason_codes : [])}</Field>
+                <Field label="현재 상태"><span className={`online-recall-status ${recallStatusClass(detail.workflow_status || detail.current_status)}`}>{displayRecallStatus(detail.workflow_status || detail.current_status)}</span>{(detail.current_status === "REVIEW_REQUIRED" || detail.review_reason_codes?.length > 0) && <span className="online-recall-review-badge">확인 필요</span>}</Field>
+                <Field label="확인 필요 사유" wide>{displayRecallReviewReasons(detail.review_reason_codes)}</Field>
                 <Field label="등록일시">{formatRecallDateTime(detail.created_at)}</Field>
                 <Field label="등록자">{show(detail.created_by_name || (detail.created_by ? `사용자 #${detail.created_by}` : ""))}</Field>
               </dl>

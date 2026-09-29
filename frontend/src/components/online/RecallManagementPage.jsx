@@ -64,7 +64,7 @@ function RecallManagementPage({ currentUser }) {
       ]);
       if (requestId !== loadRequestId.current) return;
       setItems(listResult.items || []);
-      const selectableIds = new Set((listResult.items || []).filter((item) => recallTabSelectsAllRows(tab) || isRecallBulkSelectable(item.current_status)).map((item) => item.id));
+      const selectableIds = new Set((listResult.items || []).filter((item) => recallTabSelectsAllRows(tab) || isRecallBulkSelectable(item.workflow_status || item.current_status)).map((item) => item.id));
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
       setTotal(listResult.total || 0);
       setTotalPages(listResult.total_pages || 1);
@@ -112,7 +112,7 @@ function RecallManagementPage({ currentUser }) {
   };
 
   const handleToggleSelection = (id) => {
-    if (!items.some((item) => item.id === id && (recallTabSelectsAllRows(activeTab) || isRecallBulkSelectable(item.current_status)))) return;
+    if (!items.some((item) => item.id === id && (recallTabSelectsAllRows(activeTab) || isRecallBulkSelectable(item.workflow_status || item.current_status)))) return;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -122,10 +122,10 @@ function RecallManagementPage({ currentUser }) {
   };
 
   const handleTogglePage = (checked) => {
-    setSelectedIds(new Set(checked ? items.filter((item) => recallTabSelectsAllRows(activeTab) || isRecallBulkSelectable(item.current_status)).map((item) => item.id) : []));
+    setSelectedIds(new Set(checked ? items.filter((item) => recallTabSelectsAllRows(activeTab) || isRecallBulkSelectable(item.workflow_status || item.current_status)).map((item) => item.id) : []));
   };
 
-  const selectedStatuses = items.filter((item) => selectedIds.has(item.id)).map((item) => item.current_status);
+  const selectedStatuses = items.filter((item) => selectedIds.has(item.id)).map((item) => item.workflow_status || item.current_status);
   const nextStatus = nextRecallBulkStatus(selectedStatuses);
 
   const handleBulkChange = async () => {

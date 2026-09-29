@@ -23,7 +23,7 @@ const show = (value) => value === null || value === undefined || value === "" ? 
 
 function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, selectAllRows = false, error = "", selectedIds, onToggleSelection, onTogglePage, onOpenDetail }) {
   const selectAllRef = useRef(null);
-  const eligibleItems = items.filter((item) => selectAllRows || isRecallBulkSelectable(item.current_status));
+  const eligibleItems = items.filter((item) => selectAllRows || isRecallBulkSelectable(item.workflow_status || item.current_status));
   const selectedOnPage = eligibleItems.filter((item) => selectedIds.has(item.id)).length;
   const allSelected = eligibleItems.length > 0 && selectedOnPage === eligibleItems.length;
 
@@ -42,7 +42,7 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, se
     content = items.map((item) => (
       <tr key={item.id} className={item.duplicate_flag ? "online-recall-duplicate-row" : undefined}>
         <td>
-          <input type="checkbox" checked={selectedIds.has(item.id)} disabled={isLoading || isBulkUpdating || (!selectAllRows && !isRecallBulkSelectable(item.current_status))} onChange={() => onToggleSelection(item.id)} aria-label={`${item.customer_name} ${selectAllRows ? "선택" : "상태 변경 선택"}`} title={!selectAllRows && !isRecallBulkSelectable(item.current_status) ? "접수 완료 또는 진행중 상태만 선택할 수 있습니다." : undefined} />
+          <input type="checkbox" checked={selectedIds.has(item.id)} disabled={isLoading || isBulkUpdating || (!selectAllRows && !isRecallBulkSelectable(item.workflow_status || item.current_status))} onChange={() => onToggleSelection(item.id)} aria-label={`${item.customer_name} ${selectAllRows ? "선택" : "상태 변경 선택"}`} title={!selectAllRows && !isRecallBulkSelectable(item.workflow_status || item.current_status) ? "접수 완료 또는 진행중 상태만 선택할 수 있습니다." : undefined} />
         </td>
         <td>{formatRecallDate(item.application_date)}</td>
         <td>{show(item.quantity)}</td>
@@ -50,8 +50,8 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, se
         <td title={item.phone_normalized ? `비교용: ${item.phone_normalized}` : undefined}>{show(formatPhoneForDisplay(item.phone_original))}</td>
         <td className="online-recall-long-cell" title={item.address || undefined}><span>{show(item.address)}</span></td>
         <td className="online-recall-long-cell" title={item.memo || undefined}><span>{show(item.memo)}</span></td>
-        <td><span className={`online-recall-status ${recallStatusClass(item.current_status)}`}>{displayRecallStatus(item.current_status)}</span>{item.duplicate_flag && <span className="online-recall-duplicate-badge">중복 확인</span>}</td>
-        <td><span className="online-recall-review-reasons" title={displayRecallReviewReasons(item.current_status === "REVIEW_REQUIRED" ? item.review_reason_codes : [])}>{displayRecallReviewReasons(item.current_status === "REVIEW_REQUIRED" ? item.review_reason_codes : [])}</span></td>
+        <td><span className={`online-recall-status ${recallStatusClass(item.workflow_status || item.current_status)}`}>{displayRecallStatus(item.workflow_status || item.current_status)}</span>{(item.current_status === "REVIEW_REQUIRED" || item.review_reason_codes?.length > 0) && <span className="online-recall-review-badge">확인 필요</span>}{item.duplicate_flag && <span className="online-recall-duplicate-badge">중복 확인</span>}</td>
+        <td><span className="online-recall-review-reasons" title={displayRecallReviewReasons(item.review_reason_codes)}>{displayRecallReviewReasons(item.review_reason_codes)}</span></td>
         <td>{show(item.serial_number)}</td>
         <td>{show(item.lot_number)}</td>
         <td>{show(item.pickup_agreement)}</td>

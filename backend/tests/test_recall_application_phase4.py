@@ -25,6 +25,7 @@ from app.services.recall_application_service import (
     bulk_change_recall_applications, change_recall_application_status, commit_recall_applications,
     get_recall_application_detail,
 )
+from app.services.recall_order_service import order_summary, preview_orders
 from tests.test_recall_application_phase3 import row, workbook
 
 
@@ -432,6 +433,81 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["application"]["review_reason_codes"], ["MANUAL_REVIEW"])
         self.assertEqual(self.db.get(RecallApplication, self.application_id).review_reason_codes, ["MANUAL_REVIEW"])
+
+    def test_review_and_normal_received_rows_advance_together_and_keep_warning(self):
+        review_id = self.add_application("검토 고객", "01022223333", None)
+        with TestClient(self.app) as client:
+            before = client.get("/online/recall/applications/{}".format(review_id)).json()
+            progress = self.bulk_change(client, [self.application_id, review_id], status=IN_PROGRESS)
+            after = client.get("/online/recall/applications/{}".format(review_id)).json()
+            listing = client.get("/online/recall/applications", params={"include_duplicates": "true"}).json()
+        self.assertEqual(before["current_status"], REVIEW_REQUIRED)
+        self.assertEqual(before["workflow_status"], APPLICATION_RECEIVED)
+        self.assertEqual(before["review_reason_codes"], ["SERIAL_CHECK"])
+        self.assertEqual(progress.status_code, 200, progress.text)
+        self.assertEqual((after["current_status"], after["workflow_status"]), (IN_PROGRESS, IN_PROGRESS))
+        self.assertEqual(after["review_reason_codes"], ["SERIAL_CHECK"])
+        self.assertEqual(next(item for item in listing["items"] if item["id"] == review_id)["review_reason_codes"], ["SERIAL_CHECK"])
+        self.assertEqual(after["status_history"][0]["previous_status"], REVIEW_REQUIRED)
+        self.assertEqual(order_summary(self.db)["pending_count"], 2)
+        self.assertEqual(preview_orders(self.db, [review_id])["item_count"], 1)
+
+        fields = self.edit_values()
+        fields = {field: after[field] for field in fields}
+        fields["serial_number"] = "SER-FIXED"
+        with TestClient(self.app) as client:
+            fixed = client.patch("/online/recall/applications/{}".format(review_id), json=fields)
+        self.assertEqual(fixed.status_code, 200, fixed.text)
+        self.assertEqual(fixed.json()["application"]["current_status"], IN_PROGRESS)
+        self.assertEqual(fixed.json()["application"]["review_reason_codes"], [])
+
+    def test_progress_review_can_ship_and_duplicate_stays_out_of_scm(self):
+        duplicate_id = self.add_application("중복 검토", "010-1111-2222", None)
+        with TestClient(self.app) as client:
+            progress = self.bulk_change(client, [duplicate_id], status=IN_PROGRESS)
+            detail = client.get("/online/recall/applications/{}".format(duplicate_id)).json()
+        self.assertEqual(progress.status_code, 200, progress.text)
+        self.assertTrue(detail["duplicate_flag"])
+        self.assertEqual(detail["review_reason_codes"], ["SERIAL_CHECK"])
+        self.assertEqual(order_summary(self.db)["pending_count"], 0)
+        with self.assertRaises(ValueError):
+            preview_orders(self.db, [duplicate_id])
+        with TestClient(self.app) as client:
+            resolved = client.patch("/online/recall/applications/duplicates/{}/resolve".format(duplicate_id),
+                                    json={"action": "NORMAL", "reason": "별도 접수 확인"})
+        self.assertEqual(resolved.status_code, 200)
+        self.assertEqual(preview_orders(self.db, [duplicate_id])["item_count"], 1)
+        with TestClient(self.app) as client:
+            shipped = self.bulk_change(client, [duplicate_id], status=SHIPPED)
+            final = client.get("/online/recall/applications/{}".format(duplicate_id)).json()
+        self.assertEqual(shipped.status_code, 200, shipped.text)
+        self.assertEqual(final["current_status"], SHIPPED)
+        self.assertEqual(final["review_reason_codes"], ["SERIAL_CHECK"])
+
+    def test_review_set_during_progress_keeps_original_next_stage(self):
+        with TestClient(self.app) as client:
+            self.assertEqual(self.change(client, IN_PROGRESS).status_code, 200)
+            self.assertEqual(self.change(client, REVIEW_REQUIRED).status_code, 200)
+            detail = client.get(self.path()).json()
+            shipped = self.bulk_change(client, [self.application_id], status=SHIPPED)
+        self.assertEqual(detail["workflow_status"], IN_PROGRESS)
+        self.assertEqual(detail["review_reason_codes"], ["MANUAL_REVIEW"])
+        self.assertEqual(shipped.status_code, 200, shipped.text)
+        self.assertEqual(self.db.get(RecallApplication, self.application_id).current_status, SHIPPED)
+
+    def test_single_review_detail_can_advance_without_clearing_reason(self):
+        review_id = self.add_application("상세 검토", "01022223333", None)
+        with TestClient(self.app) as client:
+            response = client.patch("/online/recall/applications/{}/status".format(review_id),
+                                    json={"status": IN_PROGRESS, "reason": "업무 진행"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["application"]["current_status"], IN_PROGRESS)
+        self.assertEqual(response.json()["application"]["review_reason_codes"], ["SERIAL_CHECK"])
+        history = self.db.scalar(select(RecallStatusHistory).where(
+            RecallStatusHistory.recall_application_id == review_id,
+            RecallStatusHistory.new_status == IN_PROGRESS,
+        ))
+        self.assertEqual((history.previous_status, history.change_type), (REVIEW_REQUIRED, "MANUAL"))
 
     def test_edit_invalid_values_and_protected_fields(self):
         with TestClient(self.app) as client:
