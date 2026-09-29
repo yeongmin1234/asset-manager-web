@@ -464,6 +464,8 @@
 }
 
 .online-detail-modal .online-upload-header { padding: 10px 14px; }
+.online-detail-header-actions { display: flex; gap: 6px; }
+.online-detail-header-actions button { white-space: nowrap; }
 
 .online-detail-body {
   display: grid;
@@ -501,6 +503,24 @@
 .online-detail-field-wide { grid-column: 1 / -1; }
 .online-detail-field dt { color: #64748b; font-size: 0.76rem; margin: 0; }
 .online-detail-field dd { color: #334155; font-size: 0.85rem; margin: 0; overflow-wrap: anywhere; }
+.online-detail-editor { min-width: 0; }
+.online-detail-editor input,
+.online-detail-editor select,
+.online-detail-editor textarea {
+  background: #fff;
+  border: 1px solid #d9e1eb;
+  border-radius: 6px;
+  color: #172033;
+  font: inherit;
+  min-width: 0;
+  padding: 3px 7px;
+  width: 100%;
+}
+.online-detail-editor input,
+.online-detail-editor select { height: 30px; }
+.online-detail-editor textarea { resize: vertical; }
+.online-detail-editor [aria-invalid="true"] { border-color: #dc2626; }
+.online-detail-field-error { color: #b91c1c; display: block; font-size: 0.72rem; margin-top: 2px; }
 
 .online-detail-status-form {
   align-items: end;

@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import asdict
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
@@ -28,6 +28,9 @@ from app.services.recall_application_service import (
     bulk_change_recall_applications,
     bulk_soft_delete_recall_applications,
     resolve_recall_duplicate,
+    EDITABLE_FIELDS,
+    RecallEditValidationError,
+    update_recall_application_fields,
 )
 from app.services.recall_order_service import (
     confirm_order, export_orders, get_order_batch_workbook, list_orders,
@@ -42,6 +45,23 @@ MAX_PREVIEW_FILE_SIZE = 5 * 1024 * 1024
 class RecallStatusChangeRequest(BaseModel):
     status: str
     reason: str
+
+
+class RecallFieldsUpdateRequest(BaseModel):
+    application_date: Any
+    quantity: Any
+    customer_name: Any
+    phone_original: Any
+    address: Any
+    memo: Any
+    serial_number: Any
+    lot_number: Any
+    pickup_agreement: Any
+    pickup_date: Any
+    replacement_shipping_agreement: Any
+
+    class Config:
+        extra = "forbid"
 
 
 class RecallBulkStatusChangeRequest(BaseModel):
@@ -468,6 +488,40 @@ def read_recall_application_detail(
     if detail is None:
         raise HTTPException(status_code=404, detail="리콜 접수 데이터를 찾을 수 없습니다.")
     return jsonable_encoder(detail)
+
+
+@router.patch("/{application_id}")
+def update_recall_application_detail(
+    application_id: int,
+    payload: RecallFieldsUpdateRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = update_recall_application_fields(
+            db, application_id=application_id,
+            values={field: getattr(payload, field) for field in EDITABLE_FIELDS},
+            user_id=current_user.id,
+        )
+    except RecallEditValidationError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc), "fields": exc.fields}) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="수정 내용을 저장하지 못했습니다.") from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="리콜 접수 데이터를 찾을 수 없습니다.")
+    if result["changed"]:
+        changed_fields = result["changed_fields"]
+        record_audit_log(
+            db, request, current_user, action_type="update", menu_key="online_recall",
+            menu_name="온라인 TEAM > 리콜 관리", target_type="recall_application",
+            target_id=application_id, target_name="리콜 고객 상세 수정",
+            action_summary="리콜 고객 상세 수정: application_id={} user_id={} fields={}".format(
+                application_id, current_user.id, ",".join(changed_fields)),
+            changed_fields=changed_fields,
+        )
+    return jsonable_encoder({"changed": result["changed"],
+                             "application": get_recall_application_detail(db, application_id)})
 
 
 @router.patch("/{application_id}/status")

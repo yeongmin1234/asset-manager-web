@@ -23,6 +23,7 @@ from app.models.recall_application import (
 from app.models.user import User
 from app.services.recall_application_service import (
     bulk_change_recall_applications, change_recall_application_status, commit_recall_applications,
+    get_recall_application_detail,
 )
 from tests.test_recall_application_phase3 import row, workbook
 
@@ -322,6 +323,92 @@ class RecallApplicationPhase4Test(unittest.TestCase):
                          [APPLICATION_RECEIVED, APPLICATION_RECEIVED])
         self.assertEqual(len(self.histories()), 2)
         self.audit_mock.assert_not_called()
+
+    def edit_values(self, **changes):
+        detail = get_recall_application_detail(self.db, self.application_id)
+        fields = ("application_date", "quantity", "customer_name", "phone_original", "address",
+                  "memo", "serial_number", "lot_number", "pickup_agreement", "pickup_date",
+                  "replacement_shipping_agreement")
+        return dict({field: value.isoformat() if hasattr(value, "isoformat") else value
+                     for field in fields for value in [detail[field]]}, **changes)
+
+    def test_edit_fields_normalizes_phone_and_logs_names_only(self):
+        values = self.edit_values(customer_name="수정 고객", phone_original="011 9876 5432",
+                                  address="서울시 수정 주소", memo="수정 메모", pickup_agreement="미동의",
+                                  replacement_shipping_agreement="동의")
+        with TestClient(self.app) as client:
+            response = client.patch(self.path(), json=values)
+        self.assertEqual(response.status_code, 200, response.text)
+        detail = response.json()["application"]
+        self.assertEqual((detail["customer_name"], detail["phone_original"], detail["phone_normalized"]),
+                         ("수정 고객", "011 9876 5432", "01198765432"))
+        self.assertEqual((detail["address"], detail["memo"], detail["pickup_agreement"]),
+                         ("서울시 수정 주소", "수정 메모", "미동의"))
+        self.assertEqual(len(self.histories()), 1)
+        audit = self.audit_mock.call_args.kwargs
+        self.assertEqual((audit["action_type"], audit["target_id"]), ("update", self.application_id))
+        self.assertIn("phone_original", audit["action_summary"])
+        self.assertNotIn("011 9876 5432", str(audit))
+        self.assertNotIn("서울시 수정 주소", str(audit))
+
+    def test_edit_serial_duplicate_and_resolution_history(self):
+        other_id = self.add_application("다른 고객", "01022223333", "SER-OTHER")
+        with TestClient(self.app) as client:
+            duplicate = client.patch(self.path(), json=self.edit_values(serial_number="ser-other"))
+            self.assertEqual((duplicate.status_code, duplicate.json()["application"]["duplicate_reason"]),
+                             (200, "SERIAL"))
+            keep = client.patch("/online/recall/applications/duplicates/{}/resolve".format(self.application_id),
+                                json={"action": "KEEP", "reason": "추가 검토 필요"})
+            self.assertEqual(keep.status_code, 200)
+            cleared = client.patch(self.path(), json=self.edit_values(serial_number="SER-CLEARED"))
+        self.assertEqual(cleared.status_code, 200, cleared.text)
+        self.assertTrue(cleared.json()["application"]["duplicate_flag"])
+        self.assertEqual(cleared.json()["application"]["duplicate_resolution"], "KEEP")
+        self.assertEqual(len(cleared.json()["application"]["duplicate_history"]), 1)
+        self.assertEqual(self.db.get(RecallApplication, other_id).serial_number, "SER-OTHER")
+
+    def test_edit_phone_duplicate_and_clear_after_normal_resolution(self):
+        self.add_application("다른 고객", "01022223333", "SER-OTHER")
+        with TestClient(self.app) as client:
+            duplicate = client.patch(self.path(), json=self.edit_values(phone_original="010 2222 3333"))
+            self.assertEqual(duplicate.status_code, 200, duplicate.text)
+            self.assertEqual(duplicate.json()["application"]["duplicate_reason"], "PHONE")
+            normal = client.patch("/online/recall/applications/duplicates/{}/resolve".format(self.application_id),
+                                  json={"action": "NORMAL", "reason": "별도 접수 확인"})
+            self.assertEqual(normal.status_code, 200)
+            unchanged_keys = client.patch(self.path(), json=self.edit_values(memo="확인된 별도 접수"))
+            self.assertFalse(unchanged_keys.json()["application"]["duplicate_flag"])
+            new_duplicate = client.patch(self.path(), json=self.edit_values(serial_number="SER-OTHER"))
+        self.assertEqual(new_duplicate.status_code, 200, new_duplicate.text)
+        self.assertTrue(new_duplicate.json()["application"]["duplicate_flag"])
+        self.assertIsNone(new_duplicate.json()["application"]["duplicate_resolution"])
+        self.assertEqual(len(new_duplicate.json()["application"]["duplicate_history"]), 1)
+
+    def test_edit_unreadable_phone_requires_review_with_history(self):
+        with TestClient(self.app) as client:
+            response = client.patch(self.path(), json=self.edit_values(phone_original="연락처 확인"))
+        self.assertEqual(response.status_code, 200, response.text)
+        detail = response.json()["application"]
+        self.assertEqual((detail["phone_original"], detail["phone_normalized"], detail["current_status"]),
+                         ("연락처 확인", "", REVIEW_REQUIRED))
+        self.assertEqual((len(self.histories()), self.histories()[-1].change_type), (2, "EDIT_VALIDATION"))
+
+    def test_edit_invalid_values_and_protected_fields(self):
+        with TestClient(self.app) as client:
+            invalid = client.patch(self.path(), json=self.edit_values(quantity="1.5", pickup_date="2026-02-30"))
+            protected = client.patch(self.path(), json=dict(self.edit_values(), current_status=SHIPPED))
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(set(invalid.json()["detail"]["fields"]), {"quantity", "pickup_date"})
+        self.assertEqual(protected.status_code, 422)
+        self.assertEqual(len(self.histories()), 1)
+        self.audit_mock.assert_not_called()
+
+    def test_edit_requires_permission(self):
+        self.user.menu_permissions = ["assets"]
+        with TestClient(self.app) as client:
+            response = client.patch(self.path(), json=self.edit_values(customer_name="차단"))
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.db.get(RecallApplication, self.application_id).customer_name, "홍길동")
 
 
 if __name__ == "__main__":

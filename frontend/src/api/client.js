@@ -1172,6 +1172,12 @@ export async function getRecallApplication(applicationId) {
   return request(`/online/recall/applications/${applicationId}`, { timeoutMs: 10000 });
 }
 
+export async function updateRecallApplication(applicationId, fields) {
+  return request(`/online/recall/applications/${applicationId}`, {
+    method: "PATCH", body: fields, timeoutMs: 10000,
+  });
+}
+
 export async function updateRecallApplicationStatus(applicationId, status, reason) {
   return request(`/online/recall/applications/${applicationId}/status`, {
     method: "PATCH",

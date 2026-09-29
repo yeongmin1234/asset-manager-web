@@ -216,7 +216,7 @@ function RecallManagementPage({ currentUser }) {
       </section>
       </>}
       {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
-      {detailId !== null && <RecallDetailModal applicationId={detailId} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
+      {detailId !== null && <RecallDetailModal applicationId={detailId} canEdit={currentUser?.role === "admin" || (currentUser?.menu_permissions || []).includes("online_recall")} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
       {deleteOpen && <RecallDeleteModal count={selectedIds.size} saving={isDeleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={handleDelete} />}
     </div>
   );

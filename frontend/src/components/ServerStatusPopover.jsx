@@ -20,52 +20,8 @@ function formatCheckedAt(value) {
   }).format(date);
 }
 
-function formatLastSeen(value) {
-  if (!value) {
-    return "-";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(date);
-}
-
-function shortenUserAgent(value) {
-  const text = String(value || "");
-  if (!text) {
-    return "-";
-  }
-  if (text.includes("Edg/")) {
-    return "Edge";
-  }
-  if (text.includes("Chrome/")) {
-    return "Chrome";
-  }
-  if (text.includes("Firefox/")) {
-    return "Firefox";
-  }
-  if (text.includes("Safari/")) {
-    return "Safari";
-  }
-  return text.slice(0, 32);
-}
-
 function getVisitorDisplayName(visitor) {
-  return visitor?.user_name || visitor?.username || visitor?.ip_address || "알 수 없음";
-}
-
-function getVisitorMeta(visitor) {
-  const lastSeen = formatLastSeen(visitor?.last_seen);
-  if (visitor?.user_name || visitor?.username) {
-    return `${visitor?.ip_address || "-"} · ${lastSeen}`;
-  }
-  return lastSeen;
+  return visitor?.user_name || visitor?.username || "알 수 없음";
 }
 
 function StatusValue({ isOk, unknownLabel = "확인 대기" }) {
@@ -226,8 +182,6 @@ function ServerStatusPopover({
                 {visitors.map((visitor) => (
                   <div className="visitor-item" key={visitor.ip_address}>
                     <strong>{getVisitorDisplayName(visitor)}</strong>
-                    <span className="visitor-browser">{shortenUserAgent(visitor.user_agent)}</span>
-                    <span className="visitor-meta">{getVisitorMeta(visitor)}</span>
                   </div>
                 ))}
               </div>

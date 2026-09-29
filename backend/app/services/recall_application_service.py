@@ -24,7 +24,25 @@ from app.models.recall_application import (
     RecallStatusHistory,
 )
 from app.models.user import User
-from app.services.recall_application_excel import preview_recall_applications
+from openpyxl.utils.datetime import CALENDAR_WINDOWS_1900
+
+from app.services.recall_application_excel import (
+    _index_existing, _serial_key, _valid_phone, _validate_values,
+    preview_recall_applications,
+)
+
+
+EDITABLE_FIELDS = (
+    "application_date", "quantity", "customer_name", "phone_original", "address",
+    "memo", "serial_number", "lot_number", "pickup_agreement", "pickup_date",
+    "replacement_shipping_agreement",
+)
+
+
+class RecallEditValidationError(ValueError):
+    def __init__(self, fields):
+        super().__init__("입력값을 확인해주세요.")
+        self.fields = fields
 
 
 @dataclass(frozen=True)
@@ -469,6 +487,90 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
             for item in history
         ],
     }
+
+
+def update_recall_application_fields(db: Session, *, application_id: int, values: dict, user_id: int) -> Optional[dict]:
+    """Validate edits with the Excel rules and recalculate live DB duplicate findings."""
+    try:
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("LOCK TABLE recall_applications IN SHARE ROW EXCLUSIVE MODE"))
+        application = db.scalar(select(RecallApplication).where(
+            RecallApplication.id == application_id, RecallApplication.is_deleted.is_(False)
+        ).with_for_update())
+        if application is None:
+            db.rollback()
+            return None
+        raw = {field: values[field] for field in EDITABLE_FIELDS}
+        data, issues = _validate_values(raw, CALENDAR_WINDOWS_1900)
+        errors = {issue.field: issue.message for issue in issues if issue.code in {
+            "MISSING_REQUIRED", "INVALID_QUANTITY", "INVALID_DATE"
+        }}
+        limits = {"customer_name": 100, "phone_original": 50, "serial_number": 100,
+                  "lot_number": 100, "pickup_agreement": 100, "replacement_shipping_agreement": 100}
+        for field, limit in limits.items():
+            if data[field] is not None and len(data[field]) > limit:
+                errors[field] = "{}자 이내로 입력해주세요.".format(limit)
+        for field in EDITABLE_FIELDS:
+            if isinstance(raw[field], (list, dict, bool)):
+                errors[field] = "올바른 값을 입력해주세요."
+        if len(data["phone_normalized"] or "") > 20:
+            errors["phone_original"] = "연락처가 너무 깁니다."
+        if errors:
+            raise RecallEditValidationError(errors)
+
+        changed_fields = [field for field in EDITABLE_FIELDS if getattr(application, field) != data[field]]
+        if application.phone_normalized != (data["phone_normalized"] or ""):
+            changed_fields = list(dict.fromkeys(changed_fields + ["phone_normalized"]))
+        existing = [record for record in existing_application_records(db) if record["id"] != application_id]
+        serials, phones = _index_existing(existing)
+        serial_matches = serials.get(_serial_key(data["serial_number"]), [])
+        phone = data["phone_normalized"]
+        phone_matches = phones.get(phone, []) if _valid_phone(phone) else []
+        duplicate_reason = ("PHONE_AND_SERIAL" if serial_matches and phone_matches else
+                            "SERIAL" if serial_matches else "PHONE" if phone_matches else None)
+        reference = (serial_matches or phone_matches or [None])[0]
+        keys_changed = (application.phone_normalized != (phone or "") or
+                        _serial_key(application.serial_number) != _serial_key(data["serial_number"]))
+        duplicate_flag = (application.duplicate_resolution == "KEEP" or
+                          bool(duplicate_reason) and (application.duplicate_resolution != "NORMAL" or keys_changed))
+        if not duplicate_flag:
+            duplicate_reason = None
+            reference = None
+        metadata_changed = (application.duplicate_flag != duplicate_flag or
+                            application.duplicate_reason != duplicate_reason or
+                            application.duplicate_reference_id != (reference["id"] if reference else None))
+        if metadata_changed:
+            changed_fields.extend(["duplicate_flag", "duplicate_reason", "duplicate_reference_id"])
+        for field in EDITABLE_FIELDS:
+            setattr(application, field, data[field])
+        application.phone_normalized = phone or ""
+        application.duplicate_flag = duplicate_flag
+        application.duplicate_reason = duplicate_reason
+        application.duplicate_reference_id = reference["id"] if reference else None
+        if duplicate_reason and keys_changed and application.duplicate_resolution == "NORMAL":
+            application.duplicate_resolution = None
+            application.duplicate_resolved_at = None
+            application.duplicate_resolved_by = None
+        # An undecipherable phone follows Excel's review rule. Keep an audit trail
+        # for the automatic review transition without changing manual transitions.
+        review_changed = any(issue.code == "INVALID_PHONE" for issue in issues) and application.current_status == APPLICATION_RECEIVED
+        if review_changed:
+            changed_fields.append("current_status")
+            application.current_status = REVIEW_REQUIRED
+            db.add(RecallStatusHistory(
+                recall_application_id=application_id, previous_status=APPLICATION_RECEIVED,
+                new_status=REVIEW_REQUIRED, changed_by=user_id, change_type="EDIT_VALIDATION",
+                reason="연락처 확인 필요",
+            ))
+        changed = bool(changed_fields or metadata_changed or review_changed)
+        if changed:
+            db.commit()
+        else:
+            db.rollback()
+        return {"changed": changed, "changed_fields": changed_fields}
+    except Exception:
+        db.rollback()
+        raise
 
 
 def change_recall_application_status(

@@ -773,26 +773,12 @@ p {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  display: grid;
-  gap: 4px 8px;
-  grid-template-columns: 1fr auto;
-  padding: 8px;
+  padding: 7px 8px;
 }
 
 .visitor-item strong {
   color: #172033;
   font-size: 0.84rem;
-}
-
-.visitor-item span {
-  color: #64748b;
-  font-size: 0.78rem;
-}
-
-.visitor-item .visitor-meta {
-  color: #7b8798;
-  font-size: 0.72rem;
-  grid-column: 1 / -1;
 }
 
 .server-status-refresh {
