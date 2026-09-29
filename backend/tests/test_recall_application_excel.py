@@ -10,6 +10,7 @@ from app.services.recall_application_excel import (
     RecallApplicationExcelError,
     normalize_phone,
     preview_recall_applications,
+    review_reason_codes,
 )
 
 
@@ -51,6 +52,17 @@ def codes(row):
 
 
 class RecallApplicationExcelTest(unittest.TestCase):
+    def test_review_reason_codes_cover_multiple_validation_fields(self):
+        preview = preview_recall_applications(make_workbook([application_row(**{
+            "신청일자": "2026-02-30", "수량": "1.5", "*연락처": "확인 필요",
+            "주소지": "미정", "*시리얼번호": None,
+        })]))
+        self.assertEqual(review_reason_codes(preview.rows[0].issues), (
+            "PHONE_INVALID", "QUANTITY_INVALID", "APPLICATION_DATE_INVALID",
+            "SERIAL_CHECK", "ADDRESS_CHECK",
+        ))
+        self.assertEqual(preview.rows[0].status, "error")
+
     def test_reported_a1_k8_business_sample_layout(self):
         """Recreate the supplied layout; the original workbook was not attached."""
         workbook = Workbook()

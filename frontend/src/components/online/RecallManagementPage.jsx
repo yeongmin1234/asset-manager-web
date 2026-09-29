@@ -8,7 +8,7 @@ import RecallDetailModal from "./RecallDetailModal.jsx";
 import RecallOrderTab from "./RecallOrderTab.jsx";
 import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
 import RecallDeleteModal from "./RecallDeleteModal.jsx";
-import { isRecallBulkSelectable, nextRecallBulkStatus } from "./onlineDisplayUtils.js";
+import { isRecallBulkSelectable, nextRecallBulkStatus, recallTabSelectsAllRows } from "./onlineDisplayUtils.js";
 import "./online.css";
 
 const EMPTY_SUMMARY = { total_count: 0, received_count: 0, remaining_count: 0, in_progress_count: 0, shipped_count: 0 };
@@ -61,7 +61,7 @@ function RecallManagementPage({ currentUser }) {
       ]);
       if (requestId !== loadRequestId.current) return;
       setItems(listResult.items || []);
-      const selectableIds = new Set((listResult.items || []).filter((item) => tab === "all" || isRecallBulkSelectable(item.current_status)).map((item) => item.id));
+      const selectableIds = new Set((listResult.items || []).filter((item) => recallTabSelectsAllRows(tab) || isRecallBulkSelectable(item.current_status)).map((item) => item.id));
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
       setTotal(listResult.total || 0);
       setTotalPages(listResult.total_pages || 1);
@@ -102,7 +102,7 @@ function RecallManagementPage({ currentUser }) {
   };
 
   const handleToggleSelection = (id) => {
-    if (!items.some((item) => item.id === id && (activeTab === "all" || isRecallBulkSelectable(item.current_status)))) return;
+    if (!items.some((item) => item.id === id && (recallTabSelectsAllRows(activeTab) || isRecallBulkSelectable(item.current_status)))) return;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -112,7 +112,7 @@ function RecallManagementPage({ currentUser }) {
   };
 
   const handleTogglePage = (checked) => {
-    setSelectedIds(new Set(checked ? items.filter((item) => activeTab === "all" || isRecallBulkSelectable(item.current_status)).map((item) => item.id) : []));
+    setSelectedIds(new Set(checked ? items.filter((item) => recallTabSelectsAllRows(activeTab) || isRecallBulkSelectable(item.current_status)).map((item) => item.id) : []));
   };
 
   const selectedStatuses = items.filter((item) => selectedIds.has(item.id)).map((item) => item.current_status);
@@ -205,7 +205,7 @@ function RecallManagementPage({ currentUser }) {
         {activeTab !== "duplicates" && <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />}
         {bulkMessage && <p className="online-recall-bulk-message" role="status">{bulkMessage}</p>}
         {bulkError && <p className="online-recall-bulk-error" role="alert">{bulkError}</p>}
-        {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating || isDeleting} selectAllRows={activeTab === "all"} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}
+        {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating || isDeleting} selectAllRows={recallTabSelectsAllRows(activeTab)} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}
         <div className="online-recall-pagination">
           <span>총 {total}건 · {page}/{totalPages} 페이지</span>
           <div>

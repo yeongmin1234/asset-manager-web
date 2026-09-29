@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -57,6 +57,7 @@ class RecallApplication(Base):
     pickup_agreement: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     pickup_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     replacement_shipping_agreement: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    review_reason_codes: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     current_status: Mapped[str] = mapped_column(
         String(40), nullable=False, default=APPLICATION_RECEIVED, server_default=APPLICATION_RECEIVED, index=True
     )

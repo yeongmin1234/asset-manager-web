@@ -22,6 +22,21 @@ export function displayRecallStatus(value) {
   return RECALL_FILTER_STATUS_OPTIONS.find((option) => option.value === value)?.label || value || "-";
 }
 
+const REVIEW_REASON_LABELS = {
+  PHONE_INVALID: "연락처 형식 확인 필요",
+  APPLICATION_DATE_INVALID: "신청일자 확인 필요",
+  PICKUP_DATE_INVALID: "회수 일자 확인 필요",
+  QUANTITY_INVALID: "수량 확인 필요",
+  ADDRESS_CHECK: "주소 확인 필요",
+  SERIAL_CHECK: "시리얼번호 확인 필요",
+  MANUAL_REVIEW: "수동 확인 필요",
+};
+
+export function displayRecallReviewReasons(codes) {
+  if (!Array.isArray(codes) || codes.length === 0) return "-";
+  return [...new Set(codes.map((code) => REVIEW_REASON_LABELS[code] || "기타 확인 필요"))].join(" · ");
+}
+
 export function recallStatusClass(value) {
   if (value === "IN_PROGRESS") return "online-recall-status-progress";
   if (value === "REVIEW_REQUIRED") return "online-recall-status-review";
@@ -32,6 +47,10 @@ export function recallStatusClass(value) {
 
 export function isRecallBulkSelectable(value) {
   return value === "APPLICATION_RECEIVED" || value === "IN_PROGRESS";
+}
+
+export function recallTabSelectsAllRows(tab) {
+  return tab === "all" || tab === "applications";
 }
 
 export function nextRecallBulkStatus(statuses) {

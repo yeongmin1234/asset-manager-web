@@ -392,6 +392,46 @@ class RecallApplicationPhase4Test(unittest.TestCase):
         self.assertEqual((detail["phone_original"], detail["phone_normalized"], detail["current_status"]),
                          ("연락처 확인", "", REVIEW_REQUIRED))
         self.assertEqual((len(self.histories()), self.histories()[-1].change_type), (2, "EDIT_VALIDATION"))
+        self.assertEqual(detail["review_reason_codes"], ["PHONE_INVALID"])
+
+    def test_review_reasons_are_coded_and_consistent_in_list_and_detail(self):
+        content = workbook(row(**{"성함": "검토 고객", "*연락처": "연락처 확인",
+                                  "주소지": "미정", "*시리얼번호": None}))
+        commit_recall_applications(self.db, file_bytes=content, source_filename="review.xlsx",
+                                   selected_row_numbers=[2], user_id=1)
+        review_id = self.db.scalar(select(RecallApplication.id).where(RecallApplication.customer_name == "검토 고객"))
+        expected = ["PHONE_INVALID", "SERIAL_CHECK", "ADDRESS_CHECK"]
+        with TestClient(self.app) as client:
+            listing = client.get("/online/recall/applications", params={"include_duplicates": "true"})
+            detail = client.get("/online/recall/applications/{}".format(review_id))
+        self.assertEqual((listing.status_code, detail.status_code), (200, 200))
+        items = {item["id"]: item for item in listing.json()["items"]}
+        self.assertEqual(items[review_id]["current_status"], REVIEW_REQUIRED)
+        self.assertEqual(items[review_id]["review_reason_codes"], expected)
+        self.assertEqual(detail.json()["review_reason_codes"], expected)
+        self.assertEqual(items[self.application_id]["review_reason_codes"], [])
+        self.assertEqual(self.db.get(RecallApplication, review_id).review_reason_codes, expected)
+        self.assertNotIn("연락처 확인", str(expected))
+
+    def test_legacy_review_reasons_derive_without_changing_status(self):
+        content = workbook(row(**{"성함": "기존 고객", "*시리얼번호": None}))
+        commit_recall_applications(self.db, file_bytes=content, source_filename="legacy.xlsx",
+                                   selected_row_numbers=[2], user_id=1)
+        legacy = self.db.scalar(select(RecallApplication).where(RecallApplication.customer_name == "기존 고객"))
+        legacy.review_reason_codes = None
+        self.db.commit()
+        with TestClient(self.app) as client:
+            detail = client.get("/online/recall/applications/{}".format(legacy.id))
+        self.assertEqual(detail.json()["review_reason_codes"], ["SERIAL_CHECK"])
+        self.assertEqual(legacy.current_status, REVIEW_REQUIRED)
+        self.assertIsNone(legacy.review_reason_codes)
+
+    def test_manual_review_has_classified_reason_without_raw_reason(self):
+        with TestClient(self.app) as client:
+            response = self.change(client, REVIEW_REQUIRED, "고객과 별도 확인")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["application"]["review_reason_codes"], ["MANUAL_REVIEW"])
+        self.assertEqual(self.db.get(RecallApplication, self.application_id).review_reason_codes, ["MANUAL_REVIEW"])
 
     def test_edit_invalid_values_and_protected_fields(self):
         with TestClient(self.app) as client:

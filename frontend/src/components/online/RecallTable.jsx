@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { displayRecallStatus, formatPhoneForDisplay, formatRecallDate, isRecallBulkSelectable, recallStatusClass } from "./onlineDisplayUtils.js";
+import { displayRecallReviewReasons, displayRecallStatus, formatPhoneForDisplay, formatRecallDate, isRecallBulkSelectable, recallStatusClass } from "./onlineDisplayUtils.js";
 
 const COLUMNS = [
   { label: "선택", width: 48 },
@@ -10,6 +10,7 @@ const COLUMNS = [
   { label: "주소지", width: 240 },
   { label: "메모", width: 240 },
   { label: "현재 상태", width: 100 },
+  { label: "확인 필요 사유", width: 235 },
   { label: "시리얼번호", width: 140 },
   { label: "LOT 번호", width: 110 },
   { label: "기존 필터 회수 동의", width: 150 },
@@ -50,6 +51,7 @@ function RecallTable({ items = [], isLoading = false, isBulkUpdating = false, se
         <td className="online-recall-long-cell" title={item.address || undefined}><span>{show(item.address)}</span></td>
         <td className="online-recall-long-cell" title={item.memo || undefined}><span>{show(item.memo)}</span></td>
         <td><span className={`online-recall-status ${recallStatusClass(item.current_status)}`}>{displayRecallStatus(item.current_status)}</span>{item.duplicate_flag && <span className="online-recall-duplicate-badge">중복 확인</span>}</td>
+        <td><span className="online-recall-review-reasons" title={displayRecallReviewReasons(item.current_status === "REVIEW_REQUIRED" ? item.review_reason_codes : [])}>{displayRecallReviewReasons(item.current_status === "REVIEW_REQUIRED" ? item.review_reason_codes : [])}</span></td>
         <td>{show(item.serial_number)}</td>
         <td>{show(item.lot_number)}</td>
         <td>{show(item.pickup_agreement)}</td>

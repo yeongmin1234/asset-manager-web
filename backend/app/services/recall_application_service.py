@@ -28,7 +28,7 @@ from openpyxl.utils.datetime import CALENDAR_WINDOWS_1900
 
 from app.services.recall_application_excel import (
     _index_existing, _serial_key, _valid_phone, _validate_values,
-    preview_recall_applications,
+    preview_recall_applications, review_reason_codes,
 )
 
 
@@ -171,6 +171,7 @@ def commit_recall_applications(
                 pickup_agreement=data.get("pickup_agreement"),
                 pickup_date=data.get("pickup_date"),
                 replacement_shipping_agreement=data.get("replacement_shipping_agreement"),
+                review_reason_codes=list(review_reason_codes(row.issues)),
                 current_status=REVIEW_REQUIRED if any(issue.code == "REVIEW_REQUIRED" for issue in row.issues)
                 else APPLICATION_RECEIVED,
                 duplicate_flag=bool(duplicate_reason),
@@ -418,6 +419,18 @@ def bulk_soft_delete_recall_applications(
         raise
 
 
+def get_recall_review_reason_codes(application: RecallApplication) -> List[str]:
+    if application.current_status != REVIEW_REQUIRED:
+        return []
+    if application.review_reason_codes is not None:
+        return list(application.review_reason_codes) or ["MANUAL_REVIEW"]
+    # Historical applications predate the coded column. Reapply the same Excel
+    # validation to their stored fields without changing data or status.
+    values = {field: getattr(application, field) for field in EDITABLE_FIELDS}
+    _, issues = _validate_values(values, CALENDAR_WINDOWS_1900)
+    return list(review_reason_codes(issues)) or ["MANUAL_REVIEW"]
+
+
 def get_recall_application_detail(db: Session, application_id: int) -> Optional[dict]:
     application = db.get(RecallApplication, application_id)
     if application is None or application.is_deleted:
@@ -454,6 +467,7 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
         "pickup_date": application.pickup_date,
         "replacement_shipping_agreement": application.replacement_shipping_agreement,
         "current_status": application.current_status,
+        "review_reason_codes": get_recall_review_reason_codes(application),
         "duplicate_flag": application.duplicate_flag,
         "duplicate_reason": application.duplicate_reason,
         "duplicate_reference_id": application.duplicate_reference_id,
@@ -562,6 +576,12 @@ def update_recall_application_fields(db: Session, *, application_id: int, values
                 new_status=REVIEW_REQUIRED, changed_by=user_id, change_type="EDIT_VALIDATION",
                 reason="연락처 확인 필요",
             ))
+        new_review_codes = list(review_reason_codes(issues))
+        if application.current_status == REVIEW_REQUIRED and not new_review_codes:
+            new_review_codes = ["MANUAL_REVIEW"]
+        if application.review_reason_codes != new_review_codes:
+            changed_fields.append("review_reason_codes")
+            application.review_reason_codes = new_review_codes
         changed = bool(changed_fields or metadata_changed or review_changed)
         if changed:
             db.commit()
@@ -600,6 +620,10 @@ def change_recall_application_status(
             raise ValueError("허용되지 않은 상태 전이입니다.")
 
         application.current_status = status
+        if status == REVIEW_REQUIRED:
+            values = {field: getattr(application, field) for field in EDITABLE_FIELDS}
+            _, issues = _validate_values(values, CALENDAR_WINDOWS_1900)
+            application.review_reason_codes = list(review_reason_codes(issues)) or ["MANUAL_REVIEW"]
         db.add(RecallStatusHistory(
             recall_application_id=application_id,
             previous_status=previous_status,

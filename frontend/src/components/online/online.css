@@ -318,7 +318,7 @@
 .online-recall-table {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1757px;
+  min-width: 1992px;
   table-layout: fixed;
   width: 100%;
 }
@@ -408,6 +408,12 @@
 
 .online-recall-table tbody tr.online-recall-duplicate-row td { background: #fff5f5; }
 .online-recall-table tbody tr.online-recall-duplicate-row:hover td { background: #ffeded; }
+.online-recall-review-reasons {
+  color: #92400e;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .online-recall-duplicate-badge {
   background: #fff1f2;
   border: 1px solid #fecdd3;

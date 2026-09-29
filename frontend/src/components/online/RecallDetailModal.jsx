@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getRecallApplication, updateRecallApplication, updateRecallApplicationStatus } from "../../api/client.js";
 import {
   displayRecallStatus,
+  displayRecallReviewReasons,
   formatPhoneForDisplay,
   formatRecallDate,
   formatRecallDateTime,
@@ -220,6 +221,7 @@ function RecallDetailModal({ applicationId, canEdit = false, onClose, onChanged 
               <h3>상태 정보</h3>
               <dl className="online-detail-grid">
                 <Field label="현재 상태"><span className={`online-recall-status ${recallStatusClass(detail.current_status)}`}>{displayRecallStatus(detail.current_status)}</span></Field>
+                <Field label="확인 필요 사유" wide>{displayRecallReviewReasons(detail.current_status === "REVIEW_REQUIRED" ? detail.review_reason_codes : [])}</Field>
                 <Field label="등록일시">{formatRecallDateTime(detail.created_at)}</Field>
                 <Field label="등록자">{show(detail.created_by_name || (detail.created_by ? `사용자 #${detail.created_by}` : ""))}</Field>
               </dl>

@@ -87,6 +87,25 @@ def normalize_phone(value: Any) -> Optional[str]:
     return re.sub(r"\D", "", original) if original is not None else None
 
 
+def review_reason_codes(issues: Iterable[ValidationIssue]) -> Tuple[str, ...]:
+    """Keep review causes as stable codes, without raw customer data or messages."""
+    reasons = []
+    mapping = {
+        ("INVALID_PHONE", "phone_original"): "PHONE_INVALID",
+        ("REVIEW_REQUIRED", "phone_original"): "PHONE_INVALID",
+        ("INVALID_QUANTITY", "quantity"): "QUANTITY_INVALID",
+        ("INVALID_DATE", "application_date"): "APPLICATION_DATE_INVALID",
+        ("INVALID_DATE", "pickup_date"): "PICKUP_DATE_INVALID",
+        ("REVIEW_REQUIRED", "address"): "ADDRESS_CHECK",
+        ("REVIEW_REQUIRED", "serial_number"): "SERIAL_CHECK",
+    }
+    for issue in issues:
+        code = mapping.get((issue.code, issue.field))
+        if code and code not in reasons:
+            reasons.append(code)
+    return tuple(reasons)
+
+
 def preview_recall_applications(
     file_bytes: bytes,
     *,
