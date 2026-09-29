@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -68,6 +68,14 @@ class RecallApplication(Base):
     order_batch_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("recall_order_batches.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    duplicate_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    duplicate_reason: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    duplicate_reference_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("recall_applications.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    duplicate_resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    duplicate_resolved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    duplicate_resolution: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
 
@@ -97,3 +105,16 @@ class RecallOrderBatch(Base):
     file_content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+
+
+class RecallDuplicateResolutionHistory(Base):
+    __tablename__ = "recall_duplicate_resolution_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recall_application_id: Mapped[int] = mapped_column(
+        ForeignKey("recall_applications.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    reason: Mapped[str] = mapped_column(String(255), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    changed_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)

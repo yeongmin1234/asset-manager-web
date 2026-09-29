@@ -82,9 +82,9 @@ class ApplicationPreview:
 
 
 def normalize_phone(value: Any) -> Optional[str]:
-    """Remove only spaces and hyphens; other characters remain invalid."""
+    """Use digits for comparison while preserving the original Excel value separately."""
     original = _text(value)
-    return re.sub(r"[\s-]", "", original) if original is not None else None
+    return re.sub(r"\D", "", original) if original is not None else None
 
 
 def preview_recall_applications(
@@ -152,7 +152,7 @@ def preview_recall_applications(
                 seen_phones.setdefault(phone_key, raw_row_number)
 
             codes = {issue.code for issue in issues}
-            if codes & {"MISSING_REQUIRED", "INVALID_PHONE", "INVALID_QUANTITY", "INVALID_DATE"}:
+            if codes & {"MISSING_REQUIRED", "INVALID_QUANTITY", "INVALID_DATE"}:
                 status = "error"
             elif codes & {"DUPLICATE_SERIAL", "DUPLICATE_PHONE"}:
                 status = "duplicate"
@@ -213,7 +213,8 @@ def _validate_values(values, epoch):
 
     data["phone_normalized"] = normalize_phone(values["phone_original"])
     if data["phone_original"] is not None and not _valid_phone(data["phone_normalized"]):
-        issues.append(ValidationIssue("INVALID_PHONE", "phone_original", "010으로 시작하는 11자리 휴대폰 번호가 아닙니다."))
+        issues.append(ValidationIssue("INVALID_PHONE", "phone_original", "연락처를 해석할 수 없어 확인이 필요합니다."))
+        issues.append(ValidationIssue("REVIEW_REQUIRED", "phone_original", "연락처 확인이 필요합니다."))
 
     raw_quantity = values["quantity"]
     data["quantity"] = _positive_integer(raw_quantity)
@@ -262,7 +263,7 @@ def _raw_column_key(headers, index):
 
 
 def _valid_phone(value):
-    return bool(value and re.fullmatch(r"010[0-9]{8}", value))
+    return bool(value and re.fullmatch(r"[0-9]{10,15}", value))
 
 
 def _positive_integer(value):

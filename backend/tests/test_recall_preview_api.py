@@ -13,7 +13,7 @@ from app.api.routers.recall_preview import router
 from app.core.auth import get_current_user
 from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
-from app.models.recall_application import RecallApplication, RecallApplicationUploadBatch, RecallStatusHistory
+from app.models.recall_application import RecallApplication, RecallApplicationUploadBatch, RecallStatusHistory, RecallDuplicateResolutionHistory
 from app.models.user import User
 from app.services.recall_application_excel import EXCEL_COLUMNS
 
@@ -50,7 +50,7 @@ class RecallPreviewApiTest(unittest.TestCase):
 
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
+        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__, RecallDuplicateResolutionHistory.__table__):
             table.create(self.engine, checkfirst=True)
         self.db = Session(self.engine)
         self.app = FastAPI()

@@ -6,6 +6,7 @@ import RecallTable from "./RecallTable.jsx";
 import RecallUploadModal from "./RecallUploadModal.jsx";
 import RecallDetailModal from "./RecallDetailModal.jsx";
 import RecallOrderTab from "./RecallOrderTab.jsx";
+import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
 import { isRecallBulkSelectable, nextRecallBulkStatus } from "./onlineDisplayUtils.js";
 import "./online.css";
 
@@ -43,12 +44,12 @@ function RecallManagementPage({ currentUser }) {
   const [loadError, setLoadError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadData = useCallback(async (targetPage, filters) => {
+  const loadData = useCallback(async (targetPage, filters, duplicateOnly) => {
     setIsLoading(true);
     setLoadError("");
     try {
       const [listResult, summaryResult] = await Promise.all([
-        getRecallApplications({ ...filters, page: targetPage, page_size: 30 }),
+        getRecallApplications({ ...filters, page: targetPage, page_size: 30, duplicate_only: duplicateOnly }),
         getRecallApplicationSummary(),
       ]);
       setItems(listResult.items || []);
@@ -65,7 +66,7 @@ function RecallManagementPage({ currentUser }) {
     }
   }, []);
 
-  useEffect(() => { loadData(page, appliedFilters); }, [loadData, page, appliedFilters, refreshKey]);
+  useEffect(() => { loadData(page, appliedFilters, activeTab === "duplicates"); }, [loadData, page, appliedFilters, activeTab, refreshKey]);
 
   const handleSearch = () => {
     setSelectedIds(new Set());
@@ -134,6 +135,14 @@ function RecallManagementPage({ currentUser }) {
     setPage(nextPage);
   };
 
+  const changeTab = (tab) => {
+    setSelectedIds(new Set());
+    setPage(1);
+    setFilterValues({ keyword: "", status: "" });
+    setAppliedFilters({ keyword: "", status: "" });
+    setActiveTab(tab);
+  };
+
   return (
     <div className="online-page">
       <div className="portal-screen-heading online-recall-heading">
@@ -147,8 +156,9 @@ function RecallManagementPage({ currentUser }) {
         </div>
       </div>
       <nav className="online-recall-tabs" aria-label="리콜 관리 탭">
-        <button type="button" className={activeTab === "applications" ? "active" : ""} aria-current={activeTab === "applications" ? "page" : undefined} onClick={() => setActiveTab("applications")}>접수 목록</button>
-        <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => setActiveTab("orders")}>SCM 발주 대상</button>
+        <button type="button" className={activeTab === "applications" ? "active" : ""} aria-current={activeTab === "applications" ? "page" : undefined} onClick={() => changeTab("applications")}>접수 목록</button>
+        <button type="button" className={activeTab === "duplicates" ? "active" : ""} aria-current={activeTab === "duplicates" ? "page" : undefined} onClick={() => changeTab("duplicates")}>중복 확인</button>
+        <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => changeTab("orders")}>SCM 발주 대상</button>
       </nav>
       {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} /> : <>
       <RecallSummaryCards summary={summary} />
@@ -160,10 +170,10 @@ function RecallManagementPage({ currentUser }) {
           onReset={handleReset}
           isLoading={isLoading || isBulkUpdating}
         />
-        <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />
+        {activeTab === "applications" && <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />}
         {bulkMessage && <p className="online-recall-bulk-message" role="status">{bulkMessage}</p>}
         {bulkError && <p className="online-recall-bulk-error" role="alert">{bulkError}</p>}
-        <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />
+        {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}
         <div className="online-recall-pagination">
           <span>총 {total}건 · {page}/{totalPages} 페이지</span>
           <div>

@@ -24,6 +24,8 @@ from app.models.recall_application import (
     RecallApplication,
     RecallApplicationUploadBatch,
     RecallStatusHistory,
+    RecallDuplicateResolutionHistory,
+    RecallOrderBatch,
 )
 from app.models.user import User
 from app.services.recall_application_excel import EXCEL_COLUMNS
@@ -34,6 +36,7 @@ from app.services.recall_application_service import (
     get_recall_summary,
     list_recall_applications,
 )
+from app.services.recall_order_service import export_orders, order_summary, preview_orders
 
 
 HEADERS = list(EXCEL_COLUMNS)
@@ -66,7 +69,7 @@ def workbook(*rows):
 class RecallApplicationPhase3Test(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
+        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallOrderBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__, RecallDuplicateResolutionHistory.__table__):
             table.create(self.engine, checkfirst=True)
         self.db = Session(self.engine)
 
@@ -100,31 +103,35 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         result = self.commit(content, selected=(2,))
         self.assertEqual((result.registered, result.unselected_review), (1, 1))
 
-    def test_04_error_row_is_blocked(self):
+    def test_04_unreadable_phone_is_registered_for_review(self):
         result = self.commit(workbook(row(**{"*연락처": "invalid"})))
-        self.assertEqual((result.registered, result.rejected), (0, 1))
+        self.assertEqual((result.registered, result.review, result.rejected), (1, 1, 0))
+        self.assertEqual(self.db.scalar(select(RecallApplication)).current_status, REVIEW_REQUIRED)
 
-    def test_05_duplicate_serial_is_blocked_first(self):
+    def test_05_duplicate_serial_is_registered_for_review(self):
         self.commit(workbook(row()))
         result = self.commit(workbook(row(**{"메모": "다른 파일", "*연락처": "01099998888"})), filename="other.xlsx")
-        self.assertEqual(result.rows[0]["result"], "DUPLICATE_SERIAL")
+        self.assertEqual(result.rows[0]["result"], "REGISTERED_DUPLICATE")
+        self.assertEqual(self.db.scalar(select(RecallApplication).order_by(RecallApplication.id.desc())).duplicate_reason, "SERIAL")
 
-    def test_06_duplicate_phone_is_blocked(self):
+    def test_06_duplicate_phone_is_registered_for_review(self):
         self.commit(workbook(row()))
         result = self.commit(workbook(row(**{"메모": "다른 파일", "*시리얼번호": "SER-002"})), filename="other.xlsx")
-        self.assertEqual(result.rows[0]["result"], "DUPLICATE_PHONE")
+        self.assertEqual(result.rows[0]["result"], "REGISTERED_DUPLICATE")
+        self.assertEqual(self.db.scalar(select(RecallApplication).order_by(RecallApplication.id.desc())).duplicate_reason, "PHONE")
 
     def test_07_same_file_retry_is_idempotent(self):
         content = workbook(row())
         self.commit(content)
         result = self.commit(content)
-        self.assertEqual((result.registered, result.duplicate, self.count(RecallApplication)), (0, 1, 1))
+        self.assertEqual((result.registered, result.already_registered, self.count(RecallApplication)), (0, 1, 1))
         self.assertEqual(result.rows[0]["result"], "ALREADY_REGISTERED")
 
     def test_08_same_customer_in_different_file_is_not_overwritten(self):
         self.commit(workbook(row()))
         self.commit(workbook(row(**{"메모": "파일 내용 변경"})), filename="changed.xlsx")
-        self.assertEqual(self.count(RecallApplication), 1)
+        self.assertEqual(self.count(RecallApplication), 2)
+        self.assertTrue(self.db.scalar(select(RecallApplication).order_by(RecallApplication.id.desc())).duplicate_flag)
 
     def test_09_missing_serial_selected_review_is_stored_as_null(self):
         self.commit(workbook(row(**{"*시리얼번호": None})))
@@ -133,7 +140,7 @@ class RecallApplicationPhase3Test(unittest.TestCase):
     def test_10_normalized_phone_prevents_duplicate(self):
         self.commit(workbook(row(**{"*연락처": "010 1111 2222"})))
         result = self.commit(workbook(row(**{"*연락처": "010-1111-2222", "*시리얼번호": "SER-999", "메모": "changed"})))
-        self.assertEqual(result.rows[0]["result"], "DUPLICATE_PHONE")
+        self.assertEqual(result.rows[0]["result"], "REGISTERED_DUPLICATE")
 
     def test_11_upload_batch_is_created_with_counts(self):
         self.commit(workbook(row()))
@@ -269,6 +276,83 @@ class RecallApplicationPhase3Test(unittest.TestCase):
             "total_count": 1, "received_count": 1, "remaining_count": 1,
             "in_progress_count": 0, "shipped_count": 0,
         })
+
+    def test_batch_internal_duplicate_is_registered_with_reference(self):
+        content = workbook(
+            row(),
+            row(**{"성함": "두번째 고객", "*연락처": "010 1111 2222", "메모": "별도 신청"}),
+        )
+        result = self.commit(content, selected=(2, 3))
+        items = list(self.db.scalars(select(RecallApplication).order_by(RecallApplication.id)).all())
+        self.assertEqual((result.registered, result.normal, result.duplicate), (2, 1, 1))
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[1].duplicate_reason, "PHONE_AND_SERIAL")
+        self.assertEqual(items[1].duplicate_reference_id, items[0].id)
+        self.assertEqual(items[1].phone_normalized, "01011112222")
+        self.assertEqual(list_recall_applications(self.db, keyword=None, status=None, page=1, page_size=10)["total"], 1)
+        self.assertEqual(list_recall_applications(self.db, keyword=None, status=None, page=1, page_size=10,
+                                                  duplicate_only=True)["total"], 1)
+
+    def test_existing_phone_and_serial_duplicate_each_register(self):
+        self.commit(workbook(row()))
+        self.commit(workbook(row(**{"*시리얼번호": "OTHER", "메모": "phone match"})), filename="phone.xlsx")
+        self.commit(workbook(row(**{"*연락처": "00000000000", "메모": "serial match"})), filename="serial.xlsx")
+        rows = list(self.db.scalars(select(RecallApplication).order_by(RecallApplication.id)).all())
+        self.assertEqual([item.duplicate_reason for item in rows], [None, "PHONE", "SERIAL"])
+        self.assertEqual([item.duplicate_reference_id for item in rows[1:]], [rows[0].id, rows[0].id])
+        self.assertEqual(rows[2].phone_normalized, "00000000000")
+
+    def test_invalid_phone_review_and_missing_required_do_not_block_other_rows(self):
+        content = workbook(
+            row(**{"*연락처": "알수없음", "*시리얼번호": "SER-A"}),
+            row(**{"성함": None, "*연락처": "01022223333", "*시리얼번호": "SER-B"}),
+            row(**{"성함": "정상 고객", "*연락처": "01033334444", "*시리얼번호": "SER-C"}),
+        )
+        result = self.commit(content, selected=(2, 3, 4))
+        self.assertEqual((result.registered, result.review, result.normal, result.rejected), (2, 1, 1, 1))
+        review = self.db.scalar(select(RecallApplication).where(RecallApplication.customer_name == "홍길동"))
+        self.assertEqual((review.current_status, review.phone_normalized), (REVIEW_REQUIRED, ""))
+
+    def test_duplicate_resolution_api_records_history_and_releases_scm_only_after_normal(self):
+        self.commit(workbook(row()))
+        self.commit(workbook(row(**{"성함": "별도 고객", "메모": "별도 접수"})), filename="other.xlsx")
+        duplicate = self.db.scalar(select(RecallApplication).where(RecallApplication.customer_name == "별도 고객"))
+        change_recall_application_status(self.db, application_id=duplicate.id, status=IN_PROGRESS,
+                                         reason="진행 시작", user_id=1)
+        self.assertEqual(order_summary(self.db)["pending_count"], 0)
+        with self.assertRaises(ValueError):
+            preview_orders(self.db, [duplicate.id])
+
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["online_recall"]
+        )
+        app.dependency_overrides[get_db] = lambda: self.db
+        with patch("app.api.routers.recall_preview.record_audit_log", return_value=True) as audit:
+            with TestClient(app) as client:
+                listing = client.get("/online/recall/applications", params={"duplicate_only": "true"})
+                keep = client.patch("/online/recall/applications/duplicates/{}/resolve".format(duplicate.id),
+                                    json={"action": "KEEP", "reason": "추가 검토 필요"})
+                normal = client.patch("/online/recall/applications/duplicates/{}/resolve".format(duplicate.id),
+                                      json={"action": "NORMAL", "reason": "별도 접수 확인"})
+                detail = client.get("/online/recall/applications/{}".format(duplicate.id))
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(listing.json()["total"], 1)
+        self.assertEqual(listing.json()["items"][0]["duplicate_reference"]["customer_name"], "홍길동")
+        self.assertEqual((keep.status_code, keep.json()["duplicate_flag"]), (200, True))
+        self.assertEqual((normal.status_code, normal.json()["duplicate_flag"]), (200, False))
+        self.assertEqual(order_summary(self.db)["pending_count"], 1)
+        self.assertEqual(preview_orders(self.db, [duplicate.id])["item_count"], 1)
+        export_result = export_orders(self.db, ids=[duplicate.id], user_id=1)
+        self.assertTrue(export_result["content"].startswith(b"PK"))
+        history = list(self.db.scalars(select(RecallDuplicateResolutionHistory).order_by(RecallDuplicateResolutionHistory.id)).all())
+        self.assertEqual([(item.action, item.reason, item.changed_by) for item in history],
+                         [("KEEP", "추가 검토 필요", 1), ("NORMAL", "별도 접수 확인", 1)])
+        self.assertEqual(len(detail.json()["duplicate_history"]), 2)
+        self.assertEqual(audit.call_count, 2)
+        self.assertEqual(audit.call_args.kwargs["after_data"]["reason"], "별도 접수 확인")
+        self.assertNotIn("별도 고객", str(audit.call_args.kwargs))
 
     def test_hidden_recall_menu_blocks_commit_list_and_summary(self):
         self.db.add(MenuVisibilitySetting(menu_key="online_recall", visible=False))

@@ -8,13 +8,13 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const SUMMARY_ITEMS = [
   ["total_rows", "전체 행"],
   ["valid", "정상"],
-  ["duplicate", "중복"],
+  ["duplicate", "중복 확인"],
   ["error", "오류"],
   ["review", "확인 필요"],
   ["excluded", "제외 행"],
 ];
 const STATUS_LABELS = {
-  valid: "정상", duplicate: "중복", error: "오류", review: "확인 필요", excluded: "제외",
+  valid: "정상", duplicate: "중복 확인", error: "오류", review: "확인 필요", excluded: "제외",
 };
 const ISSUE_LABELS = {
   DUPLICATE_SERIAL: "시리얼번호 중복",
@@ -65,7 +65,7 @@ function issueDescription(row) {
 }
 
 function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll, columnWidths, tableWidth, onResizeStart }) {
-  const selectableRows = rows.filter((row) => row.status === "valid" || row.status === "review");
+  const selectableRows = rows.filter((row) => ["valid", "review", "duplicate"].includes(row.status));
   const allSelected = selectableRows.length > 0 && selectableRows.every((row) => selectedRows.has(row.raw_row_number));
   return (
     <div className="online-preview-table-wrap">
@@ -92,10 +92,10 @@ function RecallPreviewTable({ rows, selectedRows, onToggle, onToggleAll, columnW
                 <input
                   type="checkbox"
                   checked={selectedRows.has(row.raw_row_number)}
-                  disabled={row.status !== "valid" && row.status !== "review"}
+                  disabled={!(["valid", "review", "duplicate"].includes(row.status))}
                   onChange={() => onToggle(row.raw_row_number)}
                   aria-label={`${row.raw_row_number}행 등록 선택`}
-                  title={row.status === "review" ? "확인 필요 행은 내용을 검토한 뒤 직접 선택해주세요." : undefined}
+                  title={row.status === "duplicate" ? "등록 후 중복 확인 탭에서 검토합니다." : undefined}
                 />
               </td>
               <td className="online-preview-cell-status"><span className={`online-preview-badge online-preview-badge-${row.status}`}>{STATUS_LABELS[row.status] || row.status}</span></td>
@@ -178,7 +178,7 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
       const result = await previewRecallApplicationExcel(file);
       setPreview(result);
       setSelectedRows(new Set(
-        (result.rows || []).filter((row) => row.status === "valid").map((row) => row.raw_row_number),
+        (result.rows || []).filter((row) => ["valid", "review", "duplicate"].includes(row.status)).map((row) => row.raw_row_number),
       ));
     } catch (caught) {
       setError(caught?.message || "Excel 미리보기를 불러오지 못했습니다.");
@@ -198,7 +198,7 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
 
   const handleToggleAll = (checked) => {
     const selectable = (preview?.rows || [])
-      .filter((row) => row.status === "valid" || row.status === "review")
+      .filter((row) => ["valid", "review", "duplicate"].includes(row.status))
       .map((row) => row.raw_row_number);
     setSelectedRows(checked ? new Set(selectable) : new Set());
   };
@@ -248,17 +248,19 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
                     <div key={key}><span>{label}</span><strong>{preview.summary?.[key] ?? 0}</strong></div>
                   ))}
                 </div>
-                <p className="online-preview-selection">정상 행은 기본 선택됩니다. 확인 필요 행은 내용을 검토한 뒤 직접 선택해주세요. · 선택 {selectedRows.size}건</p>
+                <p className="online-preview-selection">등록 가능한 행이 기본 선택됩니다. 중복 건은 등록 후 중복 확인 탭에서 검토합니다. · 선택 {selectedRows.size}건</p>
                 <RecallPreviewTable rows={preview.rows || []} selectedRows={selectedRows} onToggle={handleToggle} onToggleAll={handleToggleAll} columnWidths={columnWidths} tableWidth={tableWidth} onResizeStart={handleColumnResizeStart} />
               </div>
             )}
             {registrationResult && (
               <div className="online-registration-result" role="status">
                 <strong>등록 처리가 완료되었습니다.</strong>
-                <span>신규 {registrationResult.registered ?? 0}건</span>
-                <span>중복 {registrationResult.duplicate ?? 0}건</span>
+                <span>등록 {registrationResult.registered ?? 0}건</span>
+                <span>정상 {registrationResult.normal ?? 0}건</span>
+                <span>중복 확인 {registrationResult.duplicate ?? 0}건</span>
+                <span>확인 필요 {registrationResult.review ?? 0}건</span>
                 <span>등록 제외 {registrationResult.rejected ?? 0}건</span>
-                <span>확인 필요 미선택 {registrationResult.unselected_review ?? 0}건</span>
+                <span>이미 등록 {registrationResult.already_registered ?? 0}건</span>
               </div>
             )}
           </>

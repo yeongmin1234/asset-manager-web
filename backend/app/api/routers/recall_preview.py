@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
 from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
+from app.models.recall_application import RecallApplication
 from app.models.user import User
 from app.services.audit_log_service import record_audit_log
 from app.services.recall_application_excel import RecallApplicationExcelError, preview_recall_applications
@@ -25,6 +26,7 @@ from app.services.recall_application_service import (
     list_recall_applications,
     change_recall_application_status,
     bulk_change_recall_applications,
+    resolve_recall_duplicate,
 )
 from app.services.recall_order_service import (
     confirm_order, export_orders, get_order_batch_workbook, list_orders,
@@ -49,6 +51,11 @@ class RecallBulkStatusChangeRequest(BaseModel):
 
 class RecallOrderSelectionRequest(BaseModel):
     ids: List[int]
+
+
+class RecallDuplicateResolutionRequest(BaseModel):
+    action: str
+    reason: str
 
 
 def require_recall_preview_access(
@@ -158,7 +165,7 @@ async def commit_recall_application_excel(
             target_type="recall_application_upload",
             target_id=result.batch_id,
             target_name="접수 데이터 Excel 등록",
-            action_summary="리콜 접수 데이터 Excel 등록: 신규 {}건, 중복 {}건, 제외 {}건".format(
+            action_summary="리콜 접수 데이터 Excel 등록: 신규 {}건, 중복 확인 {}건, 제외 {}건".format(
                 result.registered, result.duplicate, result.rejected
             ),
             after_data={
@@ -166,6 +173,7 @@ async def commit_recall_application_excel(
                 "registered_count": result.registered,
                 "duplicate_count": result.duplicate,
                 "rejected_count": result.rejected,
+                "review_count": result.review,
             },
         )
         return jsonable_encoder(asdict(result))
@@ -187,10 +195,16 @@ def read_recall_applications(
     status: Optional[str] = Query(None, max_length=40),
     page: int = Query(1, ge=1),
     page_size: int = Query(30, ge=1, le=100),
+    duplicate_only: bool = Query(False),
     _user: User = Depends(require_recall_preview_access),
     db: Session = Depends(get_db),
 ):
-    result = list_recall_applications(db, keyword=keyword, status=status, page=page, page_size=page_size)
+    result = list_recall_applications(db, keyword=keyword, status=status, page=page,
+                                      page_size=page_size, duplicate_only=duplicate_only)
+    references = {
+        reference_id: db.get(RecallApplication, reference_id)
+        for reference_id in {item.duplicate_reference_id for item in result["items"] if item.duplicate_reference_id}
+    }
     return jsonable_encoder({
         **{key: value for key, value in result.items() if key != "items"},
         "items": [
@@ -209,11 +223,54 @@ def read_recall_applications(
                 "pickup_date": item.pickup_date,
                 "replacement_shipping_agreement": item.replacement_shipping_agreement,
                 "current_status": item.current_status,
+                "duplicate_flag": item.duplicate_flag,
+                "duplicate_reason": item.duplicate_reason,
+                "duplicate_reference_id": item.duplicate_reference_id,
+                "duplicate_resolution": item.duplicate_resolution,
+                "duplicate_resolved_at": item.duplicate_resolved_at,
+                "source_row_number": item.source_row_number,
+                "duplicate_reference": {
+                    "id": references[item.duplicate_reference_id].id,
+                    "application_date": references[item.duplicate_reference_id].application_date,
+                    "customer_name": references[item.duplicate_reference_id].customer_name,
+                    "phone_original": references[item.duplicate_reference_id].phone_original,
+                    "serial_number": references[item.duplicate_reference_id].serial_number,
+                } if item.duplicate_reference_id and references.get(item.duplicate_reference_id) else None,
                 "created_at": item.created_at,
             }
             for item in result["items"]
         ],
     })
+
+
+@router.patch("/duplicates/{application_id}/resolve")
+def resolve_recall_duplicate_api(
+    application_id: int,
+    payload: RecallDuplicateResolutionRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = resolve_recall_duplicate(db, application_id=application_id, action=payload.action,
+                                          reason=payload.reason, user_id=current_user.id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="중복 확인 처리에 실패했습니다.") from exc
+    record_audit_log(
+        db, request, current_user, action_type="update", menu_key="online_recall",
+        menu_name="온라인 TEAM > 리콜 관리", target_type="recall_duplicate",
+        target_id=application_id, target_name="중복 확인 처리",
+        action_summary="리콜 중복 확인 처리: application_id={} action={} user_id={}".format(
+            application_id, payload.action, current_user.id),
+        before_data={"duplicate_flag": True},
+        after_data={"duplicate_flag": result["duplicate_flag"], "duplicate_resolution": payload.action,
+                    "reason": payload.reason},
+    )
+    return result
 
 
 @router.patch("/bulk-status")

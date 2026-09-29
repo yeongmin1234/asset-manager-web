@@ -138,14 +138,16 @@ class RecallApplicationExcelTest(unittest.TestCase):
     def test_phone_hyphens_spaces_and_invalid_characters(self):
         self.assertEqual(normalize_phone("010 9981 0165"), "01099810165")
         self.assertEqual(normalize_phone("010-9981-0165"), "01099810165")
+        self.assertEqual(normalize_phone("010(9981)0165"), "01099810165")
+        self.assertEqual(normalize_phone("00000000000"), "00000000000")
         preview = preview_recall_applications(make_workbook([
             application_row(**{"*연락처": "010 9981 0165", "*시리얼번호": "S1"}),
             application_row(**{"*연락처": "010-1234-5678", "*시리얼번호": "S2"}),
             application_row(**{"*연락처": "010-12ab-5678", "*시리얼번호": "S3"}),
         ]))
-        self.assertEqual([row.status for row in preview.rows], ["valid", "valid", "error"])
+        self.assertEqual([row.status for row in preview.rows], ["valid", "valid", "review"])
         self.assertIn("INVALID_PHONE", codes(preview.rows[2]))
-        self.assertEqual(preview.rows[2].data["phone_normalized"], "01012ab5678")
+        self.assertEqual(preview.rows[2].data["phone_normalized"], "010125678")
 
     def test_serial_duplicate_precedes_phone_duplicate_without_overwrite(self):
         preview = preview_recall_applications(make_workbook([

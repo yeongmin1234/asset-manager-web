@@ -12,6 +12,7 @@ test("Phase 5 order tab keeps compact summary and pending-only selection control
     const page = renderToStaticMarkup(React.createElement(RecallManagementPage, { currentUser: { role: "admin" } }));
     const orderTab = renderToStaticMarkup(React.createElement(RecallOrderTab, { isAdmin: true }));
     assert.match(page, /접수 목록/);
+    assert.match(page, /중복 확인/);
     assert.match(page, /SCM 발주 대상/);
     assert.match(orderTab, /발주 대기/);
     assert.match(orderTab, /Excel 생성 완료/);
@@ -19,6 +20,27 @@ test("Phase 5 order tab keeps compact summary and pending-only selection control
     assert.match(orderTab, /SCM 발주 Excel 생성/);
     assert.match(orderTab, /현재 페이지 발주 대기 전체 선택/);
     assert.match(orderTab, /disabled=""/);
+  } finally {
+    await vite.close();
+  }
+});
+
+test("duplicate review list displays the reference and resolution actions", async () => {
+  const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const { default: RecallDuplicateReview } = await vite.ssrLoadModule("/src/components/online/RecallDuplicateReview.jsx");
+    const html = renderToStaticMarkup(React.createElement(RecallDuplicateReview, {
+      items: [{ id: 2, customer_name: "신규 고객", phone_original: "01012345678", serial_number: "S-2",
+        duplicate_reason: "PHONE", application_date: "2026-09-29",
+        duplicate_reference: { id: 1, customer_name: "기존 고객", phone_original: "010-1234-5678", serial_number: "S-1", application_date: "2026-09-22" } }],
+      isLoading: false, error: "", onDetail() {}, onResolved() {},
+    }));
+    assert.match(html, /연락처/);
+    assert.match(html, /기존 접수 정보/);
+    assert.match(html, /신규 접수 정보/);
+    assert.match(html, /정상 건으로 처리/);
+    assert.match(html, /중복 건 유지/);
+    assert.match(html, /010-1234-5678/);
   } finally {
     await vite.close();
   }

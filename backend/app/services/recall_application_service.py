@@ -4,6 +4,7 @@ import hashlib
 import math
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 from sqlalchemy import func, or_, select, text
@@ -17,6 +18,7 @@ from app.models.recall_application import (
     SHIPPED,
     RecallApplication,
     RecallApplicationUploadBatch,
+    RecallDuplicateResolutionHistory,
     RecallStatusHistory,
 )
 from app.models.user import User
@@ -31,6 +33,9 @@ class CommitResult:
     rejected: int
     unselected_review: int
     rows: tuple
+    normal: int = 0
+    review: int = 0
+    already_registered: int = 0
 
 
 def existing_application_records(db: Session) -> List[Dict[str, Any]]:
@@ -87,8 +92,9 @@ def commit_recall_applications(
         raise ValueError("선택한 행이 현재 Excel 파일에 없습니다.")
 
     counts = preview.counts()
-    registered = duplicate = rejected = 0
+    registered = duplicate = rejected = normal = review = already_registered = 0
     results = []
+    registered_by_row = {}
     try:
         if batch is None:
             batch = RecallApplicationUploadBatch(
@@ -109,24 +115,27 @@ def commit_recall_applications(
         for row_number in sorted(selected):
             row = parsed_by_number[row_number]
             if row_number in existing_batch_rows:
-                duplicate += 1
+                already_registered += 1
                 results.append({"row_number": row_number, "result": "ALREADY_REGISTERED"})
                 continue
-            if row.status == "duplicate":
-                duplicate += 1
-                duplicate_code = next(
-                    (issue.code for issue in row.issues if issue.code == "DUPLICATE_SERIAL"),
-                    next((issue.code for issue in row.issues if issue.code == "DUPLICATE_PHONE"), "DUPLICATE"),
-                )
-                results.append({"row_number": row_number, "result": duplicate_code})
-                continue
-            if row.status not in {"valid", "review"}:
+            if row.status not in {"valid", "review", "duplicate"}:
                 rejected += 1
                 code = row.issues[0].code if row.issues else "EXCLUDED"
                 results.append({"row_number": row_number, "result": code})
                 continue
 
             data = row.data
+            duplicate_issues = [issue for issue in row.issues if issue.code in {"DUPLICATE_PHONE", "DUPLICATE_SERIAL"}]
+            duplicate_codes = {issue.code for issue in duplicate_issues}
+            duplicate_reason = (
+                "PHONE_AND_SERIAL" if len(duplicate_codes) == 2 else
+                "PHONE" if "DUPLICATE_PHONE" in duplicate_codes else
+                "SERIAL" if "DUPLICATE_SERIAL" in duplicate_codes else None
+            )
+            reference_id = next((issue.existing_id for issue in duplicate_issues if issue.existing_id is not None), None)
+            if reference_id is None:
+                reference_id = next((registered_by_row.get(issue.matched_row_number) for issue in duplicate_issues
+                                     if issue.source == "file" and issue.matched_row_number in registered_by_row), None)
             application = RecallApplication(
                 upload_batch_id=batch.id,
                 source_row_number=row_number,
@@ -134,7 +143,7 @@ def commit_recall_applications(
                 quantity=data.get("quantity"),
                 customer_name=data["customer_name"],
                 phone_original=data["phone_original"],
-                phone_normalized=data["phone_normalized"],
+                phone_normalized=data["phone_normalized"] or "",
                 address=data["address"],
                 memo=data.get("memo"),
                 serial_number=data.get("serial_number"),
@@ -142,7 +151,11 @@ def commit_recall_applications(
                 pickup_agreement=data.get("pickup_agreement"),
                 pickup_date=data.get("pickup_date"),
                 replacement_shipping_agreement=data.get("replacement_shipping_agreement"),
-                current_status=APPLICATION_RECEIVED,
+                current_status=REVIEW_REQUIRED if any(issue.code == "REVIEW_REQUIRED" for issue in row.issues)
+                else APPLICATION_RECEIVED,
+                duplicate_flag=bool(duplicate_reason),
+                duplicate_reason=duplicate_reason,
+                duplicate_reference_id=reference_id,
                 created_by=user_id,
             )
             db.add(application)
@@ -150,13 +163,21 @@ def commit_recall_applications(
             db.add(RecallStatusHistory(
                 recall_application_id=application.id,
                 previous_status=None,
-                new_status=APPLICATION_RECEIVED,
+                new_status=application.current_status,
                 changed_by=user_id,
                 change_type="EXCEL_REGISTRATION",
                 reason="접수 데이터 Excel 등록",
             ))
             registered += 1
-            results.append({"row_number": row_number, "result": "REGISTERED", "application_id": application.id})
+            registered_by_row[row_number] = application.id
+            if duplicate_reason:
+                duplicate += 1
+            elif row.status == "review":
+                review += 1
+            else:
+                normal += 1
+            results.append({"row_number": row_number, "result": "REGISTERED_DUPLICATE" if duplicate_reason else
+                            "REGISTERED_REVIEW" if row.status == "review" else "REGISTERED", "application_id": application.id})
 
         batch.registered_count = int(batch.registered_count or 0) + registered
         batch_id = batch.id
@@ -168,7 +189,8 @@ def commit_recall_applications(
     unselected_review = sum(
         1 for row in preview.rows if row.status == "review" and row.raw_row_number not in selected
     )
-    return CommitResult(batch_id, registered, duplicate, rejected, unselected_review, tuple(results))
+    return CommitResult(batch_id, registered, duplicate, rejected, unselected_review, tuple(results),
+                        normal, review, already_registered)
 
 
 def list_recall_applications(
@@ -178,8 +200,9 @@ def list_recall_applications(
     status: Optional[str],
     page: int,
     page_size: int,
+    duplicate_only: bool = False,
 ) -> dict:
-    conditions = []
+    conditions = [RecallApplication.duplicate_flag.is_(duplicate_only)]
     if keyword and keyword.strip():
         search_text = keyword.strip()
         pattern = "%{}%".format(search_text)
@@ -209,6 +232,40 @@ def list_recall_applications(
         "page_size": page_size,
         "total_pages": max(1, int(math.ceil(total / float(page_size)))),
     }
+
+
+def resolve_recall_duplicate(db: Session, *, application_id: int, action: str, reason: str, user_id: int) -> dict:
+    if action not in {"NORMAL", "KEEP"}:
+        raise ValueError("중복 처리 방식을 선택해주세요.")
+    cleaned_reason = (reason or "").strip()
+    if not cleaned_reason or len(cleaned_reason) > 255:
+        raise ValueError("처리 사유는 1~255자로 입력해주세요.")
+    allowed_reasons = {
+        "NORMAL": {"별도 접수 확인", "잘못된 중복 판정"},
+        "KEEP": {"실제 중복 확인", "추가 검토 필요"},
+    }
+    if cleaned_reason not in allowed_reasons[action]:
+        raise ValueError("제공된 처리 사유 중 하나를 선택해주세요.")
+    try:
+        application = db.scalar(select(RecallApplication).where(RecallApplication.id == application_id).with_for_update())
+        if application is None:
+            raise LookupError("리콜 접수 데이터를 찾을 수 없습니다.")
+        if not application.duplicate_flag:
+            raise ValueError("중복 확인 대상이 아닙니다.")
+        application.duplicate_flag = action != "NORMAL"
+        application.duplicate_resolution = action
+        application.duplicate_resolved_at = datetime.now(timezone.utc)
+        application.duplicate_resolved_by = user_id
+        db.add(RecallDuplicateResolutionHistory(
+            recall_application_id=application_id, action=action,
+            reason=cleaned_reason, changed_by=user_id,
+        ))
+        db.commit()
+        return {"id": application_id, "duplicate_flag": application.duplicate_flag,
+                "duplicate_resolution": action}
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_recall_summary(db: Session) -> dict:
@@ -309,8 +366,14 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
         .where(RecallStatusHistory.recall_application_id == application_id)
         .order_by(RecallStatusHistory.changed_at.desc(), RecallStatusHistory.id.desc())
     ).all())
+    duplicate_history = list(db.scalars(
+        select(RecallDuplicateResolutionHistory)
+        .where(RecallDuplicateResolutionHistory.recall_application_id == application_id)
+        .order_by(RecallDuplicateResolutionHistory.changed_at.desc(), RecallDuplicateResolutionHistory.id.desc())
+    ).all())
     user_ids = {application.created_by}
     user_ids.update(item.changed_by for item in history)
+    user_ids.update(item.changed_by for item in duplicate_history)
     names = {
         user.id: user.name for user in db.scalars(select(User).where(User.id.in_(user_ids))).all()
     }
@@ -329,6 +392,17 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
         "pickup_date": application.pickup_date,
         "replacement_shipping_agreement": application.replacement_shipping_agreement,
         "current_status": application.current_status,
+        "duplicate_flag": application.duplicate_flag,
+        "duplicate_reason": application.duplicate_reason,
+        "duplicate_reference_id": application.duplicate_reference_id,
+        "duplicate_resolution": application.duplicate_resolution,
+        "duplicate_resolved_at": application.duplicate_resolved_at,
+        "duplicate_resolved_by": application.duplicate_resolved_by,
+        "duplicate_history": [
+            {"action": item.action, "reason": item.reason, "changed_at": item.changed_at,
+             "changed_by": item.changed_by, "changed_by_name": names.get(item.changed_by)}
+            for item in duplicate_history
+        ],
         "created_at": application.created_at,
         "created_by": application.created_by,
         "created_by_name": names.get(application.created_by),

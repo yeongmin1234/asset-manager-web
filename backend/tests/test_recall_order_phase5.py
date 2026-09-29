@@ -21,6 +21,7 @@ from app.models.recall_application import (
     APPLICATION_RECEIVED, IN_PROGRESS, ORDER_CONFIRMED, ORDER_EXPORTED,
     ORDER_PENDING, RecallApplication, RecallApplicationUploadBatch,
     RecallOrderBatch, RecallStatusHistory,
+    RecallDuplicateResolutionHistory,
 )
 from app.models.user import User
 from app.services.recall_order_excel import SCM_HEADERS
@@ -33,7 +34,7 @@ class RecallOrderPhase5Test(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__,
-                      RecallOrderBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__):
+                      RecallOrderBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__, RecallDuplicateResolutionHistory.__table__):
             table.create(self.engine, checkfirst=True)
         self.db = Session(self.engine)
         self.db.add(User(id=1, username="operator", password_hash="test", name="담당자", role="user",

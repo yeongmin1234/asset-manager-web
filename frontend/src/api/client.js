@@ -1158,6 +1158,12 @@ export async function getRecallApplications(filters = {}) {
   return request("/online/recall/applications", { query: filters, timeoutMs: 10000 });
 }
 
+export async function resolveRecallDuplicate(applicationId, action, reason) {
+  return request(`/online/recall/applications/duplicates/${applicationId}/resolve`, {
+    method: "PATCH", body: { action, reason }, timeoutMs: 10000,
+  });
+}
+
 export async function getRecallApplicationSummary() {
   return request("/online/recall/applications/summary", { timeoutMs: 10000 });
 }

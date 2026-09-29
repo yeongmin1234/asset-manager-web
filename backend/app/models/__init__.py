@@ -41,6 +41,7 @@ from app.models.recall_application import (
     RecallApplicationUploadBatch,
     RecallStatusHistory,
     RecallOrderBatch,
+    RecallDuplicateResolutionHistory,
 )
 
 __all__ = [
@@ -88,4 +89,5 @@ __all__ = [
     "RecallApplicationUploadBatch",
     "RecallStatusHistory",
     "RecallOrderBatch",
+    "RecallDuplicateResolutionHistory",
 ]

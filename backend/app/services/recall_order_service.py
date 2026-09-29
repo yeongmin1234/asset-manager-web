@@ -19,6 +19,7 @@ def _eligible_pending():
         RecallApplication.current_status == IN_PROGRESS,
         RecallApplication.replacement_shipping_agreement == "동의",
         RecallApplication.order_status == ORDER_PENDING,
+        RecallApplication.duplicate_flag.is_(False),
     )
 
 
@@ -85,7 +86,7 @@ def _selected_pending(db: Session, ids: Sequence[int], *, lock: bool) -> List[Re
     for application in selected:
         if (application.current_status != IN_PROGRESS or
                 application.replacement_shipping_agreement != "동의" or
-                application.order_status != ORDER_PENDING):
+                application.order_status != ORDER_PENDING or application.duplicate_flag):
             raise ValueError("진행중·출고 동의·발주 대기 상태의 건만 Excel로 생성할 수 있습니다.")
         if type(application.quantity) is not int or application.quantity < 1:
             raise ValueError("선택한 건의 주문수량을 확인해주세요.")

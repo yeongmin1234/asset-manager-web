@@ -240,6 +240,19 @@
 .online-order-preview-table td { border-bottom: 1px solid #e8edf3; max-width: 260px; overflow: hidden; padding: 9px 12px; text-align: center; text-overflow: ellipsis; }
 .online-order-preview-table th { background: #f8fafc; position: sticky; top: 0; z-index: 1; }
 
+.online-duplicate-table { min-width: 1250px; }
+.online-duplicate-table th,
+.online-duplicate-table td { text-align: center; vertical-align: middle; }
+.online-duplicate-info { min-width: 205px; }
+.online-duplicate-info strong,
+.online-duplicate-info span { display: block; font-size: 0.78rem; line-height: 1.45; }
+.online-duplicate-info span { color: #64748b; }
+.online-duplicate-actions { min-width: 195px; }
+.online-duplicate-actions button { margin: 2px; min-height: 28px; padding: 0 8px; }
+.online-duplicate-decision-modal { width: min(460px, 100%); }
+.online-duplicate-reason { display: grid; gap: 6px; padding: 16px 18px; font-size: 0.82rem; }
+.online-duplicate-reason select { background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; min-height: 34px; padding: 0 8px; }
+
 .online-recall-list {
   min-width: 0;
   overflow: hidden;

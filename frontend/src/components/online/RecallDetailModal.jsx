@@ -184,6 +184,20 @@ function RecallDetailModal({ applicationId, onClose, onChanged }) {
                   </div>)}
                 </div>}
             </section>
+            {(detail.duplicate_flag || detail.duplicate_history?.length > 0) && <section className="online-detail-section">
+              <h3>중복 확인</h3>
+              <dl className="online-detail-grid">
+                <Field label="확인 상태">{detail.duplicate_flag ? "중복 확인 필요" : "정상 건으로 처리"}</Field>
+                <Field label="중복 사유">{{ PHONE: "연락처", SERIAL: "시리얼번호", PHONE_AND_SERIAL: "연락처·시리얼번호" }[detail.duplicate_reason] || "-"}</Field>
+                <Field label="참조 접수">{detail.duplicate_reference_id ? `#${detail.duplicate_reference_id}` : "-"}</Field>
+              </dl>
+              {(detail.duplicate_history || []).map((entry, index) => <div className="online-detail-history-item" key={index}>
+                <strong>{formatRecallDateTime(entry.changed_at)}</strong>
+                <span>{entry.action === "NORMAL" ? "정상 건으로 처리" : "중복 건 유지"}</span>
+                <span>사유: {entry.reason}</span>
+                <span>처리자: {entry.changed_by_name || `사용자 #${entry.changed_by}`}</span>
+              </div>)}
+            </section>}
           </>}
         </div>
       </section>
