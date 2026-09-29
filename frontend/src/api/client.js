@@ -1200,6 +1200,12 @@ export async function downloadHrAccountImportTemplate(options = {}) {
   return requestDownload(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000, ...options });
 }
 
+export async function softDeleteRecallApplications(ids, reasonCategory, reason) {
+  return request("/online/recall/applications/bulk-delete", {
+    method: "POST", body: { ids, reason_category: reasonCategory, reason }, timeoutMs: 15000,
+  });
+}
+
 export async function getRecallOrders(filters = {}) {
   return request("/online/recall/applications/orders", { query: filters, timeoutMs: 10000 });
 }

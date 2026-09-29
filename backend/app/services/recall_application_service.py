@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.models.recall_application import (
     APPLICATION_RECEIVED,
     IN_PROGRESS,
+    ORDER_CONFIRMED,
+    ORDER_EXPORTED,
     REVIEW_REQUIRED,
     STOPPED,
     SHIPPED,
@@ -47,7 +49,7 @@ def existing_application_records(db: Session) -> List[Dict[str, Any]]:
             "phone_original": row.phone_original,
             "phone_normalized": row.phone_normalized,
         }
-        for row in db.scalars(select(RecallApplication)).all()
+        for row in db.scalars(select(RecallApplication).where(RecallApplication.is_deleted.is_(False))).all()
     ]
 
 
@@ -203,7 +205,9 @@ def list_recall_applications(
     duplicate_only: bool = False,
     include_duplicates: bool = False,
 ) -> dict:
-    conditions = [] if include_duplicates else [RecallApplication.duplicate_flag.is_(duplicate_only)]
+    conditions = [RecallApplication.is_deleted.is_(False)]
+    if not include_duplicates:
+        conditions.append(RecallApplication.duplicate_flag.is_(duplicate_only))
     if keyword and keyword.strip():
         search_text = keyword.strip()
         pattern = "%{}%".format(search_text)
@@ -251,7 +255,7 @@ def resolve_recall_duplicate(db: Session, *, application_id: int, action: str, r
         application = db.scalar(select(RecallApplication).where(RecallApplication.id == application_id).with_for_update())
         if application is None:
             raise LookupError("리콜 접수 데이터를 찾을 수 없습니다.")
-        if not application.duplicate_flag:
+        if application.is_deleted or not application.duplicate_flag:
             raise ValueError("중복 확인 대상이 아닙니다.")
         application.duplicate_flag = action != "NORMAL"
         application.duplicate_resolution = action
@@ -273,6 +277,7 @@ def get_recall_summary(db: Session) -> dict:
     status_counts = {
         status: int(count) for status, count in db.execute(
             select(RecallApplication.current_status, func.count())
+            .where(RecallApplication.is_deleted.is_(False))
             .group_by(RecallApplication.current_status)
         ).all()
     }
@@ -321,7 +326,7 @@ def bulk_change_recall_applications(
     try:
         applications = {
             application.id: application for application in db.scalars(
-                select(RecallApplication).where(RecallApplication.id.in_(ids))
+                select(RecallApplication).where(RecallApplication.id.in_(ids), RecallApplication.is_deleted.is_(False))
                 .order_by(RecallApplication.id).with_for_update()
             ).all()
         }
@@ -357,9 +362,47 @@ def bulk_change_recall_applications(
         raise
 
 
+DELETE_REASON_CATEGORIES = {"오등록", "중복 접수", "고객 요청", "기타"}
+
+
+def bulk_soft_delete_recall_applications(
+    db: Session, *, ids: Sequence[int], reason: str, reason_category: str, user_id: int
+) -> dict:
+    if not ids or len(ids) > 100 or any(type(value) is not int or value < 1 for value in ids) or len(set(ids)) != len(ids):
+        raise ValueError("삭제할 건을 1~100건 중복 없이 선택해주세요.")
+    cleaned_reason = (reason or "").strip()
+    if not cleaned_reason or len(cleaned_reason) > 255:
+        raise ValueError("삭제 사유는 1~255자로 입력해주세요.")
+    if reason_category not in DELETE_REASON_CATEGORIES:
+        raise ValueError("삭제 사유 분류를 선택해주세요.")
+    try:
+        applications = list(db.scalars(
+            select(RecallApplication).where(RecallApplication.id.in_(ids),
+                                            RecallApplication.is_deleted.is_(False))
+            .order_by(RecallApplication.id).with_for_update()
+        ).all())
+        if len(applications) != len(ids):
+            raise ValueError("선택한 항목 중 이미 삭제되었거나 찾을 수 없는 건이 있습니다.")
+        if any(item.current_status == SHIPPED or item.order_status in {ORDER_EXPORTED, ORDER_CONFIRMED}
+               for item in applications):
+            raise ValueError("발주/발송 처리된 건은 삭제할 수 없습니다.")
+        deleted_at = datetime.now(timezone.utc)
+        for item in applications:
+            item.is_deleted = True
+            item.deleted_at = deleted_at
+            item.deleted_by = user_id
+            item.delete_reason = cleaned_reason
+        db.commit()
+        return {"deleted": len(applications), "ids": list(ids), "deleted_at": deleted_at,
+                "reason_category": reason_category}
+    except Exception:
+        db.rollback()
+        raise
+
+
 def get_recall_application_detail(db: Session, application_id: int) -> Optional[dict]:
     application = db.get(RecallApplication, application_id)
-    if application is None:
+    if application is None or application.is_deleted:
         return None
     batch = db.get(RecallApplicationUploadBatch, application.upload_batch_id)
     history = list(db.scalars(
@@ -441,7 +484,8 @@ def change_recall_application_status(
 
     try:
         application = db.scalar(
-            select(RecallApplication).where(RecallApplication.id == application_id).with_for_update()
+            select(RecallApplication).where(RecallApplication.id == application_id,
+                                            RecallApplication.is_deleted.is_(False)).with_for_update()
         )
         if application is None:
             return None

@@ -1,10 +1,10 @@
 import React from "react";
 import { RECALL_FILTER_STATUS_OPTIONS } from "./onlineDisplayUtils.js";
 
-function RecallFilters({ values, onChange, onSearch, onReset, isLoading }) {
+function RecallFilters({ values, onChange, onSearch, onReset, isLoading, onDelete, selectedCount = 0 }) {
   const update = (key, value) => onChange({ ...values, [key]: value });
   return (
-    <form className="online-recall-filters" aria-label="리콜 검색 및 필터" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
+    <form className={`online-recall-filters${onDelete ? " online-recall-filters-with-delete" : ""}`} aria-label="리콜 검색 및 필터" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
       <input
         type="search"
         value={values.keyword}
@@ -21,6 +21,7 @@ function RecallFilters({ values, onChange, onSearch, onReset, isLoading }) {
       </select>
       <button type="submit" className="primary-action" disabled={isLoading}>조회</button>
       <button type="button" className="secondary-button" onClick={onReset} disabled={isLoading}>초기화</button>
+      {onDelete && <button type="button" className="secondary-button online-recall-delete-button" onClick={onDelete} disabled={isLoading || selectedCount === 0}>삭제</button>}
     </form>
   );
 }

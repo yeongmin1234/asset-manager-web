@@ -20,14 +20,15 @@ def _eligible_pending():
         RecallApplication.replacement_shipping_agreement == "동의",
         RecallApplication.order_status == ORDER_PENDING,
         RecallApplication.duplicate_flag.is_(False),
+        RecallApplication.is_deleted.is_(False),
     )
 
 
 def order_summary(db: Session) -> Dict[str, int]:
     return {
         "pending_count": int(db.scalar(select(func.count()).select_from(RecallApplication).where(*_eligible_pending())) or 0),
-        "exported_count": int(db.scalar(select(func.count()).select_from(RecallApplication).where(RecallApplication.order_status == ORDER_EXPORTED)) or 0),
-        "confirmed_count": int(db.scalar(select(func.count()).select_from(RecallApplication).where(RecallApplication.order_status == ORDER_CONFIRMED)) or 0),
+        "exported_count": int(db.scalar(select(func.count()).select_from(RecallApplication).where(RecallApplication.order_status == ORDER_EXPORTED, RecallApplication.is_deleted.is_(False))) or 0),
+        "confirmed_count": int(db.scalar(select(func.count()).select_from(RecallApplication).where(RecallApplication.order_status == ORDER_CONFIRMED, RecallApplication.is_deleted.is_(False))) or 0),
     }
 
 
@@ -38,7 +39,7 @@ def list_orders(db: Session, *, status: str, page: int, page_size: int) -> Dict[
         and_(*_eligible_pending()),
         RecallApplication.order_status.in_((ORDER_EXPORTED, ORDER_CONFIRMED)),
     )
-    query = select(RecallApplication).where(visible)
+    query = select(RecallApplication).where(visible, RecallApplication.is_deleted.is_(False))
     if status:
         query = query.where(RecallApplication.order_status == status)
     total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
@@ -87,6 +88,8 @@ def _selected_pending(db: Session, ids: Sequence[int], *, lock: bool) -> List[Re
         if (application.current_status != IN_PROGRESS or
                 application.replacement_shipping_agreement != "동의" or
                 application.order_status != ORDER_PENDING or application.duplicate_flag):
+            raise ValueError("진행중·출고 동의·발주 대기 상태의 건만 Excel로 생성할 수 있습니다.")
+        if application.is_deleted:
             raise ValueError("진행중·출고 동의·발주 대기 상태의 건만 Excel로 생성할 수 있습니다.")
         if type(application.quantity) is not int or application.quantity < 1:
             raise ValueError("선택한 건의 주문수량을 확인해주세요.")
@@ -142,7 +145,8 @@ def get_order_batch_workbook(db: Session, batch_id: int) -> Dict[str, object]:
 
 def confirm_order(db: Session, *, application_id: int) -> Dict[str, object]:
     try:
-        application = db.scalar(select(RecallApplication).where(RecallApplication.id == application_id).with_for_update())
+        application = db.scalar(select(RecallApplication).where(RecallApplication.id == application_id,
+                                                               RecallApplication.is_deleted.is_(False)).with_for_update())
         if application is None:
             raise LookupError("리콜 발주 대상을 찾을 수 없습니다.")
         if application.order_status != ORDER_EXPORTED:

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary } from "../../api/client.js";
+import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary, softDeleteRecallApplications } from "../../api/client.js";
 import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
@@ -7,6 +7,7 @@ import RecallUploadModal from "./RecallUploadModal.jsx";
 import RecallDetailModal from "./RecallDetailModal.jsx";
 import RecallOrderTab from "./RecallOrderTab.jsx";
 import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
+import RecallDeleteModal from "./RecallDeleteModal.jsx";
 import { isRecallBulkSelectable, nextRecallBulkStatus } from "./onlineDisplayUtils.js";
 import "./online.css";
 
@@ -33,6 +34,9 @@ function RecallManagementPage({ currentUser }) {
   const [items, setItems] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [bulkMessage, setBulkMessage] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [filterValues, setFilterValues] = useState({ keyword: "", status: "" });
@@ -57,7 +61,7 @@ function RecallManagementPage({ currentUser }) {
       ]);
       if (requestId !== loadRequestId.current) return;
       setItems(listResult.items || []);
-      const selectableIds = new Set((listResult.items || []).filter((item) => isRecallBulkSelectable(item.current_status)).map((item) => item.id));
+      const selectableIds = new Set((listResult.items || []).filter((item) => tab === "all" || isRecallBulkSelectable(item.current_status)).map((item) => item.id));
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
       setTotal(listResult.total || 0);
       setTotalPages(listResult.total_pages || 1);
@@ -98,7 +102,7 @@ function RecallManagementPage({ currentUser }) {
   };
 
   const handleToggleSelection = (id) => {
-    if (!items.some((item) => item.id === id && isRecallBulkSelectable(item.current_status))) return;
+    if (!items.some((item) => item.id === id && (activeTab === "all" || isRecallBulkSelectable(item.current_status)))) return;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -108,7 +112,7 @@ function RecallManagementPage({ currentUser }) {
   };
 
   const handleTogglePage = (checked) => {
-    setSelectedIds(new Set(checked ? items.filter((item) => isRecallBulkSelectable(item.current_status)).map((item) => item.id) : []));
+    setSelectedIds(new Set(checked ? items.filter((item) => activeTab === "all" || isRecallBulkSelectable(item.current_status)).map((item) => item.id) : []));
   };
 
   const selectedStatuses = items.filter((item) => selectedIds.has(item.id)).map((item) => item.current_status);
@@ -130,6 +134,26 @@ function RecallManagementPage({ currentUser }) {
       setBulkError(caught?.message || "일괄 상태 변경에 실패했습니다.");
     } finally {
       setIsBulkUpdating(false);
+    }
+  };
+
+  const handleDelete = async (reasonCategory, reason) => {
+    const ids = [...selectedIds];
+    if (!ids.length || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError("");
+    try {
+      const result = await softDeleteRecallApplications(ids, reasonCategory, reason);
+      setDeleteOpen(false);
+      setSelectedIds(new Set());
+      setBulkError("");
+      setBulkMessage(`${result.deleted}건을 삭제했습니다.`);
+      setPage(1);
+      setRefreshKey((value) => value + 1);
+    } catch (caught) {
+      setDeleteError(caught?.message || "선택한 건을 삭제하지 못했습니다.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -174,12 +198,14 @@ function RecallManagementPage({ currentUser }) {
           onChange={setFilterValues}
           onSearch={handleSearch}
           onReset={handleReset}
-          isLoading={isLoading || isBulkUpdating}
+          isLoading={isLoading || isBulkUpdating || isDeleting}
+          onDelete={activeTab === "all" ? () => { setDeleteError(""); setDeleteOpen(true); } : undefined}
+          selectedCount={selectedIds.size}
         />
         {activeTab !== "duplicates" && <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />}
         {bulkMessage && <p className="online-recall-bulk-message" role="status">{bulkMessage}</p>}
         {bulkError && <p className="online-recall-bulk-error" role="alert">{bulkError}</p>}
-        {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}
+        {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating || isDeleting} selectAllRows={activeTab === "all"} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}
         <div className="online-recall-pagination">
           <span>총 {total}건 · {page}/{totalPages} 페이지</span>
           <div>
@@ -191,6 +217,7 @@ function RecallManagementPage({ currentUser }) {
       </>}
       {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
       {detailId !== null && <RecallDetailModal applicationId={detailId} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
+      {deleteOpen && <RecallDeleteModal count={selectedIds.size} saving={isDeleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={handleDelete} />}
     </div>
   );
 }

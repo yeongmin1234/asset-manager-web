@@ -26,6 +26,7 @@ from app.services.recall_application_service import (
     list_recall_applications,
     change_recall_application_status,
     bulk_change_recall_applications,
+    bulk_soft_delete_recall_applications,
     resolve_recall_duplicate,
 )
 from app.services.recall_order_service import (
@@ -47,6 +48,12 @@ class RecallBulkStatusChangeRequest(BaseModel):
     ids: List[int]
     status: str
     reason: str
+
+
+class RecallBulkDeleteRequest(BaseModel):
+    ids: List[int]
+    reason: str
+    reason_category: str
 
 
 class RecallOrderSelectionRequest(BaseModel):
@@ -306,6 +313,35 @@ def update_recall_applications_bulk_status(
         after_data={"status": payload.status, **{key: result[key] for key in ("requested", "updated", "skipped", "failed")}},
     )
     return result
+
+
+@router.post("/bulk-delete")
+def soft_delete_recall_applications(
+    payload: RecallBulkDeleteRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = bulk_soft_delete_recall_applications(
+            db, ids=payload.ids, reason=payload.reason,
+            reason_category=payload.reason_category, user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="선택한 리콜 건을 삭제하지 못했습니다.") from exc
+    record_audit_log(
+        db, request, current_user, action_type="delete", menu_key="online_recall",
+        menu_name="온라인 TEAM > 리콜 관리", target_type="recall_application_bulk",
+        target_id=None, target_name="리콜 선택 삭제",
+        action_summary="리콜 선택 삭제: 건수={} user_id={} 사유 분류={}".format(
+            result["deleted"], current_user.id, result["reason_category"]),
+        after_data={"application_ids": result["ids"], "deleted_at": result["deleted_at"],
+                    "deleted_by": current_user.id, "reason_category": result["reason_category"],
+                    "delete_reason_recorded": True},
+    )
+    return jsonable_encoder(result)
 
 
 @router.get("/orders/summary")

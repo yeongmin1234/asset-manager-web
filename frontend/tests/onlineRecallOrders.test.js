@@ -48,6 +48,38 @@ test("all-list table marks only duplicate rows and retains review status", async
   }
 });
 
+test("all-list selects every recall status while delete button follows selection", async () => {
+  const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
+  try {
+    const { default: RecallTable } = await vite.ssrLoadModule("/src/components/online/RecallTable.jsx");
+    const { default: RecallFilters } = await vite.ssrLoadModule("/src/components/online/RecallFilters.jsx");
+    const items = [
+      { id: 1, customer_name: "정상 고객", current_status: "APPLICATION_RECEIVED" },
+      { id: 2, customer_name: "확인 고객", current_status: "REVIEW_REQUIRED" },
+      { id: 3, customer_name: "중복 고객", current_status: "APPLICATION_RECEIVED", duplicate_flag: true },
+      { id: 4, customer_name: "발송 고객", current_status: "SHIPPED" },
+    ];
+    const table = renderToStaticMarkup(React.createElement(RecallTable, {
+      items, selectAllRows: true, selectedIds: new Set([1, 2, 3, 4]),
+      onToggleSelection() {}, onTogglePage() {}, onOpenDetail() {},
+    }));
+    for (const name of items.map((item) => item.customer_name)) {
+      const checkbox = table.match(new RegExp(`<input[^>]*aria-label="${name} 선택"[^>]*>`))?.[0];
+      assert.ok(checkbox, `${name} checkbox`);
+      assert.doesNotMatch(checkbox, /disabled/);
+    }
+    assert.match(table, /현재 페이지 전체 선택/);
+    const renderFilters = (selectedCount) => renderToStaticMarkup(React.createElement(RecallFilters, {
+      values: { keyword: "", status: "" }, onChange() {}, onSearch() {}, onReset() {},
+      onDelete() {}, selectedCount, isLoading: false,
+    }));
+    assert.match(renderFilters(0), /online-recall-delete-button" disabled=""[^>]*>삭제/);
+    assert.match(renderFilters(2), /online-recall-delete-button"[^>]*>삭제/);
+  } finally {
+    await vite.close();
+  }
+});
+
 test("duplicate review list displays the reference and resolution actions", async () => {
   const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
   try {
