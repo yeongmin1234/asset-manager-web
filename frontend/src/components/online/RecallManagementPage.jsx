@@ -8,20 +8,22 @@ import RecallDetailModal from "./RecallDetailModal.jsx";
 import RecallOrderTab from "./RecallOrderTab.jsx";
 import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
 import RecallDeleteModal from "./RecallDeleteModal.jsx";
+import RecallPageSizeSelect, { readRecallPageSize, saveRecallPageSize } from "./RecallPageSizeSelect.jsx";
 import { isRecallBulkSelectable, nextRecallBulkStatus, recallTabSelectsAllRows } from "./onlineDisplayUtils.js";
 import "./online.css";
 
 const EMPTY_SUMMARY = { total_count: 0, received_count: 0, remaining_count: 0, in_progress_count: 0, shipped_count: 0 };
 
-export function RecallBulkBar({ selectedCount, nextStatus, disabled, isBulkUpdating, onChange }) {
+export function RecallBulkBar({ selectedCount, nextStatus, disabled, isBulkUpdating, onChange, pageSize = 20, onPageSizeChange = () => {}, showBulkAction = true }) {
   const actionLabel = nextStatus === "IN_PROGRESS" ? "진행중으로 변경" : nextStatus === "SHIPPED" ? "발송완료로 변경" : "다음 단계로 변경";
   return (
     <div className="online-recall-bulk-bar">
-      <span>현재 페이지 선택 {selectedCount}건</span>
-      {selectedCount > 0 && !nextStatus && <span className="online-recall-bulk-hint" role="status">같은 상태의 항목만 선택해야 합니다.</span>}
-      <button type="button" className="primary-action" disabled={!nextStatus || disabled || isBulkUpdating} onClick={onChange}>
+      {showBulkAction && <span>현재 페이지 선택 {selectedCount}건</span>}
+      <RecallPageSizeSelect value={pageSize} onChange={onPageSizeChange} disabled={isBulkUpdating} />
+      {showBulkAction && selectedCount > 0 && !nextStatus && <span className="online-recall-bulk-hint" role="status">같은 상태의 항목만 선택해야 합니다.</span>}
+      {showBulkAction && <button type="button" className="primary-action" disabled={!nextStatus || disabled || isBulkUpdating} onClick={onChange}>
         {isBulkUpdating ? "처리 중..." : `${actionLabel} (${selectedCount})`}
-      </button>
+      </button>}
     </div>
   );
 }
@@ -42,6 +44,7 @@ function RecallManagementPage({ currentUser }) {
   const [filterValues, setFilterValues] = useState({ keyword: "", status: "" });
   const [appliedFilters, setAppliedFilters] = useState({ keyword: "", status: "" });
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(readRecallPageSize);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,13 +52,13 @@ function RecallManagementPage({ currentUser }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const loadRequestId = useRef(0);
 
-  const loadData = useCallback(async (targetPage, filters, tab) => {
+  const loadData = useCallback(async (targetPage, filters, tab, targetPageSize) => {
     const requestId = ++loadRequestId.current;
     setIsLoading(true);
     setLoadError("");
     try {
       const [listResult, summaryResult] = await Promise.all([
-        getRecallApplications({ ...filters, page: targetPage, page_size: 30,
+        getRecallApplications({ ...filters, page: targetPage, page_size: targetPageSize,
           duplicate_only: tab === "duplicates", include_duplicates: tab === "all" }),
         getRecallApplicationSummary(),
       ]);
@@ -75,7 +78,14 @@ function RecallManagementPage({ currentUser }) {
     }
   }, []);
 
-  useEffect(() => { loadData(page, appliedFilters, activeTab); }, [loadData, page, appliedFilters, activeTab, refreshKey]);
+  useEffect(() => { if (activeTab !== "orders") loadData(page, appliedFilters, activeTab, pageSize); }, [loadData, page, appliedFilters, activeTab, pageSize, refreshKey]);
+
+  const handlePageSizeChange = (value) => {
+    setSelectedIds(new Set());
+    setPage(1);
+    setPageSize(value);
+    saveRecallPageSize(value);
+  };
 
   const handleSearch = () => {
     setSelectedIds(new Set());
@@ -190,7 +200,7 @@ function RecallManagementPage({ currentUser }) {
         <button type="button" className={activeTab === "duplicates" ? "active" : ""} aria-current={activeTab === "duplicates" ? "page" : undefined} onClick={() => changeTab("duplicates")}>중복 확인</button>
         <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => changeTab("orders")}>SCM 발주 대상</button>
       </nav>
-      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} /> : <>
+      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : <>
       <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
         <RecallFilters
@@ -202,7 +212,7 @@ function RecallManagementPage({ currentUser }) {
           onDelete={activeTab === "all" ? () => { setDeleteError(""); setDeleteOpen(true); } : undefined}
           selectedCount={selectedIds.size}
         />
-        {activeTab !== "duplicates" && <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating} onChange={handleBulkChange} />}
+        <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating || isDeleting} onChange={handleBulkChange} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} showBulkAction={activeTab !== "duplicates"} />
         {bulkMessage && <p className="online-recall-bulk-message" role="status">{bulkMessage}</p>}
         {bulkError && <p className="online-recall-bulk-error" role="alert">{bulkError}</p>}
         {activeTab === "duplicates" ? <RecallDuplicateReview items={items} isLoading={isLoading} error={loadError} onDetail={setDetailId} onResolved={() => { setPage(1); setRefreshKey((value) => value + 1); }} /> : <RecallTable items={items} isLoading={isLoading} isBulkUpdating={isBulkUpdating || isDeleting} selectAllRows={recallTabSelectsAllRows(activeTab)} error={loadError} selectedIds={selectedIds} onToggleSelection={handleToggleSelection} onTogglePage={handleTogglePage} onOpenDetail={setDetailId} />}

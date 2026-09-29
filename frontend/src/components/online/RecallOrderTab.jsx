@@ -5,6 +5,7 @@ import {
   getRecallOrders, getRecallOrderSummary, previewRecallOrders,
 } from "../../api/client.js";
 import { displayRecallStatus, formatPhoneForDisplay, formatRecallDate, recallStatusClass } from "./onlineDisplayUtils.js";
+import RecallPageSizeSelect from "./RecallPageSizeSelect.jsx";
 
 const ORDER_LABELS = {
   ORDER_PENDING: "발주 대기",
@@ -49,7 +50,7 @@ export function RecallOrderPreview({ preview, busy, error, onClose, onExport }) 
   );
 }
 
-function RecallOrderTab({ isAdmin = false }) {
+function RecallOrderTab({ isAdmin = false, pageSize = 20, onPageSizeChange = () => {} }) {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ pending_count: 0, exported_count: 0, confirmed_count: 0 });
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -70,7 +71,7 @@ function RecallOrderTab({ isAdmin = false }) {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.all([getRecallOrders({ status, page, page_size: 30 }), getRecallOrderSummary()])
+    Promise.all([getRecallOrders({ status, page, page_size: pageSize }), getRecallOrderSummary()])
       .then(([list, counts]) => {
         if (!active) return;
         setItems(list.items || []);
@@ -82,7 +83,7 @@ function RecallOrderTab({ isAdmin = false }) {
       .catch((caught) => { if (active) setError(caught?.message || "SCM 발주 대상을 불러오지 못했습니다."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [status, page, refreshKey]);
+  }, [status, page, pageSize, refreshKey]);
 
   const pendingItems = items.filter((item) => item.order_status === "ORDER_PENDING");
   const selectedOnPage = pendingItems.filter((item) => selectedIds.has(item.id)).length;
@@ -162,6 +163,7 @@ function RecallOrderTab({ isAdmin = false }) {
           <option value="ORDER_PENDING">발주 대기</option><option value="ORDER_EXPORTED">Excel 생성 완료</option><option value="ORDER_CONFIRMED">발주 완료</option><option value="">전체</option>
         </select></label>
         <span>선택 {selectedIds.size}건</span>
+        <RecallPageSizeSelect value={pageSize} onChange={(value) => { setPage(1); setSelectedIds(new Set()); onPageSizeChange(value); }} disabled={busy} />
         <button type="button" className="primary-action" onClick={openPreview} disabled={!selectedIds.size || busy || loading}>SCM 발주 Excel 생성</button>
       </div>
       {message && <p className="online-recall-bulk-message" role="status">{message}</p>}

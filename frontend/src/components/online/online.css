@@ -356,10 +356,32 @@
   border-top: 1px solid #edf1f5;
   color: #475569;
   display: flex;
+  flex-wrap: wrap;
   font-size: 0.8rem;
   gap: 10px;
   justify-content: flex-end;
   padding: 8px 12px;
+}
+
+.online-recall-bulk-bar > span { align-items: center; display: inline-flex; min-height: 32px; }
+.online-recall-page-size {
+  align-items: center;
+  color: #475569;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  gap: 6px;
+  min-height: 32px;
+  white-space: nowrap;
+}
+.online-recall-page-size select {
+  background: #fff;
+  border: 1px solid #d9e1eb;
+  border-radius: 5px;
+  color: #172033;
+  height: 32px;
+  padding: 0 7px;
+  width: 78px;
 }
 
 .online-recall-bulk-bar button {

@@ -78,6 +78,28 @@ class RecallOrderPhase5Test(unittest.TestCase):
     def count_batches(self):
         return self.db.scalar(select(func.count()).select_from(RecallOrderBatch))
 
+    def test_list_endpoints_honor_supported_page_sizes(self):
+        for number in range(5, 26):
+            self.db.add(RecallApplication(
+                id=number, upload_batch_id=1, source_row_number=number + 1,
+                application_date=date(2026, 9, 22), quantity=1,
+                customer_name="고객{}".format(number), phone_original="01099810165",
+                phone_normalized="01099810165", address="원효로 138",
+                replacement_shipping_agreement="동의", current_status=IN_PROGRESS,
+                created_by=1,
+            ))
+        self.db.commit()
+        with TestClient(self.app) as client:
+            for size in (10, 20, 50, 100):
+                for path, total in (("/online/recall/applications", 25), (ROOT, 23)):
+                    response = client.get(path, params={"page": 1, "page_size": size})
+                    self.assertEqual(response.status_code, 200, response.text)
+                    data = response.json()
+                    self.assertEqual(data["page_size"], size)
+                    self.assertEqual(data["total"], total)
+                    self.assertEqual(data["total_pages"], (total + size - 1) // size)
+                    self.assertEqual(len(data["items"]), min(size, total))
+
     def test_pending_filters_preview_and_permission(self):
         with TestClient(self.app) as client:
             summary = client.get(ROOT + "/summary")
