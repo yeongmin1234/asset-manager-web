@@ -5,6 +5,7 @@ import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
 import RecallUploadModal from "./RecallUploadModal.jsx";
 import RecallDetailModal from "./RecallDetailModal.jsx";
+import RecallOrderTab from "./RecallOrderTab.jsx";
 import { isRecallBulkSelectable, nextRecallBulkStatus } from "./onlineDisplayUtils.js";
 import "./online.css";
 
@@ -23,7 +24,8 @@ export function RecallBulkBar({ selectedCount, nextStatus, disabled, isBulkUpdat
   );
 }
 
-function RecallManagementPage() {
+function RecallManagementPage({ currentUser }) {
+  const [activeTab, setActiveTab] = useState("applications");
   const [uploadMode, setUploadMode] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
@@ -144,6 +146,11 @@ function RecallManagementPage() {
           <button type="button" className="primary-action" onClick={() => setUploadMode("target")}>리콜 대상 등록</button>
         </div>
       </div>
+      <nav className="online-recall-tabs" aria-label="리콜 관리 탭">
+        <button type="button" className={activeTab === "applications" ? "active" : ""} aria-current={activeTab === "applications" ? "page" : undefined} onClick={() => setActiveTab("applications")}>접수 목록</button>
+        <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => setActiveTab("orders")}>주문 대상</button>
+      </nav>
+      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} /> : <>
       <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
         <RecallFilters
@@ -165,6 +172,7 @@ function RecallManagementPage() {
           </div>
         </div>
       </section>
+      </>}
       {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
       {detailId !== null && <RecallDetailModal applicationId={detailId} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
     </div>

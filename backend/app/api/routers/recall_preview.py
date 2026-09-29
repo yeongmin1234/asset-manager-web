@@ -4,7 +4,7 @@ import json
 from dataclasses import asdict
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -26,6 +26,10 @@ from app.services.recall_application_service import (
     change_recall_application_status,
     bulk_change_recall_applications,
 )
+from app.services.recall_order_service import (
+    confirm_order, export_orders, get_order_batch_workbook, list_orders,
+    order_summary, preview_orders,
+)
 
 
 router = APIRouter(prefix="/online/recall/applications", tags=["online-recall"])
@@ -41,6 +45,10 @@ class RecallBulkStatusChangeRequest(BaseModel):
     ids: List[int]
     status: str
     reason: str
+
+
+class RecallOrderSelectionRequest(BaseModel):
+    ids: List[int]
 
 
 def require_recall_preview_access(
@@ -237,6 +245,120 @@ def update_recall_applications_bulk_status(
             payload.status, result["requested"], result["updated"], current_user.id
         ),
         after_data={"status": payload.status, **{key: result[key] for key in ("requested", "updated", "skipped", "failed")}},
+    )
+    return result
+
+
+@router.get("/orders/summary")
+def read_recall_order_summary(
+    _user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    return order_summary(db)
+
+
+@router.get("/orders")
+def read_recall_orders(
+    status: str = Query("", max_length=40),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(30, ge=1, le=100),
+    _user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        return jsonable_encoder(list_orders(db, status=status, page=page, page_size=page_size))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/orders/preview")
+def preview_recall_orders(
+    payload: RecallOrderSelectionRequest,
+    _user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        return jsonable_encoder(preview_orders(db, payload.ids))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/orders/export")
+def export_recall_orders(
+    payload: RecallOrderSelectionRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = export_orders(db, ids=payload.ids, user_id=current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="SCM Excel을 생성하지 못했습니다.") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="SCM Excel을 생성하지 못했습니다.") from exc
+    record_audit_log(
+        db, request, current_user,
+        action_type="export", menu_key="online_recall", menu_name="온라인 TEAM > 리콜 관리",
+        target_type="recall_order_batch", target_id=result["batch_id"], target_name="SCM 발주 Excel 생성",
+        action_summary="SCM 발주 Excel 생성: batch_id={} 건수={} 수량={} user_id={}".format(
+            result["batch_id"], result["item_count"], result["total_quantity"], current_user.id,
+        ),
+        after_data={key: result[key] for key in ("batch_id", "item_count", "total_quantity")},
+    )
+    return Response(
+        content=result["content"],
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="{}"'.format(result["file_name"]), "Cache-Control": "no-store"},
+    )
+
+
+@router.get("/orders/batches/{batch_id}/download")
+def download_recall_order_batch(
+    batch_id: int,
+    _user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = get_order_batch_workbook(db, batch_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return Response(
+        content=result["content"],
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="{}"'.format(result["file_name"]), "Cache-Control": "no-store"},
+    )
+
+
+@router.patch("/orders/{application_id}/confirm")
+def confirm_recall_order(
+    application_id: int,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자만 발주 완료로 처리할 수 있습니다.")
+    try:
+        result = confirm_order(db, application_id=application_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="발주 완료 처리에 실패했습니다.") from exc
+    record_audit_log(
+        db, request, current_user,
+        action_type="update", menu_key="online_recall", menu_name="온라인 TEAM > 리콜 관리",
+        target_type="recall_order", target_id=application_id, target_name="SCM 발주 완료",
+        action_summary="SCM 발주 완료: application_id={} batch_id={} user_id={}".format(
+            application_id, result["order_batch_id"], current_user.id,
+        ),
+        before_data={"order_status": "ORDER_EXPORTED"},
+        after_data={"order_status": result["order_status"]},
     )
     return result
 

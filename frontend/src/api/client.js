@@ -1194,6 +1194,57 @@ export async function downloadHrAccountImportTemplate(options = {}) {
   return requestDownload(`${HR_ACCOUNTS_API_PATH}/import/template`, { timeoutMs: 30000, ...options });
 }
 
+export async function getRecallOrders(filters = {}) {
+  return request("/online/recall/applications/orders", { query: filters, timeoutMs: 10000 });
+}
+
+export async function getRecallOrderSummary() {
+  return request("/online/recall/applications/orders/summary", { timeoutMs: 10000 });
+}
+
+export async function previewRecallOrders(ids) {
+  return request("/online/recall/applications/orders/preview", { method: "POST", body: { ids }, timeoutMs: 15000 });
+}
+
+async function recallOrderWorkbook(path, options = {}) {
+  const url = new URL(`${API_BASE_URL}${path}`);
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      signal: controller.signal,
+      headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ...getAuthHeaders(), ...(options.body ? { "Content-Type": "application/json" } : {}) },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+    if (!response.ok) {
+      handleUnauthorized(response);
+      const data = await response.json().catch(() => null);
+      throw new ApiError(getErrorMessage(data, response.status), { status: response.status, detail: data, method: options.method || "GET", url: url.toString() });
+    }
+    const disposition = response.headers.get("content-disposition") || "";
+    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || "recall_scm_orders.xlsx";
+    return { blob: await response.blob(), filename };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.name === "AbortError" ? "Excel 생성 응답 시간이 초과되었습니다." : "백엔드 서버에 연결할 수 없습니다.");
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+export function exportRecallOrders(ids) {
+  return recallOrderWorkbook("/online/recall/applications/orders/export", { method: "POST", body: { ids } });
+}
+
+export function downloadRecallOrderBatch(batchId) {
+  return recallOrderWorkbook(`/online/recall/applications/orders/batches/${batchId}/download`);
+}
+
+export async function confirmRecallOrder(applicationId) {
+  return request(`/online/recall/applications/orders/${applicationId}/confirm`, { method: "PATCH", timeoutMs: 10000 });
+}
+
 function getAuthHeaders() {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

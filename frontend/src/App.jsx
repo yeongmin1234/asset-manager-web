@@ -960,7 +960,7 @@ function App({ currentUser, onLogout }) {
     }
 
     if (activeSection === "online-recall") {
-      return <RecallManagementPage />;
+      return <RecallManagementPage currentUser={currentUser} />;
     }
 
     if (activeSection === "beverage-orders") {

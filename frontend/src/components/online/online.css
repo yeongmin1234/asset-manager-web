@@ -161,6 +161,79 @@
   padding: 0 12px;
 }
 
+.online-recall-tabs {
+  border-bottom: 1px solid #dbe3ec;
+  display: flex;
+  gap: 6px;
+}
+
+.online-recall-tabs button {
+  background: #fff;
+  border: 1px solid #dbe3ec;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.84rem;
+  min-height: 34px;
+  padding: 0 14px;
+}
+
+.online-recall-tabs button.active {
+  color: #1d4ed8;
+  font-weight: 700;
+  box-shadow: inset 0 2px #2563eb;
+}
+
+.online-order-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.online-order-summary > div {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: grid;
+  gap: 5px;
+  padding: 11px 14px;
+}
+
+.online-order-summary span { color: #64748b; font-size: 0.82rem; }
+.online-order-summary strong { color: #172033; font-size: 1.28rem; }
+
+.online-order-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 0 12px 10px;
+}
+
+.online-order-toolbar label { align-items: center; display: flex; gap: 7px; font-size: 0.8rem; }
+.online-order-toolbar select { background: #fff; border: 1px solid #d9e1eb; border-radius: 5px; height: 32px; padding: 0 8px; }
+.online-order-toolbar button { min-height: 32px; padding: 0 12px; }
+.online-order-table { min-width: 1230px; }
+.online-order-table th:first-child,
+.online-order-table td:first-child { width: 45px; }
+.online-order-table .online-order-row-actions { min-width: 180px; }
+.online-order-row-actions button { min-height: 27px; margin: 0 2px; padding: 0 7px; }
+.online-order-status { border-radius: 4px; display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 3px 7px; }
+.online-order-status-ORDER_PENDING { background: #eff6ff; color: #1d4ed8; }
+.online-order-status-ORDER_EXPORTED { background: #f1f5f9; color: #475569; }
+.online-order-status-ORDER_CONFIRMED { background: #ecfdf5; color: #047857; }
+
+.online-order-preview-modal { width: min(1380px, 100%); }
+.online-order-preview-summary { color: #334155; display: flex; font-size: 0.84rem; font-weight: 700; gap: 18px; padding: 10px 16px; }
+.online-order-preview-scroll { min-height: 0; overflow: auto; }
+.online-order-preview-table { border-collapse: collapse; font-size: 0.79rem; min-width: 1800px; white-space: nowrap; }
+.online-order-preview-table th,
+.online-order-preview-table td { border-bottom: 1px solid #e8edf3; max-width: 260px; overflow: hidden; padding: 8px 10px; text-align: center; text-overflow: ellipsis; }
+.online-order-preview-table th { background: #f8fafc; position: sticky; top: 0; z-index: 1; }
+
 .online-recall-list {
   min-width: 0;
   overflow: hidden;
@@ -731,6 +804,7 @@ body.online-preview-column-resizing {
 }
 
 @media (max-width: 560px) {
+  .online-order-summary { grid-template-columns: 1fr; }
   .online-summary-grid.online-recall-summary-grid { grid-template-columns: 1fr; }
   .online-detail-grid { grid-template-columns: 1fr; }
   .online-detail-field { grid-template-columns: 96px minmax(0, 1fr); }

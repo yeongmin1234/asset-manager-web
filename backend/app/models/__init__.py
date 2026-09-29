@@ -40,6 +40,7 @@ from app.models.recall_application import (
     RecallApplication,
     RecallApplicationUploadBatch,
     RecallStatusHistory,
+    RecallOrderBatch,
 )
 
 __all__ = [
@@ -86,4 +87,5 @@ __all__ = [
     "RecallApplication",
     "RecallApplicationUploadBatch",
     "RecallStatusHistory",
+    "RecallOrderBatch",
 ]

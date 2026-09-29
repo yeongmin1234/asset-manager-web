@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -12,6 +12,9 @@ IN_PROGRESS = "IN_PROGRESS"
 REVIEW_REQUIRED = "REVIEW_REQUIRED"
 STOPPED = "STOPPED"
 SHIPPED = "SHIPPED"
+ORDER_PENDING = "ORDER_PENDING"
+ORDER_EXPORTED = "ORDER_EXPORTED"
+ORDER_CONFIRMED = "ORDER_CONFIRMED"
 
 
 class RecallApplicationUploadBatch(Base):
@@ -57,6 +60,14 @@ class RecallApplication(Base):
     current_status: Mapped[str] = mapped_column(
         String(40), nullable=False, default=APPLICATION_RECEIVED, server_default=APPLICATION_RECEIVED, index=True
     )
+    order_status: Mapped[str] = mapped_column(
+        String(40), nullable=False, default=ORDER_PENDING, server_default=ORDER_PENDING, index=True
+    )
+    order_exported_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    order_confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    order_batch_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("recall_order_batches.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
 
@@ -74,3 +85,15 @@ class RecallStatusHistory(Base):
     changed_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     change_type: Mapped[str] = mapped_column(String(40), nullable=False)
     reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class RecallOrderBatch(Base):
+    __tablename__ = "recall_order_batches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
