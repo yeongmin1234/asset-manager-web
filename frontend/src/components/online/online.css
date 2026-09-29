@@ -226,12 +226,18 @@
 .online-order-status-ORDER_EXPORTED { background: #f1f5f9; color: #475569; }
 .online-order-status-ORDER_CONFIRMED { background: #ecfdf5; color: #047857; }
 
-.online-order-preview-modal { width: min(1380px, 100%); }
-.online-order-preview-summary { color: #334155; display: flex; font-size: 0.84rem; font-weight: 700; gap: 18px; padding: 10px 16px; }
+.online-order-preview-modal { width: min(1550px, 100%); }
+.online-order-preview-modal .online-upload-header,
+.online-order-preview-modal .online-upload-footer { padding: 15px 21px; }
+.online-order-preview-modal .online-upload-header h2 { font-size: 1.18rem; }
+.online-order-preview-modal .online-upload-header p { font-size: 0.88rem; }
+.online-order-preview-modal .online-upload-header button,
+.online-order-preview-modal .online-upload-footer button { font-size: 0.88rem; min-height: 36px; padding: 0 15px; }
+.online-order-preview-summary { color: #334155; display: flex; font-size: 0.9rem; font-weight: 700; gap: 20px; padding: 12px 21px; }
 .online-order-preview-scroll { min-height: 0; overflow: auto; }
-.online-order-preview-table { border-collapse: collapse; font-size: 0.79rem; min-width: 1800px; white-space: nowrap; }
+.online-order-preview-table { border-collapse: collapse; font-size: 0.85rem; min-width: 1800px; white-space: nowrap; }
 .online-order-preview-table th,
-.online-order-preview-table td { border-bottom: 1px solid #e8edf3; max-width: 260px; overflow: hidden; padding: 8px 10px; text-align: center; text-overflow: ellipsis; }
+.online-order-preview-table td { border-bottom: 1px solid #e8edf3; max-width: 260px; overflow: hidden; padding: 9px 12px; text-align: center; text-overflow: ellipsis; }
 .online-order-preview-table th { background: #f8fafc; position: sticky; top: 0; z-index: 1; }
 
 .online-recall-list {
