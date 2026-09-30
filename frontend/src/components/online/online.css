@@ -953,6 +953,51 @@ body.online-preview-column-resizing {
   }
 }
 .online-target-modal { width: min(1500px, 96vw); }
+.online-target-progress-cards { display: grid; gap: 10px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 10px 12px 0; }
+.online-target-progress-card, .online-target-quality-card, .online-target-overview-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 7px; }
+.online-target-progress-card { min-height: 86px; padding: 12px 14px 10px; }
+.online-target-progress-title { color: #64748b; display: block; font-size: 0.79rem; font-weight: 600; }
+.online-target-progress-card strong { color: #172033; display: block; font-size: 1.48rem; line-height: 1.2; margin: 3px 0 10px; }
+.online-target-progress-bottom { align-items: center; display: flex; gap: 8px; }
+.online-target-progress-bottom small { color: #64748b; font-size: 0.72rem; font-weight: 700; min-width: 40px; text-align: right; }
+.online-target-progress-track { background: #eef2f7; border-radius: 99px; display: block; height: 6px; min-width: 0; overflow: hidden; }
+.online-target-progress-bottom .online-target-progress-track { flex: 1; }
+.online-target-progress-track > span { background: #60a5fa; border-radius: inherit; display: block; height: 100%; }
+.online-target-progress-card[data-tone="total"] .online-target-progress-track > span { background: #3b82f6; }
+.online-target-progress-card[data-tone="received"] .online-target-progress-track > span { background: #34c78b; }
+.online-target-progress-card[data-tone="remaining"] .online-target-progress-track > span { background: #94a3b8; }
+.online-target-progress-card[data-tone="progress"] .online-target-progress-track > span { background: #fb923c; }
+.online-target-progress-card[data-tone="shipped"] .online-target-progress-track > span { background: #a78bfa; }
+.online-target-quality-cards { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 10px 12px 0; }
+.online-target-quality-card { align-items: center; display: flex; gap: 12px; min-height: 61px; padding: 9px 14px; }
+.online-target-quality-icon { align-items: center; border-radius: 9px; display: inline-flex; flex: 0 0 34px; font-size: 1.05rem; font-weight: 800; height: 34px; justify-content: center; }
+.online-target-quality-card > div { display: grid; gap: 1px; }
+.online-target-quality-card > div > span { color: #64748b; font-size: 0.78rem; }
+.online-target-quality-card strong { color: #172033; font-size: 1.1rem; line-height: 1.2; }
+.online-target-quality-card[data-tone="normal"] .online-target-quality-icon { background: #e8f8ef; color: #16a34a; }
+.online-target-quality-card[data-tone="duplicate"] .online-target-quality-icon { background: #fef0ef; color: #dc2626; }
+.online-target-quality-card[data-tone="review"] .online-target-quality-icon { background: #fff5e9; color: #ea580c; }
+.online-target-overview-grid { display: grid; gap: 10px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); margin: 10px 12px 12px; }
+.online-target-overview-card { min-width: 0; padding: 0 10px 10px; }
+.online-target-overview-card h3 { border-bottom: 1px solid #e8edf3; color: #172033; font-size: 0.88rem; margin: 0 0 8px; padding: 10px 3px 8px; text-align: left; }
+.online-target-channel-table { border-collapse: collapse; font-size: 0.76rem; min-width: 720px; width: 100%; }
+.online-target-channel-table th, .online-target-channel-table td { border-bottom: 1px solid #edf1f5; padding: 7px 5px; text-align: center; white-space: nowrap; }
+.online-target-channel-table th { background: #f8fafc; color: #475569; font-weight: 700; }
+.online-target-channel-table td:first-child { color: #2563eb; font-weight: 700; text-align: left; }
+.online-target-channel-rate { align-items: center; display: flex; gap: 6px; }
+.online-target-channel-rate > span:first-child { min-width: 37px; }
+.online-target-channel-rate .online-target-progress-track { flex: 1; min-width: 42px; }
+.online-target-stages { align-items: stretch; display: flex; gap: 3px; min-width: 0; padding: 4px 1px 8px; }
+.online-target-stage { flex: 1; min-width: 0; text-align: center; }
+.online-target-stage > span { background: #eff6ff; border-radius: 5px; color: #2563eb; display: block; font-size: 0.7rem; font-weight: 700; overflow: hidden; padding: 6px 2px; text-overflow: ellipsis; white-space: nowrap; }
+.online-target-stage[data-tone="received"] > span { background: #ebf9f0; color: #15803d; }
+.online-target-stage[data-tone="progress"] > span { background: #fff3e9; color: #c2410c; }
+.online-target-stage[data-tone="order"] > span { background: #eef2ff; color: #4338ca; }
+.online-target-stage[data-tone="shipped"] > span { background: #f3eeff; color: #7c3aed; }
+.online-target-stage strong { color: #172033; display: block; font-size: 1rem; margin: 8px 0 1px; }
+.online-target-stage small { color: #64748b; display: block; font-size: 0.7rem; }
+.online-target-stage-arrow { align-self: center; color: #94a3b8; font-size: 1.1rem; }
+.online-target-overview-card > p { background: #f4f8fd; border: 1px solid #e2ecf9; border-radius: 5px; color: #475569; font-size: 0.76rem; margin: 8px 0 0; padding: 8px 10px; text-align: left; }
 .online-target-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .online-target-summary > div { min-height: 82px; align-content: center; }
 .online-target-summary strong { font-size: 1.55rem; line-height: 1.15; }
@@ -965,7 +1010,7 @@ body.online-preview-column-resizing {
 .online-target-subtabs button.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; font-weight: 700; }
 .online-target-subtabs button:not(.active):hover { background: #f8fafc; }
 .online-target-table-wrap { overflow: auto; width: 100%; }
-.online-target-table { border-collapse: collapse; min-width: 1300px; width: 100%; }
+.online-target-table { border-collapse: collapse; min-width: 1700px; width: 100%; }
 .online-target-table th, .online-target-table td { border-bottom: 1px solid #e8edf3; padding: 7px 10px; text-align: center; vertical-align: middle; white-space: nowrap; }
 .online-target-table th { background: #f8fafc; }
 .online-target-cell-text { display: block; margin: 0 auto; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -978,6 +1023,15 @@ body.online-preview-column-resizing {
 .online-target-toolbar .online-recall-page-size { align-items: center; display: inline-flex; gap: 7px; white-space: nowrap; }
 .online-target-toolbar button { min-height: 32px; }
 .online-target-panel > .online-recall-list { margin: 0 12px 12px; }
+.online-target-match-badge { border-radius: 4px; display: inline-block; font-size: 0.74rem; font-weight: 700; min-width: 58px; padding: 3px 6px; }
+.online-target-match-MATCHED { background: #eff6ff; color: #1d4ed8; }
+.online-target-match-UNMATCHED { background: #f1f5f9; color: #64748b; }
+.online-target-match-REVIEW { background: #fff7ed; color: #c2410c; }
+.online-target-pagination { align-items: center; color: #64748b; display: flex; flex-wrap: wrap; font-size: 0.77rem; gap: 8px; justify-content: space-between; padding: 9px 12px; }
+.online-target-pagination > div { align-items: center; display: flex; flex-wrap: wrap; gap: 4px; }
+.online-target-pagination button { background: #fff; border: 1px solid #dbe3ec; border-radius: 4px; color: #475569; cursor: pointer; min-height: 27px; min-width: 27px; padding: 0 7px; }
+.online-target-pagination button.active { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 700; }
+.online-target-pagination button:not(.active):hover:not(:disabled) { background: #eff6ff; }
 .online-target-detail { width: min(950px, 95vw); }
 .online-target-detail-body { overflow: auto; padding: 20px; }
 .online-target-detail-body dl { display: grid; gap: 8px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -991,7 +1045,10 @@ body.online-preview-column-resizing {
 .online-match-status-REVIEW { color: #b45309; font-weight: 700; }
 @media (max-width: 800px) {
   .online-target-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .online-target-progress-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .online-target-overview-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .online-target-summary { grid-template-columns: 1fr; }
+  .online-target-progress-cards, .online-target-quality-cards { grid-template-columns: 1fr; }
 }

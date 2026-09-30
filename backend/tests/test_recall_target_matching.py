@@ -15,7 +15,7 @@ from app.api.routers.recall_targets import router as target_router
 from app.core.auth import get_current_user
 from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
-from app.models.recall_application import APPLICATION_RECEIVED, IN_PROGRESS, SHIPPED, RecallApplication, RecallApplicationUploadBatch, RecallStatusHistory
+from app.models.recall_application import APPLICATION_RECEIVED, IN_PROGRESS, ORDER_EXPORTED, SHIPPED, RecallApplication, RecallApplicationUploadBatch, RecallStatusHistory
 from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
 from app.models.user import User
 from app.services.recall_target_matching import channel_summary, manual_match, matching_summary, run_auto_matching, unmatch
@@ -132,6 +132,7 @@ class RecallTargetMatchingTest(unittest.TestCase):
     def test_manual_match_release_summary_channels_filters_and_permission(self):
         self.assertEqual(channel_summary(self.db), [])
         progress = self.application("S-1", "010-1111-1111", status=IN_PROGRESS)
+        progress.order_status = ORDER_EXPORTED
         shipped = self.application("S-2", "010-2222-2222", status=SHIPPED)
         first = self.target("S-1", "010-1111-1111", channel="몰A")
         second = self.target("S-2", "010-2222-2222", channel="몰A")
@@ -140,7 +141,8 @@ class RecallTargetMatchingTest(unittest.TestCase):
         run_auto_matching(self.db, user_id=1)
         self.db.commit()
         self.assertEqual(matching_summary(self.db), {"total_count": 3, "received_count": 2,
-                                                      "remaining_count": 1, "in_progress_count": 1, "shipped_count": 1})
+                                                      "remaining_count": 1, "in_progress_count": 1, "order_count": 1,
+                                                      "shipped_count": 1})
         self.assertEqual(channel_summary(self.db)[0]["application_rate"], 100.0)
         with TestClient(self.app) as client:
             listing = client.get(ROOT, params={"match_status": "MATCHED", "page_size": 10})

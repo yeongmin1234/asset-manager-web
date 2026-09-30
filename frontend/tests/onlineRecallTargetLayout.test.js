@@ -23,11 +23,18 @@ test("target summary, compact filters and list-first batch subtabs render", asyn
   const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
   try {
     const { default: RecallTargetTab } = await vite.ssrLoadModule("/src/components/online/RecallTargetTab.jsx");
+    const { RecallTargetProgressCards, RecallTargetQualityCards, RecallChannelProgress, RecallStageProgress } = await vite.ssrLoadModule("/src/components/online/RecallTargetOverview.jsx");
     const html = renderToStaticMarkup(React.createElement(RecallTargetTab, { pageSize: 20, onPageSizeChange() {} }));
-    const summary = html.match(/<section class="online-order-summary online-target-summary online-target-raw-summary"[\s\S]*?<\/section>/)?.[0] || "";
-    assert.equal((summary.match(/data-tone=/g) || []).length, 4);
-    for (const tone of ["total", "normal", "duplicate", "review"]) assert.match(summary, new RegExp(`data-tone="${tone}"`));
-    assert.match(css, /\.online-target-summary\s*\{\s*grid-template-columns:\s*repeat\(4,/);
+    const progress = renderToStaticMarkup(React.createElement(RecallTargetProgressCards, { summary: { total_count: 20, received_count: 5, remaining_count: 15, in_progress_count: 2, shipped_count: 1 } }));
+    assert.equal((progress.match(/class="online-target-progress-card"/g) || []).length, 5);
+    assert.match(progress, /25\.0%/);
+    const quality = renderToStaticMarkup(React.createElement(RecallTargetQualityCards, { summary: { normal_count: 18, duplicate_count: 1, review_count: 1 } }));
+    assert.equal((quality.match(/class="online-target-quality-card"/g) || []).length, 3);
+    const stages = renderToStaticMarkup(React.createElement(RecallStageProgress, { summary: { total_count: 20, received_count: 5, in_progress_count: 2, order_count: 1, shipped_count: 1 } }));
+    assert.match(stages, /SCM 발주/);
+    const channels = renderToStaticMarkup(React.createElement(RecallChannelProgress, { channels: [] }));
+    assert.match(channels, /등록된 판매채널이 없습니다/);
+    assert.match(css, /\.online-target-progress-cards\s*\{[^}]*repeat\(5,/);
     assert.match(html, /aria-label="리콜 대상 검색"/);
     assert.match(html, /aria-label="리콜 대상 상태"/);
     assert.match(html, /aria-label="신청 상태"/);

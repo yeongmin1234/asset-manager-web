@@ -6,7 +6,7 @@ from typing import Dict, Optional, Sequence
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.models.recall_application import IN_PROGRESS, SHIPPED, RecallApplication
+from app.models.recall_application import IN_PROGRESS, ORDER_CONFIRMED, ORDER_EXPORTED, SHIPPED, RecallApplication
 from app.models.recall_target import RecallTarget
 from app.services.recall_application_excel import _serial_key, _valid_phone
 
@@ -148,6 +148,9 @@ def matching_summary(db: Session):
     return {"total_count": len(targets), "received_count": len(matched), "remaining_count": len(targets) - len(matched),
             "in_progress_count": sum(applications.get(target.matched_application_id) is not None and
                                      applications[target.matched_application_id].current_status == IN_PROGRESS for target in matched),
+            "order_count": sum(applications.get(target.matched_application_id) is not None and
+                               applications[target.matched_application_id].order_status in (ORDER_EXPORTED, ORDER_CONFIRMED)
+                               for target in matched),
             "shipped_count": sum(applications.get(target.matched_application_id) is not None and
                                  applications[target.matched_application_id].current_status == SHIPPED for target in matched)}
 
