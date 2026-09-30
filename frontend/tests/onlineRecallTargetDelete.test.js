@@ -19,12 +19,13 @@ test("target list starts with disabled delete and page selection checkbox", asyn
   } finally { await vite.close(); }
 });
 
-test("selection is page scoped, matching blocks deletion and success refreshes counts", () => {
+test("selection is page scoped, matched rows can be deleted, and success refreshes counts", () => {
   assert.match(tab, /new Set\(pageIds\)/);
-  assert.match(tab, /item\.match_status === "MATCHED" \|\| item\.matched_application_id != null/);
+  assert.doesNotMatch(tab, /selectedMatched|blocked=\{/);
   assert.match(tab, /deleteRecallTargets\(\[\.\.\.selectedIds\], reason\)/);
-  assert.match(tab, /setLocalRefresh\(\(value\) => value \+ 1\)/);
+  assert.match(tab, /onTargetsChanged\(\)/);
   assert.match(modal, /삭제된 대상은 리콜 대상 목록과 통계에서 제외됩니다/);
-  assert.match(modal, /먼저 매칭을 해제해주세요/);
+  assert.match(modal, /연결된 신청 데이터와 이력은 유지됩니다/);
+  assert.doesNotMatch(modal, /매칭을 해제해주세요/);
   assert.match(modal, /required maxLength=\{255\}/);
 });

@@ -121,10 +121,12 @@ def rerun_matching(request: Request, user: User = Depends(require_recall_preview
 @router.get("")
 def read_targets(keyword: str = Query("", max_length=100), status: str = Query("", max_length=20),
                  match_status: str = Query("", max_length=20),
+                 sales_channel: str = Query("", max_length=100),
                  page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
                  _user: User = Depends(require_recall_preview_access), db: Session = Depends(get_db)):
     try:
         return jsonable_encoder(list_targets(db, keyword=keyword, status=status, match_status=match_status,
+                                             sales_channel=sales_channel,
                                              page=page, page_size=page_size))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

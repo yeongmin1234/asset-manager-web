@@ -159,21 +159,30 @@ class RecallTargetsTest(unittest.TestCase):
         self.assertTrue(all(log["after_data"]["delete_reason"] == "오등록" for log in logs))
         self.assertTrue(all("customer_name" not in str(log) and "phone_raw" not in str(log) for log in logs))
 
-    def test_bulk_delete_rejects_matched_selection_atomically_and_checks_permission(self):
+    def test_bulk_delete_accepts_matched_selection_and_checks_permission(self):
         with TestClient(self.app) as client:
             self.assertEqual(self.post(client, "/commit", workbook(target(), target(name="두번째", phone="abc", order="O-2", serial="S-2"))).status_code, 200)
             items = self.db.scalars(select(RecallTarget).order_by(RecallTarget.id)).all()
             items[0].match_status = "MATCHED"
             self.db.commit()
             ids = [item.id for item in items]
-            blocked = client.post(ROOT + "/bulk-delete", json={"ids": ids, "reason": "오등록"})
-            self.assertEqual(blocked.status_code, 409)
-            self.assertIn("매칭을 해제", blocked.json()["detail"])
-            self.assertEqual(client.get(ROOT).json()["total"], 2)
+            deleted = client.post(ROOT + "/bulk-delete", json={"ids": ids, "reason": "오등록"})
+            self.assertEqual(deleted.status_code, 200)
+            self.assertEqual(client.get(ROOT).json()["total"], 0)
             self.assertEqual(client.post(ROOT + "/bulk-delete", json={"ids": [ids[1]], "reason": " "}).status_code, 409)
             self.user.menu_permissions = []
             self.assertEqual(client.post(ROOT + "/bulk-delete", json={"ids": [ids[1]], "reason": "오등록"}).status_code, 403)
-        self.assertFalse(any(item.is_deleted for item in items))
+        self.assertTrue(all(item.is_deleted for item in items))
+
+    def test_sales_channel_filter_uses_current_targets_only(self):
+        other = target(name="다른 채널", phone="010-2222-3333", order="O-2", serial="S-2")
+        other[0] = "다른몰"
+        with TestClient(self.app) as client:
+            self.assertEqual(self.post(client, "/commit", workbook(target(), other)).status_code, 200)
+            self.assertEqual(client.get(ROOT, params={"sales_channel": "다른몰"}).json()["total"], 1)
+            target_id = client.get(ROOT, params={"sales_channel": "다른몰"}).json()["items"][0]["id"]
+            self.assertEqual(client.post(ROOT + "/bulk-delete", json={"ids": [target_id], "reason": "오등록"}).status_code, 200)
+            self.assertEqual(client.get(ROOT, params={"sales_channel": "다른몰"}).json()["total"], 0)
 
 
 if __name__ == "__main__":

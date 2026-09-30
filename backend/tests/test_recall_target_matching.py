@@ -183,6 +183,49 @@ class RecallTargetMatchingTest(unittest.TestCase):
         self.assertTrue(any(call.kwargs.get("action_type") == "auto_match" for call in self.audit.call_args_list))
         self.assertNotIn("010-1111-1111", str(self.audit.call_args_list))
 
+    def test_deleting_matched_target_preserves_application_and_zeros_target_statistics(self):
+        application = self.application("S-1", "010-1111-1111", status=IN_PROGRESS)
+        application.order_status = ORDER_EXPORTED
+        target = self.target("S-1", "010-1111-1111")
+        self.db.commit()
+        run_auto_matching(self.db, user_id=1)
+        self.db.commit()
+        self.assertEqual(target.match_status, "MATCHED")
+        with TestClient(self.app) as client:
+            self.assertEqual(client.get(ROOT + "/matching/summary").json()["received_count"], 1)
+            deleted = client.post(ROOT + "/bulk-delete", json={"ids": [target.id], "reason": "고객 요청"})
+            self.assertEqual(deleted.status_code, 200)
+            self.assertEqual(client.get(ROOT).json()["total"], 0)
+            self.assertEqual(client.get(ROOT + "/summary").json()["total_count"], 0)
+            self.assertEqual(client.get(ROOT + "/matching/summary").json(), {
+                "total_count": 0, "received_count": 0, "remaining_count": 0,
+                "in_progress_count": 0, "order_count": 0, "shipped_count": 0,
+            })
+            self.assertEqual(client.get(ROOT + "/matching/channels").json(), [])
+            self.assertEqual(client.post(ROOT + "/matching/run").json(), {
+                "matched": 0, "review": 0, "unmatched": 0,
+            })
+        self.assertTrue(target.is_deleted)
+        self.assertEqual(target.matched_application_id, application.id)
+        self.assertFalse(application.is_deleted)
+        self.assertEqual(application.order_status, ORDER_EXPORTED)
+        self.assertTrue(any(call.kwargs.get("action_type") == "delete" for call in self.audit.call_args_list))
+
+    def test_deleted_application_does_not_count_as_current_target_progress(self):
+        application = self.application("S-1", "010-1111-1111", status=IN_PROGRESS)
+        target = self.target("S-1", "010-1111-1111")
+        self.db.commit()
+        run_auto_matching(self.db, user_id=1)
+        self.db.commit()
+        self.assertEqual(matching_summary(self.db)["received_count"], 1)
+        application.is_deleted = True
+        self.db.commit()
+        self.assertFalse(target.is_deleted)
+        self.assertEqual(matching_summary(self.db)["received_count"], 0)
+        self.assertEqual(matching_summary(self.db)["remaining_count"], 1)
+        self.assertEqual(channel_summary(self.db)[0]["matched_count"], 0)
+        self.assertEqual(channel_summary(self.db)[0]["unmatched_count"], 1)
+
     def test_target_and_application_commits_trigger_matching(self):
         self.application("S-1", "010-1111-1111")
         self.db.commit()

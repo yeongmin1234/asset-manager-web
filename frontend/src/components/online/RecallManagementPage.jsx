@@ -217,7 +217,7 @@ function RecallManagementPage({ currentUser }) {
         <button type="button" className={activeTab === "duplicates" ? "active" : ""} aria-current={activeTab === "duplicates" ? "page" : undefined} onClick={() => changeTab("duplicates")}>중복 확인</button>
         <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => changeTab("orders")}>SCM 발주 대상</button>
       </nav>
-      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : activeTab === "targets" ? <RecallTargetTab pageSize={pageSize} onPageSizeChange={handlePageSizeChange} refreshKey={refreshKey} onApplicationDetail={setDetailId} /> : <>
+      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : activeTab === "targets" ? <RecallTargetTab pageSize={pageSize} onPageSizeChange={handlePageSizeChange} refreshKey={refreshKey} onTargetsChanged={() => setRefreshKey((value) => value + 1)} onApplicationDetail={setDetailId} /> : <>
       <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
         <RecallFilters

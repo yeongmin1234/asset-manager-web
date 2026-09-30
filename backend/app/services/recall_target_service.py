@@ -200,12 +200,15 @@ def target_summary(db: Session):
             "review_count": sum(count for _, review, count in rows if review)}
 
 
-def list_targets(db: Session, keyword: str, status: str, page: int, page_size: int, match_status: str = ""):
+def list_targets(db: Session, keyword: str, status: str, page: int, page_size: int,
+                 match_status: str = "", sales_channel: str = ""):
     if status not in ("", "valid", "duplicate", "review"):
         raise ValueError("대상 상태 필터가 올바르지 않습니다.")
     if match_status not in ("", "MATCHED", "UNMATCHED", "REVIEW"):
         raise ValueError("신청 상태 필터가 올바르지 않습니다.")
     query = select(RecallTarget).where(RecallTarget.is_deleted.is_(False))
+    if sales_channel:
+        query = query.where(RecallTarget.sales_channel == sales_channel)
     if keyword:
         pattern = "%{}%".format(keyword.replace("%", "\\%").replace("_", "\\_"))
         query = query.where(or_(RecallTarget.customer_name.ilike(pattern, escape="\\"),
@@ -242,7 +245,7 @@ def list_target_batches(db: Session):
 
 
 def bulk_soft_delete_targets(db: Session, *, ids, reason: str, user_id: int):
-    """Soft delete a selection only when every target has no application link."""
+    """Soft delete selected targets while retaining application and audit history."""
     if not ids or len(ids) > 100 or any(type(value) is not int or value < 1 for value in ids) or len(set(ids)) != len(ids):
         raise ValueError("삭제할 리콜 대상을 1~100건 중복 없이 선택해주세요.")
     cleaned_reason = (reason or "").strip()
@@ -256,8 +259,6 @@ def bulk_soft_delete_targets(db: Session, *, ids, reason: str, user_id: int):
         ).order_by(RecallTarget.id).with_for_update()).all())
         if len(targets) != len(ids):
             raise ValueError("선택한 대상 중 이미 삭제되었거나 찾을 수 없는 건이 있습니다.")
-        if any(target.match_status == "MATCHED" or target.matched_application_id is not None for target in targets):
-            raise ValueError("이미 리콜 신청 데이터와 매칭된 대상은 삭제할 수 없습니다. 필요하면 먼저 매칭을 해제해주세요.")
         deleted_at = datetime.now(timezone.utc)
         for target in targets:
             target.is_deleted = True

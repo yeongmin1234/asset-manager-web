@@ -144,21 +144,24 @@ def matching_summary(db: Session):
     targets = db.scalars(select(RecallTarget).where(RecallTarget.is_deleted.is_(False))).all()
     matched = [target for target in targets if target.match_status == MATCHED]
     ids = [target.matched_application_id for target in matched]
-    applications = {item.id: item for item in db.scalars(select(RecallApplication).where(RecallApplication.id.in_(ids))).all()} if ids else {}
-    return {"total_count": len(targets), "received_count": len(matched), "remaining_count": len(targets) - len(matched),
-            "in_progress_count": sum(applications.get(target.matched_application_id) is not None and
-                                     applications[target.matched_application_id].current_status == IN_PROGRESS for target in matched),
-            "order_count": sum(applications.get(target.matched_application_id) is not None and
-                               applications[target.matched_application_id].order_status in (ORDER_EXPORTED, ORDER_CONFIRMED)
-                               for target in matched),
-            "shipped_count": sum(applications.get(target.matched_application_id) is not None and
-                                 applications[target.matched_application_id].current_status == SHIPPED for target in matched)}
+    applications = {item.id: item for item in db.scalars(select(RecallApplication).where(
+        RecallApplication.id.in_(ids), RecallApplication.is_deleted.is_(False))).all()} if ids else {}
+    current_matches = [target for target in matched if target.matched_application_id in applications]
+    return {"total_count": len(targets), "received_count": len(current_matches),
+            "remaining_count": len(targets) - len(current_matches),
+            "in_progress_count": sum(applications[target.matched_application_id].current_status == IN_PROGRESS
+                                     for target in current_matches),
+            "order_count": sum(applications[target.matched_application_id].order_status in (ORDER_EXPORTED, ORDER_CONFIRMED)
+                               for target in current_matches),
+            "shipped_count": sum(applications[target.matched_application_id].current_status == SHIPPED
+                                 for target in current_matches)}
 
 
 def channel_summary(db: Session):
     targets = db.scalars(select(RecallTarget).where(RecallTarget.is_deleted.is_(False))).all()
     ids = [target.matched_application_id for target in targets if target.match_status == MATCHED]
-    applications = {item.id: item for item in db.scalars(select(RecallApplication).where(RecallApplication.id.in_(ids))).all()} if ids else {}
+    applications = {item.id: item for item in db.scalars(select(RecallApplication).where(
+        RecallApplication.id.in_(ids), RecallApplication.is_deleted.is_(False))).all()} if ids else {}
     channels = {}
     for target in targets:
         name = target.sales_channel or "미지정"
@@ -166,7 +169,7 @@ def channel_summary(db: Session):
                                           "unmatched_count": 0, "review_count": 0, "in_progress_count": 0,
                                           "shipped_count": 0, "application_rate": 0.0})
         item["total_count"] += 1
-        if target.match_status == MATCHED:
+        if target.match_status == MATCHED and target.matched_application_id in applications:
             item["matched_count"] += 1
             application = applications.get(target.matched_application_id)
             if application and application.current_status == IN_PROGRESS:

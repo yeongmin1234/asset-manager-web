@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { deleteRecallTargets, getRecallMatchingSummary, getRecallTargetBatches, getRecallTargetChannels, getRecallTargets, getRecallTargetSummary, runRecallTargetMatching } from "../../api/client.js";
 import { displayRecallMatchMethod, displayRecallMatchStatus, displayRecallTargetProgress, formatPhoneForDisplay, recallMatchStatusClass } from "./onlineDisplayUtils.js";
 import RecallPageSizeSelect from "./RecallPageSizeSelect.jsx";
@@ -27,10 +27,11 @@ export function RecallTargetMatchCells({ item }) {
   </>;
 }
 
-function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplicationDetail }) {
+function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onTargetsChanged, onApplicationDetail }) {
   const [keyword, setKeyword] = useState("");
   const [appliedKeyword, setAppliedKeyword] = useState("");
   const [status, setStatus] = useState("");
+  const [salesChannel, setSalesChannel] = useState("");
   const [matchStatus, setMatchStatus] = useState("");
   const [view, setView] = useState("list");
   const [page, setPage] = useState(1);
@@ -41,6 +42,7 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
   const [channels, setChannels] = useState([]);
   const [detailId, setDetailId] = useState(null);
   const [localRefresh, setLocalRefresh] = useState(0);
+  const [listRefresh, setListRefresh] = useState(0);
   const [matching, setMatching] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -49,16 +51,28 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const listRequestId = useRef(0);
+  const statsRequestId = useRef(0);
   useEffect(() => {
-    let active = true;
+    const requestId = ++listRequestId.current;
     setSelectedIds(new Set());
     setLoading(true); setError("");
-    Promise.all([getRecallTargets({ keyword: appliedKeyword, status, match_status: matchStatus, page, page_size: pageSize }), getRecallTargetSummary(), getRecallTargetBatches(), getRecallTargetChannels(), getRecallMatchingSummary()])
-      .then(([items, counts, history, channelStats, matchingCounts]) => { if (active) { setListing(items); setSummary(counts); setBatches(history); setChannels(channelStats); setMatchSummary(matchingCounts); } })
-      .catch((caught) => { if (active) setError(caught?.message || "리콜 대상을 불러오지 못했습니다."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [appliedKeyword, status, matchStatus, page, pageSize, refreshKey, localRefresh]);
+    getRecallTargets({ keyword: appliedKeyword, status, sales_channel: salesChannel, match_status: matchStatus, page, page_size: pageSize })
+      .then((items) => { if (requestId === listRequestId.current) setListing(items); })
+      .catch((caught) => { if (requestId === listRequestId.current) setError(caught?.message || "리콜 대상을 불러오지 못했습니다."); })
+      .finally(() => { if (requestId === listRequestId.current) setLoading(false); });
+    return () => { listRequestId.current += 1; };
+  }, [appliedKeyword, status, salesChannel, matchStatus, page, pageSize, refreshKey, localRefresh, listRefresh]);
+  useEffect(() => {
+    const requestId = ++statsRequestId.current;
+    Promise.all([getRecallTargetSummary(), getRecallTargetBatches(), getRecallTargetChannels(), getRecallMatchingSummary()])
+      .then(([counts, history, channelStats, matchingCounts]) => {
+        if (requestId !== statsRequestId.current) return;
+        setSummary(counts); setBatches(history); setChannels(channelStats); setMatchSummary(matchingCounts);
+      })
+      .catch((caught) => { if (requestId === statsRequestId.current) setError(caught?.message || "리콜 통계를 불러오지 못했습니다."); });
+    return () => { statsRequestId.current += 1; };
+  }, [refreshKey, localRefresh]);
   const rerun = async () => {
     if (matching || !window.confirm("미접수·확인 필요 대상의 신청 매칭을 다시 실행하시겠습니까?")) return;
     setMatching(true); setError(""); setMessage("");
@@ -71,20 +85,21 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
   };
   const pageIds = (listing.items || []).map((item) => item.id);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
-  const selectedMatched = (listing.items || []).some((item) => selectedIds.has(item.id) && (item.match_status === "MATCHED" || item.matched_application_id != null));
   const toggleSelected = (id) => setSelectedIds((current) => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
   const deleteSelected = async (reason) => {
-    if (!selectedIds.size || selectedMatched || deleting) return;
+    if (!selectedIds.size || deleting) return;
     setDeleting(true); setDeleteError("");
     try {
       const result = await deleteRecallTargets([...selectedIds], reason);
       setDeleteOpen(false); setSelectedIds(new Set());
       setMessage(`${result.deleted}건의 리콜 대상을 삭제했습니다.`);
-      setPage(1); setLocalRefresh((value) => value + 1);
+      setPage(1);
+      if (onTargetsChanged) onTargetsChanged();
+      else setLocalRefresh((value) => value + 1);
     } catch (caught) { setDeleteError(caught?.message || "리콜 대상을 삭제하지 못했습니다."); }
     finally { setDeleting(false); }
   };
@@ -95,12 +110,13 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
     <nav className="online-target-subtabs" aria-label="리콜 대상 화면"><button type="button" className={view === "list" ? "active" : ""} aria-current={view === "list" ? "page" : undefined} onClick={() => setView("list")}>리콜 대상 목록</button><button type="button" className={view === "batches" ? "active" : ""} aria-current={view === "batches" ? "page" : undefined} onClick={() => setView("batches")}>업로드 Batch 이력</button></nav>
     {view === "list" && <>
     <section className="online-recall-list" aria-label="리콜 대상 목록">
-      <form className="online-target-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedKeyword(keyword.trim()); }}>
+      <form className="online-target-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedKeyword(keyword.trim()); setListRefresh((value) => value + 1); }}>
         <input aria-label="리콜 대상 검색" placeholder="고객명, 연락처, 주문번호, 시리얼번호" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
         <select aria-label="리콜 대상 상태" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">전체</option><option value="valid">정상</option><option value="duplicate">중복</option><option value="review">확인 필요</option></select>
+        <select aria-label="판매 채널" value={salesChannel} onChange={(event) => { setSalesChannel(event.target.value); setPage(1); }}><option value="">전체 채널</option>{channels.map((channel) => <option key={channel.sales_channel} value={channel.sales_channel}>{channel.sales_channel}</option>)}{salesChannel && !channels.some((channel) => channel.sales_channel === salesChannel) && <option value={salesChannel}>{salesChannel}</option>}</select>
         <select aria-label="신청 상태" value={matchStatus} onChange={(event) => { setMatchStatus(event.target.value); setPage(1); }}><option value="">신청 상태 전체</option><option value="MATCHED">{displayRecallMatchStatus("MATCHED")}</option><option value="UNMATCHED">{displayRecallMatchStatus("UNMATCHED")}</option><option value="REVIEW">{displayRecallMatchStatus("REVIEW")}</option></select>
         <button type="submit" className="primary-action">조회</button>
-        <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); setStatus(""); setMatchStatus(""); setPage(1); }}>초기화</button>
+        <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); setStatus(""); setSalesChannel(""); setMatchStatus(""); setPage(1); setListRefresh((value) => value + 1); }}>초기화</button>
       </form>
       <div className="online-target-toolbar"><span>총 {listing.total}건{selectedIds.size > 0 ? ` · ${selectedIds.size}건 선택` : ""}</span><RecallPageSizeSelect value={pageSize} onChange={(value) => { setPage(1); onPageSizeChange(value); }} disabled={loading} /><button type="button" className="secondary-button online-recall-delete-button" disabled={!selectedIds.size || loading || deleting} onClick={() => { setDeleteError(""); setDeleteOpen(true); }}>삭제</button><button type="button" className="secondary-button" onClick={rerun} disabled={matching || deleting}>기존 데이터 매칭 실행</button></div>
       {message && <p role="status">{message}</p>}
@@ -113,7 +129,7 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
     </>}
     {view === "batches" && <section className="online-recall-list" aria-label="리콜 대상 업로드 이력"><h3>업로드 Batch 이력</h3><div className="online-target-table-wrap"><table className="online-target-table"><thead><tr><th>등록일</th><th>파일</th><th>전체</th><th>정상</th><th>중복</th><th>확인 필요</th><th>제외</th></tr></thead><tbody>{batches.map((batch) => <tr key={batch.id}><td>{batch.created_at?.slice(0, 10)}</td><td>{batch.original_filename}</td><td>{batch.total_count}</td><td>{batch.normal_count}</td><td>{batch.duplicate_count}</td><td>{batch.review_count}</td><td>{batch.excluded_count}</td></tr>)}</tbody></table></div></section>}
     {detailId !== null && <RecallTargetDetailModal targetId={detailId} onClose={() => setDetailId(null)} onChanged={() => setLocalRefresh((value) => value + 1)} onApplicationDetail={onApplicationDetail} />}
-    {deleteOpen && <RecallTargetDeleteModal count={selectedIds.size} blocked={selectedMatched} saving={deleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={deleteSelected} />}
+    {deleteOpen && <RecallTargetDeleteModal count={selectedIds.size} saving={deleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={deleteSelected} />}
   </div>;
 }
 

@@ -7,7 +7,7 @@ const tab = readFileSync(new URL("../src/components/online/RecallTargetTab.jsx",
 const detail = readFileSync(new URL("../src/components/online/RecallTargetDetailModal.jsx", import.meta.url), "utf8");
 
 test("target matching filters stay separate from raw duplicate filters", () => {
-  assert.match(tab, /status, match_status: matchStatus/);
+  assert.match(tab, /status, sales_channel: salesChannel, match_status: matchStatus/);
   assert.match(tab, /aria-label="리콜 대상 상태"/);
   assert.match(tab, /aria-label="신청 상태"/);
   assert.match(tab, /기존 데이터 매칭 실행/);
