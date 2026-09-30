@@ -1266,6 +1266,10 @@ export async function softDeleteRecallApplications(ids, reasonCategory, reason) 
   });
 }
 
+export async function createRecallApplicationManually(values) {
+  return request("/online/recall/applications/manual", { method: "POST", body: values, timeoutMs: 15000 });
+}
+
 export async function getRecallOrders(filters = {}) {
   return request("/online/recall/applications/orders", { query: filters, timeoutMs: 10000 });
 }

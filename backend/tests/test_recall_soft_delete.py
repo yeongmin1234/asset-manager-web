@@ -128,16 +128,23 @@ class RecallSoftDeleteTest(unittest.TestCase):
         self.assertNotIn("원효로", str(audit_data))
         self.assertNotIn("업무상 오등록 확인", str(audit_data))
 
-    def test_protected_order_and_shipping_states_block_entire_selection(self):
+    def test_order_and_shipping_states_can_be_soft_deleted_with_history_preserved(self):
+        self.db.add(RecallStatusHistory(recall_application_id=4, previous_status=IN_PROGRESS,
+                                        new_status=SHIPPED, changed_by=1, change_type="BULK", reason="발송"))
+        self.db.commit()
         with TestClient(self.app) as client:
-            for protected in (4, 5, 6):
-                response = self.delete(client, [1, protected])
-                self.assertEqual(response.status_code, 400)
-                self.assertIn("발주/발송 처리된 건은 삭제할 수 없습니다", response.json()["detail"])
-        self.assertFalse(self.db.get(RecallApplication, 1).is_deleted)
-        self.assertEqual(self.db.scalar(select(func.count()).select_from(RecallApplication)
-                                        .where(RecallApplication.is_deleted.is_(True))), 0)
-        self.audit.assert_not_called()
+            response = self.delete(client, [4, 5, 6], category="테스트 데이터")
+            listed = client.get(ROOT, params={"include_duplicates": "true"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(listed.json()["total"], 4)
+        for number in (4, 5, 6):
+            item = self.db.get(RecallApplication, number)
+            self.assertTrue(item.is_deleted)
+            self.assertEqual(item.delete_reason_category, "테스트 데이터")
+        self.assertEqual(self.db.get(RecallApplication, 5).order_status, ORDER_EXPORTED)
+        self.assertEqual(self.db.get(RecallApplication, 6).order_status, ORDER_CONFIRMED)
+        self.assertEqual(self.db.scalar(select(func.count()).select_from(RecallStatusHistory)
+                                        .where(RecallStatusHistory.recall_application_id == 4)), 1)
 
     def test_permission_and_reason_validation(self):
         with TestClient(self.app) as client:

@@ -169,33 +169,8 @@ def preview_recall_applications(
             if row_kind != "data":
                 preview_rows.append(PreviewRow(raw_row_number, row_kind, "excluded", raw_data, {}, ()))
                 continue
-            serial_key = _serial_key(data["serial_number"])
-            phone_key = data["phone_normalized"] if _valid_phone(data["phone_normalized"]) else None
-            # Serial findings precede phone findings. Neither key is unique by itself.
-            if serial_key:
-                if serial_key in seen_serials:
-                    issues.append(ValidationIssue("DUPLICATE_SERIAL", "serial_number", "파일 내부 시리얼번호 중복", "file", seen_serials[serial_key]))
-                if serial_key in existing_serials:
-                    issues.extend(_existing_issue("DUPLICATE_SERIAL", "serial_number", record)
-                                  for record in existing_serials[serial_key])
-                seen_serials.setdefault(serial_key, raw_row_number)
-            if phone_key:
-                if phone_key in seen_phones:
-                    issues.append(ValidationIssue("DUPLICATE_PHONE", "phone_normalized", "파일 내부 연락처 중복", "file", seen_phones[phone_key]))
-                if phone_key in existing_phones:
-                    issues.extend(_existing_issue("DUPLICATE_PHONE", "phone_normalized", record)
-                                  for record in existing_phones[phone_key])
-                seen_phones.setdefault(phone_key, raw_row_number)
-
-            codes = {issue.code for issue in issues}
-            if codes & {"MISSING_REQUIRED", "INVALID_QUANTITY", "INVALID_DATE"}:
-                status = "error"
-            elif codes & {"DUPLICATE_SERIAL", "DUPLICATE_PHONE"}:
-                status = "duplicate"
-            elif codes & {"REVIEW_REQUIRED"}:
-                status = "review"
-            else:
-                status = "valid"
+            status = _classify_application_row(data, issues, existing_serials, existing_phones,
+                                               seen_serials, seen_phones, raw_row_number)
             preview_rows.append(PreviewRow(raw_row_number, row_kind, status, raw_data, data, tuple(issues)))
 
         return ApplicationPreview(source_filename, sheet.title, header_number,
@@ -203,6 +178,40 @@ def preview_recall_applications(
                                   tuple(preview_rows), upload_batch, uploaded_by, uploaded_at)
     finally:
         workbook.close()
+
+
+def validate_application_values(values, existing_records=()):
+    """Use the Excel row rules for a single manually entered application."""
+    data, issues = _validate_values(values, None)
+    serials, phones = _index_existing(existing_records)
+    status = _classify_application_row(data, issues, serials, phones, {}, {}, 1)
+    return PreviewRow(1, "data", status, {}, data, tuple(issues))
+
+
+def _classify_application_row(data, issues, existing_serials, existing_phones,
+                              seen_serials, seen_phones, row_number):
+    serial_key = _serial_key(data["serial_number"])
+    phone_key = data["phone_normalized"] if _valid_phone(data["phone_normalized"]) else None
+    if serial_key:
+        if serial_key in seen_serials:
+            issues.append(ValidationIssue("DUPLICATE_SERIAL", "serial_number", "파일 내부 시리얼번호 중복", "file", seen_serials[serial_key]))
+        issues.extend(_existing_issue("DUPLICATE_SERIAL", "serial_number", record)
+                      for record in existing_serials.get(serial_key, ()))
+        seen_serials.setdefault(serial_key, row_number)
+    if phone_key:
+        if phone_key in seen_phones:
+            issues.append(ValidationIssue("DUPLICATE_PHONE", "phone_normalized", "파일 내부 연락처 중복", "file", seen_phones[phone_key]))
+        issues.extend(_existing_issue("DUPLICATE_PHONE", "phone_normalized", record)
+                      for record in existing_phones.get(phone_key, ()))
+        seen_phones.setdefault(phone_key, row_number)
+    codes = {issue.code for issue in issues}
+    if codes & {"MISSING_REQUIRED", "INVALID_QUANTITY", "INVALID_DATE"}:
+        return "error"
+    if codes & {"DUPLICATE_SERIAL", "DUPLICATE_PHONE"}:
+        return "duplicate"
+    if "REVIEW_REQUIRED" in codes:
+        return "review"
+    return "valid"
 
 
 def _find_header(workbook):

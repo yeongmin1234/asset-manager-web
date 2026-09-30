@@ -3,6 +3,7 @@
 import hashlib
 import math
 import re
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
@@ -27,7 +28,7 @@ from app.models.user import User
 from openpyxl.utils.datetime import CALENDAR_WINDOWS_1900
 
 from app.services.recall_application_excel import (
-    _index_existing, _serial_key, _valid_phone, _validate_values,
+    _index_existing, _serial_key, _valid_phone, _validate_values, validate_application_values,
     normalize_phone, preview_recall_applications, review_reason_codes,
 )
 from app.services.recall_target_matching import run_auto_matching
@@ -91,14 +92,8 @@ def existing_application_records(db: Session, rows=None) -> List[Dict[str, Any]]
     ]
 
 
-def _protected_application(application):
-    return application.order_status in {ORDER_EXPORTED, ORDER_CONFIRMED} or application.current_status == SHIPPED
-
-
 def _registration_candidate_condition():
-    return or_(RecallApplication.is_deleted.is_(False),
-               RecallApplication.order_status.in_((ORDER_EXPORTED, ORDER_CONFIRMED)),
-               RecallApplication.current_status == SHIPPED)
+    return RecallApplication.is_deleted.is_(False)
 
 
 def matching_application_rows(db: Session, serial_keys, phone_keys) -> List[RecallApplication]:
@@ -156,7 +151,7 @@ def commit_recall_applications(
         for item in db.scalars(select(RecallApplication).where(
             RecallApplication.upload_batch_id.in_([value.id for value in matching_batches])
         ).order_by(RecallApplication.id.desc())).all():
-            if not item.is_deleted or _protected_application(item):
+            if not item.is_deleted:
                 previous = existing_batch_rows.get(item.source_row_number)
                 if previous is None or (previous.is_deleted and not item.is_deleted):
                     existing_batch_rows[item.source_row_number] = item
@@ -237,54 +232,12 @@ def commit_recall_applications(
                 results.append({"row_number": row_number, "result": code})
                 continue
 
-            data = row.data
-            duplicate_issues = [issue for issue in row.issues if issue.code in {"DUPLICATE_PHONE", "DUPLICATE_SERIAL"}]
-            duplicate_codes = {issue.code for issue in duplicate_issues}
-            duplicate_reason = (
-                "PHONE_AND_SERIAL" if len(duplicate_codes) == 2 else
-                "PHONE" if "DUPLICATE_PHONE" in duplicate_codes else
-                "SERIAL" if "DUPLICATE_SERIAL" in duplicate_codes else None
-            )
-            reference_id = next((issue.existing_id for issue in duplicate_issues if issue.existing_id is not None), None)
-            if reference_id is None:
-                reference_id = next((registered_by_row.get(issue.matched_row_number) for issue in duplicate_issues
-                                     if issue.source == "file" and issue.matched_row_number in registered_by_row), None)
-            application = RecallApplication(
-                upload_batch_id=batch.id,
-                source_row_number=row_number,
-                application_date=data.get("application_date"),
-                quantity=data.get("quantity"),
-                customer_name=data["customer_name"],
-                phone_original=data["phone_original"],
-                phone_normalized=data["phone_normalized"] or "",
-                address=data["address"],
-                memo=data.get("memo"),
-                serial_number=data.get("serial_number"),
-                lot_number=data.get("lot_number"),
-                pickup_agreement=data.get("pickup_agreement"),
-                pickup_date=data.get("pickup_date"),
-                replacement_shipping_agreement=data.get("replacement_shipping_agreement"),
-                review_reason_codes=list(review_reason_codes(row.issues)),
-                current_status=REVIEW_REQUIRED if any(issue.code == "REVIEW_REQUIRED" for issue in row.issues)
-                else APPLICATION_RECEIVED,
-                duplicate_flag=bool(duplicate_reason),
-                duplicate_reason=duplicate_reason,
-                duplicate_reference_id=reference_id,
-                created_by=user_id,
-            )
-            db.add(application)
-            db.flush()
-            db.add(RecallStatusHistory(
-                recall_application_id=application.id,
-                previous_status=None,
-                new_status=application.current_status,
-                changed_by=user_id,
-                change_type="EXCEL_REGISTRATION",
-                reason="접수 데이터 Excel 등록",
-            ))
+            application = _create_application_from_row(db, row, batch.id, row_number, user_id,
+                                                       "EXCEL_REGISTRATION", registered_by_row)
+            duplicate_reason = application.duplicate_reason
             registered += 1
             registered_by_row[row_number] = application.id
-            identity = _registration_identity(data)
+            identity = _registration_identity(row.data)
             if identity is not None:
                 existing_by_identity.setdefault(identity, application)
             if duplicate_reason:
@@ -309,6 +262,82 @@ def commit_recall_applications(
     )
     return CommitResult(batch_id, registered, duplicate, rejected, unselected_review, tuple(results),
                         normal, review, already_registered, matching)
+
+
+def _create_application_from_row(db, row, batch_id, row_number, user_id, change_type, registered_by_row=None):
+    data = row.data
+    duplicate_issues = [issue for issue in row.issues if issue.code in {"DUPLICATE_PHONE", "DUPLICATE_SERIAL"}]
+    duplicate_codes = {issue.code for issue in duplicate_issues}
+    duplicate_reason = (
+        "PHONE_AND_SERIAL" if len(duplicate_codes) == 2 else
+        "PHONE" if "DUPLICATE_PHONE" in duplicate_codes else
+        "SERIAL" if "DUPLICATE_SERIAL" in duplicate_codes else None
+    )
+    reference_id = next((issue.existing_id for issue in duplicate_issues if issue.existing_id is not None), None)
+    if reference_id is None and registered_by_row:
+        reference_id = next((registered_by_row.get(issue.matched_row_number) for issue in duplicate_issues
+                             if issue.source == "file" and issue.matched_row_number in registered_by_row), None)
+    application = RecallApplication(
+        upload_batch_id=batch_id, source_row_number=row_number,
+        **{field: data.get(field) for field in EDITABLE_FIELDS},
+        phone_normalized=data["phone_normalized"] or "",
+        review_reason_codes=list(review_reason_codes(row.issues)),
+        current_status=REVIEW_REQUIRED if any(issue.code == "REVIEW_REQUIRED" for issue in row.issues)
+        else APPLICATION_RECEIVED,
+        duplicate_flag=bool(duplicate_reason), duplicate_reason=duplicate_reason,
+        duplicate_reference_id=reference_id, created_by=user_id,
+    )
+    db.add(application)
+    db.flush()
+    db.add(RecallStatusHistory(
+        recall_application_id=application.id, previous_status=None,
+        new_status=application.current_status, changed_by=user_id,
+        change_type=change_type,
+        reason="직접 등록" if change_type == "MANUAL_REGISTRATION" else "접수 데이터 Excel 등록",
+    ))
+    return application
+
+
+def create_recall_application_manually(db: Session, *, values: dict, user_id: int) -> dict:
+    if set(values) != set(EDITABLE_FIELDS):
+        raise ValueError("신청 데이터 입력 항목을 확인해주세요.")
+    try:
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("LOCK TABLE recall_application_upload_batches, recall_applications "
+                            "IN SHARE ROW EXCLUSIVE MODE"))
+        normalized, _ = _validate_values(values, CALENDAR_WINDOWS_1900)
+        serial_key = _serial_key(normalized["serial_number"])
+        phone = normalized["phone_normalized"]
+        existing_rows = matching_application_rows(db, {serial_key} if serial_key else set(),
+                                                  {phone} if _valid_phone(phone) else set())
+        row = validate_application_values(values, existing_application_records(db, existing_rows))
+        if row.status == "error":
+            raise RecallEditValidationError({issue.field: issue.message for issue in row.issues
+                                             if issue.code in {"MISSING_REQUIRED", "INVALID_QUANTITY", "INVALID_DATE"}})
+        identity = _registration_identity(row.data)
+        if identity is not None and any(_registration_identity({
+                **{field: getattr(item, field) for field in EDITABLE_FIELDS},
+                "phone_normalized": item.phone_normalized,
+        }) == identity for item in existing_rows):
+            raise ValueError("이미 등록된 동일한 신청 데이터입니다.")
+        batch = RecallApplicationUploadBatch(
+            source_filename="직접 등록", source_sha256=hashlib.sha256(uuid.uuid4().bytes).hexdigest(),
+            total_rows=1, valid_count=int(row.status == "valid"),
+            review_count=int(row.status == "review"), duplicate_count=int(row.status == "duplicate"),
+            registered_count=1, uploaded_by=user_id,
+        )
+        db.add(batch)
+        db.flush()
+        application = _create_application_from_row(db, row, batch.id, 1, user_id, "MANUAL_REGISTRATION")
+        matching = run_auto_matching(db, user_id=user_id)
+        result = {"id": application.id, "batch_id": batch.id, "status": application.current_status,
+                  "duplicate_flag": application.duplicate_flag,
+                  "review_reason_codes": application.review_reason_codes, "matching": matching}
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
 
 
 def list_recall_applications(
@@ -495,7 +524,7 @@ def bulk_change_recall_applications(
         raise
 
 
-DELETE_REASON_CATEGORIES = {"오등록", "중복 접수", "고객 요청", "기타"}
+DELETE_REASON_CATEGORIES = {"오등록", "중복 접수", "잘못 등록", "테스트 데이터", "고객 요청", "중복 등록", "담당자 입력 오류", "기타"}
 
 
 def bulk_soft_delete_recall_applications(
@@ -516,15 +545,13 @@ def bulk_soft_delete_recall_applications(
         ).all())
         if len(applications) != len(ids):
             raise ValueError("선택한 항목 중 이미 삭제되었거나 찾을 수 없는 건이 있습니다.")
-        if any(item.current_status == SHIPPED or item.order_status in {ORDER_EXPORTED, ORDER_CONFIRMED}
-               for item in applications):
-            raise ValueError("발주/발송 처리된 건은 삭제할 수 없습니다.")
         deleted_at = datetime.now(timezone.utc)
         for item in applications:
             item.is_deleted = True
             item.deleted_at = deleted_at
             item.deleted_by = user_id
             item.delete_reason = cleaned_reason
+            item.delete_reason_category = reason_category
         db.commit()
         return {"deleted": len(applications), "ids": list(ids), "deleted_at": deleted_at,
                 "reason_category": reason_category}

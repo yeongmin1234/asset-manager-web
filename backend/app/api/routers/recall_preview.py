@@ -20,6 +20,7 @@ from app.services.audit_log_service import record_audit_log
 from app.services.recall_application_excel import RecallApplicationExcelError, preview_recall_applications
 from app.services.recall_application_service import (
     commit_recall_applications,
+    create_recall_application_manually,
     existing_application_records,
     matching_application_rows,
     get_recall_application_detail,
@@ -266,6 +267,7 @@ def read_recall_applications(
                 "pickup_date": item.pickup_date,
                 "replacement_shipping_agreement": item.replacement_shipping_agreement,
                 "current_status": item.current_status,
+                "order_status": item.order_status,
                 "workflow_status": get_recall_workflow_status(db, item),
                 "review_reason_codes": get_recall_review_reason_codes(item),
                 "duplicate_flag": item.duplicate_flag,
@@ -381,6 +383,35 @@ def soft_delete_recall_applications(
                     "delete_reason_recorded": True},
     )
     return jsonable_encoder(result)
+
+
+@router.post("/manual")
+def create_recall_application_manual_api(
+    payload: RecallFieldsUpdateRequest,
+    request: Request,
+    current_user: User = Depends(require_recall_preview_access),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = create_recall_application_manually(
+            db, values=payload.dict(), user_id=current_user.id,
+        )
+    except RecallEditValidationError as exc:
+        raise HTTPException(status_code=400, detail={"fields": exc.fields}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="등록 중 데이터가 변경되었습니다. 다시 시도해주세요.") from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="리콜 신청을 등록하지 못했습니다.") from exc
+    record_audit_log(
+        db, request, current_user, action_type="manual_create", menu_key="online_recall",
+        menu_name="온라인 TEAM > 리콜 관리", target_type="recall_application",
+        target_id=result["id"], target_name="리콜 신청 직접 등록",
+        action_summary="리콜 신청 직접 등록: application_id={} user_id={}".format(result["id"], current_user.id),
+        after_data={key: result[key] for key in ("id", "batch_id", "status", "duplicate_flag", "review_reason_codes", "matching")},
+    )
+    return result
 
 
 @router.get("/orders/summary")

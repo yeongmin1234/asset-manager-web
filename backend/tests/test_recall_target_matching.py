@@ -19,6 +19,7 @@ from app.models.recall_application import APPLICATION_RECEIVED, IN_PROGRESS, ORD
 from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
 from app.models.user import User
 from app.services.recall_target_matching import channel_summary, manual_match, matching_summary, run_auto_matching, unmatch
+from app.services.recall_application_excel import EXCEL_COLUMNS
 from tests.test_recall_application_phase3 import row as application_row, workbook as application_workbook
 from tests.test_recall_targets import target as target_row, workbook as target_workbook
 
@@ -73,6 +74,21 @@ class RecallTargetMatchingTest(unittest.TestCase):
         self.db.add(target)
         self.db.flush()
         return target
+
+    def test_manual_registration_api_matches_target_and_checks_permission(self):
+        target = self.target("SER-001", "010-1111-2222")
+        self.db.commit()
+        values = dict(zip(EXCEL_COLUMNS.values(), application_row()))
+        with TestClient(self.app) as client:
+            response = client.post("/online/recall/applications/manual", json=values)
+            self.user.menu_permissions = []
+            forbidden = client.post("/online/recall/applications/manual", json=values)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(forbidden.status_code, 403)
+        self.assertEqual(target.match_status, "MATCHED")
+        self.assertEqual(target.matched_application_id, response.json()["id"])
+        self.assertEqual(self.app_audit.call_args.kwargs["action_type"], "manual_create")
+        self.assertNotIn("010-1111-2222", str(self.app_audit.call_args.kwargs))
 
     def test_serial_phone_priority_conflict_and_multiple_candidates(self):
         one = self.application("S-1", "010-1111-1111")

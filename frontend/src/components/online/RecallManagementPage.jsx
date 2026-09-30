@@ -11,6 +11,7 @@ import RecallOrderTab from "./RecallOrderTab.jsx";
 import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
 import RecallDeleteModal from "./RecallDeleteModal.jsx";
 import RecallGuideModal from "./RecallGuideModal.jsx";
+import RecallManualCreateModal from "./RecallManualCreateModal.jsx";
 import { saveRecallGuideDismissal, shouldShowRecallGuide } from "./recallGuideStorage.js";
 import RecallPageSizeSelect, { readRecallPageSize, saveRecallPageSize } from "./RecallPageSizeSelect.jsx";
 import { isRecallBulkSelectable, nextRecallBulkStatus, recallTabSelectsAllRows } from "./onlineDisplayUtils.js";
@@ -36,6 +37,7 @@ function RecallManagementPage({ currentUser }) {
   const [activeTab, setActiveTab] = useState("targets");
   const [guideOpen, setGuideOpen] = useState(false);
   const [uploadMode, setUploadMode] = useState(null);
+  const [manualOpen, setManualOpen] = useState(false);
   const [detailId, setDetailId] = useState(null);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [items, setItems] = useState([]);
@@ -203,6 +205,7 @@ function RecallManagementPage({ currentUser }) {
         </div>
         <div className="online-recall-actions">
           <button type="button" className="secondary-button online-recall-guide-trigger" onClick={() => setGuideOpen(true)}>사용설명서</button>
+          <button type="button" className="primary-action" onClick={() => setManualOpen(true)}>직접 등록</button>
           <button type="button" className="secondary-button" onClick={() => setUploadMode("application")}>리콜 신청 데이터 등록</button>
           <button type="button" className="primary-action" onClick={() => setUploadMode("target")}>리콜 대상 등록</button>
         </div>
@@ -241,9 +244,10 @@ function RecallManagementPage({ currentUser }) {
       </section>
       </>}
       {uploadMode === "application" && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
+      {manualOpen && <RecallManualCreateModal onClose={() => setManualOpen(false)} onRegistered={handleRegistered} />}
       {uploadMode === "target" && <RecallTargetUploadModal onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
       {detailId !== null && <RecallDetailModal applicationId={detailId} canEdit={currentUser?.role === "admin" || (currentUser?.menu_permissions || []).includes("online_recall")} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
-      {deleteOpen && <RecallDeleteModal count={selectedIds.size} saving={isDeleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={handleDelete} />}
+      {deleteOpen && <RecallDeleteModal count={selectedIds.size} progressedCount={items.filter((item) => selectedIds.has(item.id) && (item.current_status === "SHIPPED" || ["ORDER_EXPORTED", "ORDER_CONFIRMED"].includes(item.order_status))).length} saving={isDeleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={handleDelete} />}
       {guideOpen && <RecallGuideModal onClose={closeGuide} />}
     </div>
   );

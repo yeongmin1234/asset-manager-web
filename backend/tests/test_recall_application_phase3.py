@@ -37,6 +37,7 @@ from app.services.recall_application_service import (
     bulk_soft_delete_recall_applications,
     change_recall_application_status,
     commit_recall_applications,
+    create_recall_application_manually,
     get_recall_application_detail,
     get_recall_summary,
     list_recall_applications,
@@ -90,6 +91,55 @@ class RecallApplicationPhase3Test(unittest.TestCase):
 
     def count(self, model):
         return int(self.db.scalar(select(func.count()).select_from(model)) or 0)
+
+    def manual_values(self, **changes):
+        values = dict(zip(EXCEL_COLUMNS.values(), row()))
+        values.update(changes)
+        return values
+
+    def test_manual_registration_reuses_excel_validation_and_matching(self):
+        first = create_recall_application_manually(
+            self.db, values=self.manual_values(phone_original="010-1111-2222"), user_id=1)
+        application = self.db.get(RecallApplication, first["id"])
+        self.assertEqual(application.phone_normalized, "01011112222")
+        self.assertEqual(application.current_status, APPLICATION_RECEIVED)
+        self.assertEqual(application.duplicate_flag, False)
+        history = self.db.scalar(select(RecallStatusHistory).where(
+            RecallStatusHistory.recall_application_id == application.id))
+        self.assertEqual(history.change_type, "MANUAL_REGISTRATION")
+        second = create_recall_application_manually(
+            self.db, values=self.manual_values(serial_number="SER-002", memo="별도 신청"), user_id=1)
+        self.assertTrue(self.db.get(RecallApplication, second["id"]).duplicate_flag)
+        with self.assertRaises(ValueError):
+            create_recall_application_manually(self.db, values=self.manual_values(), user_id=1)
+        self.assertEqual(self.count(RecallApplication), 2)
+
+    def test_manual_registration_allows_deleted_application(self):
+        first = create_recall_application_manually(self.db, values=self.manual_values(), user_id=1)
+        bulk_soft_delete_recall_applications(self.db, ids=[first["id"]], reason="테스트 정리",
+                                             reason_category="테스트 데이터", user_id=1)
+        second = create_recall_application_manually(self.db, values=self.manual_values(), user_id=1)
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertEqual(self.count(RecallApplication), 2)
+
+    def test_manual_registration_review_and_required_validation_match_excel(self):
+        review = create_recall_application_manually(
+            self.db, values=self.manual_values(phone_original="invalid", serial_number=""), user_id=1)
+        item = self.db.get(RecallApplication, review["id"])
+        self.assertEqual(item.current_status, REVIEW_REQUIRED)
+        self.assertIn("PHONE_INVALID", item.review_reason_codes)
+        self.assertIn("SERIAL_CHECK", item.review_reason_codes)
+        with self.assertRaises(ValueError):
+            create_recall_application_manually(
+                self.db, values=self.manual_values(customer_name=""), user_id=1)
+        self.assertEqual(self.count(RecallApplication), 1)
+
+    def test_manual_registration_detects_duplicate_serial(self):
+        create_recall_application_manually(self.db, values=self.manual_values(), user_id=1)
+        result = create_recall_application_manually(self.db, values=self.manual_values(
+            phone_original="010-9999-8888", memo="별도 접수"), user_id=1)
+        item = self.db.get(RecallApplication, result["id"])
+        self.assertEqual(item.duplicate_reason, "SERIAL")
 
     def test_01_valid_row_registers(self):
         result = self.commit(workbook(row()))
@@ -175,26 +225,20 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual((result.registered, result.already_registered), (1, 0))
         self.assertEqual(self.db.get(RecallApplication, result.rows[0]["application_id"]).duplicate_flag, False)
 
-    def test_deleted_ordered_application_still_blocks_same_and_other_file(self):
+    def test_deleted_ordered_application_can_be_registered_again(self):
         content = workbook(row())
         self.commit(content)
         original = self.db.scalar(select(RecallApplication))
         original.order_status = ORDER_EXPORTED
-        original.is_deleted = True  # Defensive case: normal deletion API forbids this.
         self.db.commit()
+        bulk_soft_delete_recall_applications(self.db, ids=[original.id], reason="테스트 정리",
+                                             reason_category="테스트 데이터", user_id=1)
         same = self.commit(content)
-        other = self.commit(workbook(row(), [None] * len(HEADERS)), filename="retry.xlsx")
-        self.assertEqual((same.registered, same.already_registered), (0, 1))
-        self.assertEqual((other.registered, other.already_registered), (0, 1))
-        self.assertEqual(self.count(RecallApplication), 1)
-        for order_status, current_status in ((ORDER_CONFIRMED, APPLICATION_RECEIVED),
-                                             ("ORDER_PENDING", SHIPPED)):
-            original.order_status = order_status
-            original.current_status = current_status
-            self.db.commit()
-            again = self.commit(content)
-            self.assertEqual((again.registered, again.already_registered), (0, 1))
-            self.assertEqual(self.count(RecallApplication), 1)
+        self.assertEqual((same.registered, same.already_registered), (1, 0))
+        self.assertEqual(self.count(RecallApplication), 2)
+        self.assertEqual(original.order_status, ORDER_EXPORTED)
+        self.assertTrue(original.is_deleted)
+        self.assertFalse(self.db.get(RecallApplication, same.rows[0]["application_id"]).duplicate_flag)
 
     def test_same_application_in_another_batch_tracks_retry_without_new_order(self):
         self.commit(workbook(row()))
