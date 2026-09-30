@@ -1014,6 +1014,8 @@ body.online-preview-column-resizing {
 .online-target-table th, .online-target-table td { border-bottom: 1px solid #e8edf3; padding: 7px 10px; text-align: center; vertical-align: middle; white-space: nowrap; }
 .online-target-table th { background: #f8fafc; }
 .online-target-cell-text { display: block; margin: 0 auto; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.online-target-reason-text { display: block; margin: 0 auto; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.online-target-detail-body .online-target-reason-text { margin: 0; max-width: 100%; overflow: visible; white-space: normal; }
 .online-target-filters, .online-target-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
 .online-target-panel .online-target-filters input { flex: 1 1 280px; min-width: 240px; }
 .online-target-panel .online-target-filters select { flex: 0 0 145px; }
@@ -1022,6 +1024,9 @@ body.online-preview-column-resizing {
 .online-target-toolbar > span:first-child { margin-right: auto; }
 .online-target-toolbar .online-recall-page-size { align-items: center; display: inline-flex; gap: 7px; white-space: nowrap; }
 .online-target-toolbar button { min-height: 32px; }
+.online-target-toolbar .online-recall-delete-button { background: #fff; border-color: #fca5a5; color: #b91c1c; }
+.online-target-toolbar .online-recall-delete-button:not(:disabled):hover { background: #fef2f2; border-color: #ef4444; }
+.online-target-table input[type="checkbox"] { accent-color: #2563eb; cursor: pointer; }
 .online-target-panel > .online-recall-list { margin: 0 12px 12px; }
 .online-target-match-badge { border-radius: 4px; display: inline-block; font-size: 0.74rem; font-weight: 700; min-width: 58px; padding: 3px 6px; }
 .online-target-match-MATCHED { background: #eff6ff; color: #1d4ed8; }
@@ -1052,3 +1057,70 @@ body.online-preview-column-resizing {
   .online-target-summary { grid-template-columns: 1fr; }
   .online-target-progress-cards, .online-target-quality-cards { grid-template-columns: 1fr; }
 }
+
+/* Recall management readability; keep the shared Online TEAM styles unchanged. */
+.online-recall-page .online-recall-heading h2 { font-size: 1.25rem; }
+.online-recall-page .online-recall-heading p { font-size: 0.94rem; }
+.online-recall-page .online-recall-tabs button { background: #fff !important; color: #334155 !important; font-size: 0.96rem; min-height: 37px; }
+.online-recall-page .online-recall-tabs button.active { background: #2563eb !important; color: #fff !important; font-weight: 700; }
+.online-recall-page .online-recall-tabs button:not(.active):hover { background: #eff6ff !important; }
+.online-recall-page .online-target-subtabs button { background: #fff !important; color: #334155 !important; font-size: 0.95rem; min-height: 35px; }
+.online-recall-page .online-target-subtabs button.active { background: #eff6ff !important; border-color: #93c5fd; box-shadow: inset 0 -2px #3b82f6; color: #1d4ed8 !important; font-weight: 700; }
+.online-recall-page .online-target-subtabs button:not(.active):hover { background: #f8fafc !important; }
+.online-recall-page .online-recall-summary-grid .online-summary-card { min-height: 91px; }
+.online-recall-page .online-recall-summary-grid .online-summary-card span,
+.online-recall-page .online-order-summary span { font-size: 0.96rem; }
+.online-recall-page .online-recall-summary-grid .online-summary-card strong { font-size: 1.66rem; }
+.online-recall-page .online-order-summary strong { font-size: 1.43rem; }
+.online-recall-page .online-target-progress-card { min-height: 91px; }
+.online-recall-page .online-target-progress-title { font-size: 0.89rem; }
+.online-recall-page .online-target-progress-card strong { font-size: 1.63rem; margin-bottom: 8px; }
+.online-recall-page .online-target-progress-bottom small { font-size: 0.81rem; }
+.online-recall-page .online-target-quality-card { min-height: 65px; }
+.online-recall-page .online-target-quality-card > div > span { font-size: 0.88rem; }
+.online-recall-page .online-target-quality-card strong { font-size: 1.24rem; }
+.online-recall-page .online-target-overview-card h3 { font-size: 1rem; }
+.online-recall-page .online-target-channel-table { font-size: 0.86rem; }
+.online-recall-page .online-target-channel-table th,
+.online-recall-page .online-target-channel-table td { padding-block: 8px; }
+.online-recall-page .online-target-stage > span { font-size: 0.8rem; }
+.online-recall-page .online-target-stage strong { font-size: 1.13rem; }
+.online-recall-page .online-target-stage small,
+.online-recall-page .online-target-overview-card > p { font-size: 0.84rem; }
+.online-recall-page .online-recall-table th,
+.online-recall-page .online-preview-table th { font-size: 0.88rem; }
+.online-recall-page .online-recall-table td,
+.online-recall-page .online-preview-table td { font-size: 0.91rem; }
+.online-recall-page .online-recall-table th,
+.online-recall-page .online-recall-table td { padding-block: 8px; }
+.online-recall-page .online-target-table th { font-size: 1.04rem; }
+.online-recall-page .online-target-table td { font-size: 1.07rem; }
+.online-recall-page .online-target-table th,
+.online-recall-page .online-target-table td { padding-block: 8px; }
+.online-recall-page .online-preview-badge,
+.online-recall-page .online-recall-status,
+.online-recall-page .online-order-status,
+.online-recall-page .online-target-match-badge { font-size: 0.84rem; padding: 4px 7px; }
+.online-recall-page .online-recall-review-badge,
+.online-recall-page .online-recall-duplicate-badge { font-size: 0.82rem; padding: 4px 6px; }
+.online-recall-page .online-recall-filters input,
+.online-recall-page .online-recall-filters select,
+.online-recall-page .online-target-filters input,
+.online-recall-page .online-target-filters select,
+.online-recall-page .online-order-toolbar select,
+.online-recall-page .online-recall-page-size select { font-size: 1.05rem; min-height: 35px; }
+.online-recall-page .online-recall-filters button,
+.online-recall-page .online-target-filters button,
+.online-recall-page .online-target-toolbar button,
+.online-recall-page .online-recall-actions button,
+.online-recall-page .online-recall-bulk-bar button,
+.online-recall-page .online-order-toolbar button,
+.online-recall-page .online-recall-detail-button { font-size: 1.05rem; min-height: 35px; }
+.online-recall-page .online-recall-page-size,
+.online-recall-page .online-recall-bulk-bar,
+.online-recall-page .online-order-toolbar label { font-size: 0.9rem; }
+.online-recall-page .online-target-toolbar { font-size: 1.05rem; }
+.online-recall-page .online-recall-pagination,
+.online-recall-page .online-target-pagination { font-size: 0.89rem; }
+.online-recall-page .online-recall-pagination button,
+.online-recall-page .online-target-pagination button { font-size: 0.89rem; min-height: 30px; }

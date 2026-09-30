@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getRecallApplications, getRecallTargetDetail, manualMatchRecallTarget, unmatchRecallTarget } from "../../api/client.js";
 import { formatPhoneForDisplay } from "./onlineDisplayUtils.js";
+import RecallReasonText from "./RecallReasonText.jsx";
 
 const FIELDS = [["sales_channel", "판매채널"], ["original_order_no", "주문번호"], ["customer_name", "고객명"], ["phone_raw", "연락처"], ["address", "주소"], ["delivery_message", "배송메시지"], ["serial_number", "시리얼번호"], ["lot_number", "LOT 번호"], ["purchase_date", "구매일"]];
 const LABELS = { MATCHED: "신청완료", UNMATCHED: "미접수", REVIEW: "확인 필요" };
@@ -54,6 +55,7 @@ function RecallTargetDetailModal({ targetId, onClose, onChanged, onApplicationDe
       {error && <p className="online-upload-error" role="alert">{error}</p>}
       {!target ? <p>불러오는 중...</p> : <div className="online-target-detail-body">
         <h3>리콜 대상 정보</h3><dl>{FIELDS.map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{key === "phone_raw" ? formatPhoneForDisplay(target[key] || "") : target[key] || "-"}</dd></div>)}</dl>
+        <dl><div><dt>대상 사유</dt><dd><RecallReasonText reasons={[target.duplicate_reason, target.review_reason]} /></dd></div></dl>
         <h3>신청 매칭 정보</h3><dl>
           <div><dt>신청 여부</dt><dd>{LABELS[target.match_status] || target.match_status}</dd></div>
           <div><dt>매칭 기준</dt><dd>{target.match_method || "-"}</dd></div>
@@ -61,7 +63,7 @@ function RecallTargetDetailModal({ targetId, onClose, onChanged, onApplicationDe
           <div><dt>연결된 신청 ID</dt><dd>{target.matched_application_id || "-"}</dd></div>
           <div><dt>실제 신청일</dt><dd>{detail.application?.application_date || "-"}</dd></div>
           <div><dt>현재 리콜 상태</dt><dd>{detail.application?.current_status || "-"}</dd></div>
-          <div><dt>확인 사유</dt><dd>{target.match_review_reason || "-"}</dd></div>
+          <div><dt>확인 사유</dt><dd><RecallReasonText reasons={target.match_review_reason} /></dd></div>
         </dl>
         {target.match_status === "MATCHED" ? <div className="online-target-detail-actions"><button type="button" className="secondary-button" onClick={() => { onApplicationDetail?.(target.matched_application_id); onClose(); }}>신청 상세 보기</button><button type="button" className="secondary-button" onClick={release} disabled={busy}>매칭 해제</button></div> : <>
           <h3>신청 건 수동 매칭</h3><form className="online-target-filters" onSubmit={search}><input aria-label="신청 건 검색" placeholder="고객명, 연락처, 시리얼번호 검색" value={query} onChange={(event) => setQuery(event.target.value)} /><button type="submit" className="secondary-button" disabled={busy}>검색</button></form>

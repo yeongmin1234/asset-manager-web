@@ -128,6 +128,53 @@ class RecallTargetsTest(unittest.TestCase):
         self.assertIn("DATE_INVALID", preview.json()["rows"][0]["reasons"])
         self.assertIn("ADDRESS_CHECK", preview.json()["rows"][1]["reasons"])
 
+    def test_bulk_delete_unmatched_and_review_updates_live_counts_but_keeps_batch(self):
+        data = workbook(target(), target(name="확인 필요", phone="abc", order="O-2", serial="S-2"))
+        with TestClient(self.app) as client:
+            self.assertEqual(self.post(client, "/commit", data).status_code, 200)
+            review_target = self.db.scalar(select(RecallTarget).where(RecallTarget.review_required.is_(True)))
+            review_target.match_status = "REVIEW"
+            self.db.commit()
+            items = client.get(ROOT).json()["items"]
+            self.assertEqual({item["match_status"] for item in items}, {"UNMATCHED", "REVIEW"})
+            ids = [item["id"] for item in items]
+            batches_before = client.get(ROOT + "/batches").json()
+            self.audit.reset_mock()
+            deleted = client.post(ROOT + "/bulk-delete", json={"ids": ids, "reason": "오등록"})
+            self.assertEqual(deleted.status_code, 200, deleted.text)
+            self.assertEqual(deleted.json()["deleted"], 2)
+            self.assertEqual(client.get(ROOT).json()["total"], 0)
+            self.assertEqual(client.get(ROOT, params={"keyword": "S-1"}).json()["total"], 0)
+            self.assertEqual(client.get(ROOT + "/summary").json()["total_count"], 0)
+            self.assertEqual(client.get(ROOT + "/matching/summary").json()["total_count"], 0)
+            self.assertEqual(client.get(ROOT + "/matching/channels").json(), [])
+            self.assertEqual(client.get(ROOT + "/batches").json(), batches_before)
+            self.assertEqual(client.post(ROOT + "/matching/run").json()["unmatched"], 0)
+            self.assertEqual(client.post(ROOT + "/bulk-delete", json={"ids": ids, "reason": "재삭제"}).status_code, 409)
+        targets = self.db.scalars(select(RecallTarget).order_by(RecallTarget.id)).all()
+        self.assertEqual(len(targets), 2)
+        self.assertTrue(all(item.is_deleted and item.deleted_at and item.deleted_by == 1 and item.delete_reason == "오등록" for item in targets))
+        logs = [call.kwargs for call in self.audit.call_args_list if call.kwargs.get("action_type") == "delete"]
+        self.assertEqual({log["target_id"] for log in logs}, set(ids))
+        self.assertTrue(all(log["after_data"]["delete_reason"] == "오등록" for log in logs))
+        self.assertTrue(all("customer_name" not in str(log) and "phone_raw" not in str(log) for log in logs))
+
+    def test_bulk_delete_rejects_matched_selection_atomically_and_checks_permission(self):
+        with TestClient(self.app) as client:
+            self.assertEqual(self.post(client, "/commit", workbook(target(), target(name="두번째", phone="abc", order="O-2", serial="S-2"))).status_code, 200)
+            items = self.db.scalars(select(RecallTarget).order_by(RecallTarget.id)).all()
+            items[0].match_status = "MATCHED"
+            self.db.commit()
+            ids = [item.id for item in items]
+            blocked = client.post(ROOT + "/bulk-delete", json={"ids": ids, "reason": "오등록"})
+            self.assertEqual(blocked.status_code, 409)
+            self.assertIn("매칭을 해제", blocked.json()["detail"])
+            self.assertEqual(client.get(ROOT).json()["total"], 2)
+            self.assertEqual(client.post(ROOT + "/bulk-delete", json={"ids": [ids[1]], "reason": " "}).status_code, 409)
+            self.user.menu_permissions = []
+            self.assertEqual(client.post(ROOT + "/bulk-delete", json={"ids": [ids[1]], "reason": "오등록"}).status_code, 403)
+        self.assertFalse(any(item.is_deleted for item in items))
+
 
 if __name__ == "__main__":
     unittest.main()

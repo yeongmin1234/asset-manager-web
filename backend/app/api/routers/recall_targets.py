@@ -1,5 +1,7 @@
 """Raw recall target upload and listing APIs."""
 
+from typing import List
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
@@ -14,7 +16,7 @@ from app.models.recall_target import RecallTarget
 from app.models.user import User
 from app.services.audit_log_service import record_audit_log
 from app.services.recall_target_service import (
-    commit_targets, list_target_batches, list_targets, preview_targets, target_summary,
+    bulk_soft_delete_targets, commit_targets, list_target_batches, list_targets, preview_targets, target_summary,
 )
 from app.services.recall_target_matching import (
     channel_summary, manual_match, matching_summary, run_auto_matching, unmatch,
@@ -26,6 +28,11 @@ router = APIRouter(prefix="/online/recall/targets", tags=["online-recall-targets
 
 class ManualMatchRequest(BaseModel):
     application_id: int
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[int]
+    reason: str
 
 
 @router.post("/preview")
@@ -121,6 +128,26 @@ def read_targets(keyword: str = Query("", max_length=100), status: str = Query("
                                              page=page, page_size=page_size))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/bulk-delete")
+def soft_delete_targets(payload: BulkDeleteRequest, request: Request,
+                        user: User = Depends(require_recall_preview_access), db: Session = Depends(get_db)):
+    try:
+        result = bulk_soft_delete_targets(db, ids=payload.ids, reason=payload.reason, user_id=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="선택한 리콜 대상을 삭제하지 못했습니다.") from exc
+    for target_id in result["ids"]:
+        record_audit_log(db, request, user, action_type="delete", menu_key="online_recall",
+                         menu_name="온라인 TEAM > 리콜 관리", target_type="recall_target",
+                         target_id=target_id, target_name="리콜 대상 선택 삭제",
+                         action_summary="리콜 대상 삭제: target_id={} user_id={}".format(target_id, user.id),
+                         after_data={"target_id": target_id, "is_deleted": True,
+                                     "deleted_by": result["deleted_by"], "deleted_at": result["deleted_at"],
+                                     "delete_reason": result["delete_reason"]})
+    return jsonable_encoder(result)
 
 
 @router.get("/{target_id}")

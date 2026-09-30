@@ -1183,6 +1183,12 @@ export async function getRecallTargetDetail(targetId) {
   return request(`/online/recall/targets/${targetId}`, { timeoutMs: 10000 });
 }
 
+export async function deleteRecallTargets(ids, reason) {
+  return request("/online/recall/targets/bulk-delete", {
+    method: "POST", body: { ids, reason }, timeoutMs: 15000,
+  });
+}
+
 export async function runRecallTargetMatching() {
   return request("/online/recall/targets/matching/run", { method: "POST", timeoutMs: 60000 });
 }

@@ -12,10 +12,13 @@ test("only the active main tab uses the blue filled style", async () => {
   try {
     const { default: RecallManagementPage } = await vite.ssrLoadModule("/src/components/online/RecallManagementPage.jsx");
     const html = renderToStaticMarkup(React.createElement(RecallManagementPage, { currentUser: { role: "admin" } }));
+    assert.match(html, /class="online-page online-recall-page"/);
     const nav = html.match(/<nav class="online-recall-tabs"[\s\S]*?<\/nav>/)?.[0] || "";
     assert.equal((nav.match(/class="active"/g) || []).length, 1);
     assert.match(css, /\.online-recall-tabs button\.active\s*\{[^}]*background:\s*#2563eb;[^}]*color:\s*#fff;/);
     assert.match(css, /\.online-recall-tabs button:not\(\.active\):hover/);
+    assert.match(css, /\.online-recall-page \.online-recall-tabs button \{ background: #fff !important; color: #334155 !important; font-size: 0\.96rem;/);
+    assert.match(css, /\.online-recall-page \.online-recall-tabs button\.active \{ background: #2563eb !important; color: #fff !important;/);
   } finally { await vite.close(); }
 });
 
@@ -35,6 +38,9 @@ test("target summary, compact filters and list-first batch subtabs render", asyn
     const channels = renderToStaticMarkup(React.createElement(RecallChannelProgress, { channels: [] }));
     assert.match(channels, /등록된 판매채널이 없습니다/);
     assert.match(css, /\.online-target-progress-cards\s*\{[^}]*repeat\(5,/);
+    assert.match(css, /\.online-recall-page \.online-target-progress-card strong \{ font-size: 1\.63rem;/);
+    assert.match(css, /\.online-recall-page \.online-target-subtabs button\.active \{ background: #eff6ff !important;[^}]*color: #1d4ed8 !important;/);
+    assert.match(css, /\.online-recall-page \.online-target-table td \{ font-size: 1\.07rem;/);
     assert.match(html, /aria-label="리콜 대상 검색"/);
     assert.match(html, /aria-label="리콜 대상 상태"/);
     assert.match(html, /aria-label="신청 상태"/);

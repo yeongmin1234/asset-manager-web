@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { commitRecallTargetExcel, previewRecallTargetExcel } from "../../api/client.js";
 import { formatPhoneForDisplay } from "./onlineDisplayUtils.js";
+import RecallReasonText from "./RecallReasonText.jsx";
 
 const COLUMNS = [
   ["sales_channel", "판매채널"], ["original_order_no", "주문번호"], ["customer_name", "고객명"],
@@ -62,7 +63,7 @@ function RecallTargetUploadModal({ onClose, onRegistered }) {
           <div className="online-preview-table-wrap"><table className="online-preview-table online-target-table"><thead><tr><th>상태</th><th>행 번호</th>{COLUMNS.map(([key, label]) => <th key={key}>{label}</th>)}<th>사유</th></tr></thead><tbody>{preview.rows.map((row) => <tr key={row.raw_row_number}>
             <td><span className={`online-preview-badge online-preview-badge-${row.status}`}>{STATUS[row.status]}</span></td><td>{row.raw_row_number}</td>
             {COLUMNS.map(([key]) => <td key={key} title={String(row.data?.[key] ?? "")}>{key === "phone_raw" ? formatPhoneForDisplay(row.data?.[key] || "") : row.data?.[key] || "-"}</td>)}
-            <td>{[row.duplicate_reason, ...(row.reasons || [])].filter(Boolean).join(", ") || "-"}</td>
+            <td><RecallReasonText reasons={[row.duplicate_reason, ...(row.reasons || [])]} /></td>
           </tr>)}</tbody></table></div>
         </div>}
         {result && <div className="online-registration-result" role="status"><strong>리콜 대상 등록 완료</strong><span>전체 {result.total}건 · 등록 {result.registered}건 · 정상 {result.normal}건 · 중복 {result.duplicate}건 · 확인 필요 {result.review}건 · 제외 {result.excluded}건</span></div>}

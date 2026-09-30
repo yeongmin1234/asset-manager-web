@@ -185,7 +185,7 @@ function RecallManagementPage({ currentUser }) {
   };
 
   return (
-    <div className="online-page">
+    <div className="online-page online-recall-page">
       <div className="portal-screen-heading online-recall-heading">
         <div>
           <h2>리콜 관리</h2>

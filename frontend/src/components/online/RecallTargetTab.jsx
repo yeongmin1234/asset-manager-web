@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { getRecallMatchingSummary, getRecallTargetBatches, getRecallTargetChannels, getRecallTargets, getRecallTargetSummary, runRecallTargetMatching } from "../../api/client.js";
+import { deleteRecallTargets, getRecallMatchingSummary, getRecallTargetBatches, getRecallTargetChannels, getRecallTargets, getRecallTargetSummary, runRecallTargetMatching } from "../../api/client.js";
 import { formatPhoneForDisplay } from "./onlineDisplayUtils.js";
 import RecallPageSizeSelect from "./RecallPageSizeSelect.jsx";
 import RecallTargetDetailModal from "./RecallTargetDetailModal.jsx";
+import RecallReasonText from "./RecallReasonText.jsx";
+import RecallTargetDeleteModal from "./RecallTargetDeleteModal.jsx";
 import { RecallChannelProgress, RecallStageProgress, RecallTargetProgressCards, RecallTargetQualityCards } from "./RecallTargetOverview.jsx";
 
 const HEADERS = [["sales_channel", "판매채널"], ["original_order_no", "주문번호"], ["customer_name", "고객명"], ["phone_raw", "연락처"], ["address", "주소"], ["delivery_message", "배송메시지"], ["serial_number", "시리얼번호"], ["lot_number", "LOT 번호"], ["purchase_date", "구매일"]];
@@ -35,8 +37,13 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   useEffect(() => {
     let active = true;
+    setSelectedIds(new Set());
     setLoading(true); setError("");
     Promise.all([getRecallTargets({ keyword: appliedKeyword, status, match_status: matchStatus, page, page_size: pageSize }), getRecallTargetSummary(), getRecallTargetBatches(), getRecallTargetChannels(), getRecallMatchingSummary()])
       .then(([items, counts, history, channelStats, matchingCounts]) => { if (active) { setListing(items); setSummary(counts); setBatches(history); setChannels(channelStats); setMatchSummary(matchingCounts); } })
@@ -54,6 +61,25 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
     } catch (caught) { setError(caught?.message || "매칭을 다시 실행하지 못했습니다."); }
     finally { setMatching(false); }
   };
+  const pageIds = (listing.items || []).map((item) => item.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const selectedMatched = (listing.items || []).some((item) => selectedIds.has(item.id) && (item.match_status === "MATCHED" || item.matched_application_id != null));
+  const toggleSelected = (id) => setSelectedIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const deleteSelected = async (reason) => {
+    if (!selectedIds.size || selectedMatched || deleting) return;
+    setDeleting(true); setDeleteError("");
+    try {
+      const result = await deleteRecallTargets([...selectedIds], reason);
+      setDeleteOpen(false); setSelectedIds(new Set());
+      setMessage(`${result.deleted}건의 리콜 대상을 삭제했습니다.`);
+      setPage(1); setLocalRefresh((value) => value + 1);
+    } catch (caught) { setDeleteError(caught?.message || "리콜 대상을 삭제하지 못했습니다."); }
+    finally { setDeleting(false); }
+  };
   return <div className="online-target-panel">
     <RecallTargetProgressCards summary={matchSummary} />
     <RecallTargetQualityCards summary={summary} />
@@ -68,17 +94,18 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
         <button type="submit" className="primary-action">조회</button>
         <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); setStatus(""); setMatchStatus(""); setPage(1); }}>초기화</button>
       </form>
-      <div className="online-target-toolbar"><span>총 {listing.total}건</span><RecallPageSizeSelect value={pageSize} onChange={(value) => { setPage(1); onPageSizeChange(value); }} disabled={loading} /><button type="button" className="secondary-button" onClick={rerun} disabled={matching}>기존 데이터 매칭 실행</button></div>
+      <div className="online-target-toolbar"><span>총 {listing.total}건{selectedIds.size > 0 ? ` · ${selectedIds.size}건 선택` : ""}</span><RecallPageSizeSelect value={pageSize} onChange={(value) => { setPage(1); onPageSizeChange(value); }} disabled={loading} /><button type="button" className="secondary-button online-recall-delete-button" disabled={!selectedIds.size || loading || deleting} onClick={() => { setDeleteError(""); setDeleteOpen(true); }}>삭제</button><button type="button" className="secondary-button" onClick={rerun} disabled={matching || deleting}>기존 데이터 매칭 실행</button></div>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
-      <div className="online-target-table-wrap"><table className="online-target-table"><thead><tr><th>No</th><th>상태</th>{HEADERS.map(([key, label]) => <th key={key}>{label}</th>)}<th>신청 여부</th><th>매칭 기준</th><th>현재 진행 상태</th><th>사유</th><th>등록일</th><th>작업</th></tr></thead><tbody>{loading ? <tr><td colSpan={17}>불러오는 중...</td></tr> : listing.items?.length ? listing.items.map((item, index) => <tr key={item.id}>
-        <td>{(page - 1) * pageSize + index + 1}</td><td><span className={`online-preview-badge online-preview-badge-${item.duplicate_flag ? "duplicate" : item.review_required ? "review" : "valid"}`}>{item.duplicate_flag ? "중복" : item.review_required ? "확인 필요" : "정상"}</span></td>{HEADERS.map(([key]) => <td key={key}><span className="online-target-cell-text" title={String(item[key] ?? "")}>{key === "phone_raw" ? formatPhoneForDisplay(item[key] || "") : item[key] || "-"}</span></td>)}<td><span className={`online-target-match-badge online-target-match-${item.match_status}`}>{item.match_status === "MATCHED" ? "신청완료" : item.match_status === "REVIEW" ? "확인 필요" : "미접수"}</span></td><td>{item.match_method || "-"}</td><td>{item.application_status || "-"}</td><td><span className="online-target-cell-text" title={[item.duplicate_reason, item.review_reason, item.match_review_reason].filter(Boolean).join(", ")}>{[item.duplicate_reason, item.review_reason, item.match_review_reason].filter(Boolean).join(", ") || "-"}</span></td><td>{item.created_at?.slice(0, 10) || "-"}</td><td><button type="button" className="secondary-button" onClick={() => setDetailId(item.id)}>상세</button></td>
-      </tr>) : <tr><td colSpan={17}>해당 리콜 대상이 없습니다.</td></tr>}</tbody></table></div>
+      <div className="online-target-table-wrap"><table className="online-target-table"><thead><tr><th><input type="checkbox" aria-label="현재 페이지 전체 선택" checked={allPageSelected} disabled={loading || !pageIds.length} onChange={() => setSelectedIds(allPageSelected ? new Set() : new Set(pageIds))} /></th><th>No</th><th>상태</th>{HEADERS.map(([key, label]) => <th key={key}>{label}</th>)}<th>신청 여부</th><th>매칭 기준</th><th>현재 진행 상태</th><th>사유</th><th>등록일</th><th>작업</th></tr></thead><tbody>{loading ? <tr><td colSpan={18}>불러오는 중...</td></tr> : listing.items?.length ? listing.items.map((item, index) => <tr key={item.id}>
+        <td><input type="checkbox" aria-label={`리콜 대상 ${item.id} 선택`} checked={selectedIds.has(item.id)} disabled={deleting} onChange={() => toggleSelected(item.id)} /></td><td>{(page - 1) * pageSize + index + 1}</td><td><span className={`online-preview-badge online-preview-badge-${item.duplicate_flag ? "duplicate" : item.review_required ? "review" : "valid"}`}>{item.duplicate_flag ? "중복" : item.review_required ? "확인 필요" : "정상"}</span></td>{HEADERS.map(([key]) => <td key={key}><span className="online-target-cell-text" title={String(item[key] ?? "")}>{key === "phone_raw" ? formatPhoneForDisplay(item[key] || "") : item[key] || "-"}</span></td>)}<td><span className={`online-target-match-badge online-target-match-${item.match_status}`}>{item.match_status === "MATCHED" ? "신청완료" : item.match_status === "REVIEW" ? "확인 필요" : "미접수"}</span></td><td>{item.match_method || "-"}</td><td>{item.application_status || "-"}</td><td><RecallReasonText reasons={[item.duplicate_reason, item.review_reason, item.match_review_reason]} /></td><td>{item.created_at?.slice(0, 10) || "-"}</td><td><button type="button" className="secondary-button" onClick={() => setDetailId(item.id)}>상세</button></td>
+      </tr>) : <tr><td colSpan={18}>해당 리콜 대상이 없습니다.</td></tr>}</tbody></table></div>
       <div className="online-target-pagination"><span>총 {listing.total}건 중 {listing.total ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, listing.total)}건</span><div><button type="button" className="secondary-button" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>이전</button>{visiblePages(page, listing.total_pages || 1).map((number) => typeof number === "number" ? <button type="button" key={number} className={`online-target-page-number${number === page ? " active" : ""}`} aria-current={number === page ? "page" : undefined} disabled={loading} onClick={() => setPage(number)}>{number}</button> : <span key={number} aria-hidden="true">…</span>)}<button type="button" className="secondary-button" disabled={page >= (listing.total_pages || 1) || loading} onClick={() => setPage(page + 1)}>다음</button></div></div>
     </section>
     </>}
     {view === "batches" && <section className="online-recall-list" aria-label="리콜 대상 업로드 이력"><h3>업로드 Batch 이력</h3><div className="online-target-table-wrap"><table className="online-target-table"><thead><tr><th>등록일</th><th>파일</th><th>전체</th><th>정상</th><th>중복</th><th>확인 필요</th><th>제외</th></tr></thead><tbody>{batches.map((batch) => <tr key={batch.id}><td>{batch.created_at?.slice(0, 10)}</td><td>{batch.original_filename}</td><td>{batch.total_count}</td><td>{batch.normal_count}</td><td>{batch.duplicate_count}</td><td>{batch.review_count}</td><td>{batch.excluded_count}</td></tr>)}</tbody></table></div></section>}
     {detailId !== null && <RecallTargetDetailModal targetId={detailId} onClose={() => setDetailId(null)} onChanged={() => setLocalRefresh((value) => value + 1)} onApplicationDetail={onApplicationDetail} />}
+    {deleteOpen && <RecallTargetDeleteModal count={selectedIds.size} blocked={selectedMatched} saving={deleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={deleteSelected} />}
   </div>;
 }
 

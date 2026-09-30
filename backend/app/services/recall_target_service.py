@@ -2,13 +2,13 @@
 
 import math
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from io import BytesIO
 from typing import Dict, List
 
 from openpyxl import load_workbook
 from openpyxl.utils.datetime import from_excel
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.models.recall_application import RecallApplication
@@ -239,3 +239,34 @@ def list_targets(db: Session, keyword: str, status: str, page: int, page_size: i
 def list_target_batches(db: Session):
     batches = db.scalars(select(RecallTargetUploadBatch).order_by(RecallTargetUploadBatch.id.desc())).all()
     return [{column.name: getattr(batch, column.name) for column in RecallTargetUploadBatch.__table__.columns} for batch in batches]
+
+
+def bulk_soft_delete_targets(db: Session, *, ids, reason: str, user_id: int):
+    """Soft delete a selection only when every target has no application link."""
+    if not ids or len(ids) > 100 or any(type(value) is not int or value < 1 for value in ids) or len(set(ids)) != len(ids):
+        raise ValueError("삭제할 리콜 대상을 1~100건 중복 없이 선택해주세요.")
+    cleaned_reason = (reason or "").strip()
+    if not cleaned_reason or len(cleaned_reason) > 255:
+        raise ValueError("삭제 사유는 1~255자로 입력해주세요.")
+    try:
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(714257001)"))
+        targets = list(db.scalars(select(RecallTarget).where(
+            RecallTarget.id.in_(ids), RecallTarget.is_deleted.is_(False)
+        ).order_by(RecallTarget.id).with_for_update()).all())
+        if len(targets) != len(ids):
+            raise ValueError("선택한 대상 중 이미 삭제되었거나 찾을 수 없는 건이 있습니다.")
+        if any(target.match_status == "MATCHED" or target.matched_application_id is not None for target in targets):
+            raise ValueError("이미 리콜 신청 데이터와 매칭된 대상은 삭제할 수 없습니다. 필요하면 먼저 매칭을 해제해주세요.")
+        deleted_at = datetime.now(timezone.utc)
+        for target in targets:
+            target.is_deleted = True
+            target.deleted_at = deleted_at
+            target.deleted_by = user_id
+            target.delete_reason = cleaned_reason
+        db.commit()
+        return {"deleted": len(targets), "ids": list(ids), "deleted_at": deleted_at,
+                "deleted_by": user_id, "delete_reason": cleaned_reason}
+    except Exception:
+        db.rollback()
+        raise
