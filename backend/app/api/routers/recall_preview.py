@@ -21,6 +21,7 @@ from app.services.recall_application_excel import RecallApplicationExcelError, p
 from app.services.recall_application_service import (
     commit_recall_applications,
     existing_application_records,
+    matching_application_rows,
     get_recall_application_detail,
     get_recall_review_reason_codes,
     get_recall_workflow_status,
@@ -139,7 +140,9 @@ async def preview_recall_application_excel(
             preview = preview_recall_applications(
                 file_bytes,
                 source_filename=file.filename,
-                existing_records=existing_application_records(db),
+                existing_records=lambda serial_keys, phone_keys: existing_application_records(
+                    db, matching_application_rows(db, serial_keys, phone_keys)
+                ),
             )
         except RecallApplicationExcelError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

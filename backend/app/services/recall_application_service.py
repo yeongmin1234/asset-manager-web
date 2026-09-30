@@ -28,7 +28,7 @@ from openpyxl.utils.datetime import CALENDAR_WINDOWS_1900
 
 from app.services.recall_application_excel import (
     _index_existing, _serial_key, _valid_phone, _validate_values,
-    preview_recall_applications, review_reason_codes,
+    normalize_phone, preview_recall_applications, review_reason_codes,
 )
 from app.services.recall_target_matching import run_auto_matching
 
@@ -43,11 +43,12 @@ DUPLICATE_REGISTRATION_FILTER = "DUPLICATE_REGISTRATION"
 
 def _registration_identity(values):
     """Only an identical application is a retry; shared phone/serial alone is not."""
-    if not (_serial_key(values.get("serial_number")) or _valid_phone(values.get("phone_normalized"))):
+    phone = normalize_phone(values.get("phone_normalized") or values.get("phone_original"))
+    if not (_serial_key(values.get("serial_number")) or _valid_phone(phone)):
         return None
     return (
         values.get("application_date"), values.get("quantity"),
-        values.get("customer_name"), values.get("phone_normalized"),
+        values.get("customer_name"), phone,
         values.get("address"), values.get("memo"),
         _serial_key(values.get("serial_number")), values.get("lot_number"),
         values.get("pickup_agreement"), values.get("pickup_date"),
@@ -90,6 +91,29 @@ def existing_application_records(db: Session, rows=None) -> List[Dict[str, Any]]
     ]
 
 
+def matching_application_rows(db: Session, serial_keys, phone_keys) -> List[RecallApplication]:
+    """Scan narrow key columns once, then load full rows only for upload matches."""
+    candidate_ids = set()
+    if not serial_keys and not phone_keys:
+        return []
+    for item_id, serial_number, phone_normalized, phone_original in db.execute(
+        select(RecallApplication.id, RecallApplication.serial_number,
+               RecallApplication.phone_normalized, RecallApplication.phone_original)
+        .where(RecallApplication.is_deleted.is_(False))
+    ):
+        phone = normalize_phone(phone_normalized or phone_original)
+        if (_serial_key(serial_number) in serial_keys or
+                (_valid_phone(phone) and phone in phone_keys)):
+            candidate_ids.add(item_id)
+    rows = []
+    ordered_ids = sorted(candidate_ids)
+    for offset in range(0, len(ordered_ids), 500):
+        rows.extend(db.scalars(select(RecallApplication).where(
+            RecallApplication.id.in_(ordered_ids[offset:offset + 500])
+        ).order_by(RecallApplication.id)).all())
+    return rows
+
+
 def commit_recall_applications(
     db: Session,
     *,
@@ -120,9 +144,17 @@ def commit_recall_applications(
             select(RecallApplication).where(RecallApplication.upload_batch_id == batch.id)
         ).all()}
 
-    existing_applications = list(db.scalars(
-        select(RecallApplication).where(RecallApplication.is_deleted.is_(False)).order_by(RecallApplication.id)
-    ).all())
+    existing_applications = []
+
+    def load_existing(serial_keys, phone_keys):
+        existing_applications.extend(matching_application_rows(db, serial_keys, phone_keys))
+        return existing_application_records(db, existing_applications)
+
+    preview = preview_recall_applications(
+        file_bytes,
+        source_filename=source_filename,
+        existing_records=load_existing,
+    )
     existing_by_identity = {}
     for item in existing_applications:
         item_values = {field: getattr(item, field) for field in EDITABLE_FIELDS}
@@ -131,11 +163,6 @@ def commit_recall_applications(
         if identity is not None:
             existing_by_identity.setdefault(identity, item)
 
-    preview = preview_recall_applications(
-        file_bytes,
-        source_filename=source_filename,
-        existing_records=existing_application_records(db, existing_applications),
-    )
     parsed_by_number = {row.raw_row_number: row for row in preview.rows}
     unknown = selected - set(parsed_by_number)
     if unknown:
@@ -284,7 +311,8 @@ def list_recall_applications(
             RecallApplication.serial_number.ilike(pattern),
         ))
     if status == DUPLICATE_REGISTRATION_FILTER:
-        conditions.append(RecallApplication.duplicate_registration_attempt.is_(True))
+        conditions.append(or_(RecallApplication.duplicate_registration_attempt.is_(True),
+                              RecallApplication.duplicate_registration_count > 0))
     elif status:
         conditions.append(RecallApplication.current_status == status)
 

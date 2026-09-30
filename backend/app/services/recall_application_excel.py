@@ -131,10 +131,9 @@ def preview_recall_applications(
         sheet, header_number, indexes, headers = _find_header(workbook)
         if sheet.max_row - header_number > MAX_PREVIEW_ROWS or sheet.max_column > MAX_PREVIEW_COLUMNS:
             raise RecallApplicationExcelError("Excel 미리보기 범위가 너무 큽니다.")
-        existing_serials, existing_phones = _index_existing(existing_records)
-        seen_serials = {}
-        seen_phones = {}
-        preview_rows = []
+        parsed_rows = []
+        serial_keys = set()
+        phone_keys = set()
         for raw_row_number, cells in enumerate(
             sheet.iter_rows(min_row=header_number + 1, values_only=True), start=header_number + 1
         ):
@@ -148,10 +147,28 @@ def preview_recall_applications(
             }
             row_kind = _classify_row(values, cells)
             if row_kind != "data":
-                preview_rows.append(PreviewRow(raw_row_number, row_kind, "excluded", raw_data, {}, ()))
+                parsed_rows.append((raw_row_number, row_kind, raw_data, {}, []))
                 continue
 
             data, issues = _validate_values(values, workbook.epoch)
+            serial_key = _serial_key(data["serial_number"])
+            phone_key = data["phone_normalized"] if _valid_phone(data["phone_normalized"]) else None
+            if serial_key:
+                serial_keys.add(serial_key)
+            if phone_key:
+                phone_keys.add(phone_key)
+            parsed_rows.append((raw_row_number, row_kind, raw_data, data, issues))
+
+        if callable(existing_records):
+            existing_records = existing_records(serial_keys, phone_keys)
+        existing_serials, existing_phones = _index_existing(existing_records)
+        seen_serials = {}
+        seen_phones = {}
+        preview_rows = []
+        for raw_row_number, row_kind, raw_data, data, issues in parsed_rows:
+            if row_kind != "data":
+                preview_rows.append(PreviewRow(raw_row_number, row_kind, "excluded", raw_data, {}, ()))
+                continue
             serial_key = _serial_key(data["serial_number"])
             phone_key = data["phone_normalized"] if _valid_phone(data["phone_normalized"]) else None
             # Serial findings precede phone findings. Neither key is unique by itself.

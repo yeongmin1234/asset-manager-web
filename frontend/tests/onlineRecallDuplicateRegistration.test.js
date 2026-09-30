@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,5 +29,15 @@ test("duplicate registration filter, row badge and detail remain separate from d
     assert.match(detail, /마지막 중복 등록 시각<\/dt><dd>2026-09-30 10:30/);
     assert.match(detail, /마지막 업로드 Batch<\/dt><dd>#9/);
     assert.equal(renderToStaticMarkup(React.createElement(RecallDuplicateRegistrationDetails, { detail: {} })), "");
+    const countOnly = { ...item, duplicate_registration_attempt: false };
+    const countOnlyRow = renderToStaticMarkup(React.createElement(RecallTable, { items: [countOnly], selectedIds: new Set(),
+      onToggleSelection() {}, onTogglePage() {}, onOpenDetail() {} }));
+    assert.match(countOnlyRow, /중복 등록 시도: 3회/);
+    assert.match(renderToStaticMarkup(React.createElement(RecallDuplicateRegistrationDetails, { detail: countOnly })), /3회/);
+    const deleteFilter = renderToStaticMarkup(React.createElement(RecallFilters, { ...props, showRegistrationFilter: true,
+      onDelete() {}, selectedCount: 1 }));
+    assert.match(deleteFilter, />삭제<\/button>/);
+    const pageSource = readFileSync(new URL("../src/components/online/RecallManagementPage.jsx", import.meta.url), "utf8");
+    assert.match(pageSource, /onDelete=\{activeTab === "all" \|\| activeTab === "applications"/);
   } finally { await vite.close(); }
 });

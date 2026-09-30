@@ -224,7 +224,7 @@ function RecallManagementPage({ currentUser }) {
           onSearch={handleSearch}
           onReset={handleReset}
           isLoading={isLoading || isBulkUpdating || isDeleting}
-          onDelete={activeTab === "all" ? () => { setDeleteError(""); setDeleteOpen(true); } : undefined}
+          onDelete={activeTab === "all" || activeTab === "applications" ? () => { setDeleteError(""); setDeleteOpen(true); } : undefined}
           selectedCount={selectedIds.size}
         />
         <RecallBulkBar selectedCount={selectedIds.size} nextStatus={nextStatus} disabled={isLoading || Boolean(loadError)} isBulkUpdating={isBulkUpdating || isDeleting} onChange={handleBulkChange} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} showBulkAction={activeTab !== "duplicates"} />

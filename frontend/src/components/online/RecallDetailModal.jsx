@@ -19,7 +19,7 @@ function Field({ label, children, wide = false }) {
 }
 
 export function RecallDuplicateRegistrationDetails({ detail }) {
-  if (!detail?.duplicate_registration_attempt) return null;
+  if (!detail?.duplicate_registration_attempt && !(detail?.duplicate_registration_count > 0)) return null;
   return <section className="online-detail-section">
     <h3>중복 등록 시도</h3>
     <dl className="online-detail-grid">

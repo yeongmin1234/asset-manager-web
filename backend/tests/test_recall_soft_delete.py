@@ -82,15 +82,25 @@ class RecallSoftDeleteTest(unittest.TestCase):
                                                         "reason_category": category})
 
     def test_mixed_allowed_states_soft_delete_and_all_read_paths_exclude_them(self):
+        self.db.get(RecallApplication, 1).duplicate_registration_count = 3
+        self.db.get(RecallApplication, 2).duplicate_registration_attempt = True
+        self.db.commit()
+        before_registration = list_recall_applications(
+            self.db, keyword=None, status="DUPLICATE_REGISTRATION", page=1, page_size=10
+        )
+        self.assertEqual({item.id for item in before_registration["items"]}, {1, 2})
         self.assertEqual(order_summary(self.db)["pending_count"], 1)
         with TestClient(self.app) as client:
+            registration_before = client.get(ROOT, params={"status": "DUPLICATE_REGISTRATION"})
             result = self.delete(client, [1, 2, 3, 7])
             all_list = client.get(ROOT, params={"include_duplicates": "true"})
             duplicate_list = client.get(ROOT, params={"duplicate_only": "true"})
+            registration_list = client.get(ROOT, params={"status": "DUPLICATE_REGISTRATION"})
             detail = client.get(ROOT + "/2")
             status_change = client.patch(ROOT + "/bulk-status", json={"ids": [2],
                 "status": "SHIPPED", "reason": "처리"})
         self.assertEqual(result.status_code, 200)
+        self.assertEqual(registration_before.json()["total"], 2)
         self.assertEqual(result.json()["deleted"], 4)
         self.assertEqual(self.db.scalar(select(func.count()).select_from(RecallApplication)), 7)
         self.assertEqual([self.db.get(RecallApplication, item).is_deleted for item in (1, 2, 3, 7)],
@@ -100,6 +110,7 @@ class RecallSoftDeleteTest(unittest.TestCase):
         self.assertIsNotNone(deleted.deleted_at)
         self.assertEqual(all_list.json()["total"], 3)
         self.assertEqual(duplicate_list.json()["total"], 0)
+        self.assertEqual(registration_list.json()["total"], 0)
         self.assertEqual((detail.status_code, status_change.status_code), (404, 400))
         self.assertEqual(get_recall_summary(self.db), {
             "total_count": 3, "received_count": 0, "remaining_count": 0,

@@ -6,7 +6,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -171,6 +171,37 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertEqual(listing.json()["items"][0]["duplicate_registration_count"], 1)
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.json()["last_duplicate_registration_batch_id"], result.batch_id)
+
+    def test_large_retry_uses_bounded_lookup_queries_and_keeps_counts(self):
+        rows = [row(**{"성함": "고객{}".format(index), "*연락처": "010{:08d}".format(index),
+                       "*시리얼번호": "SER-{:04d}".format(index)}) for index in range(120)]
+        first = self.commit(workbook(*rows), selected=tuple(range(2, 122)))
+        self.assertEqual(first.registered, 120)
+        queries = []
+
+        def count_query(_connection, _cursor, statement, _parameters, _context, _executemany):
+            if statement.lstrip().upper().startswith("SELECT"):
+                queries.append(statement)
+
+        event.listen(self.engine, "before_cursor_execute", count_query)
+        try:
+            retried = self.commit(workbook(*rows, [None] * len(HEADERS)),
+                                  selected=tuple(range(2, 122)), filename="retry.xlsx")
+        finally:
+            event.remove(self.engine, "before_cursor_execute", count_query)
+        self.assertEqual((retried.registered, retried.already_registered), (0, 120))
+        self.assertEqual(self.count(RecallApplication), 120)
+        self.assertLessEqual(len(queries), 8)
+        self.assertEqual(self.db.scalar(select(func.sum(RecallApplication.duplicate_registration_count))), 120)
+
+    def test_legacy_formatted_phone_is_still_found_without_serial(self):
+        original = row(**{"*시리얼번호": None})
+        self.commit(workbook(original))
+        application = self.db.scalar(select(RecallApplication))
+        application.phone_normalized = "010-1111-2222"
+        self.db.commit()
+        result = self.commit(workbook(original, [None] * len(HEADERS)), filename="retry.xlsx")
+        self.assertEqual((result.registered, result.already_registered, self.count(RecallApplication)), (0, 1, 1))
 
     def test_08_same_customer_in_different_file_is_not_overwritten(self):
         self.commit(workbook(row()))
