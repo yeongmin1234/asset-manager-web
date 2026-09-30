@@ -305,6 +305,7 @@
 .online-recall-manual-label { white-space: nowrap; }
 .online-recall-manual-grid .online-recall-manual-required { color: #b42335; }
 .online-recall-manual-grid input,
+.online-recall-manual-grid select,
 .online-recall-manual-grid textarea { background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; color: #172033; font: inherit; min-width: 0; padding: 8px; width: 100%; }
 .online-recall-manual-grid textarea { min-height: 104px; overflow-y: auto; resize: vertical; }
 .online-recall-manual-error { color: #b42335; margin: 0; padding: 0 18px 8px; }

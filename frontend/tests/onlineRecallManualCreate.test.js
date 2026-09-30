@@ -39,3 +39,15 @@ test("manual registration keeps required labels inline and gives memo a full-hei
   assert.match(css, /\.online-recall-manual-grid textarea \{ min-height: 104px; overflow-y: auto; resize: vertical; \}/);
   assert.match(modal, /createRecallApplicationManually\(values\)/);
 });
+
+test("manual registration limits both agreements to the stored values", () => {
+  const modal = readFileSync(new URL("../src/components/online/RecallManualCreateModal.jsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/components/online/online.css", import.meta.url), "utf8");
+  assert.match(modal, /\["pickup_agreement", "기존 필터 회수 동의", "agreement"\]/);
+  assert.match(modal, /\["replacement_shipping_agreement", "대체 필터 출고 동의", "agreement"\]/);
+  assert.match(modal, /AGREEMENT_OPTIONS = \["동의", "미동의", "폐기\(처분\)"\]/);
+  assert.match(modal, /<select value=\{values\[key\]\}/);
+  assert.match(modal, /<option value="">선택<\/option>/);
+  assert.match(modal, /<option key=\{option\} value=\{option\}>\{option\}<\/option>/);
+  assert.match(css, /\.online-recall-manual-grid select,/);
+});

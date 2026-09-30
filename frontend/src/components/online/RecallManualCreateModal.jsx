@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createRecallApplicationManually } from "../../api/client.js";
 
+const AGREEMENT_OPTIONS = ["동의", "미동의", "폐기(처분)"];
 const FIELDS = [
   ["application_date", "신청일자", "date"], ["quantity", "수량", "number"],
   ["customer_name", "고객명", "text", true], ["phone_original", "연락처", "tel", true],
   ["address", "주소지", "text", true], ["memo", "메모", "text"],
   ["serial_number", "시리얼번호", "text"], ["lot_number", "LOT 번호", "text"],
-  ["pickup_agreement", "기존 필터 회수 동의", "text"], ["pickup_date", "회수 일자", "date"],
-  ["replacement_shipping_agreement", "대체 필터 출고 동의", "text"],
+  ["pickup_agreement", "기존 필터 회수 동의", "agreement"], ["pickup_date", "회수 일자", "date"],
+  ["replacement_shipping_agreement", "대체 필터 출고 동의", "agreement"],
 ];
 const INITIAL_VALUES = Object.fromEntries(FIELDS.map(([key]) => [key, ""]));
 
@@ -52,7 +53,12 @@ function RecallManualCreateModal({ onClose, onRegistered }) {
         {FIELDS.map(([key, label, type, required], index) => <label key={key}>
           <span className="online-recall-manual-label">{label}{required && <span className="online-recall-manual-required" aria-hidden="true"> *</span>}</span>
           {key === "memo" ? <textarea value={values[key]} disabled={saving}
-            onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} /> :
+            onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} /> : type === "agreement" ?
+            <select value={values[key]} disabled={saving}
+              onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))}>
+              <option value="">선택</option>
+              {AGREEMENT_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select> :
             <input ref={index === 0 ? firstInput : undefined} type={type} min={type === "number" ? "1" : undefined}
               value={values[key]} required={Boolean(required)} disabled={saving}
               onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />}
