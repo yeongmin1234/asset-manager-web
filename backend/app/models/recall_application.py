@@ -22,7 +22,7 @@ class RecallApplicationUploadBatch(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     total_rows: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     valid_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

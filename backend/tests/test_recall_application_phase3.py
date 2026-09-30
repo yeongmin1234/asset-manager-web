@@ -18,6 +18,8 @@ from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.recall_application import (
     APPLICATION_RECEIVED,
     IN_PROGRESS,
+    ORDER_CONFIRMED,
+    ORDER_EXPORTED,
     REVIEW_REQUIRED,
     STOPPED,
     SHIPPED,
@@ -32,6 +34,7 @@ from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
 from app.services.recall_application_excel import EXCEL_COLUMNS
 from app.services.recall_application_service import (
     bulk_change_recall_applications,
+    bulk_soft_delete_recall_applications,
     change_recall_application_status,
     commit_recall_applications,
     get_recall_application_detail,
@@ -138,6 +141,60 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         self.assertGreaterEqual(existing.last_duplicate_registration_at, first_attempt_at)
         self.assertEqual(existing.current_status, APPLICATION_RECEIVED)
         self.assertFalse(existing.duplicate_flag)
+
+    def test_soft_deleted_same_file_rows_can_register_again_without_changing_history(self):
+        content = workbook(row())
+        self.commit(content)
+        original = self.db.scalar(select(RecallApplication))
+        original_id = original.id
+        original_batch_id = original.upload_batch_id
+        bulk_soft_delete_recall_applications(self.db, ids=[original_id], reason="테스트 정리",
+                                             reason_category="오등록", user_id=1)
+        result = self.commit(content)
+        self.assertEqual((result.registered, result.already_registered), (1, 0))
+        self.assertEqual(self.count(RecallApplicationUploadBatch), 2)
+        self.assertEqual(self.db.get(RecallApplicationUploadBatch, original_batch_id).registered_count, 1)
+        self.assertTrue(self.db.get(RecallApplication, original_id).is_deleted)
+        new_application = self.db.get(RecallApplication, result.rows[0]["application_id"])
+        self.assertNotEqual(new_application.id, original_id)
+        self.assertFalse(new_application.is_deleted)
+        self.assertEqual(list_recall_applications(self.db, keyword=None, status=None,
+                                                 page=1, page_size=10)["total"], 1)
+        self.assertEqual(get_recall_summary(self.db)["total_count"], 1)
+        retried = self.commit(content)
+        self.assertEqual((retried.registered, retried.already_registered), (0, 1))
+        self.assertEqual(retried.rows[0]["application_id"], new_application.id)
+        self.assertEqual(self.count(RecallApplicationUploadBatch), 2)
+
+    def test_soft_deleted_other_file_is_not_a_duplicate_candidate(self):
+        self.commit(workbook(row()))
+        original = self.db.scalar(select(RecallApplication))
+        bulk_soft_delete_recall_applications(self.db, ids=[original.id], reason="테스트 정리",
+                                             reason_category="오등록", user_id=1)
+        result = self.commit(workbook(row(), [None] * len(HEADERS)), filename="retry.xlsx")
+        self.assertEqual((result.registered, result.already_registered), (1, 0))
+        self.assertEqual(self.db.get(RecallApplication, result.rows[0]["application_id"]).duplicate_flag, False)
+
+    def test_deleted_ordered_application_still_blocks_same_and_other_file(self):
+        content = workbook(row())
+        self.commit(content)
+        original = self.db.scalar(select(RecallApplication))
+        original.order_status = ORDER_EXPORTED
+        original.is_deleted = True  # Defensive case: normal deletion API forbids this.
+        self.db.commit()
+        same = self.commit(content)
+        other = self.commit(workbook(row(), [None] * len(HEADERS)), filename="retry.xlsx")
+        self.assertEqual((same.registered, same.already_registered), (0, 1))
+        self.assertEqual((other.registered, other.already_registered), (0, 1))
+        self.assertEqual(self.count(RecallApplication), 1)
+        for order_status, current_status in ((ORDER_CONFIRMED, APPLICATION_RECEIVED),
+                                             ("ORDER_PENDING", SHIPPED)):
+            original.order_status = order_status
+            original.current_status = current_status
+            self.db.commit()
+            again = self.commit(content)
+            self.assertEqual((again.registered, again.already_registered), (0, 1))
+            self.assertEqual(self.count(RecallApplication), 1)
 
     def test_same_application_in_another_batch_tracks_retry_without_new_order(self):
         self.commit(workbook(row()))

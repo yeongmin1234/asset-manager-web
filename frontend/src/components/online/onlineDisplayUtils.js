@@ -29,6 +29,45 @@ export function displayRecallReviewReasons(codes) {
   return formatRecallReasons(codes);
 }
 
+export const RECALL_MATCH_METHOD_LABELS = {
+  PHONE: "연락처",
+  SERIAL: "시리얼번호",
+  ORDER_NO: "주문번호",
+  MANUAL: "수동 매칭",
+};
+
+export const RECALL_MATCH_STATUS_LABELS = {
+  MATCHED: "신청 완료",
+  UNMATCHED: "미접수",
+  REVIEW: "확인 필요",
+  REVIEW_REQUIRED: "확인 필요",
+};
+
+const RECALL_TARGET_PROGRESS_LABELS = {
+  ...RECALL_MATCH_STATUS_LABELS,
+  APPLICATION_RECEIVED: "접수 완료",
+  IN_PROGRESS: "진행중",
+  SHIPPED: "발송 완료",
+  STOPPED: "중지",
+};
+
+export function displayRecallMatchMethod(value) {
+  return value ? RECALL_MATCH_METHOD_LABELS[value] || "확인 필요" : "-";
+}
+
+export function displayRecallMatchStatus(value) {
+  return value ? RECALL_MATCH_STATUS_LABELS[value] || "확인 필요" : "-";
+}
+
+export function recallMatchStatusClass(value) {
+  return value === "MATCHED" || value === "UNMATCHED" ? value : "REVIEW";
+}
+
+export function displayRecallTargetProgress(applicationStatus, matchStatus) {
+  const value = applicationStatus || matchStatus;
+  return value ? RECALL_TARGET_PROGRESS_LABELS[value] || "확인 필요" : "-";
+}
+
 export function recallStatusClass(value) {
   if (value === "IN_PROGRESS") return "online-recall-status-progress";
   if (value === "REVIEW_REQUIRED") return "online-recall-status-review";

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { deleteRecallTargets, getRecallMatchingSummary, getRecallTargetBatches, getRecallTargetChannels, getRecallTargets, getRecallTargetSummary, runRecallTargetMatching } from "../../api/client.js";
-import { formatPhoneForDisplay } from "./onlineDisplayUtils.js";
+import { displayRecallMatchMethod, displayRecallMatchStatus, displayRecallTargetProgress, formatPhoneForDisplay, recallMatchStatusClass } from "./onlineDisplayUtils.js";
 import RecallPageSizeSelect from "./RecallPageSizeSelect.jsx";
 import RecallTargetDetailModal from "./RecallTargetDetailModal.jsx";
 import RecallReasonText from "./RecallReasonText.jsx";
@@ -17,6 +17,14 @@ function visiblePages(current, total) {
   for (let number = start; number <= end; number += 1) pages.push(number);
   if (end < total) pages.push(...(end < total - 1 ? ["after"] : []), total);
   return pages;
+}
+
+export function RecallTargetMatchCells({ item }) {
+  return <>
+    <td><span className={`online-target-match-badge online-target-match-${recallMatchStatusClass(item.match_status)}`}>{displayRecallMatchStatus(item.match_status)}</span></td>
+    <td>{displayRecallMatchMethod(item.match_method)}</td>
+    <td>{displayRecallTargetProgress(item.application_status, item.match_status)}</td>
+  </>;
 }
 
 function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplicationDetail }) {
@@ -90,7 +98,7 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
       <form className="online-target-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedKeyword(keyword.trim()); }}>
         <input aria-label="리콜 대상 검색" placeholder="고객명, 연락처, 주문번호, 시리얼번호" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
         <select aria-label="리콜 대상 상태" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">전체</option><option value="valid">정상</option><option value="duplicate">중복</option><option value="review">확인 필요</option></select>
-        <select aria-label="신청 상태" value={matchStatus} onChange={(event) => { setMatchStatus(event.target.value); setPage(1); }}><option value="">신청 상태 전체</option><option value="MATCHED">신청완료</option><option value="UNMATCHED">미접수</option><option value="REVIEW">매칭 확인 필요</option></select>
+        <select aria-label="신청 상태" value={matchStatus} onChange={(event) => { setMatchStatus(event.target.value); setPage(1); }}><option value="">신청 상태 전체</option><option value="MATCHED">{displayRecallMatchStatus("MATCHED")}</option><option value="UNMATCHED">{displayRecallMatchStatus("UNMATCHED")}</option><option value="REVIEW">{displayRecallMatchStatus("REVIEW")}</option></select>
         <button type="submit" className="primary-action">조회</button>
         <button type="button" className="secondary-button" onClick={() => { setKeyword(""); setAppliedKeyword(""); setStatus(""); setMatchStatus(""); setPage(1); }}>초기화</button>
       </form>
@@ -98,7 +106,7 @@ function RecallTargetTab({ pageSize, onPageSizeChange, refreshKey, onApplication
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
       <div className="online-target-table-wrap"><table className="online-target-table"><thead><tr><th><input type="checkbox" aria-label="현재 페이지 전체 선택" checked={allPageSelected} disabled={loading || !pageIds.length} onChange={() => setSelectedIds(allPageSelected ? new Set() : new Set(pageIds))} /></th><th>No</th><th>상태</th>{HEADERS.map(([key, label]) => <th key={key}>{label}</th>)}<th>신청 여부</th><th>매칭 기준</th><th>현재 진행 상태</th><th>사유</th><th>등록일</th><th>작업</th></tr></thead><tbody>{loading ? <tr><td colSpan={18}>불러오는 중...</td></tr> : listing.items?.length ? listing.items.map((item, index) => <tr key={item.id}>
-        <td><input type="checkbox" aria-label={`리콜 대상 ${item.id} 선택`} checked={selectedIds.has(item.id)} disabled={deleting} onChange={() => toggleSelected(item.id)} /></td><td>{(page - 1) * pageSize + index + 1}</td><td><span className={`online-preview-badge online-preview-badge-${item.duplicate_flag ? "duplicate" : item.review_required ? "review" : "valid"}`}>{item.duplicate_flag ? "중복" : item.review_required ? "확인 필요" : "정상"}</span></td>{HEADERS.map(([key]) => <td key={key}><span className="online-target-cell-text" title={String(item[key] ?? "")}>{key === "phone_raw" ? formatPhoneForDisplay(item[key] || "") : item[key] || "-"}</span></td>)}<td><span className={`online-target-match-badge online-target-match-${item.match_status}`}>{item.match_status === "MATCHED" ? "신청완료" : item.match_status === "REVIEW" ? "확인 필요" : "미접수"}</span></td><td>{item.match_method || "-"}</td><td>{item.application_status || "-"}</td><td><RecallReasonText reasons={[item.duplicate_reason, item.review_reason, item.match_review_reason]} /></td><td>{item.created_at?.slice(0, 10) || "-"}</td><td><button type="button" className="secondary-button" onClick={() => setDetailId(item.id)}>상세</button></td>
+        <td><input type="checkbox" aria-label={`리콜 대상 ${item.id} 선택`} checked={selectedIds.has(item.id)} disabled={deleting} onChange={() => toggleSelected(item.id)} /></td><td>{(page - 1) * pageSize + index + 1}</td><td><span className={`online-preview-badge online-preview-badge-${item.duplicate_flag ? "duplicate" : item.review_required ? "review" : "valid"}`}>{item.duplicate_flag ? "중복" : item.review_required ? "확인 필요" : "정상"}</span></td>{HEADERS.map(([key]) => <td key={key}><span className="online-target-cell-text" title={String(item[key] ?? "")}>{key === "phone_raw" ? formatPhoneForDisplay(item[key] || "") : item[key] || "-"}</span></td>)}<RecallTargetMatchCells item={item} /><td><RecallReasonText reasons={[item.duplicate_reason, item.review_reason, item.match_review_reason]} /></td><td>{item.created_at?.slice(0, 10) || "-"}</td><td><button type="button" className="secondary-button" onClick={() => setDetailId(item.id)}>상세</button></td>
       </tr>) : <tr><td colSpan={18}>해당 리콜 대상이 없습니다.</td></tr>}</tbody></table></div>
       <div className="online-target-pagination"><span>총 {listing.total}건 중 {listing.total ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, listing.total)}건</span><div><button type="button" className="secondary-button" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>이전</button>{visiblePages(page, listing.total_pages || 1).map((number) => typeof number === "number" ? <button type="button" key={number} className={`online-target-page-number${number === page ? " active" : ""}`} aria-current={number === page ? "page" : undefined} disabled={loading} onClick={() => setPage(number)}>{number}</button> : <span key={number} aria-hidden="true">…</span>)}<button type="button" className="secondary-button" disabled={page >= (listing.total_pages || 1) || loading} onClick={() => setPage(page + 1)}>다음</button></div></div>
     </section>

@@ -78,7 +78,7 @@ class CommitResult:
 
 def existing_application_records(db: Session, rows=None) -> List[Dict[str, Any]]:
     if rows is None:
-        rows = db.scalars(select(RecallApplication).where(RecallApplication.is_deleted.is_(False))).all()
+        rows = db.scalars(select(RecallApplication).where(_registration_candidate_condition())).all()
     return [
         {
             "id": row.id,
@@ -91,6 +91,16 @@ def existing_application_records(db: Session, rows=None) -> List[Dict[str, Any]]
     ]
 
 
+def _protected_application(application):
+    return application.order_status in {ORDER_EXPORTED, ORDER_CONFIRMED} or application.current_status == SHIPPED
+
+
+def _registration_candidate_condition():
+    return or_(RecallApplication.is_deleted.is_(False),
+               RecallApplication.order_status.in_((ORDER_EXPORTED, ORDER_CONFIRMED)),
+               RecallApplication.current_status == SHIPPED)
+
+
 def matching_application_rows(db: Session, serial_keys, phone_keys) -> List[RecallApplication]:
     """Scan narrow key columns once, then load full rows only for upload matches."""
     candidate_ids = set()
@@ -99,7 +109,7 @@ def matching_application_rows(db: Session, serial_keys, phone_keys) -> List[Reca
     for item_id, serial_number, phone_normalized, phone_original in db.execute(
         select(RecallApplication.id, RecallApplication.serial_number,
                RecallApplication.phone_normalized, RecallApplication.phone_original)
-        .where(RecallApplication.is_deleted.is_(False))
+        .where(_registration_candidate_condition())
     ):
         phone = normalize_phone(phone_normalized or phone_original)
         if (_serial_key(serial_number) in serial_keys or
@@ -135,14 +145,23 @@ def commit_recall_applications(
         ))
 
     source_sha256 = hashlib.sha256(file_bytes).hexdigest()
-    batch = db.scalar(
+    matching_batches = list(db.scalars(
         select(RecallApplicationUploadBatch).where(RecallApplicationUploadBatch.source_sha256 == source_sha256)
-    )
+        .order_by(RecallApplicationUploadBatch.id.desc())
+    ).all())
+    batch = matching_batches[0] if matching_batches else None
     existing_batch_rows = {}
-    if batch is not None:
-        existing_batch_rows = {item.source_row_number: item for item in db.scalars(
-            select(RecallApplication).where(RecallApplication.upload_batch_id == batch.id)
-        ).all()}
+    deleted_batch_row_numbers = set()
+    if matching_batches:
+        for item in db.scalars(select(RecallApplication).where(
+            RecallApplication.upload_batch_id.in_([value.id for value in matching_batches])
+        ).order_by(RecallApplication.id.desc())).all():
+            if not item.is_deleted or _protected_application(item):
+                previous = existing_batch_rows.get(item.source_row_number)
+                if previous is None or (previous.is_deleted and not item.is_deleted):
+                    existing_batch_rows[item.source_row_number] = item
+            else:
+                deleted_batch_row_numbers.add(item.source_row_number)
 
     existing_applications = []
 
@@ -161,7 +180,9 @@ def commit_recall_applications(
         item_values["phone_normalized"] = item.phone_normalized
         identity = _registration_identity(item_values)
         if identity is not None:
-            existing_by_identity.setdefault(identity, item)
+            previous = existing_by_identity.get(identity)
+            if previous is None or (previous.is_deleted and not item.is_deleted):
+                existing_by_identity[identity] = item
 
     parsed_by_number = {row.raw_row_number: row for row in preview.rows}
     unknown = selected - set(parsed_by_number)
@@ -173,7 +194,13 @@ def commit_recall_applications(
     results = []
     registered_by_row = {}
     try:
-        if batch is None:
+        needs_new_batch = any(
+            row_number in deleted_batch_row_numbers and row_number not in existing_batch_rows
+            and parsed_by_number[row_number].status in {"valid", "review", "duplicate"}
+            and _registration_identity(parsed_by_number[row_number].data) not in existing_by_identity
+            for row_number in selected
+        )
+        if batch is None or needs_new_batch:
             batch = RecallApplicationUploadBatch(
                 source_filename=source_filename[:255],
                 source_sha256=source_sha256,
