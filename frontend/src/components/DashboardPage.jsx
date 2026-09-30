@@ -3,7 +3,6 @@ import {
   createDashboardNotice,
   deleteDashboardNotice,
   getDashboardNotices,
-  getExpirationScheduleSummary,
   getNetworkStatus,
   getRecentActivityLogs,
   getSoftwareItems,
@@ -12,13 +11,10 @@ import {
   getVehicleSummary,
   updateDashboardNotice,
 } from "../api/client.js";
-import { formatDaysLeft, getCategoryLabel, openExpirationScheduleFilter } from "./ExpirationSchedulePage.jsx";
 import {
   SORT_VALUES,
   sortItems,
 } from "../utils/sortOptions.jsx";
-import AiAssistantCard from "./dashboard/AiAssistantCard.jsx";
-import InventoryResultPanel from "./dashboard/InventoryResultPanel.jsx";
 
 const NOTICE_TYPES = ["공지", "업데이트", "점검", "기타"];
 const EMPTY_NOTICE_FORM = {
@@ -57,26 +53,7 @@ const EMPTY_NETWORK_SUMMARY = {
   down: 0,
 };
 
-const EMPTY_EXPIRATION_SUMMARY = {
-  overdue_count: 0,
-  within_7_days_count: 0,
-  within_30_days_count: 0,
-  normal_count: 0,
-  completed_count: 0,
-  upcoming_items: [],
-};
-
-const INITIAL_INVENTORY_PANEL_STATE = {
-  status: "idle",
-  query: null,
-  items: [],
-  selectedItemCode: null,
-  searchedAt: null,
-  errorMessage: null,
-  analysis: null,
-};
-
-function DashboardPage({ currentUser, onNavigate }) {
+function DashboardPage({ onNavigate }) {
   const [assetSummary, setAssetSummary] = useState(EMPTY_ASSET_SUMMARY);
   const [softwareSummary, setSoftwareSummary] = useState(EMPTY_SOFTWARE_SUMMARY);
   const [softwareItems, setSoftwareItems] = useState([]);
@@ -87,7 +64,6 @@ function DashboardPage({ currentUser, onNavigate }) {
     checkedAt: "",
     error: "",
   });
-  const [expirationSummary, setExpirationSummary] = useState(EMPTY_EXPIRATION_SUMMARY);
   const [recentLogs, setRecentLogs] = useState([]);
   const [dashboardNotices, setDashboardNotices] = useState([]);
   const [noticeFormState, setNoticeFormState] = useState({
@@ -106,13 +82,6 @@ function DashboardPage({ currentUser, onNavigate }) {
   });
   const [noticeAdminUnlocked, setNoticeAdminUnlocked] = useState(false);
   const [dashboardState, setDashboardState] = useState({ isLoading: false, error: "" });
-  const [inventoryPanelState, setInventoryPanelState] = useState(INITIAL_INVENTORY_PANEL_STATE);
-  const permissions = Array.isArray(currentUser?.menu_permissions) ? currentUser.menu_permissions : [];
-  const canViewInventory = currentUser?.role === "admin"
-    || permissions.includes("inventory")
-    || permissions.includes("inventory_view")
-    || permissions.includes("dashboard");
-
   const loadDashboard = useCallback(async () => {
     setDashboardState({ isLoading: true, error: "" });
 
@@ -124,7 +93,6 @@ function DashboardPage({ currentUser, onNavigate }) {
       networkResult,
       recentLogResult,
       noticesResult,
-      expirationResult,
     ] = await Promise.allSettled([
       getStatsSummary(),
       getSoftwareStatsSummary(),
@@ -133,7 +101,6 @@ function DashboardPage({ currentUser, onNavigate }) {
       getNetworkStatus(),
       getRecentActivityLogs(30),
       getDashboardNotices(),
-      getExpirationScheduleSummary(),
     ]);
 
     if (assetResult.status === "fulfilled") {
@@ -190,12 +157,6 @@ function DashboardPage({ currentUser, onNavigate }) {
       setDashboardNotices([]);
     }
 
-    if (expirationResult.status === "fulfilled") {
-      setExpirationSummary({ ...EMPTY_EXPIRATION_SUMMARY, ...(expirationResult.value || {}) });
-    } else {
-      setExpirationSummary(EMPTY_EXPIRATION_SUMMARY);
-    }
-
     setDashboardState({
       isLoading: false,
       error: getDashboardError([
@@ -205,7 +166,6 @@ function DashboardPage({ currentUser, onNavigate }) {
         networkResult,
         recentLogResult,
         noticesResult,
-        expirationResult,
       ]),
     });
   }, []);
@@ -361,7 +321,7 @@ function DashboardPage({ currentUser, onNavigate }) {
         <div>
           <span className="section-kicker">Operations Dashboard</span>
           <h2 id="dashboard-title">안녕하세요, 관리자님!</h2>
-          <p>자산, SW, 차량, 네트워크 상태를 한 화면에서 확인합니다.</p>
+          <p>공지사항과 자산, SW, 법인차량의 주요 현황을 확인합니다.</p>
         </div>
         <div className="dashboard-quick-actions">
           <button type="button" className="primary-action" onClick={() => onNavigate?.("quick")}>
@@ -450,8 +410,6 @@ function DashboardPage({ currentUser, onNavigate }) {
         ))}
       </div>
 
-      <div className="dashboard-work-grid">
-        <div className="dashboard-work-column dashboard-work-column-main">
         <section className="dashboard-panel dashboard-recent-panel">
           <div className="dashboard-panel-heading">
             <h3>최근 변경 이력</h3>
@@ -508,46 +466,6 @@ function DashboardPage({ currentUser, onNavigate }) {
             )}
           </div>
         </section>
-        </div>
-
-        <aside className="dashboard-work-column dashboard-work-column-side">
-          <section className="dashboard-panel dashboard-expiration-panel dashboard-expiration-panel-compact dashboard-expiration-panel-home-hidden" aria-hidden="true">
-            <div className="dashboard-panel-heading">
-              <h3>점검·만료 현황</h3>
-              <button type="button" className="link-button" onClick={() => onNavigate?.("expiration_schedules")}>
-                관리
-              </button>
-            </div>
-            <div className="dashboard-expiration-counts">
-              <span className="expiration-count-overdue">기한 초과 {formatCount(expirationSummary.overdue_count)}건</span>
-              <span className="expiration-count-week">7일 이내 {formatCount(expirationSummary.within_7_days_count)}건</span>
-              <span className="expiration-count-month">30일 이내 {formatCount(expirationSummary.within_30_days_count)}건</span>
-            </div>
-            {expirationSummary.upcoming_items.length === 0 ? (
-              <div className="dashboard-empty">임박한 점검·만료 일정이 없습니다.</div>
-            ) : (
-              <div className="dashboard-expiration-list">
-                {expirationSummary.upcoming_items.map((item) => (
-                  <button
-                    type="button"
-                    className={`dashboard-expiration-item dashboard-expiration-${item.status}`}
-                    key={item.id}
-                    onClick={() => {
-                      openExpirationScheduleFilter(item.status);
-                      onNavigate?.("expiration_schedules");
-                    }}
-                  >
-                    <strong>{getCategoryLabel(item.category)} · {item.target_name}</strong>
-                    <span>{formatDaysLeft(item)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-          <InventoryResultPanel state={inventoryPanelState} isVisible={canViewInventory} />
-          <AiAssistantCard onInventoryStateChange={setInventoryPanelState} />
-        </aside>
-      </div>
 
       <DashboardNoticeFormModal
         error={noticeFormState.error}

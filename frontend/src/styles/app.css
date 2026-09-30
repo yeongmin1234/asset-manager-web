@@ -16278,3 +16278,27 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 .warehouse-picker-group:first-child > h4 {
   margin-top: 2px;
 }
+
+/* Main dashboard: compact cards and activity, without the assistant sidebar. */
+.dashboard-page { gap: 14px; }
+.dashboard-page .dashboard-hero-compact { box-shadow: none; gap: 16px; padding: 18px 22px; }
+.dashboard-page .dashboard-hero-compact h2 { margin: 2px 0 4px; }
+.dashboard-page .dashboard-quick-actions { max-width: none; }
+.dashboard-page .dashboard-quick-actions button { min-height: 36px; padding: 7px 12px; }
+.dashboard-page .dashboard-quick-actions .secondary-button { background: #fff !important; border: 1px solid #bfdbfe !important; box-shadow: none !important; color: #1d4ed8 !important; }
+.dashboard-page .dashboard-quick-actions .secondary-button:not(:disabled):hover { background: #eff6ff !important; border-color: #93c5fd !important; transform: none; }
+.dashboard-page .dashboard-summary-grid { align-items: stretch; gap: 12px; }
+.dashboard-page .dashboard-summary-card { box-shadow: none; height: 100%; min-height: 184px; padding: 14px; }
+.dashboard-page .dashboard-panel { box-shadow: none; }
+.dashboard-page .dashboard-card-heading { min-height: 29px; }
+.dashboard-page .dashboard-card-heading h3 { font-size: 1.08rem; }
+.dashboard-page .dashboard-card-heading .link-button { font-size: 0.85rem; min-height: 28px; min-width: 48px; padding: 3px 8px; text-align: center; }
+.dashboard-page .dashboard-summary-card dd,
+.dashboard-page .dashboard-summary-notice-count strong { font-size: 1.2rem; }
+.dashboard-page .dashboard-summary-notices { gap: 5px; margin-top: 10px; }
+.dashboard-page .dashboard-summary-notices li button { min-height: 32px; padding: 5px 8px; }
+.dashboard-page .dashboard-summary-notices li span { font-size: 0.86rem; }
+.dashboard-page .dashboard-summary-notices li small { font-size: 0.75rem; }
+.dashboard-page .dashboard-summary-notice-count span,
+.dashboard-page .dashboard-summary-notices p { font-size: 0.89rem; }
+.dashboard-page .dashboard-recent-panel { min-height: 0; width: 100%; }
