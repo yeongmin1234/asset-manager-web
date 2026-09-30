@@ -34,6 +34,7 @@ from app.services.recall_application_service import (
     bulk_change_recall_applications,
     change_recall_application_status,
     commit_recall_applications,
+    get_recall_application_detail,
     get_recall_summary,
     list_recall_applications,
 )
@@ -127,6 +128,49 @@ class RecallApplicationPhase3Test(unittest.TestCase):
         result = self.commit(content)
         self.assertEqual((result.registered, result.already_registered, self.count(RecallApplication)), (0, 1, 1))
         self.assertEqual(result.rows[0]["result"], "ALREADY_REGISTERED")
+        existing = self.db.scalar(select(RecallApplication))
+        self.assertTrue(existing.duplicate_registration_attempt)
+        self.assertEqual(existing.duplicate_registration_count, 1)
+        self.assertIsNotNone(existing.last_duplicate_registration_at)
+        first_attempt_at = existing.last_duplicate_registration_at
+        self.commit(content)
+        self.assertEqual(existing.duplicate_registration_count, 2)
+        self.assertGreaterEqual(existing.last_duplicate_registration_at, first_attempt_at)
+        self.assertEqual(existing.current_status, APPLICATION_RECEIVED)
+        self.assertFalse(existing.duplicate_flag)
+
+    def test_same_application_in_another_batch_tracks_retry_without_new_order(self):
+        self.commit(workbook(row()))
+        existing = self.db.scalar(select(RecallApplication))
+        original_order_status = existing.order_status
+        result = self.commit(workbook(row(), [None] * len(HEADERS)), filename="retry.xlsx")
+        self.assertEqual((result.registered, result.already_registered, self.count(RecallApplication)), (0, 1, 1))
+        self.assertEqual(result.rows[0]["application_id"], existing.id)
+        self.assertEqual(existing.last_duplicate_registration_batch_id, result.batch_id)
+        self.assertEqual(existing.order_status, original_order_status)
+        self.assertEqual(list_recall_applications(self.db, keyword=None, status="DUPLICATE_REGISTRATION",
+                                                 page=1, page_size=10)["total"], 1)
+        self.assertEqual(list_recall_applications(self.db, keyword=None, status=APPLICATION_RECEIVED,
+                                                 page=1, page_size=10)["total"], 1)
+        detail = get_recall_application_detail(self.db, existing.id)
+        self.assertTrue(detail["duplicate_registration_attempt"])
+        self.assertEqual(detail["duplicate_registration_count"], 1)
+        self.assertEqual(detail["last_duplicate_registration_batch_id"], result.batch_id)
+
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=1, username="tester", name="테스터", role="user", menu_permissions=["online_recall"]
+        )
+        app.dependency_overrides[get_db] = lambda: self.db
+        with TestClient(app) as client:
+            listing = client.get("/online/recall/applications", params={"status": "DUPLICATE_REGISTRATION"})
+            detail_response = client.get("/online/recall/applications/{}".format(existing.id))
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(listing.json()["total"], 1)
+        self.assertEqual(listing.json()["items"][0]["duplicate_registration_count"], 1)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.json()["last_duplicate_registration_batch_id"], result.batch_id)
 
     def test_08_same_customer_in_different_file_is_not_overwritten(self):
         self.commit(workbook(row()))

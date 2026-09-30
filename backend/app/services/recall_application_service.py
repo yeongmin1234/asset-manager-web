@@ -38,6 +38,21 @@ EDITABLE_FIELDS = (
     "memo", "serial_number", "lot_number", "pickup_agreement", "pickup_date",
     "replacement_shipping_agreement",
 )
+DUPLICATE_REGISTRATION_FILTER = "DUPLICATE_REGISTRATION"
+
+
+def _registration_identity(values):
+    """Only an identical application is a retry; shared phone/serial alone is not."""
+    if not (_serial_key(values.get("serial_number")) or _valid_phone(values.get("phone_normalized"))):
+        return None
+    return (
+        values.get("application_date"), values.get("quantity"),
+        values.get("customer_name"), values.get("phone_normalized"),
+        values.get("address"), values.get("memo"),
+        _serial_key(values.get("serial_number")), values.get("lot_number"),
+        values.get("pickup_agreement"), values.get("pickup_date"),
+        values.get("replacement_shipping_agreement"),
+    )
 
 
 class RecallEditValidationError(ValueError):
@@ -60,7 +75,9 @@ class CommitResult:
     matching: Optional[dict] = None
 
 
-def existing_application_records(db: Session) -> List[Dict[str, Any]]:
+def existing_application_records(db: Session, rows=None) -> List[Dict[str, Any]]:
+    if rows is None:
+        rows = db.scalars(select(RecallApplication).where(RecallApplication.is_deleted.is_(False))).all()
     return [
         {
             "id": row.id,
@@ -69,7 +86,7 @@ def existing_application_records(db: Session) -> List[Dict[str, Any]]:
             "phone_original": row.phone_original,
             "phone_normalized": row.phone_normalized,
         }
-        for row in db.scalars(select(RecallApplication).where(RecallApplication.is_deleted.is_(False))).all()
+        for row in rows
     ]
 
 
@@ -97,16 +114,27 @@ def commit_recall_applications(
     batch = db.scalar(
         select(RecallApplicationUploadBatch).where(RecallApplicationUploadBatch.source_sha256 == source_sha256)
     )
-    existing_batch_rows = set()
+    existing_batch_rows = {}
     if batch is not None:
-        existing_batch_rows = set(db.scalars(
-            select(RecallApplication.source_row_number).where(RecallApplication.upload_batch_id == batch.id)
-        ).all())
+        existing_batch_rows = {item.source_row_number: item for item in db.scalars(
+            select(RecallApplication).where(RecallApplication.upload_batch_id == batch.id)
+        ).all()}
+
+    existing_applications = list(db.scalars(
+        select(RecallApplication).where(RecallApplication.is_deleted.is_(False)).order_by(RecallApplication.id)
+    ).all())
+    existing_by_identity = {}
+    for item in existing_applications:
+        item_values = {field: getattr(item, field) for field in EDITABLE_FIELDS}
+        item_values["phone_normalized"] = item.phone_normalized
+        identity = _registration_identity(item_values)
+        if identity is not None:
+            existing_by_identity.setdefault(identity, item)
 
     preview = preview_recall_applications(
         file_bytes,
         source_filename=source_filename,
-        existing_records=existing_application_records(db),
+        existing_records=existing_application_records(db, existing_applications),
     )
     parsed_by_number = {row.raw_row_number: row for row in preview.rows}
     unknown = selected - set(parsed_by_number)
@@ -136,9 +164,18 @@ def commit_recall_applications(
 
         for row_number in sorted(selected):
             row = parsed_by_number[row_number]
-            if row_number in existing_batch_rows:
+            existing_application = existing_batch_rows.get(row_number)
+            if existing_application is None and row.status in {"valid", "review", "duplicate"}:
+                existing_application = existing_by_identity.get(_registration_identity(row.data))
+            if existing_application is not None:
+                if not existing_application.is_deleted:
+                    existing_application.duplicate_registration_attempt = True
+                    existing_application.duplicate_registration_count = int(existing_application.duplicate_registration_count or 0) + 1
+                    existing_application.last_duplicate_registration_at = datetime.now(timezone.utc)
+                    existing_application.last_duplicate_registration_batch_id = batch.id
                 already_registered += 1
-                results.append({"row_number": row_number, "result": "ALREADY_REGISTERED"})
+                results.append({"row_number": row_number, "result": "ALREADY_REGISTERED",
+                                "application_id": existing_application.id})
                 continue
             if row.status not in {"valid", "review", "duplicate"}:
                 rejected += 1
@@ -193,6 +230,9 @@ def commit_recall_applications(
             ))
             registered += 1
             registered_by_row[row_number] = application.id
+            identity = _registration_identity(data)
+            if identity is not None:
+                existing_by_identity.setdefault(identity, application)
             if duplicate_reason:
                 duplicate += 1
             elif row.status == "review":
@@ -228,7 +268,7 @@ def list_recall_applications(
     include_duplicates: bool = False,
 ) -> dict:
     conditions = [RecallApplication.is_deleted.is_(False)]
-    if not include_duplicates:
+    if not include_duplicates and status != DUPLICATE_REGISTRATION_FILTER:
         conditions.append(RecallApplication.duplicate_flag.is_(duplicate_only))
     if keyword and keyword.strip():
         search_text = keyword.strip()
@@ -243,7 +283,9 @@ def list_recall_applications(
             *phone_conditions,
             RecallApplication.serial_number.ilike(pattern),
         ))
-    if status:
+    if status == DUPLICATE_REGISTRATION_FILTER:
+        conditions.append(RecallApplication.duplicate_registration_attempt.is_(True))
+    elif status:
         conditions.append(RecallApplication.current_status == status)
 
     query = select(RecallApplication).where(*conditions)
@@ -495,6 +537,10 @@ def get_recall_application_detail(db: Session, application_id: int) -> Optional[
              "changed_by": item.changed_by, "changed_by_name": names.get(item.changed_by)}
             for item in duplicate_history
         ],
+        "duplicate_registration_attempt": application.duplicate_registration_attempt,
+        "duplicate_registration_count": application.duplicate_registration_count,
+        "last_duplicate_registration_at": application.last_duplicate_registration_at,
+        "last_duplicate_registration_batch_id": application.last_duplicate_registration_batch_id,
         "created_at": application.created_at,
         "created_by": application.created_by,
         "created_by_name": names.get(application.created_by),

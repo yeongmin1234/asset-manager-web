@@ -463,6 +463,17 @@
   margin: 3px auto 0;
   padding: 3px 5px;
 }
+.online-recall-registration-badge {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 4px;
+  color: #9a3412;
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 3px auto 0;
+  padding: 3px 5px;
+}
 
 .online-recall-table td.online-recall-empty {
   color: #64748b;
@@ -1102,7 +1113,8 @@ body.online-preview-column-resizing {
 .online-recall-page .online-order-status,
 .online-recall-page .online-target-match-badge { font-size: 0.84rem; padding: 4px 7px; }
 .online-recall-page .online-recall-review-badge,
-.online-recall-page .online-recall-duplicate-badge { font-size: 0.82rem; padding: 4px 6px; }
+.online-recall-page .online-recall-duplicate-badge,
+.online-recall-page .online-recall-registration-badge { font-size: 0.82rem; padding: 4px 6px; }
 .online-recall-page .online-recall-filters input,
 .online-recall-page .online-recall-filters select,
 .online-recall-page .online-target-filters input,
@@ -1126,6 +1138,11 @@ body.online-preview-column-resizing {
 .online-recall-page .online-target-pagination button { font-size: 0.89rem; min-height: 30px; }
 
 .online-recall-guide-modal { width: min(640px, 100%); }
+.online-recall-page .online-recall-actions .online-recall-guide-trigger { background: #fff !important; border: 1px solid #bfdbfe !important; color: #1d4ed8 !important; box-shadow: none; }
+.online-recall-page .online-recall-actions .online-recall-guide-trigger:hover { background: #eff6ff !important; }
+.online-recall-guide-modal .online-upload-header { align-items: center; display: flex; justify-content: space-between; }
+.online-recall-guide-modal .online-upload-header .online-recall-guide-close { background: #fff; border: 1px solid #dbe3ec; color: #475569; font-size: 1.2rem; height: 30px; line-height: 1; padding: 0; width: 30px; }
+.online-recall-guide-modal .online-upload-header .online-recall-guide-close:hover { background: #f8fafc; }
 .online-recall-guide-modal .online-upload-header h2 { font-size: 1.2rem; }
 .online-recall-guide-body { color: #334155; font-size: 0.94rem; overflow: auto; padding: 14px 20px 8px; text-align: left; }
 .online-recall-guide-steps { display: grid; gap: 9px; margin: 0; padding-left: 24px; }

@@ -208,6 +208,7 @@ async def commit_recall_application_excel(
             after_data={
                 "batch_id": result.batch_id,
                 "registered_count": result.registered,
+                "already_registered_count": result.already_registered,
                 "duplicate_count": result.duplicate,
                 "rejected_count": result.rejected,
                 "review_count": result.review,
@@ -265,6 +266,9 @@ def read_recall_applications(
                 "workflow_status": get_recall_workflow_status(db, item),
                 "review_reason_codes": get_recall_review_reason_codes(item),
                 "duplicate_flag": item.duplicate_flag,
+                "duplicate_registration_attempt": item.duplicate_registration_attempt,
+                "duplicate_registration_count": item.duplicate_registration_count,
+                "last_duplicate_registration_at": item.last_duplicate_registration_at,
                 "duplicate_reason": item.duplicate_reason,
                 "duplicate_reference_id": item.duplicate_reference_id,
                 "duplicate_resolution": item.duplicate_resolution,

@@ -18,6 +18,19 @@ function Field({ label, children, wide = false }) {
   return <div className={`online-detail-field${wide ? " online-detail-field-wide" : ""}`}><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
+export function RecallDuplicateRegistrationDetails({ detail }) {
+  if (!detail?.duplicate_registration_attempt) return null;
+  return <section className="online-detail-section">
+    <h3>중복 등록 시도</h3>
+    <dl className="online-detail-grid">
+      <Field label="중복 등록 시도 여부">있음</Field>
+      <Field label="중복 등록 시도 횟수">{detail.duplicate_registration_count}회</Field>
+      <Field label="마지막 중복 등록 시각">{formatRecallDateTime(detail.last_duplicate_registration_at)}</Field>
+      {detail.last_duplicate_registration_batch_id && <Field label="마지막 업로드 Batch">#{detail.last_duplicate_registration_batch_id}</Field>}
+    </dl>
+  </section>;
+}
+
 export function RecallRecoveryAction({ reason, onReasonChange, onSubmit, saving }) {
   return (
     <form className="online-detail-recovery-form" onSubmit={onSubmit}>
@@ -229,6 +242,7 @@ function RecallDetailModal({ applicationId, canEdit = false, onClose, onChanged 
               {error && <p className="online-detail-error" role="alert">{error}</p>}
               {message && <p className="online-detail-success" role="status">{message}</p>}
             </section>
+            <RecallDuplicateRegistrationDetails detail={detail} />
             <section className="online-detail-section">
               <h3>상태 이력</h3>
               {(detail.status_history || []).length === 0 ? <p className="online-detail-message">상태 이력이 없습니다.</p> :

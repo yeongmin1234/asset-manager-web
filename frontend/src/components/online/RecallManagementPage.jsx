@@ -202,6 +202,7 @@ function RecallManagementPage({ currentUser }) {
           <p>리콜 대상 고객의 접수, 주문, 발송 진행 상태를 관리합니다.</p>
         </div>
         <div className="online-recall-actions">
+          <button type="button" className="secondary-button online-recall-guide-trigger" onClick={() => setGuideOpen(true)}>사용설명서</button>
           <button type="button" className="secondary-button" onClick={() => setUploadMode("application")}>리콜 신청 데이터 등록</button>
           <button type="button" className="primary-action" onClick={() => setUploadMode("target")}>리콜 대상 등록</button>
         </div>
@@ -217,6 +218,7 @@ function RecallManagementPage({ currentUser }) {
       <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
         <RecallFilters
+          showRegistrationFilter={activeTab === "all" || activeTab === "applications"}
           values={filterValues}
           onChange={setFilterValues}
           onSearch={handleSearch}

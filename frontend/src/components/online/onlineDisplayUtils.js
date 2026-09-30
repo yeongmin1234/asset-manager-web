@@ -18,6 +18,7 @@ export const RECALL_STATUS_OPTIONS = [
 export const RECALL_FILTER_STATUS_OPTIONS = [
   ...RECALL_STATUS_OPTIONS,
   { value: "SHIPPED", label: "발송 완료" },
+  { value: "DUPLICATE_REGISTRATION", label: "중복 등록" },
 ];
 
 export function displayRecallStatus(value) {

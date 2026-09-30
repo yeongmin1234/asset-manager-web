@@ -1,7 +1,7 @@
 import React from "react";
 import { RECALL_FILTER_STATUS_OPTIONS } from "./onlineDisplayUtils.js";
 
-function RecallFilters({ values, onChange, onSearch, onReset, isLoading, onDelete, selectedCount = 0 }) {
+function RecallFilters({ values, onChange, onSearch, onReset, isLoading, onDelete, selectedCount = 0, showRegistrationFilter = false }) {
   const update = (key, value) => onChange({ ...values, [key]: value });
   return (
     <form className={`online-recall-filters${onDelete ? " online-recall-filters-with-delete" : ""}`} aria-label="리콜 검색 및 필터" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
@@ -14,7 +14,7 @@ function RecallFilters({ values, onChange, onSearch, onReset, isLoading, onDelet
       />
       <select value={values.status} onChange={(event) => update("status", event.target.value)} aria-label="상태 필터">
         <option value="">전체 상태</option>
-        {RECALL_FILTER_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        {RECALL_FILTER_STATUS_OPTIONS.filter((option) => showRegistrationFilter || option.value !== "DUPLICATE_REGISTRATION").map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
       <select value="" aria-label="채널 필터" disabled title="판매 채널 데이터 형식 확정 후 지원 예정">
         <option value="">전체 채널</option>

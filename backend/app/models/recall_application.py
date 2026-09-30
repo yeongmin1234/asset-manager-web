@@ -77,6 +77,12 @@ class RecallApplication(Base):
     duplicate_resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     duplicate_resolved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     duplicate_resolution: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    duplicate_registration_attempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    duplicate_registration_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_duplicate_registration_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_duplicate_registration_batch_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("recall_application_upload_batches.id", ondelete="SET NULL"), nullable=True
+    )
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

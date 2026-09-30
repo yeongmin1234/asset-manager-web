@@ -38,7 +38,7 @@ test("guide remains available when browser storage is blocked", () => {
   } finally { globalThis.window = previousWindow; }
 });
 
-test("recall entry selects targets and guide contains the five steps and optional dismissal", async () => {
+test("recall entry selects targets and offers the same six-step guide at any time", async () => {
   const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
   try {
     const { default: RecallManagementPage } = await vite.ssrLoadModule("/src/components/online/RecallManagementPage.jsx");
@@ -46,14 +46,20 @@ test("recall entry selects targets and guide contains the five steps and optiona
     const page = renderToStaticMarkup(React.createElement(RecallManagementPage, { currentUser: { role: "admin" } }));
     const nav = page.match(/<nav class="online-recall-tabs"[\s\S]*?<\/nav>/)?.[0] || "";
     assert.match(nav, /class="active" aria-current="page"[^>]*>리콜 대상<\/button>/);
+    const actions = page.match(/<div class="online-recall-actions">[\s\S]*?<\/div>/)?.[0] || "";
+    assert.match(actions, /사용설명서[\s\S]*리콜 신청 데이터 등록[\s\S]*리콜 대상 등록/);
     const guide = renderToStaticMarkup(React.createElement(RecallGuideModal, { onClose() {} }));
     assert.match(guide, /리콜 관리 사용 안내/);
-    for (const label of ["리콜 대상 등록", "리콜 신청 데이터 등록", "기존 데이터 매칭 실행", "중복 확인", "SCM 발주 대상", "업무 흐름", "앞으로 보지 않음"]) {
+    for (const label of ["리콜 대상 등록", "리콜 신청 데이터 등록", "자동 매칭", "중복 / 확인 필요 검토", "기존 데이터 매칭 실행", "SCM 발주 대상", "업무 흐름", "앞으로 보지 않음"]) {
       assert.match(guide, new RegExp(label));
     }
-    assert.equal((guide.match(/<li>/g) || []).length, 5);
+    assert.match(guide, /시리얼번호 1순위, 연락처 2순위/);
+    assert.match(guide, /아직 연결되지 않은 건을 다시 매칭합니다/);
+    assert.match(guide, /aria-label="사용 안내 닫기"/);
+    assert.equal((guide.match(/<li>/g) || []).length, 6);
     const source = readFileSync(new URL("../src/components/online/RecallManagementPage.jsx", import.meta.url), "utf8");
     assert.match(source, /setGuideOpen\(shouldShowRecallGuide\(\)\)/);
+    assert.match(source, /onClick=\{\(\) => setGuideOpen\(true\)\}>사용설명서/);
     assert.match(source, /if \(dontShowAgain\) saveRecallGuideDismissal\(\)/);
   } finally { await vite.close(); }
 });
