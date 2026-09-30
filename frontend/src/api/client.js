@@ -1171,6 +1171,30 @@ export async function getRecallTargetBatches() {
   return request("/online/recall/targets/batches", { timeoutMs: 10000 });
 }
 
+export async function getRecallMatchingSummary() {
+  return request("/online/recall/targets/matching/summary", { timeoutMs: 10000 });
+}
+
+export async function getRecallTargetChannels() {
+  return request("/online/recall/targets/matching/channels", { timeoutMs: 10000 });
+}
+
+export async function getRecallTargetDetail(targetId) {
+  return request(`/online/recall/targets/${targetId}`, { timeoutMs: 10000 });
+}
+
+export async function runRecallTargetMatching() {
+  return request("/online/recall/targets/matching/run", { method: "POST", timeoutMs: 60000 });
+}
+
+export async function manualMatchRecallTarget(targetId, applicationId) {
+  return request(`/online/recall/targets/${targetId}/match`, { method: "POST", body: { application_id: applicationId }, timeoutMs: 10000 });
+}
+
+export async function unmatchRecallTarget(targetId) {
+  return request(`/online/recall/targets/${targetId}/unmatch`, { method: "POST", timeoutMs: 10000 });
+}
+
 export async function commitRecallApplicationExcel(file, selectedRowNumbers) {
   const formData = new FormData();
   formData.append("file", file);

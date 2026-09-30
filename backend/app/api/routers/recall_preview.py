@@ -186,6 +186,14 @@ async def commit_recall_application_excel(
         except Exception as exc:
             raise HTTPException(status_code=500, detail="접수 데이터를 등록하지 못했습니다.") from exc
 
+        if result.registered:
+            record_audit_log(
+                db, request, current_user, action_type="auto_match", menu_key="online_recall",
+                menu_name="온라인 TEAM > 리콜 관리", target_type="recall_application_upload",
+                target_id=result.batch_id, target_name="신규 리콜 신청 자동 매칭",
+                action_summary="신규 리콜 신청 자동 매칭: batch_id={} 결과={}".format(result.batch_id, result.matching),
+                after_data={"batch_id": result.batch_id, **(result.matching or {})},
+            )
         record_audit_log(
             db, request, current_user,
             action_type="excel_import",

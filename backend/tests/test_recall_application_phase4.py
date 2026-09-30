@@ -21,6 +21,7 @@ from app.models.recall_application import (
     RecallDuplicateResolutionHistory,
 )
 from app.models.user import User
+from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
 from app.services.recall_application_service import (
     bulk_change_recall_applications, change_recall_application_status, commit_recall_applications,
     get_recall_application_detail,
@@ -32,7 +33,7 @@ from tests.test_recall_application_phase3 import row, workbook
 class RecallApplicationPhase4Test(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallStatusHistory.__table__, RecallDuplicateResolutionHistory.__table__):
+        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallTargetUploadBatch.__table__, RecallTarget.__table__, RecallStatusHistory.__table__, RecallDuplicateResolutionHistory.__table__):
             table.create(self.engine, checkfirst=True)
         self.db = Session(self.engine)
         self.db.add(User(id=1, username="operator", password_hash="test", name="담당자", role="user", menu_permissions=["online_recall"]))

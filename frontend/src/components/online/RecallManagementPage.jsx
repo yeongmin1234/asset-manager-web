@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary, getRecallTargetSummary, softDeleteRecallApplications } from "../../api/client.js";
+import { bulkChangeRecallApplications, getRecallApplications, getRecallMatchingSummary, softDeleteRecallApplications } from "../../api/client.js";
 import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
@@ -59,11 +59,10 @@ function RecallManagementPage({ currentUser }) {
     setIsLoading(true);
     setLoadError("");
     try {
-      const [listResult, summaryResult, targetSummary] = await Promise.all([
+      const [listResult, summaryResult] = await Promise.all([
         getRecallApplications({ ...filters, page: targetPage, page_size: targetPageSize,
           duplicate_only: tab === "duplicates", include_duplicates: tab === "all" }),
-        getRecallApplicationSummary(),
-        getRecallTargetSummary(),
+        getRecallMatchingSummary(),
       ]);
       if (requestId !== loadRequestId.current) return;
       setItems(listResult.items || []);
@@ -71,7 +70,7 @@ function RecallManagementPage({ currentUser }) {
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
       setTotal(listResult.total || 0);
       setTotalPages(listResult.total_pages || 1);
-      setSummary({ ...(summaryResult || EMPTY_SUMMARY), total_count: targetSummary.total_count, remaining_count: null });
+      setSummary(summaryResult || EMPTY_SUMMARY);
     } catch (caught) {
       if (requestId !== loadRequestId.current) return;
       setSelectedIds(new Set());
@@ -204,7 +203,7 @@ function RecallManagementPage({ currentUser }) {
         <button type="button" className={activeTab === "duplicates" ? "active" : ""} aria-current={activeTab === "duplicates" ? "page" : undefined} onClick={() => changeTab("duplicates")}>중복 확인</button>
         <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => changeTab("orders")}>SCM 발주 대상</button>
       </nav>
-      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : activeTab === "targets" ? <RecallTargetTab pageSize={pageSize} onPageSizeChange={handlePageSizeChange} refreshKey={refreshKey} /> : <>
+      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : activeTab === "targets" ? <RecallTargetTab pageSize={pageSize} onPageSizeChange={handlePageSizeChange} refreshKey={refreshKey} onApplicationDetail={setDetailId} /> : <>
       <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
         <RecallFilters

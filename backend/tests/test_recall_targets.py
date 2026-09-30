@@ -16,6 +16,7 @@ from app.api.routers.recall_targets import router
 from app.core.auth import get_current_user
 from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
+from app.models.recall_application import RecallApplication, RecallApplicationUploadBatch
 from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
 from app.models.user import User
 
@@ -42,7 +43,7 @@ def target(name="고객", phone="010-1234-5678", order="O-1", serial="S-1", addr
 class RecallTargetsTest(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallTargetUploadBatch.__table__, RecallTarget.__table__):
+        for table in (User.__table__, MenuVisibilitySetting.__table__, RecallApplicationUploadBatch.__table__, RecallApplication.__table__, RecallTargetUploadBatch.__table__, RecallTarget.__table__):
             table.create(self.engine)
         self.db = Session(self.engine)
         self.db.add(User(id=1, username="operator", password_hash="test", name="담당자", role="user", menu_permissions=["online_recall"]))

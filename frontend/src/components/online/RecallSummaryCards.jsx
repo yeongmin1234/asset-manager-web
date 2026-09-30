@@ -2,7 +2,7 @@ import React from "react";
 
 const SUMMARY_ITEMS = [
   { key: "total_count", label: "전체 대상", tone: "total" },
-  { key: "received_count", label: "접수완료", tone: "received" },
+  { key: "received_count", label: "신청 완료", tone: "received" },
   { key: "remaining_count", label: "잔여", tone: "remaining" },
   { key: "in_progress_count", label: "진행중", tone: "progress" },
   { key: "shipped_count", label: "발송완료", tone: "shipped" },
@@ -14,7 +14,7 @@ function RecallSummaryCards({ summary = {} }) {
       {SUMMARY_ITEMS.map(({ key, label, tone }) => (
         <div className="online-summary-card" data-tone={tone} key={key}>
           <span>{label}</span>
-          <strong>{key === "remaining_count" && summary[key] == null ? "—" : summary[key] ?? 0}</strong>
+          <strong>{summary[key] ?? 0}</strong>
         </div>
       ))}
     </section>

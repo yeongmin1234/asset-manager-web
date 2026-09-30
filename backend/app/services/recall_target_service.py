@@ -11,7 +11,9 @@ from openpyxl.utils.datetime import from_excel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.recall_application import RecallApplication
 from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
+from app.services.recall_target_matching import run_auto_matching
 
 
 HEADERS = {
@@ -179,10 +181,11 @@ def commit_targets(db: Session, file_bytes: bytes, filename: str, user_id: int) 
             db.add(target)
             db.flush()
             row_ids[row["raw_row_number"]] = target.id
+        matching = run_auto_matching(db, user_id=user_id, target_ids=list(row_ids.values())) if row_ids else {"matched": 0, "review": 0, "unmatched": 0}
         db.commit()
         return {"batch_id": batch.id, "registered": len(row_ids), "normal": counts["valid"],
                 "duplicate": counts["duplicate"], "review": counts["review"], "excluded": counts["excluded"],
-                "total": counts["total_rows"]}
+                "total": counts["total_rows"], "matching": matching}
     except Exception:
         db.rollback()
         raise
@@ -197,9 +200,11 @@ def target_summary(db: Session):
             "review_count": sum(count for _, review, count in rows if review)}
 
 
-def list_targets(db: Session, keyword: str, status: str, page: int, page_size: int):
+def list_targets(db: Session, keyword: str, status: str, page: int, page_size: int, match_status: str = ""):
     if status not in ("", "valid", "duplicate", "review"):
         raise ValueError("대상 상태 필터가 올바르지 않습니다.")
+    if match_status not in ("", "MATCHED", "UNMATCHED", "REVIEW"):
+        raise ValueError("신청 상태 필터가 올바르지 않습니다.")
     query = select(RecallTarget).where(RecallTarget.is_deleted.is_(False))
     if keyword:
         pattern = "%{}%".format(keyword.replace("%", "\\%").replace("_", "\\_"))
@@ -214,9 +219,20 @@ def list_targets(db: Session, keyword: str, status: str, page: int, page_size: i
         query = query.where(RecallTarget.duplicate_flag.is_(True))
     elif status == "review":
         query = query.where(RecallTarget.review_required.is_(True))
+    if match_status:
+        query = query.where(RecallTarget.match_status == match_status)
     total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
     items = db.scalars(query.order_by(RecallTarget.id.desc()).offset((page - 1) * page_size).limit(page_size)).all()
-    return {"items": [{column.name: getattr(item, column.name) for column in RecallTarget.__table__.columns} for item in items],
+    application_ids = [item.matched_application_id for item in items if item.matched_application_id]
+    applications = {item.id: item for item in db.scalars(select(RecallApplication).where(RecallApplication.id.in_(application_ids))).all()} if application_ids else {}
+    results = []
+    for item in items:
+        data = {column.name: getattr(item, column.name) for column in RecallTarget.__table__.columns}
+        application = applications.get(item.matched_application_id)
+        data["application_date"] = application.application_date if application else None
+        data["application_status"] = application.current_status if application else None
+        results.append(data)
+    return {"items": results,
             "total": total, "page": page, "page_size": page_size, "total_pages": max(1, math.ceil(total / page_size))}
 
 

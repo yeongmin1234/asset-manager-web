@@ -177,13 +177,19 @@
   font-size: 0.84rem;
   min-height: 34px;
   padding: 0 14px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .online-recall-tabs button.active {
-  color: #1d4ed8;
+  background: #2563eb;
+  border-color: #1d4ed8;
+  box-shadow: inset 0 -3px #1e40af, 0 2px 5px rgba(37, 99, 235, 0.16);
+  color: #fff;
   font-weight: 700;
-  box-shadow: inset 0 2px #2563eb;
 }
+
+.online-recall-tabs button:not(.active):hover { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+.online-recall-tabs button:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
 
 .online-order-summary {
   display: grid;
@@ -947,9 +953,45 @@ body.online-preview-column-resizing {
   }
 }
 .online-target-modal { width: min(1500px, 96vw); }
+.online-target-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.online-target-summary > div { min-height: 82px; align-content: center; }
+.online-target-summary strong { font-size: 1.55rem; line-height: 1.15; }
+.online-target-raw-summary [data-tone="total"] strong { color: #1f2937; }
+.online-target-raw-summary [data-tone="normal"] strong { color: #15803d; }
+.online-target-raw-summary [data-tone="duplicate"] strong { color: #dc2626; }
+.online-target-raw-summary [data-tone="review"] strong { color: #d97706; }
+.online-target-subtabs { border-bottom: 1px solid #dbe3ec; display: flex; gap: 6px; margin: 0 12px 12px; }
+.online-target-subtabs button { background: #fff; border: 1px solid #dbe3ec; border-bottom: 0; border-radius: 5px 5px 0 0; color: #475569; cursor: pointer; font-size: 0.83rem; min-height: 32px; padding: 0 12px; }
+.online-target-subtabs button.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; font-weight: 700; }
+.online-target-subtabs button:not(.active):hover { background: #f8fafc; }
 .online-target-table-wrap { overflow: auto; width: 100%; }
 .online-target-table { border-collapse: collapse; min-width: 1300px; width: 100%; }
-.online-target-table th, .online-target-table td { border-bottom: 1px solid #e8edf3; padding: 9px 12px; text-align: center; white-space: nowrap; }
+.online-target-table th, .online-target-table td { border-bottom: 1px solid #e8edf3; padding: 7px 10px; text-align: center; vertical-align: middle; white-space: nowrap; }
 .online-target-table th { background: #f8fafc; }
-.online-target-filters, .online-target-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; padding: 12px; }
-.online-target-filters input { min-width: 260px; }
+.online-target-cell-text { display: block; margin: 0 auto; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.online-target-filters, .online-target-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+.online-target-panel .online-target-filters input { flex: 1 1 280px; min-width: 240px; }
+.online-target-panel .online-target-filters select { flex: 0 0 145px; }
+.online-target-panel .online-target-filters button { flex: 0 0 auto; min-height: 32px; }
+.online-target-toolbar { justify-content: flex-end; }
+.online-target-toolbar > span:first-child { margin-right: auto; }
+.online-target-toolbar .online-recall-page-size { align-items: center; display: inline-flex; gap: 7px; white-space: nowrap; }
+.online-target-toolbar button { min-height: 32px; }
+.online-target-panel > .online-recall-list { margin: 0 12px 12px; }
+.online-target-detail { width: min(950px, 95vw); }
+.online-target-detail-body { overflow: auto; padding: 20px; }
+.online-target-detail-body dl { display: grid; gap: 8px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.online-target-detail-body dl > div { border-bottom: 1px solid #e8edf3; padding: 7px 0; }
+.online-target-detail-body dt { color: #64748b; font-size: 0.82rem; }
+.online-target-detail-body dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.online-target-detail-actions, .online-target-candidates { display: flex; gap: 10px; margin: 12px 0; }
+.online-target-candidates { flex-direction: column; max-height: 180px; overflow: auto; }
+.online-match-status-MATCHED { color: #2563eb; font-weight: 700; }
+.online-match-status-UNMATCHED { color: #64748b; }
+.online-match-status-REVIEW { color: #b45309; font-weight: 700; }
+@media (max-width: 800px) {
+  .online-target-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .online-target-summary { grid-template-columns: 1fr; }
+}

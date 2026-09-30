@@ -30,6 +30,7 @@ from app.services.recall_application_excel import (
     _index_existing, _serial_key, _valid_phone, _validate_values,
     preview_recall_applications, review_reason_codes,
 )
+from app.services.recall_target_matching import run_auto_matching
 
 
 EDITABLE_FIELDS = (
@@ -56,6 +57,7 @@ class CommitResult:
     normal: int = 0
     review: int = 0
     already_registered: int = 0
+    matching: Optional[dict] = None
 
 
 def existing_application_records(db: Session) -> List[Dict[str, Any]]:
@@ -202,6 +204,7 @@ def commit_recall_applications(
 
         batch.registered_count = int(batch.registered_count or 0) + registered
         batch_id = batch.id
+        matching = run_auto_matching(db, user_id=user_id) if registered else {"matched": 0, "review": 0, "unmatched": 0}
         db.commit()
     except Exception:
         db.rollback()
@@ -211,7 +214,7 @@ def commit_recall_applications(
         1 for row in preview.rows if row.status == "review" and row.raw_row_number not in selected
     )
     return CommitResult(batch_id, registered, duplicate, rejected, unselected_review, tuple(results),
-                        normal, review, already_registered)
+                        normal, review, already_registered, matching)
 
 
 def list_recall_applications(
