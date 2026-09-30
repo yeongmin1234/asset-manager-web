@@ -10,6 +10,8 @@ import RecallDetailModal from "./RecallDetailModal.jsx";
 import RecallOrderTab from "./RecallOrderTab.jsx";
 import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
 import RecallDeleteModal from "./RecallDeleteModal.jsx";
+import RecallGuideModal from "./RecallGuideModal.jsx";
+import { saveRecallGuideDismissal, shouldShowRecallGuide } from "./recallGuideStorage.js";
 import RecallPageSizeSelect, { readRecallPageSize, saveRecallPageSize } from "./RecallPageSizeSelect.jsx";
 import { isRecallBulkSelectable, nextRecallBulkStatus, recallTabSelectsAllRows } from "./onlineDisplayUtils.js";
 import "./online.css";
@@ -31,7 +33,8 @@ export function RecallBulkBar({ selectedCount, nextStatus, disabled, isBulkUpdat
 }
 
 function RecallManagementPage({ currentUser }) {
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("targets");
+  const [guideOpen, setGuideOpen] = useState(false);
   const [uploadMode, setUploadMode] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
@@ -53,6 +56,13 @@ function RecallManagementPage({ currentUser }) {
   const [loadError, setLoadError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const loadRequestId = useRef(0);
+
+  useEffect(() => { setGuideOpen(shouldShowRecallGuide()); }, []);
+
+  const closeGuide = (dontShowAgain) => {
+    if (dontShowAgain) saveRecallGuideDismissal();
+    setGuideOpen(false);
+  };
 
   const loadData = useCallback(async (targetPage, filters, tab, targetPageSize) => {
     const requestId = ++loadRequestId.current;
@@ -232,6 +242,7 @@ function RecallManagementPage({ currentUser }) {
       {uploadMode === "target" && <RecallTargetUploadModal onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
       {detailId !== null && <RecallDetailModal applicationId={detailId} canEdit={currentUser?.role === "admin" || (currentUser?.menu_permissions || []).includes("online_recall")} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
       {deleteOpen && <RecallDeleteModal count={selectedIds.size} saving={isDeleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={handleDelete} />}
+      {guideOpen && <RecallGuideModal onClose={closeGuide} />}
     </div>
   );
 }

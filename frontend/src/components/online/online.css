@@ -1124,3 +1124,19 @@ body.online-preview-column-resizing {
 .online-recall-page .online-target-pagination { font-size: 0.89rem; }
 .online-recall-page .online-recall-pagination button,
 .online-recall-page .online-target-pagination button { font-size: 0.89rem; min-height: 30px; }
+
+.online-recall-guide-modal { width: min(640px, 100%); }
+.online-recall-guide-modal .online-upload-header h2 { font-size: 1.2rem; }
+.online-recall-guide-body { color: #334155; font-size: 0.94rem; overflow: auto; padding: 14px 20px 8px; text-align: left; }
+.online-recall-guide-steps { display: grid; gap: 9px; margin: 0; padding-left: 24px; }
+.online-recall-guide-steps li { padding-left: 3px; }
+.online-recall-guide-steps li::marker { color: #2563eb; font-weight: 700; }
+.online-recall-guide-steps strong,
+.online-recall-guide-flow strong { color: #172033; }
+.online-recall-guide-steps p { line-height: 1.45; margin: 2px 0 0; }
+.online-recall-guide-flow { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-top: 14px; padding: 10px 12px; }
+.online-recall-guide-flow p { line-height: 1.55; margin: 4px 0 0; }
+.online-recall-guide-footer { border-top: 1px solid #e2e8f0; }
+.online-recall-guide-footer label { align-items: center; color: #475569; cursor: pointer; display: inline-flex; font-size: 0.9rem; gap: 7px; }
+.online-recall-guide-footer input { accent-color: #2563eb; height: 16px; margin: 0; width: 16px; }
+.online-recall-guide-footer button { min-height: 35px; padding: 0 18px; }
