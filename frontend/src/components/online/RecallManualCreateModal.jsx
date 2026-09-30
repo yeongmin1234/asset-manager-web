@@ -50,10 +50,12 @@ function RecallManualCreateModal({ onClose, onRegistered }) {
       <header className="online-upload-header"><h2 id="recall-manual-title">리콜 신청 직접 등록</h2></header>
       <div className="online-recall-manual-grid">
         {FIELDS.map(([key, label, type, required], index) => <label key={key}>
-          {label}{required && <span aria-hidden="true"> *</span>}
-          <input ref={index === 0 ? firstInput : undefined} type={type} min={type === "number" ? "1" : undefined}
-            value={values[key]} required={Boolean(required)} disabled={saving}
-            onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />
+          <span className="online-recall-manual-label">{label}{required && <span className="online-recall-manual-required" aria-hidden="true"> *</span>}</span>
+          {key === "memo" ? <textarea value={values[key]} disabled={saving}
+            onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} /> :
+            <input ref={index === 0 ? firstInput : undefined} type={type} min={type === "number" ? "1" : undefined}
+              value={values[key]} required={Boolean(required)} disabled={saving}
+              onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />}
         </label>)}
       </div>
       {error && <p className="online-recall-manual-error" role="alert">{error}</p>}

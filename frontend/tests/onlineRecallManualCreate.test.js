@@ -27,3 +27,15 @@ test("progressed recall deletion requires explicit history confirmation", () => 
   assert.match(source, /발주\/발송 이력이 보존됨을 확인했습니다/);
   assert.match(source, /삭제 사유/);
 });
+
+test("manual registration keeps required labels inline and gives memo a full-height textarea", () => {
+  const modal = readFileSync(new URL("../src/components/online/RecallManualCreateModal.jsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/components/online/online.css", import.meta.url), "utf8");
+  assert.match(modal, /<span className="online-recall-manual-label">\{label\}\{required && <span className="online-recall-manual-required"/);
+  assert.match(modal, /key === "memo" \? <textarea value=\{values\[key\]\}/);
+  assert.match(modal, /address", "주소지"[\s\S]*?memo", "메모"[\s\S]*?serial_number", "시리얼번호"/);
+  assert.match(css, /\.online-recall-manual-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.online-recall-manual-label \{ white-space: nowrap; \}/);
+  assert.match(css, /\.online-recall-manual-grid textarea \{ min-height: 104px; overflow-y: auto; resize: vertical; \}/);
+  assert.match(modal, /createRecallApplicationManually\(values\)/);
+});

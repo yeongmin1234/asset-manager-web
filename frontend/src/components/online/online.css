@@ -301,9 +301,12 @@
 .online-recall-delete-body .online-recall-delete-confirm { align-items: center; display: flex; gap: 8px; }
 .online-recall-manual-modal { width: min(720px, 100%); }
 .online-recall-manual-grid { display: grid; gap: 12px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: auto; padding: 16px 18px; }
-.online-recall-manual-grid label { color: #334155; display: grid; font-size: 0.86rem; font-weight: 700; gap: 5px; }
-.online-recall-manual-grid label span { color: #b42335; }
-.online-recall-manual-grid input { background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; color: #172033; font: inherit; min-width: 0; padding: 8px; }
+.online-recall-manual-grid label { align-self: start; color: #334155; display: grid; font-size: 0.86rem; font-weight: 700; gap: 5px; min-width: 0; }
+.online-recall-manual-label { white-space: nowrap; }
+.online-recall-manual-grid .online-recall-manual-required { color: #b42335; }
+.online-recall-manual-grid input,
+.online-recall-manual-grid textarea { background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; color: #172033; font: inherit; min-width: 0; padding: 8px; width: 100%; }
+.online-recall-manual-grid textarea { min-height: 104px; overflow-y: auto; resize: vertical; }
 .online-recall-manual-error { color: #b42335; margin: 0; padding: 0 18px 8px; }
 @media (max-width: 600px) { .online-recall-manual-grid { grid-template-columns: 1fr; } }
 
