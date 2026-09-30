@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary, softDeleteRecallApplications } from "../../api/client.js";
+import { bulkChangeRecallApplications, getRecallApplications, getRecallApplicationSummary, getRecallTargetSummary, softDeleteRecallApplications } from "../../api/client.js";
 import RecallFilters from "./RecallFilters.jsx";
 import RecallSummaryCards from "./RecallSummaryCards.jsx";
 import RecallTable from "./RecallTable.jsx";
 import RecallUploadModal from "./RecallUploadModal.jsx";
+import RecallTargetUploadModal from "./RecallTargetUploadModal.jsx";
+import RecallTargetTab from "./RecallTargetTab.jsx";
 import RecallDetailModal from "./RecallDetailModal.jsx";
 import RecallOrderTab from "./RecallOrderTab.jsx";
 import RecallDuplicateReview from "./RecallDuplicateReview.jsx";
@@ -57,10 +59,11 @@ function RecallManagementPage({ currentUser }) {
     setIsLoading(true);
     setLoadError("");
     try {
-      const [listResult, summaryResult] = await Promise.all([
+      const [listResult, summaryResult, targetSummary] = await Promise.all([
         getRecallApplications({ ...filters, page: targetPage, page_size: targetPageSize,
           duplicate_only: tab === "duplicates", include_duplicates: tab === "all" }),
         getRecallApplicationSummary(),
+        getRecallTargetSummary(),
       ]);
       if (requestId !== loadRequestId.current) return;
       setItems(listResult.items || []);
@@ -68,7 +71,7 @@ function RecallManagementPage({ currentUser }) {
       setSelectedIds((current) => new Set([...current].filter((id) => selectableIds.has(id))));
       setTotal(listResult.total || 0);
       setTotalPages(listResult.total_pages || 1);
-      setSummary(summaryResult || EMPTY_SUMMARY);
+      setSummary({ ...(summaryResult || EMPTY_SUMMARY), total_count: targetSummary.total_count, remaining_count: null });
     } catch (caught) {
       if (requestId !== loadRequestId.current) return;
       setSelectedIds(new Set());
@@ -78,7 +81,7 @@ function RecallManagementPage({ currentUser }) {
     }
   }, []);
 
-  useEffect(() => { if (activeTab !== "orders") loadData(page, appliedFilters, activeTab, pageSize); }, [loadData, page, appliedFilters, activeTab, pageSize, refreshKey]);
+  useEffect(() => { if (activeTab !== "orders" && activeTab !== "targets") loadData(page, appliedFilters, activeTab, pageSize); }, [loadData, page, appliedFilters, activeTab, pageSize, refreshKey]);
 
   const handlePageSizeChange = (value) => {
     setSelectedIds(new Set());
@@ -190,17 +193,18 @@ function RecallManagementPage({ currentUser }) {
           <p>리콜 대상 고객의 접수, 주문, 발송 진행 상태를 관리합니다.</p>
         </div>
         <div className="online-recall-actions">
-          <button type="button" className="secondary-button" onClick={() => setUploadMode("application")}>접수 데이터 등록</button>
+          <button type="button" className="secondary-button" onClick={() => setUploadMode("application")}>리콜 신청 데이터 등록</button>
           <button type="button" className="primary-action" onClick={() => setUploadMode("target")}>리콜 대상 등록</button>
         </div>
       </div>
       <nav className="online-recall-tabs" aria-label="리콜 관리 탭">
+        <button type="button" className={activeTab === "targets" ? "active" : ""} aria-current={activeTab === "targets" ? "page" : undefined} onClick={() => changeTab("targets")}>리콜 대상</button>
         <button type="button" className={activeTab === "all" ? "active" : ""} aria-current={activeTab === "all" ? "page" : undefined} onClick={() => changeTab("all")}>전체 목록</button>
         <button type="button" className={activeTab === "applications" ? "active" : ""} aria-current={activeTab === "applications" ? "page" : undefined} onClick={() => changeTab("applications")}>접수 목록</button>
         <button type="button" className={activeTab === "duplicates" ? "active" : ""} aria-current={activeTab === "duplicates" ? "page" : undefined} onClick={() => changeTab("duplicates")}>중복 확인</button>
         <button type="button" className={activeTab === "orders" ? "active" : ""} aria-current={activeTab === "orders" ? "page" : undefined} onClick={() => changeTab("orders")}>SCM 발주 대상</button>
       </nav>
-      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : <>
+      {activeTab === "orders" ? <RecallOrderTab isAdmin={currentUser?.role === "admin"} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} /> : activeTab === "targets" ? <RecallTargetTab pageSize={pageSize} onPageSizeChange={handlePageSizeChange} refreshKey={refreshKey} /> : <>
       <RecallSummaryCards summary={summary} />
       <section className="online-recall-list" aria-label="리콜 대상 목록">
         <RecallFilters
@@ -225,7 +229,8 @@ function RecallManagementPage({ currentUser }) {
         </div>
       </section>
       </>}
-      {uploadMode && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
+      {uploadMode === "application" && <RecallUploadModal mode={uploadMode} onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
+      {uploadMode === "target" && <RecallTargetUploadModal onClose={() => setUploadMode(null)} onRegistered={handleRegistered} />}
       {detailId !== null && <RecallDetailModal applicationId={detailId} canEdit={currentUser?.role === "admin" || (currentUser?.menu_permissions || []).includes("online_recall")} onClose={() => setDetailId(null)} onChanged={() => { setSelectedIds(new Set()); setRefreshKey((value) => value + 1); }} />}
       {deleteOpen && <RecallDeleteModal count={selectedIds.size} saving={isDeleting} error={deleteError} onClose={() => setDeleteOpen(false)} onConfirm={handleDelete} />}
     </div>

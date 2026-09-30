@@ -224,7 +224,7 @@ function RecallUploadModal({ mode, onClose, onRegistered }) {
       <section className="online-upload-modal" role="dialog" aria-modal="true" aria-labelledby="online-upload-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="online-upload-header">
           <div>
-            <h2 id="online-upload-title">{isApplication ? "접수 데이터 등록" : "리콜 대상 등록"}</h2>
+            <h2 id="online-upload-title">{isApplication ? "리콜 신청 데이터 등록" : "리콜 대상 등록"}</h2>
             {isApplication && <p>Excel 신청 데이터를 검증하고 등록 전 결과를 확인합니다.</p>}
           </div>
           <button type="button" className="secondary-button" onClick={onClose} disabled={isBusy} aria-label="닫기">닫기</button>

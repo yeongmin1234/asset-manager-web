@@ -946,3 +946,10 @@ body.online-preview-column-resizing {
     grid-column: auto;
   }
 }
+.online-target-modal { width: min(1500px, 96vw); }
+.online-target-table-wrap { overflow: auto; width: 100%; }
+.online-target-table { border-collapse: collapse; min-width: 1300px; width: 100%; }
+.online-target-table th, .online-target-table td { border-bottom: 1px solid #e8edf3; padding: 9px 12px; text-align: center; white-space: nowrap; }
+.online-target-table th { background: #f8fafc; }
+.online-target-filters, .online-target-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; padding: 12px; }
+.online-target-filters input { min-width: 260px; }

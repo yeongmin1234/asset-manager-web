@@ -14,7 +14,7 @@ function RecallSummaryCards({ summary = {} }) {
       {SUMMARY_ITEMS.map(({ key, label, tone }) => (
         <div className="online-summary-card" data-tone={tone} key={key}>
           <span>{label}</span>
-          <strong>{summary[key] ?? 0}</strong>
+          <strong>{key === "remaining_count" && summary[key] == null ? "—" : summary[key] ?? 0}</strong>
         </div>
       ))}
     </section>

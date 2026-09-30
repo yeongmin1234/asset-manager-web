@@ -43,6 +43,7 @@ from app.models.recall_application import (
     RecallOrderBatch,
     RecallDuplicateResolutionHistory,
 )
+from app.models.recall_target import RecallTarget, RecallTargetUploadBatch
 
 __all__ = [
     "Asset",
@@ -90,4 +91,6 @@ __all__ = [
     "RecallStatusHistory",
     "RecallOrderBatch",
     "RecallDuplicateResolutionHistory",
+    "RecallTarget",
+    "RecallTargetUploadBatch",
 ]

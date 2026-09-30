@@ -1147,6 +1147,30 @@ export async function previewRecallApplicationExcel(file) {
   return requestFormData("/online/recall/applications/preview", formData, { timeoutMs: 60000 });
 }
 
+export async function previewRecallTargetExcel(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestFormData("/online/recall/targets/preview", formData, { timeoutMs: 60000 });
+}
+
+export async function commitRecallTargetExcel(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestFormData("/online/recall/targets/commit", formData, { timeoutMs: 60000 });
+}
+
+export async function getRecallTargets(filters = {}) {
+  return request("/online/recall/targets", { query: filters, timeoutMs: 10000 });
+}
+
+export async function getRecallTargetSummary() {
+  return request("/online/recall/targets/summary", { timeoutMs: 10000 });
+}
+
+export async function getRecallTargetBatches() {
+  return request("/online/recall/targets/batches", { timeoutMs: 10000 });
+}
+
 export async function commitRecallApplicationExcel(file, selectedRowNumbers) {
   const formData = new FormData();
   formData.append("file", file);
