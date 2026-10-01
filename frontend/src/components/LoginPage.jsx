@@ -1,5 +1,6 @@
 import React, { Suspense, useState } from "react";
 import LoginClock from "./LoginClock.jsx";
+import ProductBrandMark from "./ProductBrandMark.jsx";
 
 const SAVED_USERNAME_KEY = "asset_manager_saved_username";
 const CUP_RIM = { x: 0.142, y: 0.774 };
@@ -44,6 +45,7 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
       <AtmosphereErrorBoundary>
         <Suspense fallback={null}><AutumnAtmosphere cupPosition={CUP_RIM} /></Suspense>
       </AtmosphereErrorBoundary>
+      <ProductBrandMark />
       <div className="login-company">
         <strong>The Limo &amp;</strong>
         <span className="login-company-divider" aria-hidden="true" />

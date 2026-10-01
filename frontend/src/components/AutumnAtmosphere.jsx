@@ -1,32 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { imagePointToScreen } from "./loginBackgroundLayout.js";
 
-const BACKGROUND_SIZE = { width: 1779, height: 884 };
+const LEAF_PALETTES = [
+  { center: [0.58, 0.23, 0.09], edge: [0.76, 0.34, 0.11] }, // burnt orange
+  { center: [0.43, 0.18, 0.10], edge: [0.64, 0.30, 0.15] }, // muted red-brown
+  { center: [0.56, 0.37, 0.12], edge: [0.72, 0.47, 0.17] }, // ochre
+];
 
-function imagePointToScreen(point, width, height) {
-  const scale = Math.max(width / BACKGROUND_SIZE.width, height / BACKGROUND_SIZE.height);
-  return {
-    x: (width - BACKGROUND_SIZE.width * scale) / 2 + point.x * BACKGROUND_SIZE.width * scale,
-    y: (height - BACKGROUND_SIZE.height * scale) / 2 + point.y * BACKGROUND_SIZE.height * scale,
-    scale,
-  };
-}
-
-function makeLeafGeometry() {
+function makeLeafGeometry(variant) {
+  const palette = LEAF_PALETTES[variant % LEAF_PALETTES.length];
   const positions = [0, 0, 0.6];
-  const colors = [0.57, 0.26, 0.11];
+  const colors = [...palette.center];
   const outline = [];
   const count = 40;
   for (let i = 0; i < count; i += 1) {
     const angle = (i / count) * Math.PI * 2;
-    const lobe = Math.pow(Math.max(0, Math.cos(angle * 5)), 3) * 0.24;
-    const notch = 0.035 * Math.sin(angle * 13 + 0.8);
+    const lobe = Math.pow(Math.max(0, Math.cos(angle * (variant ? 7 : 5))), 3) * (variant ? 0.19 : 0.24);
+    const notch = 0.035 * Math.sin(angle * (variant ? 17 : 13) + 0.8);
     const radius = (0.74 + lobe + notch) * (1 - 0.12 * Math.sin(angle));
-    const x = Math.sin(angle) * radius * 24;
-    const y = Math.cos(angle) * radius * 31;
+    const x = Math.sin(angle) * radius * (variant ? 20 : 24);
+    const y = Math.cos(angle) * radius * (variant ? 34 : 31);
     positions.push(x, y, 2.3 * Math.sin(angle * 2) + 3 * (x / 24) ** 2 + 1.8 * (y / 31) ** 2);
-    const shade = 0.82 + 0.14 * Math.sin(angle * 3.7) + 0.08 * Math.cos(angle * 9);
-    colors.push(0.66 * shade, 0.31 * shade, 0.13 * shade);
+    const shade = 0.82 + 0.11 * Math.sin(angle * 3.7 + variant) + 0.06 * Math.cos(angle * 9);
+    colors.push(...palette.edge.map((channel) => channel * shade));
     outline.push([x, y, positions[positions.length - 1]]);
   }
   const indices = [];
@@ -41,10 +38,12 @@ function makeLeafGeometry() {
 
 function makeLeaf(shape, index) {
   const group = new THREE.Group();
-  const material = new THREE.MeshStandardMaterial({
-    vertexColors: true, side: THREE.DoubleSide, roughness: 0.92, metalness: 0,
-  });
-  group.add(new THREE.Mesh(shape.geometry, material));
+  group.add(new THREE.Mesh(shape.geometry, new THREE.MeshStandardMaterial({
+    vertexColors: true, side: THREE.FrontSide, roughness: 0.92, metalness: 0,
+  })));
+  group.add(new THREE.Mesh(shape.geometry, new THREE.MeshStandardMaterial({
+    color: 0xbba996, vertexColors: true, side: THREE.BackSide, roughness: 0.96, metalness: 0,
+  })));
 
   const lines = [];
   const addLine = (a, b) => lines.push(...a, ...b);
@@ -69,7 +68,7 @@ function makeLeaf(shape, index) {
   shadow.scale.set(1.15, 0.65, 1);
   shadow.position.set(9, -11, -11);
   group.add(shadow);
-  group.userData = { index, seed: Math.random() * 100, speed: 23 + Math.random() * 17, side: index % 2 ? 1 : -1 };
+  group.userData = { seed: Math.random() * 100, speed: 23 + Math.random() * 17, side: index % 2 ? 1 : -1, nextGust: 0 };
   return group;
 }
 
@@ -153,8 +152,8 @@ export default function AutumnAtmosphere({ cupPosition = null }) {
     const sunlight = new THREE.DirectionalLight(0xffe5bd, 2.1);
     sunlight.position.set(-240, 240, 260);
     scene.add(sunlight);
-    const shape = makeLeafGeometry();
-    const leaves = [makeLeaf(shape, 0), makeLeaf(shape, 1)];
+    const shapes = [makeLeafGeometry(0), makeLeafGeometry(1)];
+    const leaves = shapes.map((shape, index) => makeLeaf(shape, index));
     leaves.forEach((leaf) => scene.add(leaf));
     const steam = makeSteam();
     scene.add(steam);
@@ -196,16 +195,31 @@ export default function AutumnAtmosphere({ cupPosition = null }) {
         if (!leaf.userData.initialized || leaf.position.y < -height / 2 - 55) {
           leaf.userData.initialized = true;
           leaf.position.y = height / 2 + 40 + Math.random() * 170 + index * 140;
-          leaf.position.x = data.side * (width * (0.34 + Math.random() * 0.11));
+          const zoneEdge = mobile ? width * 0.38 : Math.min(265, width * 0.35);
+          leaf.position.x = data.side * (zoneEdge + Math.random() * Math.max(1, width / 2 - zoneEdge - 25));
           data.seed = Math.random() * 100;
-          data.speed = 22 + Math.random() * 20;
+          data.speed = 22 + Math.random() * 19;
+          data.nextGust = time + 3 + Math.random() * 7;
+          data.rotationSpeed = data.side * (0.29 + Math.random() * 0.3);
+          data.fallPhase = Math.random() * Math.PI * 2;
         }
-        leaf.position.y -= data.speed * delta;
-        leaf.position.x += (Math.sin(time * 0.7 + data.seed) * 5 + data.side * Math.sin(time * 0.29 + data.seed) * 2) * delta;
+        if (time >= data.nextGust) {
+          data.gustStart = time;
+          data.gustDuration = 0.7 + Math.random() * 0.8;
+          data.gustDirection = Math.random() < 0.5 ? -1 : 1;
+          data.gustLift = data.speed * (1.2 + Math.random() * 0.55);
+          data.nextGust = time + 5 + Math.random() * 10;
+        }
+        const gustProgress = (time - (data.gustStart ?? -100)) / (data.gustDuration || 1);
+        const gust = gustProgress > 0 && gustProgress < 1 ? Math.sin(gustProgress * Math.PI) : 0;
+        leaf.position.y -= (data.speed * (0.95 + 0.12 * Math.sin(time * 0.47 + data.fallPhase)) - gust * (data.gustLift || 0)) * delta;
+        leaf.position.x += (Math.sin(time * 0.56 + data.seed) * 6 + Math.sin(time * 0.19 + data.seed * 2) * 4 + gust * data.gustDirection * 20) * delta;
+        const zoneEdge = mobile ? width * 0.38 : Math.min(265, width * 0.35);
+        leaf.position.x = data.side * Math.min(width / 2 - 14, Math.max(zoneEdge, Math.abs(leaf.position.x)));
         leaf.rotation.set(
-          Math.sin(time * 0.82 + data.seed) * 0.75,
-          time * (data.side * 0.47) + data.seed,
-          Math.sin(time * 0.48 + data.seed) * 0.38,
+          Math.sin(time * (0.67 + index * 0.16) + data.seed) * 0.75,
+          time * data.rotationSpeed + data.seed,
+          Math.sin(time * (0.4 + index * 0.12) + data.seed) * 0.38,
         );
         leaf.scale.setScalar((mobile ? 0.68 : 0.86) + index * 0.12);
       });
@@ -227,10 +241,10 @@ export default function AutumnAtmosphere({ cupPosition = null }) {
       document.removeEventListener("visibilitychange", updateVisibility);
       observer.disconnect();
       scene.traverse((object) => {
-        if (object.geometry && object.geometry !== shape.geometry) object.geometry.dispose();
+        if (object.geometry && !shapes.some((shape) => object.geometry === shape.geometry)) object.geometry.dispose();
         if (object.material) object.material.dispose();
       });
-      shape.geometry.dispose();
+      shapes.forEach((shape) => shape.geometry.dispose());
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();

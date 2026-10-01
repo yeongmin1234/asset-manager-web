@@ -9611,6 +9611,22 @@ button:disabled,
 
 .login-atmosphere { inset: 0; overflow: hidden; pointer-events: none; position: absolute; z-index: 1; }
 .login-atmosphere canvas { display: block; height: 100%; pointer-events: none; width: 100%; }
+.login-product-brand-layer { inset: 0; overflow: hidden; pointer-events: none; position: absolute; z-index: 1; }
+.login-product-brand {
+  color: #352d25;
+  display: block;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  position: absolute;
+  text-align: center;
+  transform: translate(-50%, -50%) scaleX(0.94);
+  white-space: nowrap;
+}
+.login-product-brand--lantern { opacity: 0.48; }
 .login-motion-toggle {
   background: #fbf8f2;
   border: 1px solid #e4d8ca;
