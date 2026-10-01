@@ -5,6 +5,18 @@ const SAVED_USERNAME_KEY = "asset_manager_saved_username";
 const CUP_RIM = { x: 0.142, y: 0.774 };
 const AutumnAtmosphere = React.lazy(() => import("./AutumnAtmosphere.jsx"));
 
+class AtmosphereErrorBoundary extends React.Component {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 
 function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
   const [initialSavedUsername] = useState(readSavedUsername);
@@ -29,7 +41,9 @@ function LoginPage({ error = "", isSubmitting = false, onSubmit }) {
 
   return (
     <main className="login-page">
-      <Suspense fallback={null}><AutumnAtmosphere cupPosition={CUP_RIM} /></Suspense>
+      <AtmosphereErrorBoundary>
+        <Suspense fallback={null}><AutumnAtmosphere cupPosition={CUP_RIM} /></Suspense>
+      </AtmosphereErrorBoundary>
       <div className="login-company">
         <strong>The Limo &amp;</strong>
         <span className="login-company-divider" aria-hidden="true" />
