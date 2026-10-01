@@ -13,6 +13,7 @@
     "@tsparticles/react": "^4.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "three": "^0.186.1",
     "tsparticles": "^4.3.2",
     "vite": "^7.0.0"
   }
