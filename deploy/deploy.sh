@@ -361,9 +361,10 @@ check_frontend_artifacts() {
     return 1
   fi
 
-  if grep -R -E "BALMUDA|app-splash|너의 목소리" "$dist_dir" >/dev/null 2>&1; then
+  # BALMUDA is also a current login product mark, so it cannot identify the removed intro.
+  if grep -R -E "app-splash|너의 목소리" "$dist_dir" >/dev/null 2>&1; then
     echo "FAIL Removed intro content remains in frontend/dist."
-    grep -R -l -E "BALMUDA|app-splash|너의 목소리" "$dist_dir" || true
+    grep -R -l -E "app-splash|너의 목소리" "$dist_dir" || true
     return 1
   fi
 
