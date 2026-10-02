@@ -19,6 +19,7 @@ export const MENU_ITEMS = [
   { id: "hr-list", label: "리스트", accessLabel: "인사업무 > 리스트", permissionLabel: "인사업무 리스트", icon: "♙", menuKey: "hr_list", permissionKey: "hr_list", routePath: "/hr/list", description: "직원별 시스템 계정 현황 메뉴" },
   { id: "online-home", label: "온라인 TEAM 홈", icon: "⌂", menuKey: "online_home", permissionKey: "online_home", routePath: "/online", description: "온라인 업무 시작 화면" },
   { id: "online-recall", label: "리콜 관리", icon: "▤", menuKey: "online_recall", permissionKey: "online_recall", routePath: "/online/recall", description: "리콜 접수와 진행 현황 관리 메뉴" },
+  { id: "online-order", label: "발주 관리", icon: "▤", menuKey: "online_order", permissionKey: "online_order", routePath: "/online/orders", description: "온라인 TEAM 발주 업무 관리 메뉴" },
   { id: "scm", label: "SCM", icon: "S", menuKey: "scm", permissionKey: null, routePath: "/scm", description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴" },
   { id: "users", label: "사용자 관리", icon: "♙", menuKey: "user_management", permissionKey: null, routePath: "/admin/users", description: "사용자와 접속기록 관리 메뉴" },
   { id: "settings", label: "설정", icon: "⚙", menuKey: "settings", permissionKey: null, routePath: "/settings", alwaysVisible: true },
@@ -28,7 +29,7 @@ export const MENU_GROUPS = [
   { title: "업무", itemIds: ["dashboard", "beverage-orders", "work-manuals", "vendor-contacts", "expiration_schedules"] },
   { title: "자산", itemIds: ["assets", "software", "vehicles", "excel", "stats", "history", "install-library", "scm", "access-info", "equipment-status", "paju-fire-insurance"] },
   { title: "인사업무", itemIds: ["hr-list"] },
-  { title: "온라인 TEAM", itemIds: ["online-home", "online-recall"] },
+  { title: "온라인 TEAM", itemIds: ["online-home", "online-recall", "online-order"] },
   { title: "관리", itemIds: ["users", "settings"] },
 ];
 

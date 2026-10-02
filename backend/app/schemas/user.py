@@ -22,6 +22,7 @@ ALLOWED_MENU_PERMISSIONS = {
     "hr_list",
     "online_home",
     "online_recall",
+    "online_order",
 }
 
 LEGACY_MENU_PERMISSION_MAP = {

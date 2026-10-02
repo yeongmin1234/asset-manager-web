@@ -43,6 +43,7 @@ import InstallLibraryPage from "./components/InstallLibraryPage.jsx";
 import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
 import OnlineTeamHomePage from "./components/online/OnlineTeamHomePage.jsx";
+import OrderManagementPage from "./components/online/OrderManagementPage.jsx";
 import RecallManagementPage from "./components/online/RecallManagementPage.jsx";
 import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
 import PortalSidebar, { MENU_ITEMS } from "./components/PortalSidebar.jsx";
@@ -963,6 +964,10 @@ function App({ currentUser, onLogout }) {
       return <RecallManagementPage currentUser={currentUser} />;
     }
 
+    if (activeSection === "online-order") {
+      return <OrderManagementPage />;
+    }
+
     if (activeSection === "beverage-orders") {
       return <BeverageOrderPage />;
     }
@@ -1421,6 +1426,7 @@ function mergeMenuVisibility(visibility = {}) {
     ...DEFAULT_MENU_VISIBILITY,
     online_home: visibility.online_home === true,
     online_recall: visibility.online_recall === true,
+    online_order: visibility.online_order === true,
     ...visibility,
   };
 }

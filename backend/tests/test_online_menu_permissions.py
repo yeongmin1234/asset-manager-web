@@ -43,18 +43,19 @@ class OnlineMenuPermissionTest(unittest.TestCase):
         self.assertEqual(payload.menu_permissions, ["dashboard", "assets"])
         self.assertNotIn("online_home", payload.menu_permissions)
         self.assertNotIn("online_recall", payload.menu_permissions)
+        self.assertNotIn("online_order", payload.menu_permissions)
 
     def test_online_permissions_save_and_reload_without_replacing_existing_keys(self):
         original = list(self.existing.menu_permissions)
         payload = UserUpdate(
             name=self.existing.name, role="user", is_active=True,
-            menu_permissions=original + ["online_home", "online_recall"],
+            menu_permissions=original + ["online_home", "online_recall", "online_order"],
         )
         with patch("app.api.routers.users.record_audit_log"):
             update_user(make_request(), self.existing.id, payload, self.db, self.admin)
         self.db.expire_all()
         persisted = self.db.get(User, self.existing.id)
-        self.assertEqual(persisted.menu_permissions, original + ["online_home", "online_recall"])
+        self.assertEqual(persisted.menu_permissions, original + ["online_home", "online_recall", "online_order"])
         self.assertEqual(normalize_menu_permissions(original), original)
 
     def test_new_user_can_be_created_with_selected_online_permission_only(self):

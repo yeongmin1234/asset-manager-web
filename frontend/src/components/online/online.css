@@ -40,6 +40,22 @@
   margin: 0;
 }
 
+.online-order-placeholder {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe5f1;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+}
+
+.online-order-placeholder p {
+  color: var(--text-muted, #64748b);
+  font-size: 0.84rem;
+  margin: 0;
+}
+
 .online-summary-grid {
   display: grid;
   gap: 10px;
