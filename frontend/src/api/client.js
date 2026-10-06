@@ -646,6 +646,18 @@ export async function downloadAssetsExcel(filters = {}, options = {}) {
   return requestDownload("/assets/export/excel", { query: filters, ...options });
 }
 
+export function getScmDashboard() {
+  return request("/scm/dashboard");
+}
+
+export function getScmActivity(query = {}) {
+  return request("/scm/activity", { query });
+}
+
+export function recordScmActivity(module, action) {
+  return request("/scm/activity", { method: "POST", body: { module, action } });
+}
+
 export async function downloadAssetImportTemplate(options = {}) {
   return requestDownload("/assets/import/template", options);
 }

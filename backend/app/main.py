@@ -31,6 +31,7 @@ from app.api.routers import (
     paju_fire_insurance,
     recall_preview,
     recall_targets,
+    scm_activity,
     server_operations,
     sidebar_menu_labels,
     software,
@@ -116,6 +117,7 @@ app.include_router(hr_accounts.router, dependencies=[Depends(require_menu_permis
 app.include_router(recall_preview.router)
 app.include_router(recall_targets.router)
 app.include_router(order_management.router)
+app.include_router(scm_activity.router)
 app.include_router(visitors.router, dependencies=authenticated_user)
 
 # Management and operational surfaces are admin-only.

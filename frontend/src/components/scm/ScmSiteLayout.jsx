@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { toScmInnerPath, toScmSitePath } from "./scmRoutes.js";
+import { getScmActivity, getScmDashboard, recordScmActivity } from "../../api/client.js";
 import "../../styles/scm-site.css";
 
 export default function ScmSiteLayout({ currentUser, path, onNavigateHome, onLogout, onNavigatePath }) {
@@ -22,6 +23,21 @@ export default function ScmSiteLayout({ currentUser, path, onNavigateHome, onLog
   useEffect(() => {
     const receiveNavigation = (event) => {
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
+      if (event.data?.type === "scm-activity:request") {
+        const { requestId, operation, payload } = event.data;
+        if (typeof requestId !== "string" || !/^[a-zA-Z0-9-]{1,80}$/.test(requestId)) return;
+        const operations = {
+          dashboard: () => getScmDashboard(),
+          list: () => getScmActivity(payload && typeof payload === "object" ? payload : {}),
+          record: () => recordScmActivity(payload?.module, payload?.action),
+        };
+        if (!Object.hasOwn(operations, operation)) return;
+        operations[operation]().then(
+          (data) => event.source?.postMessage({ type: "scm-activity:response", requestId, data }, event.origin),
+          (error) => event.source?.postMessage({ type: "scm-activity:response", requestId, error: error.message || "작업 기록을 불러오지 못했습니다." }, event.origin),
+        );
+        return;
+      }
       if (event.data?.type !== "scm-site:navigate" || typeof event.data.path !== "string") return;
       if (!event.data.path.startsWith("/") || event.data.path.startsWith("//")) return;
       onNavigatePath(toScmSitePath(event.data.path));

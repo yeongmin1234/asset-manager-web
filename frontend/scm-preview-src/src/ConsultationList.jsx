@@ -4,6 +4,7 @@ import { initialConsultations, initialCountLabels } from "./consultationMockData
 import MaskedText from "./components/common/MaskedText";
 import { StatusBadge } from "./components/common/CommonUI";
 import { usePermission } from "./hooks/usePermission";
+import { recordPreviewActivity } from "./services/activityBridge";
 
 const PAGE_SIZE = 20;
 const statuses = ["전체", "상담접수", "회신준비", "상담완료"];
@@ -63,6 +64,7 @@ export default function ConsultationList() {
     setCounts((current) => ({ ...current, 전체: current.전체 + 1, [form.status]: current[form.status] + 1 }));
     setStatus("전체"); setKeyword(""); setInput(""); setPage(1); setModalOpen(false);
     toast("신규 상담이 프론트 임시 데이터로 등록되었습니다.");
+    recordPreviewActivity("consultation", "create");
   }
 
   const columns = [

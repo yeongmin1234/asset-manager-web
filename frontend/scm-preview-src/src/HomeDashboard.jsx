@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AiAssistantPanel from "./AiAssistantPanel";
 import VipCustomerPanel from "./VipCustomerPanel";
-import { initialNotices } from "./noticeMockData";
-import { NoticeDetailModal } from "./NoticeModals";
+import { getRecentActivity } from "./services/activityBridge";
+import { actionLabels, formatActivityTime, moduleLabels } from "./activityPresentation";
 
 const summaries = [
   { title: "상담문의", path: "/consultations", items: [["상담접수", "0"], ["회신준비", "0"]] },
@@ -12,41 +12,43 @@ const summaries = [
 ];
 
 export default function HomeDashboard({ onNavigate }) {
-  const [notices, setNotices] = useState(initialNotices);
-  const [detail, setDetail] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [activityError, setActivityError] = useState("");
   const [toast, setToast] = useState("");
   const notice = (message) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2500);
   };
-  const openNotice = (item) => {
-    const updated = { ...item, views: item.views + 1 };
-    setNotices((current) => current.map((entry) => entry.id === item.id ? updated : entry));
-    setDetail(updated);
-  };
-  const sortedNotices = [...notices].sort(
-    (a, b) => Number(b.pinned) - Number(a.pinned) || b.date.localeCompare(a.date),
-  );
+  useEffect(() => {
+    let active = true;
+    const refresh = () => getRecentActivity().then(
+      (result) => { if (active) { setActivities(result.recent_activity || []); setActivityError(""); } },
+      (error) => { if (active) setActivityError(error.message); },
+    );
+    refresh();
+    const timer = window.setInterval(refresh, 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
 
   return (
     <section className="home-business-dashboard">
       <div className="home-dashboard-grid">
-        <section className="home-work-panel home-notice-panel">
-          <h2>사내 공지사항</h2>
+        <section className="home-work-panel home-notice-panel home-activity-panel">
+          <h2>최근 작업 기록</h2>
           <div className="home-table-scroll">
             <table>
-              <thead><tr><th>번호</th><th>등록일시</th><th>제목</th><th>작성자</th><th>읽음</th></tr></thead>
+              <thead><tr><th>시간</th><th>사용자</th><th>작업 내용</th><th>모듈</th><th>작업 유형</th></tr></thead>
               <tbody>
-                {sortedNotices.length ? sortedNotices.map((item) => (
-                  <tr key={item.id} className={item.pinned ? "pinned" : ""} onClick={() => openNotice(item)}>
-                    <td>{item.no}</td><td>{item.date}</td><td title={item.title}>{item.title}</td>
-                    <td>{item.author}</td><td>{item.views}</td>
+                {activities.length ? activities.map((item) => (
+                  <tr key={item.id}>
+                    <td>{formatActivityTime(item.created_at)}</td><td>{item.user_name}</td><td title={item.message}>{item.message}</td>
+                    <td>{moduleLabels[item.module] || item.module}</td><td>{actionLabels[item.action] || item.action}</td>
                   </tr>
-                )) : <tr><td className="home-empty" colSpan={5}>등록된 공지사항이 없습니다.</td></tr>}
+                )) : <tr><td className="home-empty" colSpan={5}>{activityError || "기록된 작업이 없습니다."}</td></tr>}
               </tbody>
             </table>
           </div>
-          <footer><button type="button" onClick={() => onNavigate("/notices")}>모두보기</button></footer>
+          <footer><button type="button" onClick={() => onNavigate("/activity")}>전체 이력 보기</button></footer>
         </section>
         <div className="home-dashboard-right">
           <VipCustomerPanel />
@@ -72,7 +74,6 @@ export default function HomeDashboard({ onNavigate }) {
           ))}
         </nav>
       </section>
-      {detail && <NoticeDetailModal notice={detail} onClose={() => setDetail(null)} />}
       {toast && <div className="product-toast">{toast}</div>}
     </section>
   );

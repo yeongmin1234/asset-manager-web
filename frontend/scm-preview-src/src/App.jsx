@@ -8,6 +8,7 @@ import SalesManagement from "./SalesManagement";
 import LogisticsManagement from "./LogisticsManagement";
 import NoticeManagement from "./NoticeManagement";
 import HomeBusinessDashboard from "./HomeDashboard";
+import ActivityHistory from "./ActivityHistory";
 import SettingsManagement from "./SettingsManagement";
 import { CustomerManagementPage, MemoSearchPage, NotFoundPage, OrderSupportPage } from "./pages/WorkspacePages";
 import { useAuth } from "./contexts/AuthContext";
@@ -556,6 +557,8 @@ function App() {
           <PermissionState disabled />
         ) : currentPath === "/" ? (
           <HomeBusinessDashboard onNavigate={(path) => handleNavigation({ preventDefault() {} }, path)} />
+        ) : currentPath === "/activity" ? (
+          <ActivityHistory />
         ) : isStoreManagement ? (
           <StoreManagement currentPath={currentPath} onNavigate={handleNavigation} />
         ) : isCustomerConsulting ? (

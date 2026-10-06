@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { recordPreviewActivity } from "./services/activityBridge";
 import {
   AsCreateModal,
   AsList,
@@ -162,6 +163,7 @@ function AsReception() {
       isNew: true,
     }, ...current]);
     setToast("상담이력이 임시 등록되었습니다.");
+    recordPreviewActivity("consultation", "create");
     window.setTimeout(() => setToast(""), 2500);
   }
 
@@ -307,11 +309,13 @@ export default function CustomerConsulting({ currentPath, onNavigate }) {
         setAsRecords((current) => [record, ...current]);
         setIsAsModalOpen(false);
         showWorkflowToast("신규 AS건이 임시 등록되었습니다.");
+        recordPreviewActivity("as", "create");
       }} />}
       {isSaleModalOpen && <SaleCreateModal onClose={() => setIsSaleModalOpen(false)} onCreate={(record) => {
         setSaleRecords((current) => [record, ...current]);
         setIsSaleModalOpen(false);
         showWorkflowToast("판매 데이터가 임시 등록되었습니다.");
+        recordPreviewActivity("sales", "create");
       }} />}
       {workflowToast && <div className="product-toast" role="status">{workflowToast}</div>}
     </section>

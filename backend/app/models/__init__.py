@@ -1,4 +1,5 @@
 from app.models.activity_log import SystemActivityLog
+from app.models.scm_activity_log import ScmActivityLog
 from app.models.audit_log import AuditLog
 from app.models.sidebar_menu_label import SidebarMenuLabel
 from app.models.admin_setting import AdminSetting
@@ -76,6 +77,7 @@ __all__ = [
     "NetworkCredentialImportance",
     "PajuFireInsuranceContract",
     "SystemActivityLog",
+    "ScmActivityLog",
     "SoftwareItem",
     "SoftwareLicenseType",
     "VendorContact",
