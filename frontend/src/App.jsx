@@ -44,6 +44,7 @@ import MonthlyStats from "./components/MonthlyStats.jsx";
 import NetworkStatusPage from "./components/NetworkStatusPage.jsx";
 import OnlineTeamHomePage from "./components/online/OnlineTeamHomePage.jsx";
 import OrderManagementPage from "./components/online/OrderManagementPage.jsx";
+import { isOrderManagementPath } from "./components/online/order-management/orderRoutes.js";
 import RecallManagementPage from "./components/online/RecallManagementPage.jsx";
 import PajuFireInsurancePage from "./components/PajuFireInsurancePage.jsx";
 import PortalSidebar, { MENU_ITEMS } from "./components/PortalSidebar.jsx";
@@ -216,7 +217,17 @@ function App({ currentUser, onLogout }) {
   const [selectedAssetId, setSelectedAssetId] = useState(null);
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [activeSection, setActiveSection] = useState(() => getSectionFromPath());
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
+  useEffect(() => {
+    const syncLocation = () => {
+      setCurrentPath(window.location.pathname);
+      setActiveSection(getSectionFromPath());
+      setAccessDeniedSection("");
+    };
+    window.addEventListener("popstate", syncLocation);
+    return () => window.removeEventListener("popstate", syncLocation);
+  }, []);
   useMenuAccessLog(activeSection, Boolean(currentUser) && !activeSection.startsWith("online-") && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
   useEffect(() => {
     let active = true;
@@ -671,7 +682,16 @@ function App({ currentUser, onLogout }) {
     if (typeof window !== "undefined") {
       const nextPath = MENU_ITEMS.find((item) => item.id === nextSection)?.routePath || "/";
       if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
+      setCurrentPath(nextPath);
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const navigateToOrderPath = (nextPath) => {
+    if (!isOrderManagementPath(nextPath) || !canAccessSection("online-order", menuVisibility, allowedSections, isAdmin)) return;
+    if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
+    setCurrentPath(nextPath);
+    setAccessDeniedSection("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -965,7 +985,7 @@ function App({ currentUser, onLogout }) {
     }
 
     if (activeSection === "online-order") {
-      return <OrderManagementPage />;
+      return <OrderManagementPage path={currentPath} onNavigate={navigateToOrderPath} currentUser={currentUser} />;
     }
 
     if (activeSection === "beverage-orders") {
@@ -1189,6 +1209,7 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "hr-list"
                 || activeSection === "online-home"
                 || activeSection === "online-recall"
+                || activeSection === "online-order"
                 || activeSection === "scm"
                 || activeSection === "users"
                 ? "portal-content portal-content-wide"
@@ -1197,7 +1218,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "scm" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "online-order" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
@@ -1416,6 +1437,7 @@ function formatNotificationDateTime(value) {
 
 function getSectionFromPath() {
   if (typeof window === "undefined") return "dashboard";
+  if (isOrderManagementPath(window.location.pathname)) return "online-order";
   if (window.location.pathname === "/network" || window.location.pathname === "/network-status") return "equipment-status";
   if (/^\/work-manuals\/\d+$/.test(window.location.pathname)) return "work-manuals";
   return MENU_ITEMS.find((item) => item.routePath === window.location.pathname)?.id || "dashboard";

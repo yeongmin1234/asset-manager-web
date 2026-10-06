@@ -1321,6 +1321,38 @@ export async function confirmRecallOrder(applicationId) {
   return request(`/online/recall/applications/orders/${applicationId}/confirm`, { method: "PATCH", timeoutMs: 10000 });
 }
 
+export function getOrderDashboard() {
+  return request("/online/orders/dashboard");
+}
+
+export function uploadOrderFile(formData) {
+  return requestFormData("/online/orders/upload", formData, { timeoutMs: 60000 });
+}
+
+export function processOrder(payload = {}) {
+  return request("/online/orders/process", { method: "POST", body: payload });
+}
+
+export function getOrderResult(resultId) {
+  return request(`/online/orders/result/${encodeURIComponent(resultId)}`);
+}
+
+export function getOrderMappings() {
+  return request("/online/orders/mappings");
+}
+
+export function saveOrderMappings(payload) {
+  return request("/online/orders/mappings", { method: "POST", body: payload });
+}
+
+export function getOrderHistory() {
+  return request("/online/orders/history");
+}
+
+export function getOrderSettings() {
+  return request("/online/orders/settings");
+}
+
 function getAuthHeaders() {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

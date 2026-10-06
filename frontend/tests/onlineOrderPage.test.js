@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 import { MENU_GROUPS, MENU_ITEMS_BY_ID } from "../src/config/menuDefinitions.js";
 import { canAccessSection, getAllowedSectionIds } from "../src/utils/menuPermissions.js";
+import { ORDER_MANAGEMENT_ROUTES, isOrderManagementPath } from "../src/components/online/order-management/orderRoutes.js";
 
 test("발주 관리 메뉴는 리콜 관리 다음에 있고 사용자 권한을 따른다", () => {
   const onlineGroup = MENU_GROUPS.find((group) => group.title === "온라인 TEAM");
@@ -26,14 +27,24 @@ test("발주 관리 페이지와 기존 온라인 페이지가 렌더링된다",
     const { default: OrderManagementPage } = await vite.ssrLoadModule("/src/components/online/OrderManagementPage.jsx");
     const { default: OnlineTeamHomePage } = await vite.ssrLoadModule("/src/components/online/OnlineTeamHomePage.jsx");
     const { default: RecallManagementPage } = await vite.ssrLoadModule("/src/components/online/RecallManagementPage.jsx");
-    const html = renderToStaticMarkup(React.createElement(OrderManagementPage));
-    assert.match(html, /발주 관리/);
-    assert.match(html, /준비 중/);
+    for (const route of ORDER_MANAGEMENT_ROUTES) {
+      const html = renderToStaticMarkup(React.createElement(OrderManagementPage, { path: route.path }));
+      assert.match(html, new RegExp(route.label));
+      assert.match(html, /준비 중/);
+      assert.equal(isOrderManagementPath(route.path), true);
+    }
+    assert.equal(isOrderManagementPath("/online/orders/unknown"), false);
+    const processHtml = renderToStaticMarkup(React.createElement(OrderManagementPage, { path: "/online/orders/process", currentUser: { name: "담당자" } }));
+    assert.match(processHtml, /스마트스토어/);
+    assert.match(processHtml, /담당자/);
+    assert.match(processHtml, /disabled/);
     assert.match(renderToStaticMarkup(React.createElement(OnlineTeamHomePage)), /온라인 TEAM/);
     assert.match(renderToStaticMarkup(React.createElement(RecallManagementPage)), /리콜 관리/);
 
     const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
-    assert.match(appSource, /activeSection === "online-order"[\s\S]*?return <OrderManagementPage \/>/);
+    assert.match(appSource, /activeSection === "online-order"[\s\S]*?return <OrderManagementPage/);
+    assert.match(appSource, /addEventListener\("popstate", syncLocation\)/);
+    assert.match(appSource, /isOrderManagementPath\(window\.location\.pathname\)/);
   } finally {
     await vite.close();
   }

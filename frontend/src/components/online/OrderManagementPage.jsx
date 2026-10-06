@@ -1,18 +1,30 @@
 import React from "react";
+import OrderManagementLayout from "./order-management/OrderManagementLayout.jsx";
+import OrderDashboardPage from "./order-management/OrderDashboardPage.jsx";
+import OrderProcessPage from "./order-management/OrderProcessPage.jsx";
+import OrderPreviewPage from "./order-management/OrderPreviewPage.jsx";
+import OrderMappingsPage from "./order-management/OrderMappingsPage.jsx";
+import OrderHistoryPage from "./order-management/OrderHistoryPage.jsx";
+import OrderSettingsPage from "./order-management/OrderSettingsPage.jsx";
+import { ORDER_MANAGEMENT_ROUTES } from "./order-management/orderRoutes.js";
 import "./online.css";
 
-function OrderManagementPage() {
+const PAGES = {
+  dashboard: OrderDashboardPage,
+  process: OrderProcessPage,
+  preview: OrderPreviewPage,
+  mappings: OrderMappingsPage,
+  history: OrderHistoryPage,
+  settings: OrderSettingsPage,
+};
+
+function OrderManagementPage({ path = "/online/orders", onNavigate = () => {}, currentUser }) {
+  const route = ORDER_MANAGEMENT_ROUTES.find((item) => item.path === path) || ORDER_MANAGEMENT_ROUTES[0];
+  const Page = PAGES[route.page];
   return (
-    <div className="online-page online-order-page">
-      <div className="portal-screen-heading">
-        <h2>발주 관리</h2>
-        <p>온라인 TEAM 발주 관련 업무를 관리합니다.</p>
-      </div>
-      <section className="online-order-placeholder" aria-label="발주 관리 안내">
-        <span className="online-pending-label">준비 중</span>
-        <p>상세 기능은 추후 업무 협의 후 추가될 예정입니다.</p>
-      </section>
-    </div>
+    <OrderManagementLayout path={route.path} onNavigate={onNavigate}>
+      <Page currentUser={currentUser} />
+    </OrderManagementLayout>
   );
 }
 
