@@ -31,10 +31,16 @@ class OrderManagementApiTest(unittest.TestCase):
         self.engine.dispose()
 
     def test_read_routes_and_admin_placeholders(self):
-        for path in ("dashboard", "result/1", "mappings", "history", "settings"):
+        for path in ("dashboard", "preview", "result/1", "mappings", "history", "settings"):
             response = self.client.get(f"/online/orders/{path}")
             self.assertEqual(response.status_code, 200, path)
             self.assertEqual(response.json()["status"], "ready")
+            if path == "dashboard":
+                self.assertEqual(response.json()["today_count"], 0)
+                self.assertEqual(response.json()["mapping_required_count"], 0)
+            if path in ("preview", "mappings", "history"):
+                self.assertEqual(response.json()["items"], [])
+                self.assertEqual(response.json()["total"], 0)
         self.assertEqual(self.client.post("/online/orders/process").status_code, 403)
         self.user.role = "admin"
         for path in ("upload", "process", "mappings"):
@@ -57,7 +63,7 @@ class OrderManagementApiTest(unittest.TestCase):
     def test_routes_register_once_in_application(self):
         from app.main import app
 
-        for path in ("dashboard", "upload", "process", "result/{result_id}", "history", "settings"):
+        for path in ("dashboard", "preview", "upload", "process", "result/{result_id}", "history", "settings"):
             full_path = f"/online/orders/{path}"
             self.assertEqual(sum(route.path == full_path for route in app.routes), 1, full_path)
         mapping_routes = [route for route in app.routes if route.path == "/online/orders/mappings"]

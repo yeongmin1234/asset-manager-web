@@ -1325,6 +1325,10 @@ export function getOrderDashboard() {
   return request("/online/orders/dashboard");
 }
 
+export function getOrderPreview() {
+  return request("/online/orders/preview");
+}
+
 export function uploadOrderFile(formData) {
   return requestFormData("/online/orders/upload", formData, { timeoutMs: 60000 });
 }
@@ -1344,6 +1348,8 @@ export function getOrderMappings() {
 export function saveOrderMappings(payload) {
   return request("/online/orders/mappings", { method: "POST", body: payload });
 }
+
+export const createOrderMapping = saveOrderMappings;
 
 export function getOrderHistory() {
   return request("/online/orders/history");

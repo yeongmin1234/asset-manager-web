@@ -8,8 +8,8 @@ from app.core.auth import get_current_user, require_admin
 from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.user import User
-from app.schemas.order_management import OrderManagementReady
-from app.services.order_management_service import ready_response
+from app.schemas.order_management import OrderDashboardResponse, OrderListResponse, OrderManagementReady
+from app.services.order_management_service import empty_dashboard, empty_list, ready_response
 
 
 def require_order_access(
@@ -33,9 +33,14 @@ router = APIRouter(
 )
 
 
-@router.get("/dashboard", response_model=OrderManagementReady)
-def get_dashboard() -> OrderManagementReady:
-    return ready_response()
+@router.get("/dashboard", response_model=OrderDashboardResponse)
+def get_dashboard() -> OrderDashboardResponse:
+    return empty_dashboard()
+
+
+@router.get("/preview", response_model=OrderListResponse)
+def get_preview() -> OrderListResponse:
+    return empty_list()
 
 
 @router.post("/upload", dependencies=[Depends(require_admin)])
@@ -53,9 +58,9 @@ def get_result(result_id: int) -> OrderManagementReady:
     return ready_response()
 
 
-@router.get("/mappings", response_model=OrderManagementReady)
-def get_mappings() -> OrderManagementReady:
-    return ready_response()
+@router.get("/mappings", response_model=OrderListResponse)
+def get_mappings() -> OrderListResponse:
+    return empty_list()
 
 
 @router.post("/mappings", dependencies=[Depends(require_admin)])
@@ -63,9 +68,9 @@ def save_mappings() -> None:
     raise HTTPException(status_code=501, detail="상품 매칭 수정 기능 준비 중")
 
 
-@router.get("/history", response_model=OrderManagementReady)
-def get_history() -> OrderManagementReady:
-    return ready_response()
+@router.get("/history", response_model=OrderListResponse)
+def get_history() -> OrderListResponse:
+    return empty_list()
 
 
 @router.get("/settings", response_model=OrderManagementReady)

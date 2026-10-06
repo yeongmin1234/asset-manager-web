@@ -103,6 +103,32 @@
 .online-order-steps { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding-left: 22px; }
 .online-order-steps li { font-size: 0.84rem; padding-right: 8px; }
 
+.online-order-stat-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.online-order-two-columns { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.online-order-empty { background: #f8fafc; border-radius: 6px; color: var(--text-muted, #64748b); margin: 0 !important; padding: 18px; }
+.online-order-upload-area { display: grid; gap: 8px; justify-items: center; }
+.online-order-upload-area label { color: var(--text-main, #172033); font-weight: 700; }
+.online-order-upload-area input { max-width: 100%; }
+.online-order-upload-area strong { color: var(--text-main, #172033); font-size: 0.84rem; }
+.online-order-panel .online-order-action-note { margin: 8px 0 0; }
+.online-order-toolbar-skeleton { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.online-order-toolbar-skeleton label { display: grid; font-size: 0.84rem; gap: 4px; }
+.online-order-toolbar-skeleton input, .online-order-toolbar-skeleton select { background: #f8fafc; border: 1px solid var(--border-soft, #e2e8f0); border-radius: 6px; font: inherit; min-height: 34px; padding: 6px 8px; }
+.online-order-toolbar-skeleton button { min-height: 34px; }
+.online-order-table-scroll { overflow-x: auto; }
+.online-order-skeleton-table { border-collapse: collapse; font-size: 0.84rem; min-width: 800px; width: 100%; }
+.online-order-skeleton-table th, .online-order-skeleton-table td { border-bottom: 1px solid var(--border-soft, #e2e8f0); padding: 10px; text-align: left; white-space: nowrap; }
+.online-order-skeleton-table th { background: #f8fafc; color: var(--text-main, #172033); }
+.online-order-skeleton-table .online-order-empty-cell { color: var(--text-muted, #64748b); padding: 28px 10px; text-align: center; }
+.online-order-setting-row { align-items: center; border-bottom: 1px solid var(--border-soft, #e2e8f0); display: flex; font-size: 0.84rem; justify-content: space-between; padding: 10px 0; }
+.online-order-setting-row:last-child { border-bottom: 0; }
+@media (max-width: 760px) {
+  .online-order-stat-grid, .online-order-two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .online-order-stat-grid, .online-order-two-columns { grid-template-columns: 1fr; }
+}
+
 .online-summary-grid {
   display: grid;
   gap: 10px;
