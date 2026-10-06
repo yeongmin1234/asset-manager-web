@@ -57,7 +57,7 @@ function OrderSettingsPage({ currentUser }) {
 
   return (
     <>
-      <section className="online-order-panel">
+      <section className="online-order-panel online-order-channel-settings">
         <div className="online-order-panel-heading online-order-channel-heading">
           <h3>채널 설정</h3>
           {isAdmin && <button type="button" className="secondary-button" onClick={() => openForm()}>+ 채널 추가</button>}

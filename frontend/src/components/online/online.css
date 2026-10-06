@@ -127,8 +127,15 @@
 .online-order-channel-table .secondary-button { min-height: 30px; }
 .online-order-channel-form { border-top: 1px solid var(--border-soft, #e2e8f0); margin-top: 16px; padding-top: 12px; }
 .online-order-channel-form h4 { margin: 0 0 12px; }
-.online-order-channel-checks, .online-order-channel-actions { display: flex; gap: 16px; margin-top: 12px; }
-.online-order-channel-checks label { align-items: center; display: flex; gap: 6px; }
+.online-order-channel-checks, .online-order-channel-actions { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 12px; }
+.online-order-channel-settings .online-order-channel-checks label { align-items: center; display: inline-flex; flex-direction: row; gap: 8px; white-space: nowrap; }
+.online-order-channel-settings .online-order-channel-checks input[type="checkbox"] { accent-color: #111; flex: 0 0 auto; height: 16px; margin: 0; width: 16px; }
+.online-order-channel-settings .primary-action,
+.online-order-channel-settings .secondary-button { background: #111 !important; border-color: #111 !important; box-shadow: none; color: #fff !important; }
+.online-order-channel-settings .primary-action:not(:disabled):hover,
+.online-order-channel-settings .secondary-button:not(:disabled):hover { background: #2b2b2b !important; border-color: #2b2b2b !important; box-shadow: none; color: #fff !important; }
+.online-order-channel-settings .primary-action:disabled,
+.online-order-channel-settings .secondary-button:disabled { background: #e5e7eb !important; border-color: #d1d5db !important; color: #6b7280 !important; opacity: 1; }
 .online-order-channel-error { color: #b91c1c !important; }
 .online-order-channel-notice { color: #92400e !important; }
 @media (max-width: 760px) {
