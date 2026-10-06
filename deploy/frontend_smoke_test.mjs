@@ -3,7 +3,6 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 const requireFromFrontend = createRequire(new URL("../frontend/package.json", import.meta.url));
-const { chromium } = requireFromFrontend("playwright-core");
 const args = process.argv.slice(2);
 const checkBrowserOnly = args.includes("--check-browser");
 const urlArg = args.indexOf("--url");
@@ -41,8 +40,11 @@ async function main() {
   console.log("== Frontend browser smoke test ==");
   const executablePath = cdpUrl ? null : browserPath();
   if (!cdpUrl && !executablePath) {
-    throw new Error("Chromium/Chrome executable missing. Set FRONTEND_SMOKE_BROWSER_PATH to an installed browser.");
+    const error = new Error("Chromium/Chrome executable missing. Set FRONTEND_SMOKE_BROWSER_PATH to an installed browser.");
+    error.exitCode = 2;
+    throw error;
   }
+  const { chromium } = requireFromFrontend("playwright-core");
   console.log(`OK Browser: ${cdpUrl ? "remote Chromium via CDP" : executablePath}`);
   const openBrowser = () => cdpUrl
     ? chromium.connectOverCDP(cdpUrl, { timeout: timeoutMs })
@@ -120,5 +122,5 @@ async function main() {
 
 main().catch((error) => {
   console.error(`FAIL Frontend browser smoke test\n${error.message}\nFrontend deployment validation failed.`);
-  process.exitCode = 1;
+  process.exitCode = error.exitCode || 1;
 });

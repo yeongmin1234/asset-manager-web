@@ -40,6 +40,8 @@ CANDIDATE_CREATED=false
 PREVIOUS_DIST=""
 DEPLOY_STAGE="PRECHECK"
 DEPLOY_REASON="See the failed stage in the deploy log."
+BROWSER_SMOKE_STATUS="NOT RUN"
+BROWSER_SMOKE_AVAILABLE=false
 trap 'rm -f "$TMP_LOG" "$BUILD_LOG" "$PULL_LOG"; if [ "$CANDIDATE_CREATED" = true ] && [ -d "$CANDIDATE_DIST" ]; then rm -rf -- "$CANDIDATE_DIST"; fi' EXIT
 
 git_status_without_generated_dist() {
@@ -126,7 +128,9 @@ rollback_frontend() {
     PREVIOUS_DIST=""
     "$ROOT_DIR/deploy/start_frontend.sh" || return 1
     check_http_200 "Restored frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/" || return 1
-    run_frontend_browser_smoke || return 1
+    if [ "$BROWSER_SMOKE_AVAILABLE" = true ]; then
+      run_frontend_browser_smoke || return 1
+    fi
     echo "Previous frontend restored successfully."
   else
     echo "Previous frontend dist is unavailable; cannot restart it."
@@ -145,6 +149,29 @@ run_frontend_browser_smoke() {
   "$FRONTEND_SMOKE_NODE" "$ROOT_DIR/deploy/frontend_smoke_test.mjs" --url "${FRONTEND_SMOKE_URL:-http://127.0.0.1:${FRONTEND_PORT:-3010}/}"
 }
 
+check_frontend_browser_availability() {
+  browser_log="$LOG_DIR/frontend-browser-precheck.$$.tmp"
+  if "$FRONTEND_SMOKE_NODE" "$ROOT_DIR/deploy/frontend_smoke_test.mjs" --check-browser > "$browser_log" 2>&1; then
+    cat "$browser_log"
+    rm -f "$browser_log"
+    BROWSER_SMOKE_AVAILABLE=true
+    return 0
+  else
+    browser_status=$?
+  fi
+  if [ "$browser_status" -eq 2 ]; then
+    echo "WARNING Browser smoke test skipped: Chromium/Chrome is not installed on this NAS."
+    BROWSER_SMOKE_STATUS="SKIPPED (browser unavailable)"
+    rm -f "$browser_log"
+    return 0
+  fi
+  cat "$browser_log"
+  rm -f "$browser_log"
+  BROWSER_SMOKE_STATUS="FAIL"
+  echo "FAIL Headless browser precheck failed for a reason other than a missing executable."
+  return 1
+}
+
 report_deploy_result() {
   echo "========================================"
   if [ "$DEPLOY_STATUS" -eq 0 ]; then
@@ -154,13 +181,14 @@ report_deploy_result() {
     echo "Backend ${BACKEND_PORT:-8010}: OK"
     echo "Frontend PID: $(cat "$LOG_DIR/frontend.pid" 2>/dev/null || echo missing)"
     echo "Frontend ${FRONTEND_PORT:-3010}: OK"
-    echo "Frontend browser: OK"
+    echo "Browser Smoke Test: $BROWSER_SMOKE_STATUS"
     echo "Database: OK"
     echo "Frontend bundle: $(get_frontend_bundle "$ROOT_DIR/frontend/dist/index.html")"
   else
     echo "DEPLOY FAILED"
     echo "Stage: $DEPLOY_STAGE"
     echo "Reason: $DEPLOY_REASON"
+    echo "Browser Smoke Test: $BROWSER_SMOKE_STATUS"
     if check_http_200 "Current frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/"; then
       echo "Current frontend: RUNNING"
     else
@@ -248,6 +276,11 @@ get_frontend_bundle() {
   sed -n 's/.*src="\/\(assets\/index-[^"]*\.js\)".*/\1/p' "$index_file" | head -n 1
 }
 
+get_frontend_css() {
+  index_file="$1"
+  sed -n 's/.*href="\/\(assets\/index-[^"]*\.css\)".*/\1/p' "$index_file" | head -n 1
+}
+
 validate_project_root() {
   if [ ! -f "$ROOT_DIR/frontend/package.json" ] ||
      [ ! -f "$ROOT_DIR/backend/app/main.py" ]; then
@@ -328,8 +361,13 @@ verify_frontend_bundle() {
   frontend_port="${FRONTEND_PORT:-3010}"
   expected_index="$ROOT_DIR/frontend/dist/index.html"
   expected_bundle="$(get_frontend_bundle "$expected_index")"
+  expected_css="$(get_frontend_css "$expected_index")"
   if [ -z "$expected_bundle" ]; then
     echo "Cannot find built frontend JS bundle in $expected_index"
+    return 1
+  fi
+  if [ -z "$expected_css" ]; then
+    echo "Cannot find built frontend CSS bundle in $expected_index"
     return 1
   fi
 
@@ -342,16 +380,22 @@ verify_frontend_bundle() {
   fi
 
   served_bundle="$(get_frontend_bundle "$served_index")"
+  served_css="$(get_frontend_css "$served_index")"
   echo "Built frontend bundle:  $expected_bundle"
   echo "Served frontend bundle: $served_bundle"
+  echo "Built frontend CSS:  $expected_css"
+  echo "Served frontend CSS: $served_css"
 
-  if [ -n "$served_bundle" ] && [ "$expected_bundle" = "$served_bundle" ]; then
+  if [ -n "$served_bundle" ] && [ "$expected_bundle" = "$served_bundle" ] &&
+     [ -n "$served_css" ] && [ "$expected_css" = "$served_css" ]; then
     echo "OK  Frontend served bundle $expected_bundle"
     rm -f "$served_index"
+    check_http_200 "Frontend JS bundle" "$served_url$expected_bundle" || return 1
+    check_http_200 "Frontend CSS bundle" "$served_url$expected_css" || return 1
     return 0
   fi
 
-  echo "FAIL Frontend served index does not reference built bundle $expected_bundle"
+  echo "FAIL Frontend served index does not reference built JS/CSS bundles."
   echo "Frontend pid: $(cat "$LOG_DIR/frontend.pid" 2>/dev/null || echo missing)"
   echo "Frontend dist: $ROOT_DIR/frontend/dist"
   echo "Current commit: $(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
@@ -364,14 +408,19 @@ verify_frontend_bundle() {
 check_frontend_artifacts() {
   dist_dir="${1:-$ROOT_DIR/frontend/dist}"
   index_file="$dist_dir/index.html"
-  if [ ! -f "$index_file" ]; then
+  if [ ! -s "$index_file" ]; then
     echo "FAIL Missing frontend build index: $index_file"
     return 1
   fi
 
   bundle="$(get_frontend_bundle "$index_file")"
-  if [ -z "$bundle" ] || [ ! -f "$dist_dir/$bundle" ]; then
+  if [ -z "$bundle" ] || [ ! -s "$dist_dir/$bundle" ]; then
     echo "FAIL Missing frontend JS bundle referenced by $index_file: $bundle"
+    return 1
+  fi
+  css_bundle="$(get_frontend_css "$index_file")"
+  if [ -z "$css_bundle" ] || [ ! -s "$dist_dir/$css_bundle" ]; then
+    echo "FAIL Missing frontend CSS bundle referenced by $index_file: $css_bundle"
     return 1
   fi
 
@@ -396,6 +445,7 @@ check_frontend_artifacts() {
 
   echo "OK  Frontend artifact checks"
   echo "Built frontend bundle: $bundle"
+  echo "Built frontend CSS: $css_bundle"
 }
 
 restore_package_lock_if_only_dirty() {
@@ -525,7 +575,7 @@ run_deploy() {
   DEPLOY_REASON="Frontend candidate build or artifact validation failed."
   cd "$ROOT_DIR/frontend"
   if [ -f "package-lock.json" ]; then
-    npm ci --include=optional || return 1
+    npm ci --include=optional --include=dev || return 1
 
     restore_package_lock_if_only_dirty \
       "Checking for package-lock changes after npm ci." || return 1
@@ -546,8 +596,8 @@ run_deploy() {
 
   echo "== Frontend browser prerequisite =="
   DEPLOY_STAGE="FRONTEND_BROWSER_PRECHECK"
-  DEPLOY_REASON="Headless Chromium is unavailable; frontend and backend were not restarted."
-  "$FRONTEND_SMOKE_NODE" "$ROOT_DIR/deploy/frontend_smoke_test.mjs" --check-browser || return 1
+  DEPLOY_REASON="Headless Chromium precheck failed; frontend and backend were not restarted."
+  check_frontend_browser_availability || return 1
 
   echo "== Stop backend (frontend remains online) =="
   DEPLOY_STAGE="STOP_BACKEND"
@@ -612,9 +662,15 @@ run_deploy() {
   echo "== Frontend browser smoke test =="
   DEPLOY_STAGE="FRONTEND_BROWSER_SMOKE"
   DEPLOY_REASON="Frontend did not render correctly in headless Chromium."
-  if ! run_frontend_browser_smoke; then
-    rollback_frontend_or_report
-    return 1
+  if [ "$BROWSER_SMOKE_AVAILABLE" = true ]; then
+    if ! run_frontend_browser_smoke; then
+      BROWSER_SMOKE_STATUS="FAIL"
+      rollback_frontend_or_report
+      return 1
+    fi
+    BROWSER_SMOKE_STATUS="PASS"
+  else
+    echo "Browser Smoke Test: SKIPPED (browser unavailable)"
   fi
 
   echo "== Direct endpoint check =="

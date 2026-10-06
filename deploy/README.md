@@ -37,9 +37,11 @@ chmod +x deploy/*.sh
 
 ## 프론트엔드 브라우저 검증
 
-`full_deploy.sh`는 기존 HTTP·bundle·backend 검사 후 `frontend_smoke_test.mjs`를 실행합니다. 로그인 폼 또는 앱 화면이 실제로 렌더링되고 JavaScript 오류와 핵심 JS/CSS 로딩 실패가 없는 경우에만 배포가 성공합니다. 검사 실패 시 이전 `dist`를 복원하고 브라우저 검사를 다시 실행합니다.
+`full_deploy.sh`는 기존 HTTP·bundle·backend 검사 후 브라우저가 있으면 `frontend_smoke_test.mjs`를 실행합니다. 로그인 폼 또는 앱 화면이 렌더링되고 JavaScript 오류와 핵심 JS/CSS 로딩 실패가 없는 경우 `PASS`입니다. 브라우저 검사 실패 시 이전 `dist`를 복원하고 재검사합니다.
 
-NAS에 Chromium/Chrome이 설치되어 있다면 `FRONTEND_SMOKE_BROWSER_PATH`로 실행 파일을 지정할 수 있습니다. NAS에서 브라우저를 실행할 수 없다면 내부 테스트 PC의 Chrome CDP 주소를 `FRONTEND_SMOKE_CDP_URL`로, 그 PC에서 접근 가능한 프론트엔드 주소를 `FRONTEND_SMOKE_URL`로 설정합니다. 브라우저 사전 검사가 실패하면 서비스 중지 전에 배포를 멈춥니다.
+NAS에 Chromium/Chrome 실행 파일이 없다면 `SKIPPED (browser unavailable)` 경고 후 배포를 계속합니다. 이 경우에도 build 파일의 JS·CSS 존재 및 크기, 운영 HTTP 200, 운영 index의 JS·CSS 참조 일치, 각 JS·CSS URL의 HTTP 200이 필수입니다. 브라우저 실행 파일은 있지만 실행에 실패하면 배포를 중단합니다.
+
+브라우저 검사를 사용하려면 `FRONTEND_SMOKE_BROWSER_PATH`에 실행 파일을 지정할 수 있습니다. NAS에서 브라우저를 실행할 수 없다면 내부 테스트 PC의 Chrome CDP 주소를 `FRONTEND_SMOKE_CDP_URL`로, 그 PC에서 접근 가능한 프론트엔드 주소를 `FRONTEND_SMOKE_URL`로 설정합니다.
 
 개발 PC에서는 production build를 만든 뒤 별도 포트로 정적 파일을 제공하여 검사할 수 있습니다.
 

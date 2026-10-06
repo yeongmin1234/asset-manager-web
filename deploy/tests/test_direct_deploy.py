@@ -235,8 +235,9 @@ if [ "$1" = "run" ]; then
     exit 1
   fi
   mkdir -p "$5/assets"
-  printf '<script type="module" src="/assets/index-test.js"></script>\\n' > "$5/index.html"
+  printf '<script type="module" src="/assets/index-test.js"></script><link rel="stylesheet" href="/assets/index-test.css">\\n' > "$5/index.html"
   printf 'ok\\n' > "$5/assets/index-test.js"
+  printf 'body {}\\n' > "$5/assets/index-test.css"
 fi
 exit 0
 """)
@@ -285,15 +286,18 @@ exit 0
         self.write("bin/npm", """#!/bin/sh
 if [ "$1" = "run" ]; then
   mkdir -p "$5/assets"
-  printf '<script type="module" src="/assets/index-new.js"></script>\\n' > "$5/index.html"
+  printf '<script type="module" src="/assets/index-new.js"></script><link rel="stylesheet" href="/assets/index-new.css">\\n' > "$5/index.html"
   printf 'new\\n' > "$5/assets/index-new.js"
+  printf 'body {}\\n' > "$5/assets/index-new.css"
 fi
 exit 0
 """)
         self.write("bin/smoke-node", """#!/bin/sh
 if [ "$2" = "--check-browser" ]; then
   echo BROWSER_PRECHECK >> "$NAS_PROJECT_DIR/events"
-  if [ "${TEST_FAIL_STAGE:-}" = "BROWSER_PRECHECK" ]; then exit 1; fi
+  if [ "${TEST_BROWSER_UNAVAILABLE:-}" = "1" ]; then exit 2; fi
+  if [ "${TEST_FAIL_STAGE:-}" = "BROWSER_PRECHECK" ]; then exit 2; fi
+  if [ "${TEST_FAIL_STAGE:-}" = "BROWSER_LAUNCH" ]; then exit 1; fi
   exit 0
 fi
 echo BROWSER_SMOKE >> "$NAS_PROJECT_DIR/events"
@@ -315,8 +319,12 @@ for argument do
   esac
 done
 case " $* " in
-  *" -w "*) printf '200' ;;
-  *) printf '<script type="module" src="/assets/index-new.js"></script>\\n' ;;
+  *" -w "*)
+    if [ "${TEST_FAIL_STAGE:-}" = "BUNDLE_HTTP" ]; then
+      case " $* " in *assets/index-new.js*) printf '404'; exit 0 ;; esac
+    fi
+    printf '200' ;;
+  *) printf '<script type="module" src="/assets/index-new.js"></script><link rel="stylesheet" href="/assets/index-new.css">\\n' ;;
 esac
 """)
         self.write("deploy/stop_backend.sh", """#!/bin/sh
@@ -388,7 +396,8 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         events = (self.root / "events").read_text(encoding="utf-8").splitlines()
         self.assertEqual(events, ["BROWSER_PRECHECK", "STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI", "STOP_FRONTEND", "START_FRONTEND", "HEALTH_CHECK", "BROWSER_SMOKE", "VERIFY_OPENAPI"])
         self.assertIn("DEPLOY SUCCESS", result.stdout)
-        self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), '<script type="module" src="/assets/index-new.js"></script>\n')
+        self.assertIn("Browser Smoke Test: PASS", result.stdout)
+        self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), '<script type="module" src="/assets/index-new.js"></script><link rel="stylesheet" href="/assets/index-new.css">\n')
         self.assertFalse(list((self.root / "frontend").glob("dist.previous.*")))
 
     def test_browser_smoke_failure_rolls_back_and_never_succeeds(self):
@@ -405,14 +414,37 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         events = (self.root / "events").read_text(encoding="utf-8").splitlines()
         self.assertEqual(events.count("BROWSER_SMOKE"), 2)
 
-    def test_missing_browser_stops_before_service_restart(self):
+    def test_missing_browser_skips_smoke_and_deploys(self):
         extra = self.prepare_mock_deploy()
         extra["TEST_FAIL_STAGE"] = "BROWSER_PRECHECK"
         result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("WARNING Browser smoke test skipped", result.stdout)
+        self.assertIn("Browser Smoke Test: SKIPPED (browser unavailable)", result.stdout)
+        self.assertIn("DEPLOY SUCCESS", result.stdout)
+        self.assertIn("Built frontend bundle:  assets/index-new.js", result.stdout)
+        self.assertIn("Served frontend bundle: assets/index-new.js", result.stdout)
+        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["BROWSER_PRECHECK", "STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI", "STOP_FRONTEND", "START_FRONTEND", "HEALTH_CHECK", "VERIFY_OPENAPI"])
+
+    def test_browser_launch_failure_stops_before_service_restart(self):
+        extra = self.prepare_mock_deploy()
+        extra["TEST_FAIL_STAGE"] = "BROWSER_LAUNCH"
+        result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Stage: FRONTEND_BROWSER_PRECHECK", result.stdout)
-        self.assertNotIn("DEPLOY SUCCESS", result.stdout)
+        self.assertIn("Browser Smoke Test: FAIL", result.stdout)
         self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["BROWSER_PRECHECK"])
+        self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
+
+    def test_bundle_http_failure_rolls_back_when_browser_is_skipped(self):
+        extra = self.prepare_mock_deploy()
+        extra["TEST_FAIL_STAGE"] = "BUNDLE_HTTP"
+        extra["TEST_BROWSER_UNAVAILABLE"] = "1"
+        result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("DEPLOY FAILED", result.stdout)
+        self.assertNotIn("DEPLOY SUCCESS", result.stdout)
+        self.assertIn("Frontend JS bundle", result.stdout)
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
 
     @unittest.skipUnless(AWK, "awk is required")
