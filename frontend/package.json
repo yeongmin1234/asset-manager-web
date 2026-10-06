@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "smoke:test": "node ../deploy/frontend_smoke_test.mjs",
+    "smoke:check-browser": "node ../deploy/frontend_smoke_test.mjs --check-browser"
   },
   "dependencies": {
     "@tsparticles/engine": "^4.3.2",
@@ -16,5 +18,8 @@
     "three": "^0.186.1",
     "tsparticles": "^4.3.2",
     "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }

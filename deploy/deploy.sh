@@ -27,6 +27,7 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 ROOT_DIR="${NAS_PROJECT_DIR:-$DEFAULT_ROOT_DIR}"
+FRONTEND_SMOKE_NODE="${FRONTEND_SMOKE_NODE:-node}"
 LOG_DIR="$ROOT_DIR/logs"
 LOG_FILE="$LOG_DIR/deploy.log"
 
@@ -110,7 +111,7 @@ check_current_backend() {
 }
 
 rollback_frontend() {
-  echo "Restoring the previous frontend after a failed cutover."
+  echo "Frontend deployment failed. Restoring the previous frontend."
   if ! "$ROOT_DIR/deploy/stop_frontend.sh"; then
     echo "FAIL Cannot stop the new frontend; manual recovery may be needed."
     return 1
@@ -125,11 +126,23 @@ rollback_frontend() {
     PREVIOUS_DIST=""
     "$ROOT_DIR/deploy/start_frontend.sh" || return 1
     check_http_200 "Restored frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/" || return 1
-    echo "OK  Previous frontend restored."
+    run_frontend_browser_smoke || return 1
+    echo "Previous frontend restored successfully."
   else
     echo "Previous frontend dist is unavailable; cannot restart it."
     return 1
   fi
+}
+
+rollback_frontend_or_report() {
+  if ! rollback_frontend; then
+    echo "CRITICAL: Frontend rollback failed."
+    DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+  fi
+}
+
+run_frontend_browser_smoke() {
+  "$FRONTEND_SMOKE_NODE" "$ROOT_DIR/deploy/frontend_smoke_test.mjs" --url "${FRONTEND_SMOKE_URL:-http://127.0.0.1:${FRONTEND_PORT:-3010}/}"
 }
 
 report_deploy_result() {
@@ -141,6 +154,7 @@ report_deploy_result() {
     echo "Backend ${BACKEND_PORT:-8010}: OK"
     echo "Frontend PID: $(cat "$LOG_DIR/frontend.pid" 2>/dev/null || echo missing)"
     echo "Frontend ${FRONTEND_PORT:-3010}: OK"
+    echo "Frontend browser: OK"
     echo "Database: OK"
     echo "Frontend bundle: $(get_frontend_bundle "$ROOT_DIR/frontend/dist/index.html")"
   else
@@ -441,7 +455,7 @@ run_frontend_build() {
     echo "Rollup optional dependency issue detected."
     echo "Recreating node_modules while preserving the tracked package-lock.json."
     rm -rf node_modules || return 1
-    npm ci --include=optional || return 1
+    npm ci --include=optional --include=dev || return 1
     if [ ! -d "node_modules/@rollup/rollup-linux-x64-gnu" ]; then
       echo "Installing the Rollup Linux optional package without changing package-lock.json."
       npm install --no-save --package-lock=false @rollup/rollup-linux-x64-gnu || return 1
@@ -530,6 +544,11 @@ run_deploy() {
   run_frontend_build "$CANDIDATE_DIST" || return 1
   check_frontend_artifacts "$CANDIDATE_DIST" || return 1
 
+  echo "== Frontend browser prerequisite =="
+  DEPLOY_STAGE="FRONTEND_BROWSER_PRECHECK"
+  DEPLOY_REASON="Headless Chromium is unavailable; frontend and backend were not restarted."
+  "$FRONTEND_SMOKE_NODE" "$ROOT_DIR/deploy/frontend_smoke_test.mjs" --check-browser || return 1
+
   echo "== Stop backend (frontend remains online) =="
   DEPLOY_STAGE="STOP_BACKEND"
   DEPLOY_REASON="Could not identify or stop the existing backend on port ${BACKEND_PORT:-8010}; frontend was not stopped."
@@ -565,17 +584,17 @@ run_deploy() {
     fi
   fi
   if ! mv -- "$CANDIDATE_DIST" "$ROOT_DIR/frontend/dist"; then
-    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    rollback_frontend_or_report
     return 1
   fi
   CANDIDATE_DIST=""
   CANDIDATE_CREATED=false
   if ! "$ROOT_DIR/deploy/start_frontend.sh"; then
-    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    rollback_frontend_or_report
     return 1
   fi
   if ! check_http_200 "Frontend after start" "http://127.0.0.1:${FRONTEND_PORT:-3010}/"; then
-    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    rollback_frontend_or_report
     return 1
   fi
 
@@ -586,14 +605,22 @@ run_deploy() {
      ! check_cors_origin "http://192.168.222.210:3010" ||
      ! check_cors_origin "http://112.216.230.162:3010" ||
      ! verify_frontend_bundle; then
-    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    rollback_frontend_or_report
+    return 1
+  fi
+
+  echo "== Frontend browser smoke test =="
+  DEPLOY_STAGE="FRONTEND_BROWSER_SMOKE"
+  DEPLOY_REASON="Frontend did not render correctly in headless Chromium."
+  if ! run_frontend_browser_smoke; then
+    rollback_frontend_or_report
     return 1
   fi
 
   echo "== Direct endpoint check =="
   if ! check_current_backend ||
      ! check_http_200 "Frontend" "http://127.0.0.1:${FRONTEND_PORT:-3010}/"; then
-    rollback_frontend || DEPLOY_REASON="$DEPLOY_REASON Previous frontend rollback also failed."
+    rollback_frontend_or_report
     return 1
   fi
   if [ -d "$PREVIOUS_DIST" ]; then

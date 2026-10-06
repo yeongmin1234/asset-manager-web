@@ -242,7 +242,8 @@ exit 0
 """)
         self.write("deploy/stop_backend.sh", "#!/bin/sh\nexit 1\n")
         self.write("deploy/start_backend.sh", "#!/bin/sh\ntouch \"$NAS_PROJECT_DIR/started\"\n")
-        result = self.run_script("deploy.sh", "--no-pull")
+        self.write("bin/smoke-node", "#!/bin/sh\necho BROWSER_PRECHECK >> \"$NAS_PROJECT_DIR/events\"\n")
+        result = self.run_script("deploy.sh", "--no-pull", extra_env={"FRONTEND_SMOKE_NODE": shell_path(self.root / "bin/smoke-node")})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Frontend build completed after Rollup optional dependency recovery.", result.stdout)
         self.assertIn("== Stop backend (frontend remains online) ==", result.stdout)
@@ -289,6 +290,20 @@ if [ "$1" = "run" ]; then
 fi
 exit 0
 """)
+        self.write("bin/smoke-node", """#!/bin/sh
+if [ "$2" = "--check-browser" ]; then
+  echo BROWSER_PRECHECK >> "$NAS_PROJECT_DIR/events"
+  if [ "${TEST_FAIL_STAGE:-}" = "BROWSER_PRECHECK" ]; then exit 1; fi
+  exit 0
+fi
+echo BROWSER_SMOKE >> "$NAS_PROJECT_DIR/events"
+if [ "${TEST_FAIL_STAGE:-}" = "BROWSER_SMOKE" ] && [ ! -f "$NAS_PROJECT_DIR/first-smoke-failed" ]; then
+  touch "$NAS_PROJECT_DIR/first-smoke-failed"
+  echo 'Uncaught ReferenceError: React is not defined' >&2
+  exit 1
+fi
+exit 0
+""")
         self.write("bin/curl", """#!/bin/sh
 for argument do
   case "$argument" in
@@ -327,7 +342,7 @@ fi
 echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
 """)
         self.write("deploy/health_check.sh", "#!/bin/sh\necho HEALTH_CHECK >> \"$NAS_PROJECT_DIR/events\"\n")
-        return {"TEST_PID": str(os.getpid())}
+        return {"TEST_PID": str(os.getpid()), "FRONTEND_SMOKE_NODE": shell_path(self.root / "bin/smoke-node")}
 
     def test_backend_stop_failure_preserves_running_frontend_and_dist(self):
         extra = self.prepare_mock_deploy()
@@ -335,7 +350,7 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Stage: STOP_BACKEND", result.stdout)
-        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["STOP_BACKEND"])
+        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["BROWSER_PRECHECK", "STOP_BACKEND"])
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
 
     def test_backend_start_failure_does_not_stop_frontend(self):
@@ -344,7 +359,7 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Stage: START_BACKEND", result.stdout)
-        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["STOP_BACKEND", "START_BACKEND"])
+        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["BROWSER_PRECHECK", "STOP_BACKEND", "START_BACKEND"])
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
 
     def test_backend_openapi_failure_does_not_stop_frontend(self):
@@ -353,7 +368,7 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Stage: START_BACKEND", result.stdout)
-        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI"])
+        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["BROWSER_PRECHECK", "STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI"])
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
 
     def test_frontend_start_failure_restores_previous_dist(self):
@@ -363,7 +378,7 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Stage: FRONTEND_CUTOVER", result.stdout)
         events = (self.root / "events").read_text(encoding="utf-8").splitlines()
-        self.assertEqual(events, ["STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI", "STOP_FRONTEND", "START_FRONTEND", "STOP_FRONTEND", "START_FRONTEND"])
+        self.assertEqual(events, ["BROWSER_PRECHECK", "STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI", "STOP_FRONTEND", "START_FRONTEND", "STOP_FRONTEND", "START_FRONTEND", "BROWSER_SMOKE"])
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
 
     def test_successful_deploy_starts_backend_before_frontend_cutover(self):
@@ -371,10 +386,34 @@ echo "$TEST_PID" > "$NAS_PROJECT_DIR/logs/frontend.pid"
         result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         events = (self.root / "events").read_text(encoding="utf-8").splitlines()
-        self.assertEqual(events, ["STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI", "STOP_FRONTEND", "START_FRONTEND", "HEALTH_CHECK", "VERIFY_OPENAPI"])
+        self.assertEqual(events, ["BROWSER_PRECHECK", "STOP_BACKEND", "START_BACKEND", "VERIFY_OPENAPI", "STOP_FRONTEND", "START_FRONTEND", "HEALTH_CHECK", "BROWSER_SMOKE", "VERIFY_OPENAPI"])
         self.assertIn("DEPLOY SUCCESS", result.stdout)
         self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), '<script type="module" src="/assets/index-new.js"></script>\n')
         self.assertFalse(list((self.root / "frontend").glob("dist.previous.*")))
+
+    def test_browser_smoke_failure_rolls_back_and_never_succeeds(self):
+        extra = self.prepare_mock_deploy()
+        extra["TEST_FAIL_STAGE"] = "BROWSER_SMOKE"
+        result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Stage: FRONTEND_BROWSER_SMOKE", result.stdout)
+        self.assertIn("DEPLOY FAILED", result.stdout)
+        self.assertNotIn("DEPLOY SUCCESS", result.stdout)
+        self.assertIn("Previous frontend restored successfully.", result.stdout)
+        self.assertIn("React is not defined", result.stdout)
+        self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
+        events = (self.root / "events").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(events.count("BROWSER_SMOKE"), 2)
+
+    def test_missing_browser_stops_before_service_restart(self):
+        extra = self.prepare_mock_deploy()
+        extra["TEST_FAIL_STAGE"] = "BROWSER_PRECHECK"
+        result = self.run_script("deploy.sh", "--no-pull", extra_env=extra)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Stage: FRONTEND_BROWSER_PRECHECK", result.stdout)
+        self.assertNotIn("DEPLOY SUCCESS", result.stdout)
+        self.assertEqual((self.root / "events").read_text(encoding="utf-8").splitlines(), ["BROWSER_PRECHECK"])
+        self.assertEqual((self.root / "frontend/dist/index.html").read_text(encoding="utf-8"), "PREVIOUS_DIST\n")
 
     @unittest.skipUnless(AWK, "awk is required")
     def test_ps_matchers_accept_paths_with_spaces_and_reject_other_processes(self):
