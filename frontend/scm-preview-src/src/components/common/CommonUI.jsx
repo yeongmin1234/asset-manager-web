@@ -1,0 +1,15 @@
+import React,{useEffect,useRef}from"react";
+import{statusStyle}from"../../constants/statusStyles";
+import SkoomiMascot from "./SkoomiMascot";
+export const PageHeader=({title,description,actions})=><header className="ui-page-header"><div><h1>{title}</h1>{description&&<p>{description}</p>}</div>{actions&&<div>{actions}</div>}</header>;
+export const Toolbar=({children})=><div className="ui-toolbar">{children}</div>;
+export const EmptyState=({message="조건에 맞는 결과가 없어요."})=><div className="ui-state ui-state--empty" role="status"><SkoomiMascot state="empty" size="small" message={message}/></div>;
+export const LoadingState=({message="불러오는 중입니다."})=><div className="ui-state ui-state--loading" role="status" aria-live="polite">{message}</div>;
+export const ErrorState=({message="처리 중 문제가 발생했어요."})=><div className="ui-state ui-state--error" role="alert"><SkoomiMascot state="error" size="small" message={message}/></div>;
+export const PermissionState=({adminOnly=false,onHome})=> <div className="ui-state ui-state--permission" role="alert"><div><SkoomiMascot state="error" size="medium" message={adminOnly?"이 화면을 볼 수 있는 권한이 없어요.":"사용이 중지된 계정입니다. 관리자에게 문의해주세요."}/>{adminOnly&&onHome&&<button type="button" className="primary" onClick={onHome}>HOME으로 이동</button>}</div></div>;
+export const SavingState=()=> <span className="ui-saving" role="status" aria-live="polite">저장 중</span>;
+export const Toast=({children})=><div className="product-toast" role="status" aria-live="polite">{children}</div>;
+export const StatusBadge=({status})=><span className="ui-status-badge" style={statusStyle(status)}>{status}</span>;
+export function FormField({id,label,required,error,children}){return <div className="ui-form-field"><label htmlFor={id}>{required&&<em>*</em>}{label}</label>{children}{error&&<small id={`${id}-error`}>{error}</small>}</div>}
+export function Modal({title,onClose,children,dirty=false,className=""}){const dialog=useRef(null);const requestClose=()=>{if(dirty&&!window.confirm("작성 중인 변경사항이 있습니다. 닫으시겠습니까?"))return;onClose()};useEffect(()=>{const previous=document.activeElement;dialog.current?.focus();const key=e=>e.key==="Escape"&&requestClose();window.addEventListener("keydown",key);return()=>{window.removeEventListener("keydown",key);previous?.focus?.()}},[dirty]);return <div className="ui-modal-layer" onMouseDown={event=>{if(event.target===event.currentTarget)requestClose()}}><section ref={dialog} tabIndex={-1} className={`ui-modal ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby="ui-modal-title"><header><h2 id="ui-modal-title">{title}</h2><button type="button" aria-label={`${title} 닫기`} onClick={requestClose}>닫기</button></header>{children}</section></div>}
+export function ConfirmDialog({message,onConfirm,onCancel}){return <Modal title="확인" onClose={onCancel}><div className="ui-confirm"><p>{message}</p><footer><button type="button" onClick={onCancel}>취소</button><button type="button" className="primary" onClick={onConfirm}>확인</button></footer></div></Modal>}

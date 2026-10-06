@@ -1,0 +1,10 @@
+export const accountSeed=[];
+export const codeSeed=[];
+export const batchSeed=[];
+export const marketSeed=[];
+export const mappingFields=["orderNo","orderDate","brand","product","quantity","revenue","salePrice","orderer","orderPhone","recipient","recipientPhone","promiseDate","address","zip","message"];
+export const mappingSeed=[];
+export const symptomSeed=[];
+export const sendStatusSeed=[];
+export const optOutSeed=[];
+export const targetProductSeed=[];

@@ -52,6 +52,7 @@ import { DEFAULT_MENU_VISIBILITY } from "./config/menuDefinitions.js";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
 import ScmPage from "./components/ScmPage.jsx";
+import ScmPreviewPage from "./components/ScmPreviewPage.jsx";
 import ServerStatusPopover from "./components/ServerStatusPopover.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
 import SoftwarePage from "./components/SoftwarePage.jsx";
@@ -124,6 +125,7 @@ const MENU_LABELS = {
   "install-library": "설치자료실",
   "hr-list": "인사업무 리스트",
   scm: "SCM",
+  "scm-preview": "예비 SCM 미리보기",
   users: "사용자 관리",
   settings: "설정",
 };
@@ -1062,6 +1064,10 @@ function App({ currentUser, onLogout }) {
       return <ScmPage />;
     }
 
+    if (activeSection === "scm-preview") {
+      return <ScmPreviewPage />;
+    }
+
     if (activeSection === "users") {
       return isAdmin ? <UserManagementPage currentUser={currentUser} /> : (
         <section className="access-denied-card"><h2>접근 권한이 없습니다.</h2></section>
@@ -1212,6 +1218,7 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "online-recall"
                 || activeSection === "online-order"
                 || activeSection === "scm"
+                || activeSection === "scm-preview"
                 || activeSection === "users"
                 ? "portal-content portal-content-wide"
                 : "portal-content"
@@ -1219,7 +1226,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "online-order" && activeSection !== "scm" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "online-order" && activeSection !== "scm" && activeSection !== "scm-preview" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>

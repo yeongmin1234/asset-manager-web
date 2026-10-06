@@ -1,0 +1,27 @@
+.staff-toolbar > button {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #b8c0c7;
+  background: #fff;
+  font: inherit;
+  font-weight: 750;
+}
+.staff-toolbar > button:disabled { color: #a4abb2; background: #f0f2f3; cursor: not-allowed; }
+.staff-toolbar > button.staff-register-button { border-color: #d5681d; color: #fff; background: #e97922; }
+.staff-toolbar > button.staff-delete-button { border-color: #dcaaa6; color: #9b4740; background: #fff8f7; }
+.staff-list-page--deleted .staff-table tbody tr td { color: #6f7881; background: #f7f8f9; }
+.employee-lifecycle-modal { padding: 14px; }
+.employee-lifecycle-modal > p { margin: 0 0 12px; padding: 10px; border: 1px solid #d7dde2; background: #f6f8f9; }
+.employee-lifecycle-modal > label { display: grid; grid-template-columns: 110px minmax(0,1fr); min-height: 44px; margin-top: -1px; border: 1px solid #d8dde2; }
+.employee-lifecycle-modal > label > span { display: flex; align-items: center; padding: 0 9px; background: #f0f1f2; font-weight: 750; }
+.employee-lifecycle-modal input,.employee-lifecycle-modal select,.employee-lifecycle-modal textarea { margin: 5px 6px; padding: 0 7px; border: 1px solid #b7bec5; font: inherit; }
+.employee-lifecycle-modal textarea { min-height: 74px; padding: 7px; resize: vertical; }
+.employee-lifecycle-modal footer { display: flex; justify-content: flex-end; gap: 6px; padding-top: 12px; }
+.employee-lifecycle-modal footer button { padding: 0 14px; border: 1px solid #b8c0c7; background: #fff; }
+.employee-lifecycle-modal footer button.primary { border-color: #d5681d; color: #fff; background: #e97922; font-weight: 800; }
+.employee-lifecycle-error { color: #b83c34; }
+.employee-history { margin-top: 12px; border: 1px solid #d8dde2; }
+.employee-history h3 { margin: 0; padding: 8px 10px; background: #eef1f3; font-size: 14px; }
+.employee-history > div { display: grid; grid-template-columns: 90px 150px minmax(0,1fr); align-items: center; min-height: 38px; padding: 5px 8px; border-top: 1px solid #e0e4e7; }
+.employee-history p { margin: 0; }

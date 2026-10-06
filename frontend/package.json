@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
-    "build": "vite build",
+    "build": "npm run build:scm-preview && vite build",
+    "build:scm-preview": "vite build scm-preview-src --base /scm-preview/ --outDir ../public/scm-preview --emptyOutDir",
     "preview": "vite preview --host 0.0.0.0",
     "smoke:test": "node ../deploy/frontend_smoke_test.mjs",
     "smoke:check-browser": "node ../deploy/frontend_smoke_test.mjs --check-browser"
