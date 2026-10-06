@@ -1,6 +1,6 @@
 /* Shared action palette. Keep page-specific sizes and spacing in their own styles. */
 #root button:not(:is(
-  .portal-brand-button, .icon-button, .link-button, .login-motion-toggle,
+  .portal-brand-button, .sidebar-menu-item, .icon-button, .link-button, .login-motion-toggle,
   .table-column-resize-handle, .vehicle-column-resize-handle,
   .beverage-thumbnail-button, .beverage-table-title, .beverage-post-main,
   .network-password-mask, .network-password-value, .software-license-key-text,
@@ -27,7 +27,7 @@
 
 @media (hover: hover) {
   #root button:not(:is(
-    .portal-brand-button, .icon-button, .link-button, .login-motion-toggle,
+    .portal-brand-button, .sidebar-menu-item, .icon-button, .link-button, .login-motion-toggle,
     .table-column-resize-handle, .vehicle-column-resize-handle,
     .beverage-thumbnail-button, .beverage-table-title, .beverage-post-main,
     .network-password-mask, .network-password-value, .software-license-key-text,
@@ -58,6 +58,52 @@
   background: transparent !important;
   border-color: currentColor !important;
   color: inherit !important;
+}
+
+/* Sidebar navigation uses group dividers instead of borders around each item. */
+#root .portal-sidebar .portal-nav { gap: 18px; }
+#root .portal-sidebar .portal-nav-group { gap: 8px; }
+#root .portal-sidebar .portal-nav-group + .portal-nav-group { margin-top: 4px; }
+#root .portal-sidebar .portal-nav-group-title {
+  border-bottom: 1px solid #e5e7eb;
+  color: #94a3b8;
+  font-weight: 600;
+  padding: 0 8px 8px;
+}
+#root .portal-sidebar button.sidebar-menu-item {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #111 !important;
+  gap: 9px;
+}
+#root .portal-sidebar .sidebar-menu-item span {
+  background: transparent !important;
+  border: 0 !important;
+  color: inherit !important;
+}
+#root .portal-sidebar .portal-nav button.sidebar-menu-item:not(.active):not(:disabled):hover {
+  background: #f3f4f6 !important;
+  background-image: none !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+#root .portal-sidebar button.sidebar-menu-item.active {
+  background: #111 !important;
+  background-image: none !important;
+  border: 0 !important;
+  color: #fff !important;
+}
+#root .portal-sidebar button.sidebar-edit-button:not(:disabled):hover {
+  background: #111 !important;
+  background-image: none !important;
+  border-color: #111 !important;
+  color: #fff !important;
+}
+
+@media (max-width: 680px) {
+  #root .portal-sidebar .portal-nav-group + .portal-nav-group { margin-top: 0; }
 }
 
 /* Destructive controls retain a distinct red meaning. */

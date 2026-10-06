@@ -40,10 +40,11 @@ test("login, order actions, recall tabs and mobile controls use the shared palet
     assert.equal((await colors(login)).color, white);
 
     await context.addInitScript(() => localStorage.setItem("assetManager.accessToken", "test-token"));
+    let mockUser = { id: 1, username: "admin", name: "관리자", role: "admin", menu_permissions: [], is_active: true };
     await page.route("http://127.0.0.1:8010/**", async (route) => {
       const pathname = new URL(route.request().url()).pathname;
       const body = pathname === "/auth/me"
-        ? { id: 1, username: "admin", name: "관리자", role: "admin", menu_permissions: [], is_active: true }
+        ? mockUser
         : pathname === "/menu-visibility"
           ? { visibility: Object.fromEntries(MENU_ITEMS.map((item) => [item.menuKey, true])) }
           : pathname.endsWith("/channels")
@@ -58,6 +59,32 @@ test("login, order actions, recall tabs and mobile controls use the shared palet
     assert.match(await onlineHome.innerText(), /온라인 TEAM 홈/);
     assert.equal((await colors(onlineHome)).background, black);
     assert.equal((await colors(onlineHome)).color, white);
+    assert.equal(await onlineHome.evaluate((element) => getComputedStyle(element).borderTopWidth), "0px");
+    assert.equal(await onlineHome.locator("span").evaluate((element) => getComputedStyle(element).color), white);
+    for (const title of ["업무", "자산", "인사팀", "온라인 TEAM", "관리"]) {
+      const groupTitle = page.locator(".portal-nav-group-title", { hasText: title });
+      assert.equal(await groupTitle.evaluate((element) => getComputedStyle(element).borderBottomWidth), "1px");
+    }
+    const plainMenu = page.locator(".portal-sidebar .sidebar-menu-item").filter({ hasText: "리콜 관리" });
+    assert.equal((await colors(plainMenu)).color, black);
+    assert.equal(await plainMenu.evaluate((element) => getComputedStyle(element).borderTopWidth), "0px");
+    await plainMenu.hover();
+    await page.waitForTimeout(450);
+    assert.equal((await colors(plainMenu)).background, "rgb(243, 244, 246)");
+    assert.equal((await colors(plainMenu)).color, black);
+    const editMenu = page.locator(".sidebar-edit-heading .sidebar-edit-button");
+    assert.equal((await colors(editMenu)).background, white);
+    assert.equal((await colors(editMenu)).color, black);
+    await editMenu.hover();
+    await page.waitForTimeout(450);
+    assert.equal((await colors(editMenu)).background, black);
+    assert.equal((await colors(editMenu)).color, white);
+    await editMenu.click();
+    await page.getByRole("button", { name: "취소", exact: true }).click();
+    await plainMenu.click();
+    await page.waitForURL("**/online/recall");
+    await page.goBack();
+    await page.waitForURL("**/online");
 
     await page.goto(`${base}/online/orders/settings`);
     const add = page.locator(".online-order-channel-heading button");
@@ -70,6 +97,8 @@ test("login, order actions, recall tabs and mobile controls use the shared palet
 
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+    assert.equal(await page.locator(".portal-nav-group-title").first().evaluate((element) => getComputedStyle(element).borderBottomWidth), "1px");
+    assert.equal(await page.locator(".portal-sidebar .sidebar-menu-item strong").first().evaluate((element) => getComputedStyle(element).whiteSpace), "nowrap");
     await page.goto(`${base}/online/orders/process`);
     const disabled = page.locator(".online-order-panel .primary-action").first();
     await disabled.waitFor();
@@ -99,6 +128,12 @@ test("login, order actions, recall tabs and mobile controls use the shared palet
     await page.waitForTimeout(450);
     assert.equal((await colors(danger)).color, white);
     assert.equal((await colors(page.locator(".admin-auth-modal-actions .secondary-button"))).background, white);
+
+    mockUser = { id: 2, username: "member", name: "일반 사용자", role: "user", menu_permissions: ["online_home"], is_active: true };
+    await page.goto(`${base}/online`);
+    await page.locator('.portal-sidebar .sidebar-menu-item[aria-current="page"]').waitFor();
+    assert.equal(await page.locator(".portal-sidebar .sidebar-menu-item").count(), 1);
+    assert.equal(await page.locator(".sidebar-edit-button").count(), 0);
   } finally {
     await context.close();
     await browser.close();
