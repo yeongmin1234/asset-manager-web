@@ -12,7 +12,6 @@ import SettingsManagement from "./SettingsManagement";
 import { CustomerManagementPage, MemoSearchPage, NotFoundPage, OrderSupportPage } from "./pages/WorkspacePages";
 import { useAuth } from "./contexts/AuthContext";
 import { PermissionState, StatusBadge } from "./components/common/CommonUI";
-import ActiveUsersIndicator from "./components/layout/ActiveUsersIndicator";
 
 const menus = [
   { label: "HOME", path: "/" },
@@ -75,7 +74,7 @@ function LegacyHomeDashboard() {
           <h1 id="page-title">HOME</h1>
           <p>주요 업무 현황을 한눈에 확인합니다.</p>
         </div>
-        <span className="page-panel__status">프론트엔드 개발 모드</span>
+        <span className="page-panel__status">샘플 데이터</span>
       </div>
 
       <div className="summary-grid">
@@ -457,7 +456,7 @@ function StoreManagement({ currentPath, onNavigate }) {
           <p>STORE MANAGEMENT</p>
           <h1 id="page-title">매장관리</h1>
         </div>
-        <span className="page-panel__status">프론트엔드 개발 모드</span>
+        <span className="page-panel__status">샘플 데이터</span>
       </div>
       <div className="store-layout">
         <aside className="store-sidebar" aria-label="매장관리 하위 메뉴">
@@ -487,7 +486,7 @@ function StoreManagement({ currentPath, onNavigate }) {
 
 function App() {
   const [currentPath, setCurrentPath] = useState(getCurrentPath);
-  const { currentUser, canAccess, isDevMode } = useAuth();
+  const { canAccess } = useAuth();
   const customerConsultingPaths = new Set(["/customer-consulting","/customer-consulting/as-reception","/customer-consulting/sales-reception","/customer-consulting/consultation-list","/customer-consulting/return-list","/customer-consulting/exchange-list","/customer-consulting/as-list","/customer-consulting/sales-list","/customer-consulting/logistics-list","/customer-consulting/logistics-management"]);
   const settingsPaths = new Set(["/settings","/settings/accounts","/settings/codes","/settings/batches","/settings/markets","/settings/data-mapping","/settings/as","/settings/symptoms","/settings/filter-sms","/settings/send-status","/settings/opt-out","/settings/target-products","/settings/bmdmall","/settings/serial-update"]);
   const isStoreManagement = storeSubmenus.some((submenu) => submenu.path === currentPath);
@@ -506,8 +505,18 @@ function App() {
     const handlePopState = () => setCurrentPath(getCurrentPath());
 
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    window.addEventListener("hashchange", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("hashchange", handlePopState);
+    };
   }, []);
+
+  useEffect(() => {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "scm-site:navigate", path: currentPath }, window.location.origin);
+    }
+  }, [currentPath]);
 
   function handleNavigation(event, path) {
     event.preventDefault();
@@ -520,18 +529,6 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header__inner">
-          <p className="header__title">주식회사 더리모 SCM</p>
-          <div className="header__identity">
-            <span>{currentUser?.name}</span>
-            <small>{String(currentUser?.accountType || "").toUpperCase()}</small>
-            {isDevMode && <span className="header__dev-badge">DEV MODE</span>}
-          </div>
-          <ActiveUsersIndicator currentUser={currentUser} />
-        </div>
-      </header>
-
       <nav className="menu-bar" aria-label="주요 메뉴">
         <div className="menu-bar__scroll">
           <div className="menu-bar__inner">

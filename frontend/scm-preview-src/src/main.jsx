@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
 import "./employee-lifecycle.css";
+import "./scm-site.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/AuthContext";
 import LoginPage from "./LoginPage";
@@ -13,10 +14,26 @@ function AuthenticatedApplication() {
   return isAuthenticated ? <App /> : <LoginPage />;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <AuthenticatedApplication />
-    </AuthProvider>
-  </React.StrictMode>,
-);
+function hasScmSiteParent() {
+  try {
+    return window.parent !== window
+      && window.parent.location.origin === window.location.origin
+      && (window.parent.location.pathname === "/scm-app" || window.parent.location.pathname.startsWith("/scm-app/"));
+  } catch {
+    return false;
+  }
+}
+
+if (!hasScmSiteParent()) {
+  // The standalone static document has no site JWT guard; use the authenticated parent route.
+  window.location.replace("/scm-app");
+} else {
+  document.body.classList.add("scm-embedded");
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    <React.StrictMode>
+      <AuthProvider>
+        <AuthenticatedApplication />
+      </AuthProvider>
+    </React.StrictMode>,
+  );
+}

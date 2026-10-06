@@ -273,8 +273,8 @@ function PortalSidebar({
                             className="sidebar-menu-label-input"
                             value={draftMenuLabels[item.menuKey] ?? menuLabels[item.menuKey] ?? item.label}
                             maxLength={30}
-                            readOnly={item.id.startsWith("online-") || item.id === "scm-preview"}
-                            title={item.id === "scm-preview" ? "미리보기 메뉴 이름은 현재 고정되어 있습니다." : item.id.startsWith("online-") ? "온라인 TEAM 메뉴 이름은 현재 고정되어 있습니다." : undefined}
+                            readOnly={item.id.startsWith("online-") || item.id === "scm-app"}
+                            title={item.id === "scm-app" ? "SCM 시스템 메뉴 이름은 현재 고정되어 있습니다." : item.id.startsWith("online-") ? "온라인 TEAM 메뉴 이름은 현재 고정되어 있습니다." : undefined}
                             onChange={(event) => setDraftMenuLabels((current) => ({ ...current, [item.menuKey]: event.target.value }))}
                             onClick={(event) => event.stopPropagation()}
                             onKeyDown={(event) => event.stopPropagation()}

@@ -23,7 +23,7 @@ export const MENU_ITEMS = [
   { id: "scm", label: "SCM", icon: "S", menuKey: "scm", permissionKey: null, routePath: "/scm", description: "SCM MariaDB 상태와 긴급 복구 준비 메뉴" },
   { id: "users", label: "사용자 관리", icon: "♙", menuKey: "user_management", permissionKey: null, routePath: "/admin/users", description: "사용자와 접속기록 관리 메뉴" },
   { id: "settings", label: "설정", icon: "⚙", menuKey: "settings", permissionKey: null, routePath: "/settings", alwaysVisible: true },
-  { id: "scm-preview", label: "예비 SCM 미리보기", icon: "▧", menuKey: "scm_preview", permissionKey: null, routePath: "/admin/scm-preview", alwaysVisible: true },
+  { id: "scm-app", label: "SCM 시스템", icon: "▧", menuKey: "scm_preview", permissionKey: "scm_app", routePath: "/scm-app", alwaysVisible: true },
 ];
 
 export const MENU_GROUPS = [
@@ -31,7 +31,8 @@ export const MENU_GROUPS = [
   { title: "자산", itemIds: ["assets", "install-library", "software", "vehicles", "excel", "stats", "history", "scm", "access-info", "equipment-status", "paju-fire-insurance"] },
   { title: "인사팀", itemIds: ["hr-list"] },
   { title: "온라인 TEAM", itemIds: ["online-home", "online-recall", "online-order"] },
-  { title: "관리", itemIds: ["users", "settings", "scm-preview"] },
+  { title: "SCM", itemIds: ["scm-app"] },
+  { title: "관리", itemIds: ["users", "settings"] },
 ];
 
 export const MENU_ITEMS_BY_ID = Object.fromEntries(MENU_ITEMS.map((item) => [item.id, item]));

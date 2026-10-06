@@ -23,6 +23,7 @@ ALLOWED_MENU_PERMISSIONS = {
     "online_home",
     "online_recall",
     "online_order",
+    "scm_app",
 }
 
 LEGACY_MENU_PERMISSION_MAP = {

@@ -295,7 +295,7 @@ export default function CustomerConsulting({ currentPath, onNavigate }) {
     <section className="customer-consulting-page" aria-labelledby="customer-consulting-title">
       <div className="consult-page-heading">
         <div><p>CUSTOMER CONSULTING</p><h1 id="customer-consulting-title">고객상담</h1></div>
-        <span className="page-panel__status">프론트엔드 개발 모드</span>
+        <span className="page-panel__status">샘플 데이터</span>
       </div>
       <nav className="consult-work-tabs" aria-label="고객상담 업무 탭">
         {workTabs.map((tab) => (

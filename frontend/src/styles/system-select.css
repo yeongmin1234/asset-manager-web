@@ -1,0 +1,47 @@
+.system-select-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
+  padding: 48px 24px;
+  background: #fff;
+  color: #111;
+}
+
+.system-select-header { display: grid; gap: 12px; text-align: center; }
+.system-select-header strong { font-size: clamp(26px, 4vw, 38px); letter-spacing: -0.05em; }
+.system-select-header span { color: #52525b; font-size: 17px; }
+.system-select-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 340px)); gap: 20px; width: min(100%, 700px); }
+.system-select-card {
+  min-width: 0;
+  min-height: 245px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #fff;
+  color: #111;
+  box-shadow: none;
+  text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.system-select-card:not(:disabled):hover { border-color: #111; background: #fff; color: #111; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.09); transform: translateY(-3px); }
+.system-select-card:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
+.system-select-card:disabled { border-color: #e5e7eb; background: #f9fafb; color: #6b7280; cursor: not-allowed; opacity: 0.8; }
+.system-select-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #f3f4f6; font-size: 23px; }
+.system-select-card strong { font-size: 21px; }
+.system-select-description { flex: 1; color: #52525b; font-weight: 400; line-height: 1.6; }
+.system-select-card-footer { font-size: 14px; font-weight: 700; }
+.system-select-logout { min-width: auto; background: #fff; color: #52525b; text-decoration: underline; }
+.system-select-logout:hover { background: #f3f4f6; color: #111; box-shadow: none; }
+
+@media (max-width: 640px) {
+  .system-select-page { justify-content: flex-start; gap: 28px; padding: 64px 16px 32px; }
+  .system-select-grid { grid-template-columns: 1fr; }
+  .system-select-card { min-height: 190px; padding: 22px; }
+}

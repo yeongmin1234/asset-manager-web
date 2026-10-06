@@ -52,7 +52,9 @@ import { DEFAULT_MENU_VISIBILITY } from "./config/menuDefinitions.js";
 import QuickAssetForm from "./components/QuickAssetForm.jsx";
 import RecentActivityPanel from "./components/RecentActivityPanel.jsx";
 import ScmPage from "./components/ScmPage.jsx";
-import ScmPreviewPage from "./components/ScmPreviewPage.jsx";
+import ScmSiteLayout from "./components/scm/ScmSiteLayout.jsx";
+import { isScmAppPath, toScmInnerPath } from "./components/scm/scmRoutes.js";
+import SystemSelectPage from "./components/system/SystemSelectPage.jsx";
 import ServerStatusPopover from "./components/ServerStatusPopover.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
 import SoftwarePage from "./components/SoftwarePage.jsx";
@@ -125,7 +127,7 @@ const MENU_LABELS = {
   "install-library": "설치자료실",
   "hr-list": "인사업무 리스트",
   scm: "SCM",
-  "scm-preview": "예비 SCM 미리보기",
+  "scm-app": "SCM 시스템",
   users: "사용자 관리",
   settings: "설정",
 };
@@ -224,6 +226,9 @@ function App({ currentUser, onLogout }) {
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
   useEffect(() => {
     const syncLocation = () => {
+      if (window.location.pathname === "/login") {
+        window.history.replaceState({}, "", "/select-system");
+      }
       setCurrentPath(window.location.pathname);
       setActiveSection(getSectionFromPath());
       setAccessDeniedSection("");
@@ -231,7 +236,7 @@ function App({ currentUser, onLogout }) {
     window.addEventListener("popstate", syncLocation);
     return () => window.removeEventListener("popstate", syncLocation);
   }, []);
-  useMenuAccessLog(activeSection, Boolean(currentUser) && !activeSection.startsWith("online-") && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
+  useMenuAccessLog(activeSection, Boolean(currentUser) && activeSection !== "system-select" && activeSection !== "scm-app" && !activeSection.startsWith("online-") && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
   useEffect(() => {
     let active = true;
     getMenuVisibility()
@@ -690,12 +695,28 @@ function App({ currentUser, onLogout }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const navigateToSystemSelect = () => {
+    if (window.location.pathname !== "/select-system") window.history.pushState({}, "", "/select-system");
+    setCurrentPath("/select-system");
+    setActiveSection("system-select");
+    setAccessDeniedSection("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const navigateToOrderPath = (nextPath) => {
     if (!isOrderManagementPath(nextPath) || !canAccessSection("online-order", menuVisibility, allowedSections, isAdmin)) return;
     if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
     setCurrentPath(nextPath);
     setAccessDeniedSection("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const navigateToScmPath = (nextPath) => {
+    if (!isScmAppPath(nextPath) || !canAccessSection("scm-app", menuVisibility, allowedSections, isAdmin)) return;
+    if (toScmInnerPath(currentPath) === toScmInnerPath(nextPath)) return;
+    if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
+    setCurrentPath(nextPath);
+    setAccessDeniedSection("");
   };
 
   const handlePortalSearchKeyDown = (event) => {
@@ -1064,10 +1085,6 @@ function App({ currentUser, onLogout }) {
       return <ScmPage />;
     }
 
-    if (activeSection === "scm-preview") {
-      return <ScmPreviewPage />;
-    }
-
     if (activeSection === "users") {
       return isAdmin ? <UserManagementPage currentUser={currentUser} /> : (
         <section className="access-denied-card"><h2>접근 권한이 없습니다.</h2></section>
@@ -1109,6 +1126,39 @@ function App({ currentUser, onLogout }) {
       return nextValue;
     });
   };
+
+  if (activeSection === "system-select") {
+    return (
+      <SystemSelectPage
+        currentUser={currentUser}
+        canOpenAssets={isAdmin || [...allowedSections].some((section) => section !== "scm-app")}
+        canOpenScm={canAccessSection("scm-app", menuVisibility, allowedSections, isAdmin)}
+        onSelect={handleNavigate}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  if (activeSection === "scm-app") {
+    if (accessDeniedSection || !canAccessSection("scm-app", menuVisibility, allowedSections, isAdmin)) {
+      return (
+        <main className="scm-site-denied access-denied-card">
+          <h2>접근 권한이 없습니다.</h2>
+          <p>SCM 시스템에 접근할 권한이 없습니다.</p>
+          <button type="button" onClick={navigateToSystemSelect}>시스템 선택으로 이동</button>
+        </main>
+      );
+    }
+    return (
+      <ScmSiteLayout
+        currentUser={currentUser}
+        path={currentPath}
+        onNavigateHome={navigateToSystemSelect}
+        onNavigatePath={navigateToScmPath}
+        onLogout={onLogout}
+      />
+    );
+  }
 
   return (
     <>
@@ -1186,6 +1236,7 @@ function App({ currentUser, onLogout }) {
               <strong>{currentUser?.name}</strong>
               <span>{isAdmin ? "Administrator" : "User"}</span>
             </div>
+            <button type="button" className="portal-system-select-button" onClick={navigateToSystemSelect}>시스템 선택</button>
             <button
               type="button"
               className="portal-header-logout-button"
@@ -1218,7 +1269,6 @@ function App({ currentUser, onLogout }) {
                 || activeSection === "online-recall"
                 || activeSection === "online-order"
                 || activeSection === "scm"
-                || activeSection === "scm-preview"
                 || activeSection === "users"
                 ? "portal-content portal-content-wide"
                 : "portal-content"
@@ -1226,7 +1276,7 @@ function App({ currentUser, onLogout }) {
         >
           <main className="portal-main">{renderActiveSection()}</main>
 
-          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "online-order" && activeSection !== "scm" && activeSection !== "scm-preview" && activeSection !== "users" && (
+          {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "online-order" && activeSection !== "scm" && activeSection !== "users" && (
             <aside className="portal-aside">
               <RecentActivityPanel onNavigate={handleNavigate} />
             </aside>
@@ -1445,6 +1495,8 @@ function formatNotificationDateTime(value) {
 
 function getSectionFromPath() {
   if (typeof window === "undefined") return "dashboard";
+  if (window.location.pathname === "/select-system") return "system-select";
+  if (isScmAppPath(window.location.pathname)) return "scm-app";
   if (isOrderManagementPath(window.location.pathname)) return "online-order";
   if (window.location.pathname === "/network" || window.location.pathname === "/network-status") return "equipment-status";
   if (/^\/work-manuals\/\d+$/.test(window.location.pathname)) return "work-manuals";

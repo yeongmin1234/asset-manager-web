@@ -9775,6 +9775,25 @@ button:disabled,
   color: #334155;
 }
 
+.portal-system-select-button {
+  min-width: auto;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid #111;
+  border-radius: 9px;
+  background: #fff;
+  color: #111;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.portal-system-select-button:hover {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+  box-shadow: none;
+}
+
 @media (max-width: 1366px) {
   .portal-topbar-actions {
     gap: 7px;
