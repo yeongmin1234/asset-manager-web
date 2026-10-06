@@ -122,6 +122,15 @@
 .online-order-skeleton-table .online-order-empty-cell { color: var(--text-muted, #64748b); padding: 28px 10px; text-align: center; }
 .online-order-setting-row { align-items: center; border-bottom: 1px solid var(--border-soft, #e2e8f0); display: flex; font-size: 0.84rem; justify-content: space-between; padding: 10px 0; }
 .online-order-setting-row:last-child { border-bottom: 0; }
+.online-order-channel-heading { justify-content: space-between; margin-bottom: 12px; }
+.online-order-channel-table { min-width: 760px; }
+.online-order-channel-table .secondary-button { min-height: 30px; }
+.online-order-channel-form { border-top: 1px solid var(--border-soft, #e2e8f0); margin-top: 16px; padding-top: 12px; }
+.online-order-channel-form h4 { margin: 0 0 12px; }
+.online-order-channel-checks, .online-order-channel-actions { display: flex; gap: 16px; margin-top: 12px; }
+.online-order-channel-checks label { align-items: center; display: flex; gap: 6px; }
+.online-order-channel-error { color: #b91c1c !important; }
+.online-order-channel-notice { color: #92400e !important; }
 @media (max-width: 760px) {
   .online-order-stat-grid, .online-order-two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

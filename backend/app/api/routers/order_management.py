@@ -1,5 +1,7 @@
 """Authenticated placeholders for online TEAM order management."""
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,8 +10,14 @@ from app.core.auth import get_current_user, require_admin
 from app.db.database import get_db
 from app.models.menu_visibility_setting import MenuVisibilitySetting
 from app.models.user import User
-from app.schemas.order_management import OrderDashboardResponse, OrderListResponse, OrderManagementReady
-from app.services.order_management_service import empty_dashboard, empty_list, ready_response
+from app.schemas.order_management import (
+    OrderChannelCreate, OrderChannelResponse, OrderChannelUpdate,
+    OrderDashboardResponse, OrderListResponse, OrderManagementReady,
+)
+from app.services.order_management_service import (
+    PROCESSING_SUPPORTED_CODES, create_order_channel, empty_dashboard, empty_list,
+    list_order_channels, ready_response, update_order_channel,
+)
 
 
 def require_order_access(
@@ -31,6 +39,32 @@ router = APIRouter(
     tags=["online-orders"],
     dependencies=[Depends(require_order_access)],
 )
+
+
+def _channel_response(channel) -> OrderChannelResponse:
+    return OrderChannelResponse.model_validate({
+        **channel.__dict__, "processing_supported": channel.code in PROCESSING_SUPPORTED_CODES,
+    })
+
+
+@router.get("/channels", response_model=List[OrderChannelResponse])
+def get_channels(active_only: bool = False, db: Session = Depends(get_db)) -> List[OrderChannelResponse]:
+    return [_channel_response(channel) for channel in list_order_channels(db, active_only)]
+
+
+@router.post("/channels", response_model=OrderChannelResponse, status_code=201, dependencies=[Depends(require_admin)])
+def add_channel(
+    payload: OrderChannelCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user),
+) -> OrderChannelResponse:
+    return _channel_response(create_order_channel(db, payload, user.id))
+
+
+@router.put("/channels/{channel_id}", response_model=OrderChannelResponse, dependencies=[Depends(require_admin)])
+def edit_channel(
+    channel_id: int, payload: OrderChannelUpdate, db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OrderChannelResponse:
+    return _channel_response(update_order_channel(db, channel_id, payload, user.id))
 
 
 @router.get("/dashboard", response_model=OrderDashboardResponse)

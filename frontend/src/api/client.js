@@ -1359,6 +1359,18 @@ export function getOrderSettings() {
   return request("/online/orders/settings");
 }
 
+export function getOrderChannels(activeOnly = false) {
+  return request("/online/orders/channels", { query: activeOnly ? { active_only: true } : {} });
+}
+
+export function createOrderChannel(payload) {
+  return request("/online/orders/channels", { method: "POST", body: payload });
+}
+
+export function updateOrderChannel(channelId, payload) {
+  return request(`/online/orders/channels/${encodeURIComponent(channelId)}`, { method: "PUT", body: payload });
+}
+
 function getAuthHeaders() {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
