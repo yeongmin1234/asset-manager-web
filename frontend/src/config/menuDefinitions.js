@@ -27,8 +27,8 @@ export const MENU_ITEMS = [
 
 export const MENU_GROUPS = [
   { title: "업무", itemIds: ["dashboard", "beverage-orders", "work-manuals", "vendor-contacts", "expiration_schedules"] },
-  { title: "자산", itemIds: ["assets", "software", "vehicles", "excel", "stats", "history", "install-library", "scm", "access-info", "equipment-status", "paju-fire-insurance"] },
-  { title: "인사업무", itemIds: ["hr-list"] },
+  { title: "자산", itemIds: ["assets", "install-library", "software", "vehicles", "excel", "stats", "history", "scm", "access-info", "equipment-status", "paju-fire-insurance"] },
+  { title: "인사팀", itemIds: ["hr-list"] },
   { title: "온라인 TEAM", itemIds: ["online-home", "online-recall", "online-order"] },
   { title: "관리", itemIds: ["users", "settings"] },
 ];

@@ -52,6 +52,13 @@ test("login, order actions, recall tabs and mobile controls use the shared palet
       await route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*" }, body: JSON.stringify(body) });
     });
 
+    await page.goto(`${base}/online`);
+    const onlineHome = page.locator('.portal-sidebar .sidebar-menu-item[aria-current="page"]');
+    await onlineHome.waitFor();
+    assert.match(await onlineHome.innerText(), /온라인 TEAM 홈/);
+    assert.equal((await colors(onlineHome)).background, black);
+    assert.equal((await colors(onlineHome)).color, white);
+
     await page.goto(`${base}/online/orders/settings`);
     const add = page.locator(".online-order-channel-heading button");
     await add.waitFor();

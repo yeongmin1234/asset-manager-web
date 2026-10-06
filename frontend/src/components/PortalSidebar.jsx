@@ -290,6 +290,7 @@ function PortalSidebar({
                       type="button"
                       key={item.id}
                       className={itemClassName}
+                      aria-current={activeSection === item.id ? "page" : undefined}
                       onClick={() => onNavigate?.(item.id)}
                     >
                       <span aria-hidden="true">{item.icon}</span>
