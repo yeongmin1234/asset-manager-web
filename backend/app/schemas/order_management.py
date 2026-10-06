@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, Field
 
@@ -16,5 +16,5 @@ class OrderDashboardResponse(OrderManagementReady):
 
 
 class OrderListResponse(OrderManagementReady):
-    items: list[dict[str, Any]] = Field(default_factory=list)
+    items: List[Dict[str, Any]] = Field(default_factory=list)
     total: int = 0
