@@ -14,7 +14,6 @@ SCM_IP = "192.168.222.110"
 CHECK_TIMEOUT_SECONDS = 2.0
 SLOW_RESPONSE_MS = 1500
 RECENT_CHECK_LIMIT = 10
-PUBLIC_IP_URL = "https://api.ipify.org"
 
 LAST_STATUS_BY_TARGET = {}
 RECENT_CHECKS = []
@@ -113,7 +112,6 @@ def get_network_status() -> Dict[str, Any]:
     summary = build_summary(items)
     remember_recent_check(summary)
     return {
-        "public_ip": get_public_ip(),
         "items": items,
         "summary": summary,
         "recent_checks": RECENT_CHECKS,
@@ -138,7 +136,6 @@ def check_target(target: Dict[str, Any]) -> Dict[str, Any]:
 
     item = {
         "name": target["name"],
-        "target": target["target"],
         "type": target["type"],
         "status": status,
         "latency_ms": latency_ms,
@@ -166,24 +163,8 @@ def check_http_target(url: str) -> str:
     return "ok" if status_code < 400 else "warning"
 
 
-def get_public_ip() -> Any:
-    http_request = request.Request(
-        PUBLIC_IP_URL,
-        headers={"User-Agent": "asset-manager-network-status"},
-    )
-    try:
-        with request.urlopen(http_request, timeout=CHECK_TIMEOUT_SECONDS) as response:
-            status_code = int(getattr(response, "status", response.getcode()))
-            if status_code >= 400:
-                return None
-            value = response.read(64).decode("utf-8").strip()
-            return value or None
-    except Exception:
-        return None
-
-
 def apply_last_status(item: Dict[str, Any]) -> None:
-    key = "{}|{}".format(item["name"], item["target"])
+    key = item["name"]
     current = LAST_STATUS_BY_TARGET.get(key, {})
     status = str(item.get("status") or "down")
 

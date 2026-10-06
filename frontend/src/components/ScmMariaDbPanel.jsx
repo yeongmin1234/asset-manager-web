@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 const SUCCESS_MESSAGE = "MariaDB 재시작 조건 확인이 완료되었습니다. 현재 단계에서는 실제 재시작 명령을 실행하지 않습니다.";
 const DISABLED_MESSAGE =
-  "현재 실제 MariaDB 재시작은 비활성화되어 있습니다. NAS backend/.env에서 SCM_MARIADB_RESTART_ENABLED=true 설정 후 사용할 수 있습니다.";
+  "현재 실제 MariaDB 재시작은 비활성화되어 있습니다. 기능 활성화는 담당 관리자에게 문의하세요.";
 const FINAL_WARNING =
   "MariaDB를 재시작하면 SCM 웹/DB 접속이 잠시 중단될 수 있습니다. 업무 영향이 없는 시간에 실행하세요.";
 

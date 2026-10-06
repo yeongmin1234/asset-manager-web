@@ -16352,10 +16352,18 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 }
 
 /* Main dashboard: compact cards and activity, without the assistant sidebar. */
-.dashboard-page { gap: 14px; }
-.dashboard-page .dashboard-hero-compact { box-shadow: none; gap: 16px; padding: 18px 22px; }
-.dashboard-page .dashboard-hero-compact h2 { margin: 2px 0 4px; }
-.dashboard-page .dashboard-quick-actions { max-width: none; }
+.dashboard-page { align-content: start; gap: 14px; grid-auto-rows: max-content; }
+.dashboard-page .dashboard-hero-compact {
+  align-items: center;
+  align-self: start;
+  box-shadow: none;
+  gap: 16px;
+  height: auto;
+  min-height: 0;
+  padding: 22px 24px;
+}
+.dashboard-page .dashboard-hero-compact h2 { margin: 2px 0 3px; }
+.dashboard-page .dashboard-quick-actions { align-items: center; gap: 8px; margin: 0; max-width: none; }
 .dashboard-page .dashboard-quick-actions button { min-height: 36px; padding: 7px 12px; }
 .dashboard-page .dashboard-quick-actions .secondary-button { background: #fff !important; border: 1px solid #bfdbfe !important; box-shadow: none !important; color: #1d4ed8 !important; }
 .dashboard-page .dashboard-quick-actions .secondary-button:not(:disabled):hover { background: #eff6ff !important; border-color: #93c5fd !important; transform: none; }
@@ -16374,3 +16382,7 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 .dashboard-page .dashboard-summary-notice-count span,
 .dashboard-page .dashboard-summary-notices p { font-size: 0.89rem; }
 .dashboard-page .dashboard-recent-panel { min-height: 0; width: 100%; }
+
+@media (max-width: 760px) {
+  .dashboard-page .dashboard-hero-compact { align-items: flex-start; gap: 12px; padding: 16px 18px; }
+}

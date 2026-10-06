@@ -834,9 +834,9 @@ function buildAttentionItems({ vehicleSummary, softwareExpireSoonCount, networkS
   const networkProblemItems = networkStatus.items.filter((item) => item.status === "warning" || item.status === "down");
   networkProblemItems.slice(0, 3).forEach((item) => {
     items.push({
-      id: `network-${item.name}-${item.target}`,
+      id: `network-${item.name}`,
       title: `네트워크 ${item.status === "down" ? "장애" : "주의"}`,
-      description: `${formatText(item.name)} · ${formatText(item.target)}`,
+      description: formatText(item.name),
       tone: item.status === "down" ? "danger" : "warning",
     });
   });

@@ -42,30 +42,26 @@ function NetworkStatusPage() {
 function NetworkDeviceStatusPanel() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
-  const [publicIp, setPublicIp] = useState(null);
   const [recentChecks, setRecentChecks] = useState([]);
-  const [statusState, setStatusState] = useState({ isLoading: false, error: "", requestUrl: "" });
+  const [statusState, setStatusState] = useState({ isLoading: false, error: "" });
   const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
 
   const loadStatus = useCallback(async () => {
-    setStatusState((currentState) => ({ ...currentState, isLoading: true, error: "", requestUrl: "" }));
+    setStatusState((currentState) => ({ ...currentState, isLoading: true, error: "" }));
     try {
       const data = await getNetworkStatus();
       setItems(Array.isArray(data?.items) ? data.items : []);
       setSummary({ ...EMPTY_SUMMARY, ...(data?.summary || {}) });
-      setPublicIp(data?.public_ip || null);
       setRecentChecks(Array.isArray(data?.recent_checks) ? data.recent_checks : []);
-      setStatusState({ isLoading: false, error: "", requestUrl: "" });
+      setStatusState({ isLoading: false, error: "" });
     } catch (error) {
       setItems([]);
       setSummary(EMPTY_SUMMARY);
-      setPublicIp(null);
       setRecentChecks([]);
       setStatusState({
         isLoading: false,
         error: error.message || "네트워크 상태를 불러오지 못했습니다.",
-        requestUrl: error.url || "",
       });
     }
   }, []);
@@ -97,7 +93,7 @@ function NetworkDeviceStatusPanel() {
     () => sortItems(items, sortValue, {
       created: ["checked_at"],
       updated: ["checked_at", "last_problem_at"],
-      name: ["name", "target"],
+      name: ["name"],
     }),
     [items, sortValue],
   );
@@ -125,10 +121,6 @@ function NetworkDeviceStatusPanel() {
       </div>
 
       <section className="network-summary-compact" aria-label="네트워크 상태 요약">
-        <article className="network-summary-chip network-summary-chip-public-ip">
-          <span>공인 IP</span>
-          <strong>{publicIp || "확인 실패"}</strong>
-        </article>
         {summaryCards.map((card) => (
           <article className={`network-summary-chip network-summary-chip-${card.tone}`} key={card.label}>
             <span>{card.label}</span>
@@ -156,9 +148,6 @@ function NetworkDeviceStatusPanel() {
         {statusState.error ? (
           <div className="empty-state error-state">
             네트워크 상태를 불러오지 못했습니다. {statusState.error}
-            {statusState.requestUrl ? (
-              <small>요청 URL: {statusState.requestUrl}</small>
-            ) : null}
           </div>
         ) : null}
 
@@ -176,7 +165,6 @@ function NetworkDeviceStatusPanel() {
               <thead>
                 <tr>
                   <th>서비스명</th>
-                  <th>대상</th>
                   <th>유형</th>
                   <th>상태</th>
                   <th>응답시간</th>
@@ -185,11 +173,8 @@ function NetworkDeviceStatusPanel() {
               </thead>
               <tbody>
                 {displayedItems.map((item) => (
-                  <tr key={`${item.name}-${item.target}`}>
+                  <tr key={item.name}>
                     <td className="network-service-name">{displayValue(item.name)}</td>
-                    <td className="network-target" title={displayValue(item.target)}>
-                      {displayValue(item.target)}
-                    </td>
                     <td>{TYPE_LABELS[item.type] || displayValue(item.type)}</td>
                     <td>
                       <span className={`network-status-badge network-status-badge-${normalizeStatus(item.status)}`}>

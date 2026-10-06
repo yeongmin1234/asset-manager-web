@@ -70,7 +70,7 @@ function AdminPasswordResetModal({
 
           <div className="admin-reset-warning">
             <strong>보안 안내</strong>
-            <span>초기화 코드는 NAS 서버의 backend/.env에 설정된 코드입니다. 관리자만 사용하세요.</span>
+            <span>초기화 코드는 담당 관리자에게 확인하세요.</span>
           </div>
 
           <label className="field admin-auth-password-field">

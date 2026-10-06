@@ -9,23 +9,10 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 def health_check() -> Dict[str, str]:
-    return {
-        "status": "ok",
-        "service": "asset-manager-backend",
-    }
+    return {"status": "ok"}
 
 
 @router.get("/health/db")
 def database_health_check() -> Dict[str, str]:
-    is_connected, message = check_database_connection()
-    if is_connected:
-        return {
-            "status": "ok",
-            "database": "connected",
-        }
-
-    return {
-        "status": "error",
-        "database": "disconnected",
-        "message": message or "Database connection failed",
-    }
+    is_connected, _ = check_database_connection()
+    return {"status": "ok" if is_connected else "error"}
