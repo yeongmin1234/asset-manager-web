@@ -14,7 +14,7 @@ function OrderDashboardPage() {
       </section>
       <div className="online-order-two-columns">
         <section className="online-order-panel"><h3>최근 가공 이력</h3><p className="online-order-empty">아직 가공 이력이 없습니다.</p></section>
-        <section className="online-order-panel"><h3>채널별 현황</h3><p className="online-order-empty">스마트스토어 · 처리 내역 0건</p></section>
+        <section className="online-order-panel"><h3>채널별 현황</h3><p className="online-order-empty">아직 채널별 처리 내역이 없습니다.</p></section>
       </div>
     </>
   );

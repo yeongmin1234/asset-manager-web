@@ -35,7 +35,8 @@ test("발주 관리 페이지와 기존 온라인 페이지가 렌더링된다",
     }
     assert.equal(isOrderManagementPath("/online/orders/unknown"), false);
     const processHtml = renderToStaticMarkup(React.createElement(OrderManagementPage, { path: "/online/orders/process", currentUser: { name: "담당자" } }));
-    assert.match(processHtml, /스마트스토어/);
+    assert.match(processHtml, /사용 중인 채널 없음/);
+    assert.doesNotMatch(processHtml, /스마트스토어/);
     assert.match(processHtml, /담당자/);
     assert.match(processHtml, /accept="\.xlsx,\.xls"/);
     assert.match(processHtml, /총 주문/);
@@ -45,6 +46,7 @@ test("발주 관리 페이지와 기존 온라인 페이지가 렌더링된다",
     assert.match(previewHtml, /아직 가공된 데이터가 없습니다/);
     const mappingHtml = renderToStaticMarkup(React.createElement(OrderManagementPage, { path: "/online/orders/mappings" }));
     assert.match(mappingHtml, /이카운트 상품코드/);
+    assert.match(mappingHtml, /전체 채널/);
     const historyHtml = renderToStaticMarkup(React.createElement(OrderManagementPage, { path: "/online/orders/history" }));
     assert.match(historyHtml, /원본 파일명/);
     assert.match(renderToStaticMarkup(React.createElement(OnlineTeamHomePage)), /온라인 TEAM/);

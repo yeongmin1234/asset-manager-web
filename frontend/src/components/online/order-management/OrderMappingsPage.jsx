@@ -8,7 +8,7 @@ function OrderMappingsPage() {
       <p>채널 상품과 이카운트 상품의 매핑을 관리할 화면입니다.</p>
       <div className="online-order-toolbar-skeleton">
         <label>검색<input type="search" placeholder="채널 상품코드 또는 상품명" disabled /></label>
-        <label>채널<select defaultValue="smartstore" disabled><option value="smartstore">스마트스토어</option></select></label>
+        <label>채널<select defaultValue="all" disabled><option value="all">전체 채널</option></select></label>
         <label>구분<select defaultValue="all" disabled><option value="all">전체</option><option>본품</option><option>사은품</option></select></label>
         <button type="button" className="secondary-button" disabled>매핑 추가</button>
       </div>
