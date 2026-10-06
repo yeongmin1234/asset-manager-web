@@ -6,8 +6,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
 const css = readFileSync(new URL("../src/components/online/online.css", import.meta.url), "utf8");
+const actionCss = readFileSync(new URL("../src/styles/action-controls.css", import.meta.url), "utf8");
 
-test("only the active main tab uses the blue filled style", async () => {
+test("only the active main tab uses the shared black selected style", async () => {
   const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom", optimizeDeps: { noDiscovery: true, include: [] } });
   try {
     const { default: RecallManagementPage } = await vite.ssrLoadModule("/src/components/online/RecallManagementPage.jsx");
@@ -15,10 +16,8 @@ test("only the active main tab uses the blue filled style", async () => {
     assert.match(html, /class="online-page online-recall-page"/);
     const nav = html.match(/<nav class="online-recall-tabs"[\s\S]*?<\/nav>/)?.[0] || "";
     assert.equal((nav.match(/class="active"/g) || []).length, 1);
-    assert.match(css, /\.online-recall-tabs button\.active\s*\{[^}]*background:\s*#2563eb;[^}]*color:\s*#fff;/);
-    assert.match(css, /\.online-recall-tabs button:not\(\.active\):hover/);
-    assert.match(css, /\.online-recall-page \.online-recall-tabs button \{ background: #fff !important; color: #334155 !important; font-size: 0\.96rem;/);
-    assert.match(css, /\.online-recall-page \.online-recall-tabs button\.active \{ background: #2563eb !important; color: #fff !important;/);
+    assert.match(actionCss, /#root button:is\(\.active,[\s\S]*?background: #111 !important;/);
+    assert.match(actionCss, /background-image: linear-gradient\(135deg, var\(--action-fill\) 50%, transparent 50%\)/);
   } finally { await vite.close(); }
 });
 
@@ -39,7 +38,7 @@ test("target summary, compact filters and list-first batch subtabs render", asyn
     assert.match(channels, /등록된 판매채널이 없습니다/);
     assert.match(css, /\.online-target-progress-cards\s*\{[^}]*repeat\(5,/);
     assert.match(css, /\.online-recall-page \.online-target-progress-card strong \{ font-size: 1\.63rem;/);
-    assert.match(css, /\.online-recall-page \.online-target-subtabs button\.active \{ background: #eff6ff !important;[^}]*color: #1d4ed8 !important;/);
+    assert.match(actionCss, /#root button:is\(\.active,[\s\S]*?color: #fff !important;/);
     assert.match(css, /\.online-recall-page \.online-target-table td \{ font-size: 1\.07rem;/);
     assert.match(html, /aria-label="리콜 대상 검색"/);
     assert.match(html, /aria-label="리콜 대상 상태"/);

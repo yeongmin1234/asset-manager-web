@@ -1,0 +1,139 @@
+/* Shared action palette. Keep page-specific sizes and spacing in their own styles. */
+#root button:not(:is(
+  .portal-brand-button, .icon-button, .link-button, .login-motion-toggle,
+  .table-column-resize-handle, .vehicle-column-resize-handle,
+  .beverage-thumbnail-button, .beverage-table-title, .beverage-post-main,
+  .network-password-mask, .network-password-value, .software-license-key-text,
+  .stats-card, .expiration-summary-card, .vehicle-recent-insurance-card,
+  .notification-item, .shortcut-item, .inventory-recommendation-item,
+  .work-manual-title-link, .work-manual-content-image-button,
+  .work-manual-editor-image-delete, .server-status-button
+)) {
+  --action-fill: #111;
+  background-color: #fff !important;
+  background-image: linear-gradient(135deg, var(--action-fill) 50%, transparent 50%) !important;
+  background-position: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-size: 260% 260% !important;
+  border: 1px solid #111 !important;
+  box-shadow: none !important;
+  color: #111 !important;
+  -webkit-text-fill-color: currentColor !important;
+  font-weight: 600;
+  isolation: isolate;
+  position: relative;
+  transition: background-position 0.4s ease, color 0.2s ease, border-color 0.2s ease !important;
+}
+
+@media (hover: hover) {
+  #root button:not(:is(
+    .portal-brand-button, .icon-button, .link-button, .login-motion-toggle,
+    .table-column-resize-handle, .vehicle-column-resize-handle,
+    .beverage-thumbnail-button, .beverage-table-title, .beverage-post-main,
+    .network-password-mask, .network-password-value, .software-license-key-text,
+    .stats-card, .expiration-summary-card, .vehicle-recent-insurance-card,
+    .notification-item, .shortcut-item, .inventory-recommendation-item,
+    .work-manual-title-link, .work-manual-content-image-button,
+    .work-manual-editor-image-delete, .server-status-button
+  )):not(:disabled):not(.active):not(.is-active):not(.selected):not([aria-current="page"]):not([aria-selected="true"]):hover {
+    background-position: 0 0 !important;
+    color: #fff !important;
+    transform: none;
+  }
+}
+
+/* Tabs, filters, page numbers, and the current menu item share one selected state. */
+#root button:is(.active, .is-active, .selected, [aria-current="page"], [aria-selected="true"]):not(:disabled):not(:is(
+  .login-motion-toggle, .notification-item, .shortcut-item,
+  .inventory-recommendation-item, .server-status-button
+)) {
+  background: #111 !important;
+  border-color: #111 !important;
+  box-shadow: none !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+#root .portal-sidebar .sidebar-menu-item:is(.active, :hover) span {
+  background: transparent !important;
+  border-color: currentColor !important;
+  color: inherit !important;
+}
+
+/* Destructive controls retain a distinct red meaning. */
+#root button:is(
+  .danger-button, .danger-outline-button, .danger-ghost-button,
+  .online-recall-delete-button, .scm-restart-execute-button,
+  .admin-reset-submit, .ai-assistant-reset
+):not(:disabled) {
+  --action-fill: #dc2626;
+  border-color: #dc2626 !important;
+  color: #dc2626 !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+@media (hover: hover) {
+  #root button:is(
+    .danger-button, .danger-outline-button, .danger-ghost-button,
+    .online-recall-delete-button, .scm-restart-execute-button,
+    .admin-reset-submit, .ai-assistant-reset
+  ):not(:disabled):hover {
+    background-position: 0 0 !important;
+    border-color: #dc2626 !important;
+    color: #fff !important;
+  }
+}
+
+/* A disabled control remains neutral even under a parent hover rule. */
+#root button:disabled:not(:is(
+  .portal-brand-button, .icon-button, .link-button, .login-motion-toggle,
+  .table-column-resize-handle, .vehicle-column-resize-handle,
+  .beverage-thumbnail-button, .beverage-table-title, .beverage-post-main,
+  .network-password-mask, .network-password-value, .software-license-key-text,
+  .stats-card, .expiration-summary-card, .vehicle-recent-insurance-card,
+  .notification-item, .shortcut-item, .inventory-recommendation-item,
+  .work-manual-title-link, .work-manual-content-image-button,
+  .work-manual-editor-image-delete, .server-status-button
+)) {
+  background: #e5e7eb !important;
+  border-color: #d1d5db !important;
+  box-shadow: none !important;
+  color: #6b7280 !important;
+  -webkit-text-fill-color: #6b7280 !important;
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none !important;
+}
+
+#root button:focus-visible:not(.link-button):not(.icon-button) {
+  outline: 2px solid #111 !important;
+  outline-offset: 2px;
+}
+
+#root input[type="checkbox"],
+#root input[type="radio"] {
+  accent-color: #111;
+}
+
+/* The assistant button already has its own sheen pseudo-element. */
+#root .ai-button::before { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  #root button { transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 1080px) {
+  .portal-shell { grid-template-columns: minmax(0, 1fr); }
+  .portal-main .quick-create,
+  .online-recall-page { grid-template-columns: minmax(0, 1fr); }
+  .portal-main .quick-create > *,
+  .online-recall-page > * { min-width: 0; }
+}
+
+.online-order-panel { min-width: 0; }
+
+@media (max-width: 768px) {
+  .portal-assets-panel .quick-create-form { grid-template-columns: minmax(0, 1fr); }
+  .portal-assets-panel .quick-create-form > * { grid-column: 1 / -1; min-width: 0; }
+  .online-recall-tabs { flex-wrap: wrap; }
+}

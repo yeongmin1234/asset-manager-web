@@ -69,6 +69,7 @@ import {
 import { canAccessSection, getAllowedSectionIds } from "./utils/menuPermissions.js";
 import useMenuAccessLog from "./hooks/useMenuAccessLog.js";
 import "./styles/app.css";
+import "./styles/action-controls.css";
 
 const INITIAL_FILTERS = {
   keyword: "",

@@ -29,6 +29,8 @@ test("발주 하위 경로 직접 접속, 새로고침, 뒤로가기와 기존 �
       ? { id: 1, username: "order-user", name: "발주 담당자", role: userRole, menu_permissions: userPermissions, is_active: true }
       : pathname === "/menu-visibility"
         ? { visibility: { online_home: true, online_order: true, online_recall: true } }
+        : pathname === "/online/orders/channels"
+          ? [{ id: 1, name: "스마트스토어", code: "smartstore", is_active: true, is_default: true, processing_supported: false }]
         : {};
     await route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*" }, body: JSON.stringify(body) });
   });
