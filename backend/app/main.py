@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.core.auth import get_current_user, require_admin, require_menu_permission
 from app.core.config import REQUIRED_CORS_ORIGINS, settings
@@ -83,11 +82,6 @@ app.add_middleware(
 )
 
 Path(settings.upload_dir).resolve().mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/uploads",
-    StaticFiles(directory=str(Path(settings.upload_dir).resolve())),
-    name="uploads",
-)
 
 app.include_router(health.router)
 app.include_router(downloads_router)

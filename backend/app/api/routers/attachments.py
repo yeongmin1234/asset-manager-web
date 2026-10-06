@@ -10,7 +10,7 @@ from app.db.database import get_db
 from app.models.attachment import AttachmentEntityType
 from app.models.user import User
 from app.schemas.attachment import AttachmentRead
-from app.services.download_service import disposition
+from app.services.private_file_response import private_file_response
 from app.services.attachment_service import (
     AttachmentNotFoundError,
     AttachmentSizeError,
@@ -110,12 +110,10 @@ def download_attachment(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="첨부파일 원본을 찾을 수 없습니다.",
             )
-        return FileResponse(
-            str(file_path),
-            media_type=attachment.mime_type or "application/octet-stream",
-            filename=attachment.original_filename,
-            headers={"Content-Disposition": disposition(attachment.original_filename)},
-        )
+        return private_file_response(file_path, request=request, user_id=current_user.id,
+                                     file_id=str(attachment_id), file_kind="attachment",
+                                     media_type=attachment.mime_type or "application/octet-stream",
+                                     filename=attachment.original_filename)
     except AttachmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="첨부파일을 찾을 수 없습니다.") from exc
     except AttachmentValidationError as exc:
@@ -144,12 +142,10 @@ def preview_attachment(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="첨부파일 원본을 찾을 수 없습니다.",
             )
-        return FileResponse(
-            str(file_path),
-            media_type=attachment.mime_type or "application/octet-stream",
-            filename=attachment.original_filename,
-            headers={"Content-Disposition": disposition(attachment.original_filename, "inline")},
-        )
+        return private_file_response(file_path, request=request, user_id=current_user.id,
+                                     file_id=str(attachment_id), file_kind="attachment_preview",
+                                     media_type=attachment.mime_type or "application/octet-stream",
+                                     filename=attachment.original_filename, inline=True)
     except AttachmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="첨부파일을 찾을 수 없습니다.") from exc
     except AttachmentValidationError as exc:

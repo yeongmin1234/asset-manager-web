@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  API_BASE_URL,
   createBeverageOrder,
   deleteBeverageOrder,
   getBeverageOrder,
   getBeverageOrders,
   updateBeverageOrder,
 } from "../api/client.js";
+import PrivateImage, { usePrivateImageUrl } from "./PrivateImage.jsx";
 import useResizableColumns from "../hooks/useResizableColumns.js";
 
 const INITIAL_FILTERS = {
@@ -338,7 +338,7 @@ function BeverageOrderForm({
   onPaste,
   onSubmit,
 }) {
-  const currentImageUrl = editingOrder?.image_url ? getImageUrl(editingOrder.image_url) : "";
+  const currentImageUrl = usePrivateImageUrl(editingOrder?.image_url);
   const [isDragging, setIsDragging] = useState(false);
   const handleDrop = (event) => {
     event.preventDefault();
@@ -547,7 +547,7 @@ function BeverageOrderList({
                   <td>
                     <button type="button" className="beverage-thumbnail-button" onClick={() => onSelect(order)}>
                       {order.image_url ? (
-                        <img src={getImageUrl(order.image_url)} alt={`${order.title} 미리보기`} />
+                        <PrivateImage path={order.image_url} alt={`${order.title} 미리보기`} />
                       ) : (
                         <span>이미지 없음</span>
                       )}
@@ -588,6 +588,7 @@ function BeverageOrderList({
 }
 
 function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
+  const imageUrl = usePrivateImageUrl(order?.image_url);
   return (
     <aside className="content-panel beverage-detail-panel">
       <div className="section-heading">
@@ -614,9 +615,9 @@ function BeverageOrderDetail({ order, detailState, onEdit, onDelete }) {
             </span>
             <h3>{order.title}</h3>
           </div>
-          {order.image_url && (
-            <a href={getImageUrl(order.image_url)} target="_blank" rel="noreferrer" className="beverage-detail-image-link">
-              <img className="beverage-detail-image" src={getImageUrl(order.image_url)} alt={order.title} />
+          {imageUrl && (
+            <a href={imageUrl} target="_blank" rel="noreferrer" className="beverage-detail-image-link">
+              <img className="beverage-detail-image" src={imageUrl} alt={order.title} />
             </a>
           )}
           <InfoRow label="총 결제금액" value={formatCurrency(order.total_amount)} />
@@ -654,16 +655,6 @@ function OrderTypeBadge({ orderType }) {
       {getOrderTypeLabel(normalizedType)}
     </span>
   );
-}
-
-function getImageUrl(value) {
-  if (!value) {
-    return "";
-  }
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    return value;
-  }
-  return `${API_BASE_URL}${value}`;
 }
 
 function formatText(value) {

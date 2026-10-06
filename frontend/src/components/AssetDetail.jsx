@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { API_BASE_URL, deleteAsset, disposeAsset, getAsset, updateAsset } from "../api/client.js";
+import { deleteAsset, disposeAsset, getAsset, updateAsset } from "../api/client.js";
+import { usePrivateImageUrl } from "./PrivateImage.jsx";
 import AssetForm from "./AssetForm.jsx";
 import AssetHistory from "./AssetHistory.jsx";
 import AttachmentPanel from "./AttachmentPanel.jsx";
@@ -16,6 +17,7 @@ function AssetDetail({
   currentUser,
 }) {
   const [asset, setAsset] = useState(null);
+  const specImageUrl = usePrivateImageUrl(asset?.spec_image_url);
   const [detailState, setDetailState] = useState({ isLoading: false, error: "" });
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editError, setEditError] = useState("");
@@ -281,15 +283,15 @@ function AssetDetail({
       </div>
 
       <div className="asset-spec-image-section">
-        {asset.spec_image_url ? (
+        {specImageUrl ? (
           <a
             className="asset-spec-image-link"
-            href={getUploadUrl(asset.spec_image_url)}
+            href={specImageUrl}
             target="_blank"
             rel="noreferrer"
             aria-label="사양 이미지 확대 보기"
           >
-            <img src={getUploadUrl(asset.spec_image_url)} alt="사양 이미지" />
+            <img src={specImageUrl} alt="사양 이미지" />
           </a>
         ) : (
           <span>첨부된 사양 이미지가 없습니다.</span>
@@ -395,16 +397,6 @@ function formatDateTime(value) {
     return value;
   }
   return date.toLocaleString("ko-KR");
-}
-
-function getUploadUrl(value) {
-  if (!value) {
-    return "";
-  }
-  if (/^https?:\/\//i.test(value)) {
-    return value;
-  }
-  return `${API_BASE_URL}${value}`;
 }
 
 export default AssetDetail;

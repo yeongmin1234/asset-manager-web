@@ -6,7 +6,9 @@ import {
   getWorkManuals,
   updateWorkManual,
   uploadWorkManualImage,
+  fetchPrivateImage,
 } from "../api/client.js";
+import PrivateImage from "./PrivateImage.jsx";
 import {
   BOARD_SORT_OPTIONS,
   SORT_VALUES,
@@ -468,6 +470,7 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
   const fileInputRef = useRef(null);
   const savedRangeRef = useRef(null);
   const selectedImageRef = useRef(null);
+  const editorImageUrlsRef = useRef([]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -486,6 +489,8 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
   useEffect(() => {
     if (!isOpen) {
       editorHydrationKeyRef.current = "";
+      editorImageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      editorImageUrlsRef.current = [];
       return;
     }
     if (!editorRef.current) {
@@ -495,8 +500,11 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
     if (editorHydrationKeyRef.current === hydrationKey) {
       return;
     }
+    editorImageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    editorImageUrlsRef.current = [];
     const nextContent = normalizeContentForEditor(initialManual?.content || "");
-    editorRef.current.innerHTML = nextContent;
+    editorRef.current.innerHTML = prepareEditorImageHtml(nextContent);
+    hydrateEditorImages(editorRef.current, editorImageUrlsRef.current);
     editorHydrationKeyRef.current = hydrationKey;
     setForm((current) => ({ ...current, content: nextContent }));
   }, [initialManual, isOpen]);
@@ -739,11 +747,13 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
     }
   };
 
-  const insertUploadedImage = (image) => {
+  const insertUploadedImage = async (image) => {
     if (!isSafeManualImageUrl(image?.url)) {
       return;
     }
-    insertHtmlAtCursor(`<img src="${image.url}" alt="이미지"><p><br></p>`);
+    const objectUrl = URL.createObjectURL(await fetchPrivateImage(image.url));
+    editorImageUrlsRef.current.push(objectUrl);
+    insertHtmlAtCursor(`<img src="${objectUrl}" data-upload-src="${image.url}" alt="이미지"><p><br></p>`);
   };
 
   const uploadImageAndInsert = async (files) => {
@@ -763,7 +773,7 @@ function WorkManualFormModal({ error, initialCategory, initialManual, isOpen, is
           continue;
         }
         const uploadedImage = await uploadWorkManualImage(imageFile);
-        insertUploadedImage(uploadedImage);
+        await insertUploadedImage(uploadedImage);
       }
       setUploadState({ error: lastError, isDragging: false, isUploading: false });
     } catch {
@@ -1098,6 +1108,30 @@ function formatText(value) {
   return String(value);
 }
 
+function prepareEditorImageHtml(html) {
+  const documentValue = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const root = documentValue.body.firstChild;
+  root.querySelectorAll("img").forEach((image) => {
+    const source = image.getAttribute("src") || "";
+    if (isSafeManualImageUrl(source)) {
+      image.setAttribute("data-upload-src", source);
+      image.removeAttribute("src");
+    }
+  });
+  return root.innerHTML;
+}
+
+function hydrateEditorImages(editor, urls) {
+  editor.querySelectorAll("img[data-upload-src]").forEach((image) => {
+    fetchPrivateImage(image.getAttribute("data-upload-src")).then((blob) => {
+      if (!image.isConnected) return;
+      const objectUrl = URL.createObjectURL(blob);
+      urls.push(objectUrl);
+      image.src = objectUrl;
+    }).catch(() => {});
+  });
+}
+
 function normalizeContentForEditor(content) {
   return normalizeContentForRender(content || "");
 }
@@ -1146,7 +1180,7 @@ function sanitizeManualNodeToHtml(node) {
     return "<hr>";
   }
   if (tagName === "img") {
-    const src = node.getAttribute("src") || "";
+    const src = node.getAttribute("data-upload-src") || node.getAttribute("src") || "";
     if (!isSafeManualImageUrl(src)) {
       return "";
     }
@@ -1291,9 +1325,8 @@ function renderManualDomNode(node, key, onImageClick) {
         type="button"
         className="work-manual-content-image-button"
         key={key}
-        onClick={() => onImageClick?.({ alt, url: src })}
       >
-        <img src={src} alt={alt} loading="lazy" />
+        <PrivateImage path={src} alt={alt} loading="lazy" onClick={(url) => onImageClick?.({ alt, url })} />
       </button>
     );
   }
@@ -1366,7 +1399,8 @@ function getFileExtension(filename) {
 function isSafeManualImageUrl(url) {
   const normalizedUrl = String(url || "");
   return (
-    normalizedUrl.startsWith("/uploads/work_manuals/images/") &&
+    (normalizedUrl.startsWith("/uploads/work_manuals/images/") ||
+      normalizedUrl.startsWith("/work-manuals/images/")) &&
     !normalizedUrl.includes("..") &&
     !normalizedUrl.includes("\\") &&
     /\.(jpe?g|png|webp|gif)$/i.test(normalizedUrl)

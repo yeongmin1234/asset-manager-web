@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { API_BASE_URL } from "../api/client.js";
+import { usePrivateImageUrl } from "./PrivateImage.jsx";
 
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -9,14 +9,17 @@ function SpecImageInput({
   onChange,
   compact = false,
 }) {
-  const [previewUrl, setPreviewUrl] = useState(resolveUploadUrl(initialUrl));
+  const privateImageUrl = usePrivateImageUrl(initialUrl);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isRemoved, setIsRemoved] = useState(false);
   const [error, setError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
-    setPreviewUrl(resolveUploadUrl(initialUrl));
+    setPreviewUrl("");
     setSelectedFile(null);
+    setIsRemoved(false);
     setError("");
   }, [initialUrl]);
 
@@ -38,12 +41,14 @@ function SpecImageInput({
     }
 
     setSelectedFile(file);
+    setIsRemoved(false);
     setError("");
     onChange?.(file, false);
   };
 
   const handleRemove = () => {
     setSelectedFile(null);
+    setIsRemoved(true);
     setPreviewUrl("");
     setError("");
     onChange?.(null, Boolean(initialUrl));
@@ -95,9 +100,9 @@ function SpecImageInput({
         onDrop={handleDrop}
         onPaste={handlePaste}
       >
-        {previewUrl ? (
+        {previewUrl || (initialUrl && privateImageUrl && !selectedFile && !isRemoved) ? (
           <div className="spec-image-preview">
-            <img src={previewUrl} alt="사양 이미지 미리보기" />
+            <img src={previewUrl || privateImageUrl} alt="사양 이미지 미리보기" />
             <button
               type="button"
               className="secondary-button"
@@ -144,16 +149,6 @@ function normalizeClipboardFile(file) {
 
   const extension = file.type === "image/webp" ? "webp" : file.type === "image/jpeg" ? "jpg" : "png";
   return new File([file], `spec-image.${extension}`, { type: file.type || "image/png" });
-}
-
-function resolveUploadUrl(value) {
-  if (!value) {
-    return "";
-  }
-  if (/^https?:\/\//i.test(value)) {
-    return value;
-  }
-  return `${API_BASE_URL}${value}`;
 }
 
 export default SpecImageInput;

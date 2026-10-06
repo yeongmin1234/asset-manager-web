@@ -206,6 +206,6 @@ class DownloadMiddleware:
         logger.error("download_failed %s", json.dumps({
             "user_id": state.get("download_user_id", state.get("native_download_user_id")),
             "file_id": state.get("download_file_id", match[2] if match else None),
-            "filename": state.get("download_filename"), "request_time": state.get("download_started_at"),
+            "request_time": state.get("download_started_at"),
             "api": state.get("download_api", scope["path"]), "http_status": status, "reason": reason,
         }, ensure_ascii=False))

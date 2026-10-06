@@ -1,10 +1,15 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.services.private_file_response import private_file_response
+from app.services.private_image_path import resolve_private_image_path
 from app.schemas.beverage_order_record import (
     BeverageOrderAmountOcrResponse,
     BeverageOrderRecordRead,
@@ -19,6 +24,7 @@ from app.services.beverage_order_service import (
     get_beverage_order_record,
     get_beverage_order_records,
     get_beverage_order_summary,
+    BEVERAGE_UPLOAD_SUBDIR,
     read_beverage_image_file,
     save_beverage_image_file,
     update_beverage_order_record,
@@ -26,6 +32,29 @@ from app.services.beverage_order_service import (
 
 
 router = APIRouter(prefix="/beverage-orders", tags=["beverage-orders"])
+
+
+@router.get("/{order_id}/image")
+def read_beverage_order_image(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    try:
+        record = get_beverage_order_record(db, order_id)
+    except BeverageOrderRecordNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.") from exc
+    if not record.image_path:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    try:
+        path = resolve_private_image_path(record.image_path, BEVERAGE_UPLOAD_SUBDIR)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.") from exc
+    return private_file_response(path, request=request, user_id=current_user.id,
+                                 file_id=str(order_id), file_kind="beverage_order_image",
+                                 media_type="image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else
+                                 "image/" + path.suffix.lower().lstrip("."), inline=True)
 
 
 @router.get("", response_model=List[BeverageOrderRecordRead])

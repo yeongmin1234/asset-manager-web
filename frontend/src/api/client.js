@@ -144,6 +144,18 @@ async function requestPreviewBlob(path) {
   }
 }
 
+export async function fetchPrivateImage(path) {
+  let safePath = String(path || "");
+  const legacyManual = safePath.match(/^\/uploads\/work_manuals\/images\/([a-f0-9]{32}\.(?:jpe?g|png|webp|gif))$/i);
+  if (legacyManual) safePath = `/work-manuals/images/${legacyManual[1]}`;
+  if (!/^\/(?:assets\/\d+\/spec-image|beverage-orders\/\d+\/image|work-manuals\/images\/[a-f0-9]{32}\.(?:jpe?g|png|webp|gif))$/i.test(safePath)) {
+    throw new Error("이미지 경로를 확인할 수 없습니다.");
+  }
+  const { blob, contentType } = await requestPreviewBlob(safePath);
+  if (!contentType.startsWith("image/")) throw new Error("이미지 파일이 아닙니다.");
+  return blob;
+}
+
 async function requestFormData(path, formData, options = {}) {
   const url = new URL(`${API_BASE_URL}${path}`);
   const controller = new AbortController();

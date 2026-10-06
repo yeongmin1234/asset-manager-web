@@ -152,8 +152,9 @@ class NativeDownloadsTest(unittest.TestCase):
             self.path.unlink()
             self.prepare()
         text = " ".join(captured.output)
-        for field in ["user_id", "file_id", "filename", "request_time", "api", "http_status", "reason"]:
+        for field in ["user_id", "file_id", "request_time", "api", "http_status", "reason"]:
             self.assertIn(field, text)
+        self.assertNotIn("filename", text)
         self.assertNotIn(SECRET, text)
         self.assertNotIn("Authorization", text)
 

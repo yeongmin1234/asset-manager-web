@@ -6,6 +6,7 @@ from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -30,6 +31,7 @@ from app.services.work_manual_service import (
     update_work_manual,
 )
 from app.services.attachment_service import AttachmentValidationError
+from app.services.private_file_response import private_file_response
 
 
 router = APIRouter(prefix="/work-manuals", tags=["work-manuals"])
@@ -37,8 +39,9 @@ ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 WORK_MANUAL_IMAGE_DIR = "work_manuals/images"
 WORK_MANUAL_IMAGE_URL_PREFIX = "/uploads/work_manuals/images/"
+PROTECTED_IMAGE_URL_PREFIX = "/work-manuals/images/"
+STORED_IMAGE_NAME_PATTERN = re.compile(r"[a-f0-9]{32}\.(?:jpg|jpeg|png|webp|gif)", re.IGNORECASE)
 BASE64_IMAGE_PATTERN = re.compile(r"data:image/[a-z0-9.+-]+;base64,[^\s\"'<)]+", re.IGNORECASE)
-SAFE_IMAGE_URL_PATTERN = re.compile(r"\.(jpe?g|png|webp|gif)$", re.IGNORECASE)
 DANGEROUS_CONTENT_TAGS = {"script", "iframe", "object", "embed", "style"}
 SAFE_CONTENT_TAGS = {"p", "div", "strong", "b", "em", "i", "u", "h2", "h3", "ul", "ol", "li"}
 VOID_CONTENT_TAGS = {"br", "hr"}
@@ -115,9 +118,28 @@ async def upload_work_manual_image(
         await image.close()
 
     return WorkManualImageUploadResponse(
-        url="/uploads/{}/{}".format(WORK_MANUAL_IMAGE_DIR, filename),
+        url="{}{}".format(PROTECTED_IMAGE_URL_PREFIX, filename),
         filename=filename,
     )
+
+
+@router.get("/images/{filename}")
+def read_work_manual_image(
+    request: Request,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    if not STORED_IMAGE_NAME_PATTERN.fullmatch(filename):
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    image_dir = (Path(settings.upload_dir).resolve() / WORK_MANUAL_IMAGE_DIR).resolve()
+    path = (image_dir / filename).resolve()
+    if image_dir not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    suffix = path.suffix.lower()
+    media_type = "image/jpeg" if suffix in {".jpg", ".jpeg"} else "image/" + suffix.lstrip(".")
+    return private_file_response(path, request=request, user_id=current_user.id,
+                                 file_id=filename.split(".", 1)[0], file_kind="work_manual_image",
+                                 media_type=media_type, inline=True)
 
 
 @router.get("/{manual_id}", response_model=WorkManualRead)
@@ -266,9 +288,7 @@ def sanitize_work_manual_content(content: str) -> str:
 
 def is_safe_work_manual_image_url(url: str) -> bool:
     normalized_url = str(url or "")
-    return (
-        normalized_url.startswith(WORK_MANUAL_IMAGE_URL_PREFIX)
-        and ".." not in normalized_url
-        and "\\" not in normalized_url
-        and SAFE_IMAGE_URL_PATTERN.search(normalized_url) is not None
-    )
+    for prefix in (WORK_MANUAL_IMAGE_URL_PREFIX, PROTECTED_IMAGE_URL_PREFIX):
+        if normalized_url.startswith(prefix):
+            return STORED_IMAGE_NAME_PATTERN.fullmatch(normalized_url[len(prefix):]) is not None
+    return False

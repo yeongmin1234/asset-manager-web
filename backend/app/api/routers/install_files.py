@@ -10,7 +10,7 @@ from app.core.auth import require_admin
 from app.models.user import User
 from app.models.install_file import InstallFile
 from app.services.audit_log_service import audit_snapshot, build_audit_changes, record_audit_log
-from app.services.download_service import disposition
+from app.services.private_file_response import private_file_response
 from app.schemas.install_file import (
     InstallFileDeleteRequest,
     InstallFileListResponse,
@@ -281,7 +281,8 @@ def delete_existing_install_file(
 
 
 @router.get("/{file_id}/download")
-def download_install_file(request: Request, file_id: int, db: Session = Depends(get_db)) -> FileResponse:
+def download_install_file(request: Request, file_id: int, db: Session = Depends(get_db),
+                          current_admin: User = Depends(require_admin)) -> FileResponse:
     try:
         item = get_install_file(db, file_id)
         request.state.download_filename = item.original_filename
@@ -292,12 +293,11 @@ def download_install_file(request: Request, file_id: int, db: Session = Depends(
                 detail="설치자료 파일을 찾을 수 없습니다.",
             )
         item = increment_install_file_download_count(db, item)
-        return FileResponse(
-            str(file_path),
-            media_type="application/octet-stream",
-            filename=item.original_filename,
-            headers={"Content-Disposition": disposition(item.original_filename)},
-        )
+        return private_file_response(file_path, request=request,
+                                     user_id=current_admin.id,
+                                     file_id=str(file_id), file_kind="install_file",
+                                     media_type="application/octet-stream",
+                                     filename=item.original_filename)
     except InstallFileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -82,4 +82,4 @@ class Asset(Base):
     def spec_image_url(self) -> Optional[str]:
         if not self.spec_image_path:
             return None
-        return f"/uploads/{self.spec_image_path}"
+        return f"/assets/{self.id}/spec-image"

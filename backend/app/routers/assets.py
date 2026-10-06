@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,7 @@ from app.services.asset_service import (
     delete_asset_image_file,
     dispose_asset,
     get_asset,
+    ASSET_UPLOAD_SUBDIR,
     get_assets,
     preview_assets_import,
     save_asset_image_file,
@@ -36,11 +37,36 @@ from app.services.asset_service import (
 )
 from app.services.attachment_service import AttachmentValidationError
 from app.services.asset_ocr_service import analyze_asset_image
+from app.services.private_file_response import private_file_response
+from app.services.private_image_path import resolve_private_image_path
 from app.services.history_service import get_asset_history
 
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 logger = logging.getLogger(__name__)
+
+
+@router.get("/{asset_id}/spec-image")
+def read_asset_spec_image(
+    request: Request,
+    asset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    try:
+        asset = get_asset(db, asset_id)
+    except AssetNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.") from exc
+    if not asset.spec_image_path:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    try:
+        path = resolve_private_image_path(asset.spec_image_path, ASSET_UPLOAD_SUBDIR)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.") from exc
+    return private_file_response(path, request=request, user_id=current_user.id,
+                                 file_id=str(asset_id), file_kind="asset_spec_image",
+                                 media_type="image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else
+                                 "image/" + path.suffix.lower().lstrip("."), inline=True)
 
 
 @router.get("", response_model=List[AssetRead])

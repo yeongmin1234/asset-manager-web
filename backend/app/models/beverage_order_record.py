@@ -41,4 +41,4 @@ class BeverageOrderRecord(Base):
     def image_url(self) -> Optional[str]:
         if not self.image_path:
             return None
-        return f"/uploads/{self.image_path}"
+        return f"/beverage-orders/{self.id}/image"
