@@ -32,7 +32,7 @@ export const MENU_GROUPS = [
   { title: "인사팀", itemIds: ["hr-list"] },
   { title: "온라인 TEAM", itemIds: ["online-home", "online-recall", "online-order"] },
   { title: "SCM", itemIds: ["scm-app"] },
-  { title: "관리", itemIds: ["users", "settings"] },
+  { title: "관리", itemIds: ["settings"] },
 ];
 
 export const MENU_ITEMS_BY_ID = Object.fromEntries(MENU_ITEMS.map((item) => [item.id, item]));
@@ -45,5 +45,5 @@ export const MENU_PERMISSION_GROUPS = MENU_GROUPS.map((group) => ({
   title: group.title,
   items: group.itemIds.map((id) => MENU_ITEMS_BY_ID[id]).filter((item) => item.permissionKey),
 })).filter((group) => group.items.length > 0);
-export const ADMIN_ONLY_MENU_ITEMS = MENU_GROUPS.find((group) => group.title === "관리")
-  .itemIds.map((id) => MENU_ITEMS_BY_ID[id]).filter((item) => !item.permissionKey);
+// Keep both administrator screens in the permission editor, even though only settings is in the sidebar.
+export const ADMIN_ONLY_MENU_ITEMS = ["users", "settings"].map((id) => MENU_ITEMS_BY_ID[id]);

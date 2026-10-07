@@ -1,56 +1,47 @@
 import React, { useMemo, useState } from "react";
 import { MENU_VISIBILITY_GROUPS } from "../config/menuDefinitions.js";
+import UserManagementPage from "./UserManagementPage.jsx";
 
 const SETTINGS_SECTIONS = [
   { id: "overview", label: "운영 기준", description: "시스템과 관리 범위", icon: "O" },
   { id: "menu-visibility", label: "메뉴 표시 설정", description: "사이드바 표시 메뉴", icon: "M" },
-  { id: "admin", label: "관리자 설정", description: "보호 메뉴와 인증 상태", icon: "P" },
+  { id: "admin", label: "관리자 설정", description: "보호 메뉴와 사용자 관리", icon: "P" },
   { id: "handover", label: "인수인계", description: "담당자 변경 시 확인", icon: "H" },
   { id: "caution", label: "주의사항", description: "절대 금지 항목", icon: "X" },
 ];
 
-const PROTECTED_MENU_ITEMS = [
+const PROTECTED_MENU_GROUPS = [
   {
-    id: "software",
-    label: "SW 현황",
-    description: "소프트웨어 라이선스 현황 메뉴",
+    title: "시스템 관리",
+    items: [
+      { id: "users", label: "사용자 관리", description: "사용자 계정과 권한 관리", targetTab: "users" },
+      { id: "permissions", label: "메뉴 권한 관리", description: "사용자별 접근 메뉴 설정", targetTab: "permissions" },
+      { id: "access-info", label: "접속정보 관리", description: "서버 및 시스템 접속정보 관리" },
+      { id: "settings", label: "설정", description: "운영 설정 화면" },
+    ],
   },
   {
-    id: "vehicles",
-    label: "법인차량 관리",
-    description: "법인차량과 보험 이력 관리 메뉴",
+    title: "업무 관리",
+    items: [
+      { id: "software", label: "SW 현황", description: "소프트웨어 라이선스 현황" },
+      { id: "vehicles", label: "법인차량 관리", description: "차량 관리 및 보험 이력" },
+      { id: "paju-fire-insurance", label: "파주화재보험", description: "화재보험 계약 관리" },
+      { id: "beverage-orders", label: "음료주문기록", description: "음료 주문 기록 관리" },
+    ],
   },
   {
-    id: "paju-fire-insurance",
-    label: "파주화재보험",
-    description: "파주 화재보험 계약 관리 메뉴",
+    title: "자산 / 전산",
+    items: [
+      { id: "equipment-status", label: "장비 현황", description: "네트워크 및 주요 장비 상태" },
+      { id: "install-library", label: "설치자료실", description: "설치자료 등록/수정/삭제" },
+    ],
   },
   {
-    id: "beverage-orders",
-    label: "음료주문기록",
-    description: "음료 주문 기록 조회/관리 메뉴",
-  },
-  { id: "access-info", label: "접속정보 관리", description: "서버 및 시스템 접속정보 관리 메뉴" },
-  { id: "equipment-status", label: "장비 현황", description: "네트워크 및 주요 장비 상태 메뉴" },
-  {
-    id: "history",
-    label: "변경 이력",
-    description: "자산 변경 이력 조회 메뉴",
-  },
-  {
-    id: "install-library",
-    label: "설치자료실",
-    description: "설치자료 등록/수정/삭제는 별도 관리자 인증이 필요합니다.",
-  },
-  {
-    id: "scm",
-    label: "SCM",
-    description: "SCM 서버 운영 관리 메뉴. 기본값은 보호 ON 권장",
-  },
-  {
-    id: "settings",
-    label: "설정",
-    description: "운영 설정 화면. 기본값은 보호 OFF 권장",
+    title: "시스템 기록",
+    items: [
+      { id: "history", label: "변경 이력", description: "자산 및 시스템 변경 이력" },
+      { id: "scm", label: "SCM", description: "SCM 서버 운영 관리" },
+    ],
   },
 ];
 
@@ -92,9 +83,12 @@ function RuleList({ rules }) {
 }
 
 function SettingsPage({
+  activeTab = "basic",
   adminAuthClearedAt = null,
   adminResetSuccessMessage = "",
   adminStatus = { configured: false, error: "", isLoading: true },
+  currentUser,
+  isAdmin = false,
   menuVisibility = {},
   menuVisibilityError = "",
   onAdminPasswordSave,
@@ -102,6 +96,7 @@ function SettingsPage({
   onClearAdminAuth,
   onMenuVisibilityChange,
   onProtectedMenuChange,
+  onTabChange,
   protectedMenus = {},
 }) {
   const [activeSettingsSection, setActiveSettingsSection] = useState("overview");
@@ -123,6 +118,18 @@ function SettingsPage({
     [activeSettingsSection],
   );
   const isAdminConfigured = adminStatus.configured === true;
+  const selectedSectionId = activeTab === "basic" ? activeSettingsSection : "admin";
+
+  const openAdminTab = (tab) => {
+    if (!isAdmin) return;
+    setActiveSettingsSection("admin");
+    onTabChange?.(tab);
+  };
+
+  const selectSettingsSection = (sectionId) => {
+    setActiveSettingsSection(sectionId);
+    if (activeTab !== "basic") onTabChange?.("basic");
+  };
 
   const handleAdminPasswordFieldChange = (field, value) => {
     setAdminPasswordForm((current) => ({
@@ -224,6 +231,7 @@ function SettingsPage({
           </SettingsCard>
         );
       case "admin":
+        if (!isAdmin) return null;
         return (
           <div className="settings-tab-card-stack">
             <SettingsCard
@@ -241,37 +249,44 @@ function SettingsPage({
                   {adminStatus.error && <small>상태 확인 실패: {adminStatus.error}</small>}
                 </div>
               )}
-              <div className="settings-menu-visibility-list">
-                {PROTECTED_MENU_ITEMS.map((item) => {
-                  const isProtected = protectedMenus[item.id] === true;
-
-                  return (
-                    <label
-                      className={
-                        isAdminConfigured
-                          ? "settings-menu-toggle"
-                          : "settings-menu-toggle settings-menu-toggle-disabled"
-                      }
-                      key={item.id}
-                    >
-                      <span className="settings-menu-toggle-text">
-                        <strong>{item.label}</strong>
-                        <small>{item.description}</small>
-                      </span>
-                      <span className="settings-menu-toggle-control">
-                        <input
-                          type="checkbox"
-                          checked={isProtected}
-                          disabled={!isAdminConfigured}
-                          onChange={(event) =>
-                            onProtectedMenuChange?.(item.id, event.target.checked)
-                          }
-                        />
-                        <span className="settings-menu-toggle-switch" aria-hidden="true" />
-                      </span>
-                    </label>
-                  );
-                })}
+              <div className="settings-menu-visibility-groups settings-protected-menu-groups">
+                {PROTECTED_MENU_GROUPS.map((group) => (
+                  <section className="settings-menu-visibility-group" key={group.title} aria-label={`${group.title} 보호 메뉴`}>
+                    <h3>{group.title}</h3>
+                    <div className="settings-menu-visibility-list">
+                      {group.items.map((item) => {
+                        if (item.targetTab) {
+                          return (
+                            <div className="settings-menu-toggle settings-menu-link-row" key={item.id}>
+                              <span className="settings-menu-toggle-text">
+                                <strong>{item.label}</strong>
+                                <small>{item.description}</small>
+                              </span>
+                              <button type="button" className="settings-menu-open-button" onClick={() => openAdminTab(item.targetTab)}>열기</button>
+                            </div>
+                          );
+                        }
+                        return (
+                          <label className={isAdminConfigured ? "settings-menu-toggle" : "settings-menu-toggle settings-menu-toggle-disabled"} key={item.id}>
+                            <span className="settings-menu-toggle-text">
+                              <strong>{item.label}</strong>
+                              <small>{item.description}</small>
+                            </span>
+                            <span className="settings-menu-toggle-control">
+                              <input
+                                type="checkbox"
+                                checked={protectedMenus[item.id] === true}
+                                disabled={!isAdminConfigured}
+                                onChange={(event) => onProtectedMenuChange?.(item.id, event.target.checked)}
+                              />
+                              <span className="settings-menu-toggle-switch" aria-hidden="true" />
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
               </div>
               <p className="settings-muted">
                 {isAdminConfigured
@@ -422,21 +437,20 @@ function SettingsPage({
     <section className="settings-page" aria-labelledby="settings-title">
       <div className="settings-hero">
         <div>
-          <span className="section-kicker">Operations Settings</span>
           <h2 id="settings-title">설정</h2>
-          <p>운영 정보와 메뉴 표시, 보호 메뉴 기준을 관리합니다.</p>
+          <p>시스템 운영, 메뉴 표시 및 관리자 기능을 관리합니다.</p>
         </div>
         <span className="settings-version-badge">운영 설정</span>
       </div>
 
       <div className="settings-layout">
         <aside className="settings-side-nav" aria-label="설정 목록">
-          {SETTINGS_SECTIONS.map((section) => (
+          {SETTINGS_SECTIONS.filter((section) => isAdmin || section.id !== "admin").map((section) => (
             <button
-              className={`settings-nav-item ${activeSettingsSection === section.id ? "active" : ""}`}
+              className={`settings-nav-item ${selectedSectionId === section.id ? "active" : ""}`}
               key={section.id}
               type="button"
-              onClick={() => setActiveSettingsSection(section.id)}
+              onClick={() => selectSettingsSection(section.id)}
             >
               <span className="settings-nav-icon" aria-hidden="true">
                 {section.icon}
@@ -452,11 +466,18 @@ function SettingsPage({
         <div className="settings-detail-panel">
           <div className="settings-detail-heading">
             <div>
-              <h3>{activeSection.label}</h3>
-              <p>{activeSection.description}</p>
+              <h3>{activeTab === "users" ? "사용자 관리" : activeTab === "permissions" ? "메뉴 권한 관리" : activeSection.label}</h3>
+              <p>{activeTab === "basic" ? activeSection.description : "관리자 설정 / 시스템 관리"}</p>
             </div>
+            {activeTab !== "basic" && <button type="button" className="settings-back-button" onClick={() => onTabChange?.("basic")}>관리자 설정으로 돌아가기</button>}
           </div>
-          <div className="settings-detail-content">{renderDetail()}</div>
+          <div className="settings-detail-content">
+            {activeTab === "basic" ? renderDetail() : isAdmin ? (
+              <UserManagementPage key={activeTab} currentUser={currentUser} permissionMode={activeTab === "permissions"} />
+            ) : (
+              <section className="access-denied-card"><h2>접근 권한이 없습니다.</h2></section>
+            )}
+          </div>
         </div>
       </div>
     </section>

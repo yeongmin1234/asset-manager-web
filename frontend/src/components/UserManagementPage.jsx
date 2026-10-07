@@ -24,7 +24,7 @@ const EMPTY_CREATE_FORM = {
 };
 
 
-function UserManagementPage({ currentUser }) {
+function UserManagementPage({ currentUser, permissionMode = false }) {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
@@ -260,18 +260,18 @@ function UserManagementPage({ currentUser }) {
   return (
     <section className="user-management-page">
       <div className="portal-screen-heading">
-        <h2>사용자 관리</h2>
-        <p>사용자 계정과 로그인 접속기록을 관리합니다.</p>
+        <h2>{permissionMode ? "메뉴 권한 관리" : "사용자 관리"}</h2>
+        <p>{permissionMode ? "사용자 목록에서 메뉴 권한을 선택해 접근 메뉴를 관리합니다." : "사용자 계정과 로그인 접속기록을 관리합니다."}</p>
       </div>
 
-      <div className="user-management-tabs" role="tablist" aria-label="사용자 관리 화면">
+      {!permissionMode && <div className="user-management-tabs" role="tablist" aria-label="사용자 관리 화면">
         <button type="button" role="tab" aria-selected={activeTab === "users"} className={activeTab === "users" ? "is-active" : ""} onClick={() => setActiveTab("users")}>사용자 목록</button>
         <button type="button" role="tab" aria-selected={activeTab === "access-logs"} className={activeTab === "access-logs" ? "is-active" : ""} onClick={() => setActiveTab("access-logs")}>접속기록</button>
         <button type="button" role="tab" aria-selected={activeTab === "audit-logs"} className={activeTab === "audit-logs" ? "is-active" : ""} onClick={() => setActiveTab("audit-logs")}>감사로그</button>
-      </div>
+      </div>}
 
       {activeTab === "users" ? <>
-      <form className="user-create-panel" onSubmit={handleCreate}>
+      {!permissionMode && <form className="user-create-panel" onSubmit={handleCreate}>
         <input placeholder="ID" value={createForm.username} onChange={(event) => setCreateForm({ ...createForm, username: event.target.value })} required />
         <input placeholder="이름" value={createForm.name} onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })} required />
         <input placeholder="비밀번호 (8자 이상)" type="password" minLength={8} autoComplete="new-password" value={createForm.password} onChange={(event) => setCreateForm({ ...createForm, password: event.target.value })} required />
@@ -288,7 +288,7 @@ function UserManagementPage({ currentUser }) {
             onToggle={toggleCreatePermission}
           />
         </details>
-      </form>
+      </form>}
 
       {state.message ? <p className="user-management-message">{state.message}</p> : null}
       {state.error ? <p className="user-management-error">{state.error}</p> : null}

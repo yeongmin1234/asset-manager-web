@@ -62,7 +62,6 @@ import StatsSummary from "./components/StatsSummary.jsx";
 import VehiclePage from "./components/VehiclePage.jsx";
 import VendorContactsPage from "./components/VendorContactsPage.jsx";
 import WorkManualPage from "./components/WorkManualPage.jsx";
-import UserManagementPage from "./components/UserManagementPage.jsx";
 import {
   ASSET_SORT_OPTIONS,
   SORT_VALUES,
@@ -223,19 +222,25 @@ function App({ currentUser, onLogout }) {
   const [sortValue, setSortValue] = useState(SORT_VALUES.latest);
   const [activeSection, setActiveSection] = useState(() => getSectionFromPath());
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+  const [settingsTab, setSettingsTab] = useState(() => getSettingsTabFromLocation());
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
   useEffect(() => {
     const syncLocation = () => {
       if (window.location.pathname === "/login") {
         window.history.replaceState({}, "", "/select-system");
       }
+      if (window.location.pathname === "/admin/users" && currentUser?.role === "admin") {
+        window.history.replaceState({}, "", "/settings?tab=users");
+      }
       setCurrentPath(window.location.pathname);
       setActiveSection(getSectionFromPath());
+      setSettingsTab(getSettingsTabFromLocation());
       setAccessDeniedSection("");
     };
     window.addEventListener("popstate", syncLocation);
+    syncLocation();
     return () => window.removeEventListener("popstate", syncLocation);
-  }, []);
+  }, [currentUser?.role]);
   useMenuAccessLog(activeSection, Boolean(currentUser) && activeSection !== "system-select" && activeSection !== "scm-app" && !activeSection.startsWith("online-") && menuVisibility[SECTION_MENU_KEYS[activeSection]] !== false && !accessDeniedSection && (isAdmin || allowedSections.has(activeSection)));
   useEffect(() => {
     let active = true;
@@ -689,10 +694,21 @@ function App({ currentUser, onLogout }) {
     setActiveSection(nextSection);
     if (typeof window !== "undefined") {
       const nextPath = MENU_ITEMS.find((item) => item.id === nextSection)?.routePath || "/";
-      if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
+      if (`${window.location.pathname}${window.location.search}` !== nextPath) window.history.pushState({}, "", nextPath);
       setCurrentPath(nextPath);
+      if (nextSection === "settings") setSettingsTab("basic");
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSettingsTabChange = (nextTab) => {
+    if (nextTab !== "basic" && !isAdmin) return;
+    const nextPath = nextTab === "basic" ? "/settings" : `/settings?tab=${nextTab}`;
+    if (`${window.location.pathname}${window.location.search}` !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+    setSettingsTab(nextTab);
+    setCurrentPath("/settings");
   };
 
   const navigateToSystemSelect = () => {
@@ -1085,15 +1101,13 @@ function App({ currentUser, onLogout }) {
       return <ScmPage />;
     }
 
-    if (activeSection === "users") {
-      return isAdmin ? <UserManagementPage currentUser={currentUser} /> : (
-        <section className="access-denied-card"><h2>접근 권한이 없습니다.</h2></section>
-      );
-    }
-
     if (activeSection === "settings") {
       return (
         <SettingsPage
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          activeTab={settingsTab}
+          onTabChange={handleSettingsTabChange}
           backendStatus={backendStatus}
           menuVisibility={menuVisibility}
           menuVisibilityError={menuVisibilityError}
@@ -1249,7 +1263,9 @@ function App({ currentUser, onLogout }) {
 
         <div
           className={
-            activeSection === "stats"
+            activeSection === "settings"
+              ? "portal-content portal-content-settings"
+              : activeSection === "stats"
               ? "portal-content portal-content-stats"
               : activeSection === "excel"
                 || activeSection === "assets"
@@ -1496,11 +1512,20 @@ function formatNotificationDateTime(value) {
 function getSectionFromPath() {
   if (typeof window === "undefined") return "dashboard";
   if (window.location.pathname === "/select-system") return "system-select";
+  if (window.location.pathname === "/admin/users") return "settings";
   if (isScmAppPath(window.location.pathname)) return "scm-app";
   if (isOrderManagementPath(window.location.pathname)) return "online-order";
   if (window.location.pathname === "/network" || window.location.pathname === "/network-status") return "equipment-status";
   if (/^\/work-manuals\/\d+$/.test(window.location.pathname)) return "work-manuals";
   return MENU_ITEMS.find((item) => item.routePath === window.location.pathname)?.id || "dashboard";
+}
+
+function getSettingsTabFromLocation() {
+  if (typeof window === "undefined") return "basic";
+  if (window.location.pathname === "/admin/users") return "users";
+  if (window.location.pathname !== "/settings") return "basic";
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab === "users" || tab === "permissions" ? tab : "basic";
 }
 
 function mergeMenuVisibility(visibility = {}) {
