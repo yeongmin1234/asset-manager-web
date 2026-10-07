@@ -1290,6 +1290,15 @@ function App({ currentUser, onLogout }) {
                 : "portal-content"
           }
         >
+          {activeSection === "settings" && (
+            <header className="settings-page-header">
+              <div>
+                <h1 id="settings-title">설정</h1>
+                <p>시스템 운영, 사이드바 메뉴 및 관리자 기능을 관리합니다.</p>
+              </div>
+              <span className="settings-version-badge">운영 설정</span>
+            </header>
+          )}
           <main className="portal-main">{renderActiveSection()}</main>
 
           {activeSection !== "assets" && activeSection !== "dashboard" && activeSection !== "beverage-orders" && activeSection !== "work-manuals" && activeSection !== "vendor-contacts" && activeSection !== "expiration_schedules" && activeSection !== "excel" && activeSection !== "software" && activeSection !== "vehicles" && activeSection !== "paju-fire-insurance" && activeSection !== "access-info" && activeSection !== "equipment-status" && activeSection !== "install-library" && activeSection !== "hr-list" && activeSection !== "online-home" && activeSection !== "online-recall" && activeSection !== "online-order" && activeSection !== "scm" && activeSection !== "users" && (

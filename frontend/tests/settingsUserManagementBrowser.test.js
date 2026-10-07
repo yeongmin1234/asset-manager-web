@@ -16,7 +16,7 @@ test("user management lives in settings and keeps administrator actions", { skip
   const vite = await createServer({ server: { host: "127.0.0.1", port: 0, hmr: false } });
   await vite.listen();
   const browser = await chromium.launch({ executablePath: browserPath, headless: true });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({ viewport: { width: 1700, height: 900 } });
   const page = await context.newPage();
   const base = `http://127.0.0.1:${vite.httpServer.address().port}`;
   let currentUser = { id: 1, username: "admin", name: "관리자", role: "admin", menu_permissions: [], is_active: true };
@@ -62,16 +62,32 @@ test("user management lives in settings and keeps administrator actions", { skip
 
     await page.goto(`${base}/settings`);
     await page.getByRole("button", { name: /운영 기준/ }).waitFor();
+    assert.equal(await page.locator(".settings-page-header h1").textContent(), "설정");
+    assert.equal(await page.locator(".settings-page-header p").textContent(), "시스템 운영, 사이드바 메뉴 및 관리자 기능을 관리합니다.");
     const managementGroup = page.locator(".portal-nav-group").filter({ has: page.locator(".portal-nav-group-title", { hasText: "관리" }) });
     assert.deepEqual(await managementGroup.locator(".sidebar-menu-item strong").allTextContents(), ["설정"]);
     await page.locator(".portal-content-settings .recent-activity-item").first().waitFor();
     assert.equal(await page.locator(".portal-content-settings .recent-activity-item").count(), 5);
     assert.equal(recentLimits.includes("5"), true);
     assert.equal(await page.locator(".portal-content-settings .recent-activity-list").evaluate((element) => getComputedStyle(element).overflowY), "auto");
-    const desktopBoxes = await Promise.all([".settings-side-nav", ".settings-detail-panel", ".portal-content-settings .portal-aside"].map(async (selector) => page.locator(selector).boundingBox()));
-    assert.ok(desktopBoxes[0].x < desktopBoxes[1].x && desktopBoxes[1].x < desktopBoxes[2].x);
-    assert.ok(desktopBoxes[0].width >= 220 && desktopBoxes[0].width <= 250);
-    assert.ok(desktopBoxes[2].width >= 260 && desktopBoxes[2].width <= 300);
+    const desktopBoxes = await Promise.all([".settings-page-header", ".settings-side-nav", ".settings-detail-panel", ".portal-content-settings .portal-aside"].map(async (selector) => page.locator(selector).boundingBox()));
+    assert.ok(desktopBoxes[0].y < desktopBoxes[1].y);
+    assert.ok(desktopBoxes[1].x < desktopBoxes[2].x && desktopBoxes[2].x < desktopBoxes[3].x);
+    assert.ok(desktopBoxes[1].width >= 238 && desktopBoxes[1].width <= 242);
+    assert.ok(desktopBoxes[2].width >= 720);
+    assert.ok(desktopBoxes[3].width >= 298 && desktopBoxes[3].width <= 302);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    const summaryBox = await page.locator(".settings-detail-heading").boundingBox();
+    const contentBox = await page.locator(".settings-detail-content").boundingBox();
+    assert.ok(contentBox.y > summaryBox.y + summaryBox.height);
+    for (const selector of [".settings-detail-heading", ".settings-detail-content", ".portal-content-settings .portal-side-card"]) {
+      const cardStyle = await page.locator(selector).evaluate((element) => ({
+        background: getComputedStyle(element).backgroundColor,
+        radius: getComputedStyle(element).borderRadius,
+        padding: getComputedStyle(element).paddingTop,
+      }));
+      assert.deepEqual(cardStyle, { background: "rgb(255, 255, 255)", radius: "12px", padding: selector.includes("side-card") ? "20px" : "22px" });
+    }
     const selectedMenuColors = await page.locator(".settings-nav-item.active").evaluate((element) => ({
       background: getComputedStyle(element).backgroundColor,
       color: getComputedStyle(element).color,
@@ -125,14 +141,14 @@ test("user management lives in settings and keeps administrator actions", { skip
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${base}/settings`);
-    const mobileBoxes = await Promise.all([".settings-side-nav", ".settings-detail-panel", ".portal-content-settings .portal-aside"].map(async (selector) => page.locator(selector).boundingBox()));
-    assert.ok(mobileBoxes[0].y < mobileBoxes[1].y && mobileBoxes[1].y < mobileBoxes[2].y);
+    const mobileBoxes = await Promise.all([".settings-page-header", ".settings-side-nav", ".settings-detail-panel", ".portal-content-settings .portal-aside"].map(async (selector) => page.locator(selector).boundingBox()));
+    assert.ok(mobileBoxes[0].y < mobileBoxes[1].y && mobileBoxes[1].y < mobileBoxes[2].y && mobileBoxes[2].y < mobileBoxes[3].y);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
     await page.setViewportSize({ width: 900, height: 800 });
     const tabletBoxes = await Promise.all([".settings-detail-panel", ".portal-content-settings .portal-aside"].map(async (selector) => page.locator(selector).boundingBox()));
     assert.ok(tabletBoxes[0].y < tabletBoxes[1].y);
-    await page.setViewportSize({ width: 1700, height: 900 });
-    assert.ok((await page.locator(".portal-content-settings").boundingBox()).width <= 1480);
+    await page.setViewportSize({ width: 2100, height: 900 });
+    assert.ok((await page.locator(".portal-content-settings").boundingBox()).width <= 1600);
 
     currentUser = { id: 2, username: "member", name: "일반 사용자", role: "user", menu_permissions: ["dashboard"], is_active: true };
     const readsBeforeDenied = userReads;

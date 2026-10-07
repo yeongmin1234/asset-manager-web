@@ -435,14 +435,6 @@ function SettingsPage({
 
   return (
     <section className="settings-page" aria-labelledby="settings-title">
-      <div className="settings-hero">
-        <div>
-          <h2 id="settings-title">설정</h2>
-          <p>시스템 운영, 메뉴 표시 및 관리자 기능을 관리합니다.</p>
-        </div>
-        <span className="settings-version-badge">운영 설정</span>
-      </div>
-
       <div className="settings-layout">
         <aside className="settings-side-nav" aria-label="설정 목록">
           {SETTINGS_SECTIONS.filter((section) => isAdmin || section.id !== "admin").map((section) => (

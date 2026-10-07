@@ -16420,13 +16420,40 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
   .dashboard-page .dashboard-hero-compact { align-items: flex-start; gap: 12px; padding: 16px 18px; }
 }
 
-/* Settings keeps the shared sidebar and recent activity card in a bounded three-column layout. */
+/* Settings page header spans the menu, detail and activity columns. */
 .portal-content-settings {
-  width: min(100%, 1480px);
+  width: 100%;
+  max-width: 1600px;
   margin-inline: auto;
-  grid-template-columns: minmax(0, 1fr) 284px;
+  padding: 24px 32px 40px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   align-items: start;
-  gap: 18px;
+  gap: 24px;
+}
+
+.portal-content-settings .settings-page-header {
+  align-items: center;
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  gap: 24px;
+  min-width: 0;
+  padding: 0 0 20px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.settings-page-header h1 {
+  color: #111111;
+  font-size: clamp(1.65rem, 2vw, 2rem);
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+
+.settings-page-header p {
+  color: #525252;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .portal-content-settings .portal-main,
@@ -16436,13 +16463,50 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
   min-width: 0;
 }
 
+.portal-content-settings .portal-main { grid-column: 1; }
+.portal-content-settings .settings-page { display: block; }
+.portal-content-settings .settings-layout { grid-template-columns: 240px minmax(720px, 1fr); gap: 24px; }
+.portal-content-settings .settings-side-nav { border-radius: 12px; padding: 12px; }
+.portal-content-settings .settings-detail-panel { background: transparent; border: 0; box-shadow: none; gap: 20px; padding: 0; }
+.portal-content-settings .settings-detail-heading,
+.portal-content-settings .settings-detail-content {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 22px 24px;
+}
+.portal-content-settings .settings-detail-heading h3 { color: #111111; font-size: 1.18rem; margin-bottom: 6px; }
+.portal-content-settings .settings-detail-content { gap: 20px; }
+.portal-content-settings .settings-detail-content > .settings-card,
+.portal-content-settings .settings-detail-content > .settings-card:hover {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  transform: none;
+}
+
 .portal-content-settings .portal-aside {
   align-content: start;
+  grid-column: 2;
   grid-template-columns: minmax(0, 1fr);
 }
 
-.portal-content-settings .portal-side-card { align-self: start; }
-.portal-content-settings .recent-activity-list { max-height: 500px; overflow-y: auto; padding-right: 3px; }
+.portal-content-settings .portal-side-card {
+  align-self: start;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: none;
+  gap: 14px;
+  padding: 20px;
+}
+.portal-content-settings .side-card-heading { gap: 12px; }
+.portal-content-settings .side-card-heading h3 { color: #111111; font-size: 1rem; }
+.portal-content-settings .recent-activity-list { gap: 0; max-height: 480px; overflow-y: auto; padding-right: 4px; }
+.portal-content-settings .recent-activity-item { gap: 12px; padding: 12px 0; }
+.portal-content-settings .recent-activity-item:first-child { padding-top: 2px; }
 .portal-content-settings .recent-activity-item > div { min-width: 0; overflow-wrap: anywhere; }
 
 .settings-protected-menu-groups { gap: 20px; }
@@ -16477,9 +16541,10 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 .settings-detail-content .user-management-page { min-width: 0; }
 .settings-detail-content .user-table-wrap { max-width: 100%; }
 
-@media (max-width: 1279px) {
+@media (max-width: 1659px) {
   .portal-content-settings { grid-template-columns: minmax(0, 1fr); }
   .portal-content-settings .portal-aside { grid-column: 1; }
+  .portal-content-settings .settings-layout { grid-template-columns: 240px minmax(0, 1fr); }
 }
 
 @media (max-width: 1080px) {
@@ -16489,6 +16554,11 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 }
 
 @media (max-width: 640px) {
+  .portal-content-settings { padding: 20px 16px 32px; gap: 18px; }
+  .portal-content-settings .settings-page-header { align-items: flex-start; gap: 12px; padding-bottom: 18px; }
+  .portal-content-settings .settings-detail-heading,
+  .portal-content-settings .settings-detail-content { padding: 20px; }
+  .portal-content-settings .portal-side-card { padding: 20px; }
   .portal-content-settings .settings-nav-item { flex-basis: 196px; }
   .settings-protected-menu-groups .settings-menu-visibility-group { padding: 10px; }
   .settings-detail-heading .settings-back-button { width: fit-content; }
