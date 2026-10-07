@@ -17,7 +17,10 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
-    return settings.database_url
+    url = (settings.migration_database_url or "").strip()
+    if not url:
+        raise RuntimeError("MIGRATION_DATABASE_URL is required for database migrations.")
+    return url
 
 
 def run_migrations_offline() -> None:

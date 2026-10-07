@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://asset_user:change_me@localhost:5432/asset_manager"
     )
+    migration_database_url: Optional[str] = None
     # Keep this as str so pydantic-settings does not require JSON list syntax
     # for the comma-separated CORS_ORIGINS value used by NAS shell env files.
     cors_origins: str = ",".join(REQUIRED_CORS_ORIGINS)

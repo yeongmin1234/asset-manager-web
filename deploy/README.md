@@ -35,6 +35,14 @@ chmod +x deploy/*.sh
 
 `deploy/env.example`을 참고해 `deploy/.env`를 작성할 수 있습니다. 실제 `.env`는 Git에 포함하지 않습니다.
 
+Alembic은 `MIGRATION_DATABASE_URL`이 있어야 실행됩니다. `deploy/migration.env.example`을 참고하여
+`deploy/.migration.env`를 만들고 NAS에서 읽을 수 있는 계정을 제한합니다(`chmod 600`).
+파일을 공유 프로젝트 밖에 두려면 `ASSET_MANAGER_MIGRATION_ENV`에 그 경로를 지정할 수 있습니다.
+`MIGRATION_DATABASE_URL`을 `backend/.env` 또는 `deploy/.env`에 넣지 마세요. 배포 스크립트는
+migration 명령을 실행하는 서브셸에서만 전용 파일을 읽으며, 파일이 없으면 Backend 중지 전
+`BACKEND_PREPARE` 단계에서 실패합니다. 전용 DB Role이 준비되기 전까지 운영 배포도 이 단계에서
+중단되므로, Role 생성 단계에서 파일을 설정하고 접속을 검증한 뒤 배포해야 합니다.
+
 ## 프론트엔드 브라우저 검증
 
 `full_deploy.sh`는 기존 HTTP·bundle·backend 검사 후 브라우저가 있으면 `frontend_smoke_test.mjs`를 실행합니다. 로그인 폼 또는 앱 화면이 렌더링되고 JavaScript 오류와 핵심 JS/CSS 로딩 실패가 없는 경우 `PASS`입니다. 브라우저 검사 실패 시 이전 `dist`를 복원하고 재검사합니다.

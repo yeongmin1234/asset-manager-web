@@ -54,7 +54,7 @@ class DirectDeploySafetyTest(unittest.TestCase):
     def init_git_checkout(self):
         (self.root / ".gitignore").write_text(
             "bin/\nlogs/\nbackend/.venv/\nfrontend/dist/\nfrontend/node_modules/\n"
-            "deploy/test.env\ndeploy/*.sh\nfirst-build-failed\nstarted\nstopped\n",
+            "deploy/test.env\ndeploy/.migration.env\ndeploy/*.sh\nfirst-build-failed\nstarted\nstopped\n",
             encoding="utf-8",
         )
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
@@ -206,8 +206,59 @@ backend_listener_pids() { :; }
         self.assertIn("import check failed", result.stderr.lower())
         self.assertFalse((self.root / "logs/backend.pid").exists())
 
+    def test_start_backend_drops_migration_url_before_import(self):
+        self.write("deploy/backend_process.sh", """
+backend_pid_matches() { return 1; }
+backend_port_status() { return 1; }
+backend_listener_pids() { :; }
+""")
+        with (self.root / "deploy/test.env").open("a", encoding="utf-8") as env_file:
+            env_file.write("MIGRATION_DATABASE_URL=TEST_ONLY_SECRET\n")
+        self.write("bin/python", """#!/bin/sh
+if [ -n "${MIGRATION_DATABASE_URL:-}" ]; then echo MIGRATION_URL_LEAKED >&2; else echo MIGRATION_URL_CLEARED >&2; fi
+exit 1
+""")
+        result = self.run_script("start_backend.sh")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MIGRATION_URL_CLEARED", result.stderr)
+        self.assertNotIn("MIGRATION_URL_LEAKED", result.stderr)
+
+    def test_missing_migration_env_fails_before_backend_stop(self):
+        self.init_git_checkout()
+        self.write("bin/python", "#!/bin/sh\nexit 0\n")
+        self.write("bin/alembic", "#!/bin/sh\ntouch \"$NAS_PROJECT_DIR/alembic-ran\"\n")
+        self.write("deploy/stop_backend.sh", "#!/bin/sh\ntouch \"$NAS_PROJECT_DIR/stopped\"\n")
+        result = self.run_script("deploy.sh", "--no-pull", extra_env={"MIGRATION_DATABASE_URL": "TEST_ONLY_SECRET"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Stage: BACKEND_PREPARE", result.stdout)
+        self.assertIn("MIGRATION_DATABASE_URL is required", result.stdout)
+        self.assertFalse((self.root / "alembic-ran").exists())
+        self.assertFalse((self.root / "stopped").exists())
+
+    def test_migration_url_only_reaches_alembic(self):
+        self.init_git_checkout()
+        (self.root / "deploy/.migration.env").write_text("MIGRATION_DATABASE_URL=TEST_ONLY_SECRET\n", encoding="utf-8")
+        self.write("bin/python", """#!/bin/sh
+[ -z "${MIGRATION_DATABASE_URL:-}" ] || exit 2
+exit 0
+""")
+        self.write("bin/alembic", """#!/bin/sh
+[ "$MIGRATION_DATABASE_URL" = "TEST_ONLY_SECRET" ] || exit 2
+echo "$1" >> "$NAS_PROJECT_DIR/alembic-events"
+""")
+        self.write("bin/npm", """#!/bin/sh
+[ -z "${MIGRATION_DATABASE_URL:-}" ] || exit 2
+exit 1
+""")
+        result = self.run_script("deploy.sh", "--no-pull")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Stage: FRONTEND_BUILD", result.stdout)
+        self.assertEqual((self.root / "alembic-events").read_text(encoding="utf-8").splitlines(), ["current", "heads", "upgrade"])
+        self.assertNotIn("TEST_ONLY_SECRET", result.stdout + result.stderr)
+
     def test_failed_frontend_build_preserves_previous_dist_and_never_stops(self):
         self.init_git_checkout()
+        (self.root / "deploy/.migration.env").write_text("MIGRATION_DATABASE_URL=TEST_ONLY_SECRET\n", encoding="utf-8")
         self.write("bin/python", """#!/bin/sh
 case "$1" in -c) echo IMPORT_OK ;; esac
 exit 0
@@ -225,6 +276,7 @@ exit 0
 
     def test_failed_stop_never_starts_backend_or_replaces_dist(self):
         self.init_git_checkout()
+        (self.root / "deploy/.migration.env").write_text("MIGRATION_DATABASE_URL=TEST_ONLY_SECRET\n", encoding="utf-8")
         self.write("bin/python", "#!/bin/sh\nexit 0\n")
         self.write("bin/alembic", "#!/bin/sh\nexit 0\n")
         self.write("bin/npm", """#!/bin/sh
@@ -278,6 +330,7 @@ exit 0
 
     def prepare_mock_deploy(self):
         self.init_git_checkout()
+        (self.root / "deploy/.migration.env").write_text("MIGRATION_DATABASE_URL=TEST_ONLY_SECRET\n", encoding="utf-8")
         with (self.root / "deploy/test.env").open("a", encoding="utf-8") as env_file:
             env_file.write('kill() { [ "$1" = "-0" ] && [ "$2" = "$TEST_PID" ]; }\n')
         self.write("bin/python", "#!/bin/sh\necho IMPORT_OK\n")

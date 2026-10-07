@@ -25,6 +25,7 @@ if [ -f "$ENV_FILE" ]; then
   . "$ENV_FILE"
   set +a
 fi
+unset MIGRATION_DATABASE_URL
 
 ROOT_DIR="${NAS_PROJECT_DIR:-$DEFAULT_ROOT_DIR}"
 FRONTEND_SMOKE_NODE="${FRONTEND_SMOKE_NODE:-node}"
@@ -566,9 +567,22 @@ run_deploy() {
   python -c "from app.main import app; print('IMPORT_OK')" || return 1
 
   echo "== Alembic migration =="
-  alembic current || return 1
-  alembic heads || return 1
-  alembic upgrade head || return 1
+  (
+    set +x
+    migration_env_file="${ASSET_MANAGER_MIGRATION_ENV:-$ROOT_DIR/deploy/.migration.env}"
+    if [ ! -r "$migration_env_file" ]; then
+      echo "MIGRATION_DATABASE_URL is required for database migrations." >&2
+      exit 1
+    fi
+    set -a
+    . "$migration_env_file"
+    set +a
+    if [ -z "${MIGRATION_DATABASE_URL:-}" ]; then
+      echo "MIGRATION_DATABASE_URL is required for database migrations." >&2
+      exit 1
+    fi
+    alembic current && alembic heads && alembic upgrade head
+  ) || return 1
 
   echo "== Frontend build =="
   DEPLOY_STAGE="FRONTEND_BUILD"

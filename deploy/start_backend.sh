@@ -18,6 +18,7 @@ if [ -f "$BACKEND_ENV_FILE" ]; then
   . "$BACKEND_ENV_FILE"
   set +a
 fi
+unset MIGRATION_DATABASE_URL
 
 LOG_DIR="$ROOT_DIR/logs"
 PID_FILE="$LOG_DIR/backend.pid"

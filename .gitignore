@@ -25,6 +25,7 @@ dist/
 backend/.env
 frontend/.env
 deploy/.env
+deploy/.migration.env
 
 # Logs
 logs
