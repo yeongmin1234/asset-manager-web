@@ -1,5 +1,5 @@
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
@@ -89,12 +89,12 @@ def scm_dashboard(
 
 @router.get("/activity")
 def list_activity(
-    start_date: date | None = None,
-    end_date: date | None = None,
-    user: str | None = Query(default=None, max_length=100),
-    module: Module | None = None,
-    action: Action | None = None,
-    keyword: str | None = Query(default=None, max_length=100),
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    user: Optional[str] = Query(default=None, max_length=100),
+    module: Optional[Module] = None,
+    action: Optional[Action] = None,
+    keyword: Optional[str] = Query(default=None, max_length=100),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
