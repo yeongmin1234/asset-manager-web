@@ -16427,6 +16427,8 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
   margin-inline: auto;
   padding: 24px 32px 40px;
   grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-rows: max-content max-content;
+  align-content: start;
   align-items: start;
   gap: 24px;
 }
@@ -16435,6 +16437,7 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
   align-items: center;
   display: flex;
   grid-column: 1 / -1;
+  grid-row: 1;
   justify-content: space-between;
   gap: 24px;
   min-width: 0;
@@ -16463,11 +16466,11 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
   min-width: 0;
 }
 
-.portal-content-settings .portal-main { grid-column: 1; }
+.portal-content-settings .portal-main { align-content: start; align-self: start; grid-column: 1; grid-row: 2; grid-auto-rows: max-content; }
 .portal-content-settings .settings-page { display: block; }
-.portal-content-settings .settings-layout { grid-template-columns: 240px minmax(720px, 1fr); gap: 24px; }
-.portal-content-settings .settings-side-nav { border-radius: 12px; padding: 12px; }
-.portal-content-settings .settings-detail-panel { background: transparent; border: 0; box-shadow: none; gap: 20px; padding: 0; }
+.portal-content-settings .settings-layout { align-content: start; align-items: start; grid-template-columns: 240px minmax(720px, 1fr); gap: 24px; }
+.portal-content-settings .settings-side-nav { align-self: start; border-radius: 12px; padding: 12px; position: static; }
+.portal-content-settings .settings-detail-panel { align-self: start; background: transparent; border: 0; box-shadow: none; gap: 20px; grid-template-rows: max-content max-content; padding: 0; }
 .portal-content-settings .settings-detail-heading,
 .portal-content-settings .settings-detail-content {
   background: #ffffff;
@@ -16477,6 +16480,7 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
   padding: 22px 24px;
 }
 .portal-content-settings .settings-detail-heading h3 { color: #111111; font-size: 1.18rem; margin-bottom: 6px; }
+.portal-content-settings .settings-detail-heading { min-height: 96px; }
 .portal-content-settings .settings-detail-content { gap: 20px; }
 .portal-content-settings .settings-detail-content > .settings-card,
 .portal-content-settings .settings-detail-content > .settings-card:hover {
@@ -16489,7 +16493,9 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 
 .portal-content-settings .portal-aside {
   align-content: start;
+  align-self: start;
   grid-column: 2;
+  grid-row: 2;
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -16542,8 +16548,8 @@ body.hr-column-resizing { cursor: col-resize; user-select: none; }
 .settings-detail-content .user-table-wrap { max-width: 100%; }
 
 @media (max-width: 1659px) {
-  .portal-content-settings { grid-template-columns: minmax(0, 1fr); }
-  .portal-content-settings .portal-aside { grid-column: 1; }
+  .portal-content-settings { grid-template-columns: minmax(0, 1fr); grid-template-rows: max-content max-content max-content; }
+  .portal-content-settings .portal-aside { grid-column: 1; grid-row: 3; }
   .portal-content-settings .settings-layout { grid-template-columns: 240px minmax(0, 1fr); }
 }
 

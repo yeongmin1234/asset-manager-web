@@ -93,6 +93,22 @@ test("user management lives in settings and keeps administrator actions", { skip
       color: getComputedStyle(element).color,
     }));
     assert.deepEqual(selectedMenuColors, { background: "rgb(17, 17, 17)", color: "rgb(255, 255, 255)" });
+    const readSettingsPositions = () => page.evaluate(() => {
+      const top = (selector) => document.querySelector(selector).getBoundingClientRect().top;
+      const height = (selector) => document.querySelector(selector).getBoundingClientRect().height;
+      return { header: top(".settings-page-header"), nav: top(".settings-side-nav"), summary: top(".settings-detail-heading"), activity: top(".portal-content-settings .portal-side-card"), content: top(".settings-detail-content"), summaryHeight: height(".settings-detail-heading") };
+    });
+    const stablePositions = await readSettingsPositions();
+    assert.equal(stablePositions.nav, stablePositions.summary);
+    assert.equal(stablePositions.summary, stablePositions.activity);
+    for (const name of ["메뉴 표시 설정", "관리자 설정", "인수인계", "주의사항", "운영 기준"]) {
+      await page.getByRole("button", { name: new RegExp(name) }).click();
+      assert.deepEqual(await readSettingsPositions(), stablePositions, `${name} 선택 시 상단 카드 위치가 유지되어야 합니다.`);
+    }
+    await page.getByRole("button", { name: /관리자 설정/ }).click();
+    await page.evaluate(() => window.scrollTo(0, 700));
+    await page.getByRole("button", { name: /운영 기준/ }).click();
+    assert.deepEqual(await readSettingsPositions(), stablePositions, "긴 상세 콘텐츠에서 짧은 메뉴로 돌아와도 상단 카드 위치가 유지되어야 합니다.");
     await page.getByRole("button", { name: /메뉴 표시 설정/ }).click();
     await page.getByText("사이드바 표시 메뉴").first().waitFor();
 
