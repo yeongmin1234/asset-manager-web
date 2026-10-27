@@ -4,6 +4,7 @@ from collections import deque
 from secrets import compare_digest, token_urlsafe
 from threading import Lock
 from time import monotonic
+from typing import Deque, Dict, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -13,12 +14,12 @@ from app.core.config import settings
 from app.models.user import User
 
 router = APIRouter(prefix="/auth/scm-handoff", tags=["auth"])
-_codes: dict[str, tuple[int, float, str]] = {}
+_codes: Dict[str, Tuple[int, float, str]] = {}
 _lock = Lock()
 _audience = "new-scm"
 _ttl_seconds = 45
 _max_pending = 1000
-_exchange_attempts: deque[float] = deque()
+_exchange_attempts: Deque[float] = deque()
 _max_exchanges_per_minute = 120
 
 
@@ -50,7 +51,7 @@ def issue(user: User = Depends(get_current_user)):
 
 
 @router.post("/exchange")
-def exchange(payload: ExchangeRequest, x_scm_handoff_key: str | None = Header(default=None)):
+def exchange(payload: ExchangeRequest, x_scm_handoff_key: Optional[str] = Header(default=None)):
     now = monotonic()
     with _lock:
         while _exchange_attempts and _exchange_attempts[0] <= now - 60:
