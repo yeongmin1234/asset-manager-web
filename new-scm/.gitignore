@@ -1,0 +1,10 @@
+.env
+!deploy/create_readonly_role.sql
+**/__pycache__/
+**/.pytest_cache/
+**/node_modules/
+**/dist/
+runtime/logs/*
+runtime/uploads/*
+!runtime/logs/.gitkeep
+!runtime/uploads/.gitkeep

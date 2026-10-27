@@ -1,0 +1,32 @@
+name: new-scm
+services:
+  backend:
+    build:
+      context: ../backend
+    env_file:
+      - ../.env
+    environment:
+      SCM_LOG_FILE: /srv/new-scm/logs/api.log
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ../runtime/logs:/srv/new-scm/logs
+      - ../runtime/uploads:/srv/new-scm/uploads
+    restart: unless-stopped
+    networks:
+      - scm_internal
+
+  frontend:
+    build:
+      context: ../frontend
+    depends_on:
+      - backend
+    ports:
+      - "${SCM_BIND_HOST:-127.0.0.1}:${SCM_HTTP_PORT:-8011}:80"
+    restart: unless-stopped
+    networks:
+      - scm_internal
+
+networks:
+  scm_internal:
