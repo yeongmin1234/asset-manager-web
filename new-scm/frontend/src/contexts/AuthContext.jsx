@@ -1,27 +1,31 @@
-import React, { createContext, useCallback, useContext, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { canAccessPath, canPerform } from "../constants/permissions";
-import { CURRENT_USER_MOCK } from "../mocks/currentUserMock";
+import { restoreSession } from "../services/authService";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Preview-only identity: no token is read and no production login is called.
-  const currentUser = CURRENT_USER_MOCK;
-  const ready = true;
-  const login = useCallback(async () => { throw new Error("미리보기에서는 로그인을 사용할 수 없습니다."); }, []);
-  const logout = useCallback(() => {}, []);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    restoreSession().then(
+      (user) => { if (active) setCurrentUser(user); },
+      () => { if (active) setCurrentUser(null); },
+    ).finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const value = useMemo(() => ({
     currentUser,
-    ready,
+    ready: !isLoading,
     isAuthenticated: Boolean(currentUser),
-    isLoading: !ready,
-    isDevMode: true,
-    login,
-    logout,
+    isLoading,
+    isDevMode: false,
     canAccess: (path) => Boolean(currentUser) && canAccessPath(currentUser, path),
-    can: () => Boolean(currentUser) && canPerform(currentUser.status),
-  }), [currentUser, ready, login, logout]);
+    can: (action) => Boolean(currentUser) && canPerform(currentUser, action),
+  }), [currentUser, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

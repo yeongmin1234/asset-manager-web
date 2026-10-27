@@ -32,6 +32,7 @@ from app.api.routers import (
     recall_preview,
     recall_targets,
     scm_activity,
+    scm_handoff,
     server_operations,
     sidebar_menu_labels,
     software,
@@ -87,6 +88,7 @@ Path(settings.upload_dir).resolve().mkdir(parents=True, exist_ok=True)
 app.include_router(health.router)
 app.include_router(downloads_router)
 app.include_router(auth.router)
+app.include_router(scm_handoff.router)
 app.include_router(menu_access_logs.router)
 app.include_router(attachments.router)
 app.include_router(ai_assistant.router, dependencies=[Depends(get_current_user)])

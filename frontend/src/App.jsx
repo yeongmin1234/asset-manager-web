@@ -10,6 +10,7 @@ import {
   getDepartments,
   getExpirationScheduleSummary,
   getHealth,
+  issueScmHandoff,
   getMenuVisibility,
   getRecentActivityLogs,
   getStatsByCategory,
@@ -224,6 +225,8 @@ function App({ currentUser, onLogout }) {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   const [settingsTab, setSettingsTab] = useState(() => getSettingsTabFromLocation());
   const [accessDeniedSection, setAccessDeniedSection] = useState("");
+  const [scmHandoffError, setScmHandoffError] = useState("");
+  const [scmHandoffPending, setScmHandoffPending] = useState(false);
   useEffect(() => {
     const syncLocation = () => {
       if (window.location.pathname === "/login") {
@@ -690,6 +693,42 @@ function App({ currentUser, onLogout }) {
     navigateToSection(nextSection);
   };
 
+  const handleSystemSelect = async (systemId) => {
+    if (systemId !== "scm-app") {
+      handleNavigate(systemId);
+      return;
+    }
+    if (scmHandoffPending) return;
+    setScmHandoffError("");
+    setScmHandoffPending(true);
+    try {
+      const localDevelopment = ["127.0.0.1", "localhost"].includes(window.location.hostname);
+      const apiBase = import.meta.env.VITE_SCM_API_URL || (localDevelopment ? "http://127.0.0.1:8012" : "");
+      const frontendBase = import.meta.env.VITE_SCM_FRONTEND_URL || (localDevelopment ? "http://127.0.0.1:5174" : "");
+      if (!apiBase || !frontendBase) throw new Error("SCM 연결 주소가 설정되지 않았습니다.");
+      const isProtectedUrl = (value) => {
+        const url = new URL(value);
+        return !url.username && !url.password && !url.search && !url.hash
+          && (url.protocol === "https:" || (url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname)));
+      };
+      if (!isProtectedUrl(apiBase) || !isProtectedUrl(frontendBase)) {
+        throw new Error("SCM 연결 주소에 HTTPS 설정이 필요합니다.");
+      }
+      const { code } = await issueScmHandoff();
+      const response = await fetch(`${apiBase.replace(/\/$/, "")}/api/v1/auth/handoff`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!response.ok) throw new Error(response.status === 403 ? "SCM 접근 권한이 없습니다." : response.status === 503 ? "SCM 사용자 연결 설정을 확인할 수 없습니다." : "SCM 인증 인계에 실패했습니다.");
+      window.location.assign(frontendBase);
+    } catch (error) {
+      setScmHandoffError(error.message || "SCM에 연결할 수 없습니다.");
+    } finally {
+      setScmHandoffPending(false);
+    }
+  };
+
   const navigateToSection = (nextSection) => {
     setActiveSection(nextSection);
     if (typeof window !== "undefined") {
@@ -1147,7 +1186,8 @@ function App({ currentUser, onLogout }) {
         currentUser={currentUser}
         canOpenAssets={isAdmin || [...allowedSections].some((section) => section !== "scm-app")}
         canOpenScm={canAccessSection("scm-app", menuVisibility, allowedSections, isAdmin)}
-        onSelect={handleNavigate}
+        onSelect={handleSystemSelect}
+        scmHandoffError={scmHandoffError}
         onLogout={onLogout}
       />
     );

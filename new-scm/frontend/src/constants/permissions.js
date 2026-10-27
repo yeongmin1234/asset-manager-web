@@ -1,10 +1,20 @@
-// 권한 등급은 사용하지 않습니다. 활성 계정은 모든 표시 메뉴와 업무 기능을 사용합니다.
 import { ACCOUNT_TYPES } from "./accountTypes";
 export const ACCOUNT_STATUS = {
   ACTIVE: "active",
   SUSPENDED: "suspended",
 };
 
-export const canAccessPath = (user, path) => user.status === ACCOUNT_STATUS.ACTIVE
-  && (!path.startsWith("/settings") || user.accountType === ACCOUNT_TYPES.ADMIN);
-export const canPerform = (status) => status === ACCOUNT_STATUS.ACTIVE;
+const actionNames = { create: "data.create", read: "data.read", update: "data.update", delete: "data.delete" };
+
+export const canAccessPath = (user, path) => {
+  if (user?.status !== ACCOUNT_STATUS.ACTIVE || !user.action_grants?.includes("system.access")) return false;
+  if (typeof path !== "string" || !user.menu_grants?.includes(path)) return false;
+  return !path.startsWith("/settings") || (
+    user.account_type === ACCOUNT_TYPES.ADMIN && user.action_grants.includes("admin.manage")
+  );
+};
+
+export const canPerform = (user, action) => Boolean(user?.status === ACCOUNT_STATUS.ACTIVE
+  && user.action_grants?.includes("system.access")
+  && typeof action === "string"
+  && user.action_grants.includes(actionNames[action] || action));

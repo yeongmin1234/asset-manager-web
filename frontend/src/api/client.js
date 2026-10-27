@@ -366,6 +366,10 @@ export async function getCurrentUser() {
   return request("/auth/me");
 }
 
+export async function issueScmHandoff() {
+  return request("/auth/scm-handoff/issue", { method: "POST" });
+}
+
 export async function logout() {
   return request("/auth/logout", { method: "POST" });
 }

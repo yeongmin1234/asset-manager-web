@@ -5,13 +5,18 @@ from pathlib import Path
 from time import monotonic
 from secrets import compare_digest
 
-from fastapi import FastAPI, Header, Request
+from fastapi import Depends, FastAPI, Header, Request, HTTPException, Response
+from pydantic import BaseModel, Field
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
+from app.core.auth import Principal
+from app.core.permissions import require_permission
+from app.core.handoff import HandoffRejected, MappingUnavailable, exchange_identity, resolve_principal
+from app.core.scm_session import create as create_session, revoke as revoke_session, SESSION_SECONDS
 from app.db.database import DatabaseUnavailable, probe_database
 
 settings = get_settings()
@@ -34,13 +39,15 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/openapi.json" if settings.environment == "development" else None,
 )
-if settings.cors_origins:
+browser_origins = tuple(dict.fromkeys((*settings.cors_origins, settings.handoff_origin, settings.frontend_origin)))
+browser_origins = tuple(origin for origin in browser_origins if origin and origin != "*")
+if browser_origins:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=list(settings.cors_origins),
-        allow_credentials=False,
-        allow_methods=["GET"],
-        allow_headers=["X-SCM-Diagnostics-Key"],
+        allow_origins=list(browser_origins),
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-SCM-Diagnostics-Key"],
     )
 
 
@@ -95,6 +102,58 @@ def system_status():
     return success({"service": "new-scm", "status": "ready", "database": "not_checked"})
 
 
+@app.get("/api/v1/auth/me")
+def auth_me(response: Response, principal: Principal = Depends(require_permission())):
+    response.headers["Cache-Control"] = "no-store"
+    return success({
+        "subject": principal.subject,
+        "name": principal.name,
+        "account_type": principal.account_type,
+        "status": principal.status,
+        "menu_grants": sorted(principal.menu_grants),
+        "action_grants": sorted(principal.action_grants),
+    })
+
+
+class HandoffBody(BaseModel):
+    code: str = Field(min_length=32, max_length=256)
+
+
+@app.post("/api/v1/auth/handoff")
+def auth_handoff(payload: HandoffBody, request: Request, response: Response):
+    if not settings.handoff_origin or request.headers.get("origin") != settings.handoff_origin:
+        raise HTTPException(status_code=403, detail="요청 출처가 올바르지 않습니다.")
+    try:
+        issuer, subject = exchange_identity(payload.code)
+    except HandoffRejected:
+        raise HTTPException(status_code=401, detail="인증 인계에 실패했습니다.") from None
+    try:
+        principal = resolve_principal(issuer, subject)
+    except MappingUnavailable:
+        raise HTTPException(status_code=503, detail="SCM 사용자 매핑을 확인할 수 없습니다.") from None
+    if principal is None:
+        raise HTTPException(status_code=401, detail="연결된 SCM 사용자가 없습니다.")
+    if "system.access" not in principal.action_grants:
+        raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
+    token = create_session(issuer, subject)
+    response.set_cookie("scm_session", token, max_age=SESSION_SECONDS, httponly=True,
+                        secure=settings.environment == "production", samesite="lax", path="/api/v1")
+    response.headers["Cache-Control"] = "no-store"
+    return success({"authenticated": True})
+
+
+@app.post("/api/v1/auth/logout")
+def auth_logout(request: Request, response: Response):
+    if not settings.frontend_origin or request.headers.get("origin") != settings.frontend_origin:
+        raise HTTPException(status_code=403, detail="요청 출처가 올바르지 않습니다.")
+    token = request.cookies.get("scm_session", "")
+    if token:
+        revoke_session(token)
+    response.delete_cookie("scm_session", path="/api/v1")
+    response.headers["Cache-Control"] = "no-store"
+    return success({"logged_out": True})
+
+
 @app.get("/api/v1/system/db-status")
 def database_status(x_scm_diagnostics_key: str | None = Header(default=None)):
     if not settings.diagnostics_key or not x_scm_diagnostics_key or not compare_digest(
@@ -107,3 +166,12 @@ def database_status(x_scm_diagnostics_key: str | None = Header(default=None)):
         logger.warning("database_probe_unavailable code=%s", str(exc))
         return failure("database_unavailable", "DB 상태를 확인할 수 없습니다.", 503)
     return success(result)
+
+
+@app.api_route("/api/v1/{unimplemented_path:path}", methods=["GET", "POST", "PATCH", "PUT", "DELETE"])
+def unimplemented_api(
+    unimplemented_path: str,
+    _principal: Principal = Depends(require_permission()),
+):
+    # Stage 4-1 business APIs do not exist yet. Never expose them anonymously.
+    return failure("not_found", "요청한 API가 없습니다.", 404)

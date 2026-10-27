@@ -488,7 +488,7 @@ function StoreManagement({ currentPath, onNavigate }) {
 
 function App() {
   const [currentPath, setCurrentPath] = useState(getCurrentPath);
-  const { canAccess } = useAuth();
+  const { canAccess, isAuthenticated, isLoading } = useAuth();
   const customerConsultingPaths = new Set(["/customer-consulting","/customer-consulting/as-reception","/customer-consulting/sales-reception","/customer-consulting/consultation-list","/customer-consulting/return-list","/customer-consulting/exchange-list","/customer-consulting/as-list","/customer-consulting/sales-list","/customer-consulting/logistics-list","/customer-consulting/logistics-management"]);
   const settingsPaths = new Set(["/settings","/settings/accounts","/settings/codes","/settings/batches","/settings/markets","/settings/data-mapping","/settings/as","/settings/symptoms","/settings/filter-sms","/settings/send-status","/settings/opt-out","/settings/target-products","/settings/bmdmall","/settings/serial-update"]);
   const isStoreManagement = storeSubmenus.some((submenu) => submenu.path === currentPath);
@@ -521,6 +521,18 @@ function App() {
       window.history.pushState({}, "", `#${path}`);
       setCurrentPath(path);
     }
+  }
+
+  if (isLoading) {
+    return <main className="scm-auth-gate" role="status">인증 상태를 확인하고 있습니다.</main>;
+  }
+  if (!isAuthenticated) {
+    return (
+      <main className="scm-auth-gate" role="alert">
+        <h1>SCM 인증이 필요합니다</h1>
+        <p>통합 로그인 후 시스템 선택 화면에서 SCM을 선택해주세요.</p>
+      </main>
+    );
   }
 
   return (

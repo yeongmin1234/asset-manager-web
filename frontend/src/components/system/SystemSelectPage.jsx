@@ -16,7 +16,7 @@ const SYSTEMS = [
   },
 ];
 
-export default function SystemSelectPage({ currentUser, canOpenAssets, canOpenScm, onSelect, onLogout }) {
+export default function SystemSelectPage({ currentUser, canOpenAssets, canOpenScm, onSelect, onLogout, scmHandoffError }) {
   const access = { dashboard: canOpenAssets, "scm-app": canOpenScm };
 
   return (
@@ -45,6 +45,7 @@ export default function SystemSelectPage({ currentUser, canOpenAssets, canOpenSc
           );
         })}
       </div>
+      {scmHandoffError && <p role="alert">{scmHandoffError}</p>}
       <button className="system-select-logout" type="button" onClick={onLogout}>로그아웃</button>
     </main>
   );

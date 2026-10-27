@@ -11,6 +11,7 @@ REQUIRED_CORS_ORIGINS = [
     "http://112.216.230.162:3010",
     "http://thelimo.asuscomm.com:3010",
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:3010",
 ]
 
@@ -47,6 +48,7 @@ class Settings(BaseSettings):
     admin_reset_code: str = ""
     auth_jwt_secret: str = ""
     auth_token_minutes: int = 480
+    scm_handoff_key: str = ""
     trusted_proxy_ips: str = ""
     network_credential_secret_key: str = ""
     scm_reboot_host: str = ""
