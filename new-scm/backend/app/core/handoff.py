@@ -2,12 +2,11 @@
 from urllib.parse import urlparse
 
 import httpx
-from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.auth import Principal
 from app.core.config import get_settings
-from app.db.database import _engine
+from app.db.database import DatabaseUnavailable, _engine
 
 
 class HandoffRejected(Exception):
@@ -36,8 +35,11 @@ def exchange_identity(code: str) -> tuple[str, str]:
         if response.status_code != 200:
             raise HandoffRejected()
         data = response.json()
+        subject = data.get("subject") if isinstance(data, dict) else None
         if (not isinstance(data, dict) or data.get("issuer") != "asset-manager"
-                or data.get("audience") != "new-scm" or not str(data.get("subject", "")).isdigit()):
+                or data.get("audience") != "new-scm" or not isinstance(subject, str)
+                or not subject.isascii() or not subject.isdecimal()
+                or subject == "0" or subject.startswith("0") or len(subject) > 80):
             raise HandoffRejected()
         return data["issuer"], data["subject"]
     except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
@@ -45,26 +47,24 @@ def exchange_identity(code: str) -> tuple[str, str]:
 
 
 def resolve_principal(issuer: str, subject: str) -> Principal | None:
-    """Read proposed mapping/grant tables; absent schema safely denies access."""
+    """Read explicit mapping and grants; absent schema safely denies access."""
+    if issuer != "asset-manager" or not isinstance(subject, str) or not subject.isascii() \
+            or not subject.isdecimal() or subject == "0" or subject.startswith("0") \
+            or len(subject) > 80:
+        return None
     try:
         with _engine().connect() as connection:
-            row = connection.execute(text("""
-                SELECT u.id, u.name, u.account_type, u.status
-                FROM scm_identity_mappings m JOIN users u ON u.id = m.user_id
-                WHERE m.issuer = :issuer AND m.subject = :subject AND m.is_active = true
-            """), {"issuer": issuer, "subject": subject}).one_or_none()
-            if row is None or row.status != "active":
-                return None
-            grants = connection.execute(text("""
-                SELECT grant_type, grant_name FROM scm_user_grants
-                WHERE user_id = :user_id
-            """), {"user_id": row.id}).all()
+            from app.db.identity import load_identity
+            identity = load_identity(connection, issuer, subject)
             connection.rollback()
+        if identity is None:
+            return None
+        row, grants = identity
         return Principal(
             subject=f"{issuer}:{subject}", name=row.name,
             account_type=row.account_type, status=row.status,
             menu_grants=frozenset(grant_name for grant_type, grant_name in grants if grant_type == "menu"),
             action_grants=frozenset(grant_name for grant_type, grant_name in grants if grant_type == "action"),
         )
-    except (SQLAlchemyError, OSError, ValueError) as exc:
+    except (DatabaseUnavailable, SQLAlchemyError, OSError, ValueError) as exc:
         raise MappingUnavailable() from exc

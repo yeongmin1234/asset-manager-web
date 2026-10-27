@@ -59,7 +59,7 @@ def get_current_principal(
         except Exception:
             raise unauthorized() from None
         if principal is None:
-            raise unauthorized()
+            raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             from app.core.config import get_settings
             if request.headers.get("origin") != get_settings().frontend_origin:

@@ -132,7 +132,7 @@ def auth_handoff(payload: HandoffBody, request: Request, response: Response):
     except MappingUnavailable:
         raise HTTPException(status_code=503, detail="SCM 사용자 매핑을 확인할 수 없습니다.") from None
     if principal is None:
-        raise HTTPException(status_code=401, detail="연결된 SCM 사용자가 없습니다.")
+        raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
     if "system.access" not in principal.action_grants:
         raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
     token = create_session(issuer, subject)

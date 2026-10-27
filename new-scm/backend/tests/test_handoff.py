@@ -31,7 +31,7 @@ class HandoffTests(unittest.TestCase):
     def test_unmapped_identity_denied_and_no_cookie(self):
         with patch.object(main, "exchange_identity", return_value=("asset-manager", "42")), patch.object(main, "resolve_principal", return_value=None):
             response = self.client.post("/api/v1/auth/handoff", json={"code": "x" * 40}, headers=self.origin)
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403)
         self.assertNotIn("scm_session", response.cookies)
 
     def test_missing_grant_denied(self):
@@ -39,6 +39,15 @@ class HandoffTests(unittest.TestCase):
         with patch.object(main, "exchange_identity", return_value=("asset-manager", "42")), patch.object(main, "resolve_principal", return_value=principal):
             response = self.client.post("/api/v1/auth/handoff", json={"code": "x" * 40}, headers=self.origin)
         self.assertEqual(response.status_code, 403)
+
+    def test_database_failure_denies_without_cookie_or_details(self):
+        with patch.object(main, "exchange_identity", return_value=("asset-manager", "42")), patch.object(
+            main, "resolve_principal", side_effect=main.MappingUnavailable("private database detail")
+        ):
+            response = self.client.post("/api/v1/auth/handoff", json={"code": "x" * 40}, headers=self.origin)
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn("scm_session", response.cookies)
+        self.assertNotIn("private database detail", response.text)
 
     def test_verified_identity_issues_session_and_rechecks_mapping(self):
         principal = Principal("asset-manager:42", "테스트", "employee", "active", action_grants=frozenset({"system.access"}))
@@ -49,7 +58,7 @@ class HandoffTests(unittest.TestCase):
         with patch("app.core.handoff.resolve_principal", return_value=principal):
             self.assertEqual(self.client.get("/api/v1/auth/me").status_code, 200)
         with patch("app.core.handoff.resolve_principal", return_value=None):
-            self.assertEqual(self.client.get("/api/v1/auth/me").status_code, 401)
+            self.assertEqual(self.client.get("/api/v1/auth/me").status_code, 403)
 
     def test_untrusted_origin_and_provider_failure(self):
         self.assertEqual(self.client.post("/api/v1/auth/handoff", json={"code": "x" * 40}).status_code, 403)

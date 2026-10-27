@@ -1,5 +1,6 @@
 .env
 !deploy/create_readonly_role.sql
+!deploy/auth_4_2e_verify.sql
 **/__pycache__/
 **/.pytest_cache/
 **/node_modules/
