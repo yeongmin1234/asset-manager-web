@@ -82,8 +82,8 @@ sudo 옵션을 전달하지 않으며 내부 UID는 계속 10001이다. DB URL�
 
 - `docker_sudo_command_failed`: sudo 인증/권한 또는 Docker 조회 실패. 사용자가 같은 터미널에서 인증·권한을 확인해야 한다.
 - `docker_sudo_executable_missing` / `docker_sudo_executable_untrusted`: 필요한 신뢰 가능한 실행 파일을 사용할 수 없음.
-- `docker_sudo_or_verifier_failed`: 승격된 실행 또는 검증 컨테이너가 알려진 정책 코드 없이 실패함.
-- `isolated_verifier_cleanup_failed`: 시간 초과/CLI 장애 후 임시 컨테이너 정리를 확인하지 못함. 자동 재시도·배포를 중단한다.
+- 격리 실행 실패는 아래의 Docker/Python/DB/API 분류 코드를 사용한다. 기존 `docker_sudo_or_verifier_failed`는 사용하지 않는다.
+- `WARN isolated_verifier_cleanup_failed`: 시간 초과/CLI 장애 후 임시 컨테이너 정리를 확인하지 못함. 원래 실패 코드는 별도의 `FAIL`로 유지하며 자동 재시도·배포를 하지 않는다.
 
 정상 종료한 검증 컨테이너는 `--rm`으로 삭제된다. 시간 초과나 Docker CLI 장애가 있으면
 해당 실행의 고유 이름만 `sudo -n docker rm --force`로 정리한다. 인증 만료 등으로 이 정리도
@@ -122,11 +122,115 @@ NAS 실행 명령은 위의 `sudo -v`와 `--docker-sudo --isolated-image` 명령
 수정된 스크립트와 같은 내용으로 검증 이미지를 다시 준비해야 한다. `--config-only`는
 이 자원 지원 조회도 하지 않으며 Python 3.8 표준 라이브러리만으로 기존처럼 실행된다.
 
+### 격리 검증 실패 분류와 결과 규약
+
+호스트는 Docker stderr나 예외 문자열을 분석·출력하지 않고 종료 코드와 등록된 worker
+결과만 이용한다. 허용된 Python bootstrap이 시작 표식 `SCM_PREFLIGHT_WORKER_STARTED_V1`을
+보내고, worker가 결과 한 줄을 보낸다. 호스트는 표식·결과·종료 코드가 일치하는지 검증한다.
+원본 stdout도 그대로 전달하지 않으며 미등록 내용·추가 출력·일치하지 않는 결과는 거부한다.
+
+worker 종료 코드 0은 성공, 20은 등록된 정책/DB/API 실패, 21은 예상치 못한 내부 Python
+예외, 22는 스크립트 로드·문법·bootstrap 실패로 예약한다. bootstrap은 worker의 예외
+처리기 이전에 발생하는 파일 부재·SyntaxError·import 오류도 상세 메시지와 traceback 없이
+처리한다. 임의의 `Rejected` 메시지도 등록된 코드가 아니면 `verifier_unregistered_failure`로
+치환한다. DB URL, 비밀번호, 키, JWT를 결과·명령행에 넣지 않는다.
+
+| 진단 코드 (`FAIL` 뒤) | 의미 |
+| --- | --- |
+| `docker_cli_executable_missing` | 실행할 로컬 sudo/Docker CLI 프로세스를 찾지 못함 |
+| `docker_cli_execution_failed` | 로컬 CLI 프로세스 생성/실행 실패 |
+| `docker_cli_timeout` / `docker_cli_interrupted` | CLI 대기 시간 초과 또는 로컬 프로세스 신호 종료 |
+| `docker_run_failed` | Docker의 125 종료: 실행 요청/데몬 단계 실패 |
+| `verifier_command_not_executable` / `verifier_command_not_found` | Docker의 126/127 종료: 컨테이너 명령 실행 불가/부재 |
+| `verifier_python_bootstrap_failed` | Python이 시작했으나 검증 스크립트 로드·초기화 실패 |
+| `verifier_python_exception` | worker 내부의 예상치 못한 Python 예외 |
+| `database_configuration_invalid` | DB 엔진/URL 구성 실패 |
+| `database_connection_failed` / `database_query_failed` | DB 연결 실패 / 읽기 전용 조회 실패 |
+| `identity_api_connection_failed` / `identity_api_response_invalid` | 인증 API 통신 실패 / JSON·응답 구조 오류 |
+| `identity_openapi_unreachable` / `running_identity_handoff_routes_missing` | 인증 API HTTP 상태 또는 필요한 경로 검사 실패 |
+| `verifier_result_missing` / `verifier_result_invalid` | 종료 결과 부재 / 규약·종료 코드 불일치 |
+| `verifier_start_unconfirmed` | 비정상 종료했으나 Python 시작 표식이 없어 시작 단계 확인 불가 |
+| `verifier_python_process_failed` | Python 시작 표식 후 최종 결과 없이 종료 |
+| `isolated_process_killed` / `isolated_process_interrupted` / `isolated_process_terminated` | 137/130/143 종료. 137만으로 OOM이라고 단정하지 않음 |
+
+`expected_54_tables`, `alembic_revision_invalid`, `database_identity_or_readonly_invalid`,
+`readonly_role_has_write_or_owner_privileges` 등 기존 구체적인 검증 코드는 유지한다.
+이미지 버전 불일치는 `verifier_script_mismatch`, 런타임 의존성 부족은
+`runtime_dependencies_missing_use_verifier_image`로 구분한다.
+
+`verifier_start_unconfirmed`는 sudo 인증 만료, 비정상 실행 환경 등 여러 원인이 가능하다.
+시작 표식 없이 종료 코드 1만으로 sudo 실패와 Python 실패를 단정하지 않는다. 같은
+터미널에서 `sudo -v`와 기존의 제한된 Docker 조회 권한을 확인해야 한다. 코드 125/126/127의
+의미는 [Docker 공식 종료 코드 설명](https://docs.docker.com/engine/containers/run/#exit-status)을 따른다.
+
+강제 정리나 보호 상태 재조회가 실패해도 원래 검증 실패를 유지한다. 추가 진단은
+`WARN isolated_verifier_cleanup_failed`, `WARN protected_state_recheck_failed`,
+`WARN protected_state_changed_after_failure`처럼 고정 코드로만 출력한다. 주 실패가 없는
+상태에서 보호 포트/기존 PostgreSQL의 상태가 바뀌면 기존처럼 즉시 실패한다.
+
+이번 수정은 호스트 스크립트뿐 아니라 이미지의 worker 내용과 결과 규약도 바꾸므로
+**같은 수정 소스로 검증 이미지를 재생성·로드한 후** 위의 최종 NAS 명령을 실행해야 한다.
+이전 이미지를 재사용하면 결과 규약 오류 또는 버전 불일치로 거부될 수 있다.
+현재 NAS에서 발생한 과거의 일반 오류만으로 원인을 소급 확정할 수는 없으며, 새 진단으로
+다시 조회 검증해야 한다. 이번 개발 작업에서는 NAS 컨테이너를 실행하지 않았다.
+
+### 검증 이미지 COPY 권한과 비루트 smoke 검사
+
+Dockerfile의 `COPY`는 원본 파일 모드를 보존한다. NAS 원본이 600이면 이미지에서 root가
+소유한 Python 파일도 600이 되어 UID 10001이 읽지 못할 수 있다. 원본 권한을 바꾸는 대신,
+`Dockerfile.preflight`의 COPY 이후 이미지 레이어 안에서만 권한을 정규화한다.
+
+- `/srv`부터 검증 소스까지의 디렉터리: root:root / 755, 비루트 경로 탐색 허용.
+- `preflight.py`, `check_preflight_image.py`, `app/db/identity.py`: root:root / 644.
+  Python으로 읽고 실행하므로 파일 자체의 실행 비트는 필요하지 않다. UID 10001은 소스를 수정할 수 없다.
+- `USER 10001:10001`을 유지하고, 그 이후 빌드 단계에서 `check_preflight_image.py`를 실행한다.
+  읽기·컴파일, 실제 모듈 import, `preflight.py --help`, 잘못된 합성 입력의 안전한 거부를 검사한다.
+  검사 실패 시 이미지 빌드도 실패한다. 실제 `.env`, DB/API, Docker 소켓은 사용하지 않는다.
+
+개발 PC에서는 원본과 별개의 임시 빌드 컨텍스트를 파일 600 / 디렉터리 700으로 만들어
+이미지를 빌드하고, 최종 UID 10001의 검사가 통과하는지 검증했다. 빌드 후에도 네트워크
+차단·읽기 전용 루트·capability 제거 상태의 임시 컨테이너에서 같은 검사를 실행했다.
+NAS 소유권/권한과 운영 서비스는 이 개발 검증에서 변경하지 않았다.
+
+새 이미지를 NAS에 반영한 뒤 다음 오프라인 검사로 파일 권한부터 확인할 수 있다.
+같은 터미널에서 `sudo -v`로 인증한 다음 실행한다. 검증용 임시 컨테이너만 만들며
+포트 공개·호스트 디렉터리/소켓 마운트·DB/API 연결은 없다. CPU/PID 옵션은 이 짧은
+오프라인 smoke 실행에 추가하지 않으며, 전체 사전 검증의 기존 자동 감지는 그대로 유지한다.
+
+```sh
+sudo -n docker --host=unix:///var/run/docker.sock run --rm --pull=never \
+  --network=none --read-only --user=10001:10001 --cap-drop=ALL \
+  --security-opt=no-new-privileges:true --memory=256m \
+  --tmpfs=/tmp:rw,noexec,nosuid,size=16m --log-driver=none \
+  --entrypoint=python new-scm-preflight:4-2g \
+  -I -B /srv/new-scm/deploy/check_preflight_image.py
+```
+
+정상 출력은 `PASS verifier_image_nonroot_smoke`다. 실패는
+`verifier_image_uid_invalid`, `verifier_image_permissions_invalid`,
+`verifier_image_import_failed`, `verifier_image_execution_failed` 중 하나의 고정 코드로 보고한다.
+검사 중 사용하는 빈 합성 입력의 `verifier_input_invalid` 응답은 내부에서만 확인하며
+외부로 상세 출력하지 않는다. 이 smoke PASS는 NAS DB/API/SSO 성공을 의미하지 않는다.
+
+Docker 직접 접근이 가능한 개발 PC에서는 빌드 후 통합 테스트도 실행한다(`new-scm` 기준).
+NAS에서 Docker 접근에 sudo가 필요하면 위의 수동 오프라인 명령을 사용한다.
+
+```sh
+SCM_TEST_PREFLIGHT_IMAGE="$(docker image inspect --format '{{.Id}}' new-scm-preflight:4-2g)" \
+  PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover \
+  -s deploy -p test_preflight_image.py -v
+```
+
+이미지 ID 환경변수가 없으면 이미지 통합 테스트만 SKIP한다. 실제 이미지 검증을 할 때는
+빌드한 로컬 image ID를 반드시 지정한다. 기존 파일 권한을 `chmod`하거나 소유자를
+변경해서 통과시키는 방법은 사용하지 않는다.
+
 ## 2. Python 3.12 전용 이미지 준비
 
 확보된 기본 Python 3.12 이미지에는 DB/API 검사 의존성이 없으므로 **기본 이미지만으로는
 전체 검사가 안 된다**. Docker 사용이 가능한 별도 준비 PC에서 아래 검증 이미지를 만든다.
-이번 변경에서 이 빌드나 컨테이너 실행은 수행하지 않았다.
+개발 PC에서 제한된 임시 복사본으로 이미지 빌드와 오프라인 비루트 smoke 검사를 수행했다.
+NAS에서의 이미지 빌드·컨테이너 실행과 실제 SCM 배포는 수행하지 않았다.
 
 ```sh
 # 별도 준비 PC, new-scm 디렉터리. NAS 서비스용 Compose를 사용하지 않는다.
@@ -134,7 +238,7 @@ docker build -f deploy/Dockerfile.preflight -t new-scm-preflight:4-2g .
 docker save -o "$HOME/new-scm-preflight-4-2g.tar" new-scm-preflight:4-2g
 ```
 
-루트 `.dockerignore`는 검증 빌드에 필요한 소스 3개와 Dockerfile만 허용한다.
+루트 `.dockerignore`는 검증 Python 파일 3개, requirements와 Dockerfile만 허용한다.
 실제 `.env`, 백업, 키, 사용자 데이터는 빌드 컨텍스트에서 제외한다. 이 ignore 파일은
 기존 Compose의 `backend`/`frontend` 빌드 컨텍스트에 영향을 주지 않는다.
 아카이브는 Git 프로젝트 밖의 전송 위치에 둔다. NAS와 준비 PC의 아키텍처가 같아야 한다.
@@ -156,7 +260,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/preflight.py \
 로컬 이미지를 immutable ID로 확인하고 `--pull=never`로 실행하므로 NAS에서 자동으로
 이미지를 받거나 빌드하지 않는다. NAS 소스와 이미지의 preflight 내용이 다르면 DB 접속
 전에 `verifier_script_mismatch`로 중단한다(CRLF/LF 차이는 무시).
-sudo 및 Synology 자원 제한 지원 수정도 이미지 안의 preflight에 반영되도록 검증 이미지를 다시 만들어야 한다.
+sudo·Synology 자원 제한·실패 분류 수정도 이미지 안의 preflight에 반영되도록 검증 이미지를 다시 만들어야 한다.
 Docker 권한이 제한된 NAS에서는 위의 `sudo -v`와 `--docker-sudo` 최종 명령을 사용한다.
 
 검사 대상은 `new_scm_dev` / `new_scm_ro`뿐이다. 모든 SQL은 SELECT이며 연결 시
@@ -208,13 +312,14 @@ origin만 허용하고 credentials를 유지한다. `localhost`와 `127.0.0.1`�
 
 ## 남은 검증과 근거
 
-origin 정책 불일치가 있으면 배포 차단 사유다. NAS 실연결, 검증 이미지의 실제 실행,
+origin 정책 불일치가 있으면 배포 차단 사유다. NAS 실연결, NAS에서의 검증 이미지 실행,
 컨테이너 내부 DB 릴레이/Unix 볼륨/Nginx, 공유 키 일치, 브라우저 SSO는 아직 별도 검증
 대상이다. 전체 검사 PASS도 실제 SCM 서비스 배포 승인으로 취급하지 않는다.
 
 - [MDN Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie): SameSite와 Secure, cross-origin fetch의 credentials 조건.
 - [Docker host network](https://docs.docker.com/engine/network/drivers/host/): Linux host 네트워크 공유와 포트 공개의 관계.
 - [Docker run](https://docs.docker.com/engine/containers/run/): 읽기 전용 루트, capability 및 리소스 제한.
+- [Dockerfile COPY](https://docs.docker.com/reference/dockerfile/#copy): 복사된 파일 모드와 기본 소유권.
 - [Docker 자원 제한](https://docs.docker.com/engine/containers/resource_constraints/): 커널 기능 지원과 `docker info` 조회.
 - [Docker Engine 20.10 Info 타입](https://github.com/moby/moby/blob/v20.10.24/api/types/types.go): CPU CFS·PID·메모리 지원 boolean 필드.
 - [sudo 공식 매뉴얼 원본](https://github.com/sudo-project/sudo/blob/main/docs/sudo.man.in): 터미널 암호 입력, `-v` 인증 캐시와 `-n` 비대화형 실행.

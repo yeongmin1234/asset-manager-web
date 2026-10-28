@@ -7,4 +7,5 @@
 !backend/app/db/identity.py
 !deploy/
 !deploy/preflight.py
+!deploy/check_preflight_image.py
 !deploy/Dockerfile.preflight

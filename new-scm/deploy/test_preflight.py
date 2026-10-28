@@ -38,7 +38,172 @@ def config():
     }}
 
 
+def worker_output(line="PASS isolated_db_api_checks"):
+    return (preflight.WORKER_STARTED + "\n" + line + "\n").encode()
+
+
 class PreflightTests(unittest.TestCase):
+    def test_result_protocol_distinguishes_docker_python_and_probe_failures(self):
+        cases = [(125, b"private", "docker_run_failed"),
+                 (126, b"private", "verifier_command_not_executable"),
+                 (127, b"private", "verifier_command_not_found"),
+                 (137, b"private", "isolated_process_killed"),
+                 (130, b"", "isolated_process_interrupted"),
+                 (143, b"", "isolated_process_terminated"),
+                 (-9, b"", "docker_cli_interrupted"),
+                 (0, worker_output(), None),
+                 (preflight.WORKER_EXCEPTION_EXIT, worker_output("FAIL verifier_python_exception"), "verifier_python_exception"),
+                 (preflight.WORKER_BOOTSTRAP_EXIT, worker_output("FAIL verifier_python_bootstrap_failed"), "verifier_python_bootstrap_failed")]
+        for exit_code, stdout, expected in cases:
+            with self.subTest(exit_code=exit_code):
+                result = subprocess.CompletedProcess([], exit_code, stdout=stdout, stderr=b"test-only-private")
+                self.assertEqual(preflight.verifier_result_code(result), expected)
+        for code in preflight.WORKER_POLICY_CODES:
+            result = subprocess.CompletedProcess([], preflight.WORKER_POLICY_EXIT, stdout=worker_output("FAIL " + code))
+            self.assertEqual(preflight.verifier_result_code(result), code)
+
+    def test_missing_malformed_and_conflicting_worker_results_are_never_echoed(self):
+        cases = [(0, b"", "verifier_result_missing"),
+                 (1, b"test-only-private", "verifier_start_unconfirmed"),
+                 (1, (preflight.WORKER_STARTED + "\n").encode(), "verifier_python_process_failed"),
+                 (0, worker_output("FAIL expected_54_tables"), "verifier_result_invalid"),
+                 (1, worker_output("FAIL expected_54_tables"), "verifier_result_invalid"),
+                 (20, worker_output("FAIL test-only-private"), "verifier_result_invalid"),
+                 (0, worker_output() + b"test-only-private\n", "verifier_result_invalid"),
+                 (21, b"\xff", "verifier_result_invalid")]
+        for exit_code, stdout, expected in cases:
+            with self.subTest(exit_code=exit_code, expected=expected):
+                result = subprocess.CompletedProcess([], exit_code, stdout=stdout, stderr=b"private")
+                self.assertEqual(preflight.verifier_result_code(result), expected)
+
+    def test_python_bootstrap_catches_script_load_errors_without_tracebacks(self):
+        with tempfile.TemporaryDirectory(prefix="scm-bootstrap-") as directory:
+            path = Path(directory) / "worker.py"
+            bootstrap = preflight.WORKER_BOOTSTRAP.replace("'/srv/new-scm/deploy/preflight.py'", repr(str(path)))
+            for source in (None, "def broken(:\n test_only_private", "raise RuntimeError('test-only-private')"):
+                if source is not None:
+                    path.write_text(source, encoding="utf-8")
+                result = subprocess.run([sys.executable, "-I", "-B", "-c", bootstrap], capture_output=True)
+                self.assertEqual(result.returncode, preflight.WORKER_BOOTSTRAP_EXIT)
+                self.assertEqual(preflight.verifier_result_code(result), "verifier_python_bootstrap_failed")
+                self.assertNotIn(b"test-only-private", result.stdout + result.stderr)
+                self.assertNotIn(b"Traceback", result.stderr)
+
+    def test_real_python_worker_exception_uses_reserved_exit_and_registered_protocol(self):
+        with tempfile.TemporaryDirectory(prefix="scm-worker-protocol-") as directory:
+            path = Path(directory) / "worker.py"
+            path.write_text("import runpy\nmodule=runpy.run_path(" + repr(preflight.__file__) + ")\n"
+                            "def fail(_): raise TypeError('test-only-private')\n"
+                            "module['isolated_worker'].__globals__['runtime_checks']=fail\n"
+                            "raise SystemExit(module['isolated_worker']())\n", encoding="utf-8")
+            bootstrap = preflight.WORKER_BOOTSTRAP.replace("'/srv/new-scm/deploy/preflight.py'", repr(str(path)))
+            payload = {"script_sha256": preflight.script_digest(), "database_url": "test-only-url"}
+            result = subprocess.run([sys.executable, "-I", "-B", "-c", bootstrap],
+                                    input=json.dumps(payload).encode(), capture_output=True)
+            self.assertEqual(result.returncode, preflight.WORKER_EXCEPTION_EXIT)
+            self.assertEqual(preflight.verifier_result_code(result), "verifier_python_exception")
+            self.assertNotIn(b"test-only-private", result.stdout + result.stderr)
+
+    def test_worker_input_and_unregistered_rejections_cannot_expose_values(self):
+        for raw in ("invalid-json", "[]", json.dumps({"database_url": "test-only-private"})):
+            output = io.StringIO()
+            with patch.object(sys, "stdin", io.StringIO(raw)), patch.object(preflight, "runtime_checks") as runtime, \
+                    contextlib.redirect_stdout(output):
+                self.assertEqual(preflight.isolated_worker(), preflight.WORKER_POLICY_EXIT)
+            runtime.assert_not_called()
+            self.assertEqual(output.getvalue(), "FAIL verifier_input_invalid\n")
+        output = io.StringIO()
+        payload = {"script_sha256": preflight.script_digest(), "database_url": "test-only-url"}
+        with patch.object(sys, "stdin", io.StringIO(json.dumps(payload))), \
+                patch.object(preflight, "runtime_checks", side_effect=preflight.Rejected("test-only-private")), \
+                contextlib.redirect_stdout(output):
+            self.assertEqual(preflight.isolated_worker(), preflight.WORKER_POLICY_EXIT)
+        self.assertEqual(output.getvalue(), "FAIL verifier_unregistered_failure\n")
+
+    def test_cli_execution_errors_have_fixed_codes_even_when_cleanup_also_fails(self):
+        cases = [(FileNotFoundError("test-only-private"), "docker_cli_executable_missing"),
+                 (PermissionError("test-only-private"), "docker_cli_execution_failed"),
+                 (subprocess.TimeoutExpired("test-only-private", 90), "docker_cli_timeout")]
+        for error, expected in cases:
+            output = io.StringIO()
+            with self.subTest(expected=expected), \
+                    patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                    patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64), \
+                    patch.object(preflight.subprocess, "run", side_effect=[error, subprocess.CompletedProcess([], 1)]) as run, \
+                    contextlib.redirect_stdout(output), self.assertRaisesRegex(preflight.Rejected, "^" + expected + "$"):
+                preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+            self.assertEqual(output.getvalue(), "WARN isolated_verifier_cleanup_failed\n")
+            self.assertEqual(run.call_count, 2)
+
+    def test_docker_run_failure_is_not_masked_by_failed_cleanup(self):
+        output = io.StringIO()
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64), \
+                patch.object(preflight.subprocess, "run", side_effect=[subprocess.CompletedProcess([], 125, stdout=b"private"),
+                                                                      subprocess.CompletedProcess([], 1)]), \
+                contextlib.redirect_stdout(output), self.assertRaisesRegex(preflight.Rejected, "^docker_run_failed$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+        self.assertEqual(output.getvalue(), "WARN isolated_verifier_cleanup_failed\n")
+
+    def test_database_driver_errors_are_classified_by_phase(self):
+        from sqlalchemy.exc import ArgumentError, OperationalError
+        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
+        for phase, expected in (("configuration", "database_configuration_invalid"),
+                                ("connection", "database_connection_failed"), ("query", "database_query_failed")):
+            engine = MagicMock()
+            error = OperationalError(None, None, RuntimeError("test-only-private"))
+            if phase == "connection":
+                engine.connect.side_effect = error
+            if phase == "query":
+                engine.connect.return_value.__enter__.return_value.execute.side_effect = error
+            kwargs = {"side_effect": ArgumentError("test-only-private")} if phase == "configuration" else {"return_value": engine}
+            with self.subTest(phase=phase), patch("sqlalchemy.create_engine", **kwargs), \
+                    patch.object(preflight, "identity_api_checks") as api, \
+                    self.assertRaisesRegex(preflight.Rejected, "^" + expected + "$"):
+                preflight.runtime_checks(url)
+            api.assert_not_called()
+
+    def test_database_cleanup_error_does_not_corrupt_original_worker_protocol(self):
+        from sqlalchemy.exc import OperationalError
+        engine = MagicMock()
+        engine.connect.side_effect = OperationalError(None, None, RuntimeError("test-only-private-connect"))
+        engine.dispose.side_effect = OperationalError(None, None, RuntimeError("test-only-private-cleanup"))
+        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
+        output = io.StringIO()
+        with patch("sqlalchemy.create_engine", return_value=engine), contextlib.redirect_stdout(output), \
+                self.assertRaisesRegex(preflight.Rejected, "^database_connection_failed$"):
+            preflight.runtime_checks(url)
+        self.assertEqual(output.getvalue(), "")
+
+    def test_api_transport_status_and_response_failures_are_distinct(self):
+        import httpx
+        for failure, expected in (("connect", "identity_api_connection_failed"), ("status", "identity_openapi_unreachable"),
+                                  ("json", "identity_api_response_invalid"), ("shape", "identity_api_response_invalid"),
+                                  ("routes", "running_identity_handoff_routes_missing")):
+            response = MagicMock(status_code=503 if failure == "status" else 200)
+            response.json.return_value = [] if failure == "shape" else {"paths": {}}
+            if failure == "json":
+                response.json.side_effect = ValueError("test-only-private")
+            with self.subTest(failure=failure), patch("httpx.Client") as http, \
+                    self.assertRaisesRegex(preflight.Rejected, "^" + expected + "$"):
+                client = http.return_value.__enter__.return_value
+                if failure == "connect":
+                    client.get.side_effect = httpx.ConnectError("test-only-private")
+                else:
+                    client.get.return_value = response
+                preflight.identity_api_checks()
+            client.post.assert_not_called()
+
+    def test_original_verifier_failure_survives_failed_host_state_recheck(self):
+        output = io.StringIO()
+        with patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "protected_state", side_effect=[b"before", preflight.Rejected("docker_sudo_command_failed")]), \
+                patch.object(preflight, "host_docker_checks"), \
+                patch.object(preflight, "isolated_runtime_checks", side_effect=preflight.Rejected("database_connection_failed")), \
+                contextlib.redirect_stdout(output), self.assertRaisesRegex(preflight.Rejected, "^database_connection_failed$"):
+            preflight.host_checks({}, "test-only-url", "local-verifier")
+        self.assertEqual(output.getvalue(), "WARN protected_state_recheck_failed\n")
+
     def test_resource_capabilities_choose_only_supported_limits_with_or_without_sudo(self):
         for sudo in (False, True):
             for period in (False, True):
@@ -46,7 +211,7 @@ class PreflightTests(unittest.TestCase):
                     for pids in (False, True):
                         capabilities = {"cpu_period": period, "cpu_quota": quota, "pids": pids, "memory": True}
                         output = io.StringIO()
-                        result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
+                        result = subprocess.CompletedProcess([], 0, stdout=worker_output(), stderr=b"")
                         with self.subTest(sudo=sudo, capabilities=capabilities), \
                                 patch.object(preflight.sys, "platform", "linux"), \
                                 patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
@@ -124,7 +289,7 @@ class PreflightTests(unittest.TestCase):
         with patch.object(preflight, "docker_command", side_effect=[json.dumps(capabilities), "sha256:" + "a" * 64]), \
                 patch.object(preflight.subprocess, "run", return_value=failed) as run, \
                 contextlib.redirect_stdout(output), \
-                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_failed_output_suppressed$"):
+                self.assertRaisesRegex(preflight.Rejected, "^verifier_start_unconfirmed$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")
         run.assert_called_once()
         self.assertIn("--cpus=1", run.call_args.args[0])
@@ -158,6 +323,7 @@ class PreflightTests(unittest.TestCase):
                      ["inspect", "asset-postgres"],
                      ["inspect", "--format", "{{json .Config.Env}}", "asset-postgres"],
                      run + ["--privileged"],
+                     run[:-1] + ["print('test-only-private')"],
                      ["--volume=/var/run/docker.sock:/var/run/docker.sock"] + run,
                      [arg.replace("--user=10001:10001", "--user=0:0") for arg in run]):
             with self.subTest(operation=args[0]), patch.object(preflight, "trusted_executable") as trusted, \
@@ -249,7 +415,7 @@ class PreflightTests(unittest.TestCase):
 
     def test_sudo_verifier_keeps_payload_on_stdin_and_nonroot_container(self):
         url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
-        result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
+        result = subprocess.CompletedProcess([], 0, stdout=worker_output(), stderr=b"")
         with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
                 patch.object(preflight.sys, "platform", "linux"), \
                 patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
@@ -272,7 +438,8 @@ class PreflightTests(unittest.TestCase):
                 patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
                 patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", side_effect=[subprocess.TimeoutExpired("docker", 90), failed]) as run, \
-                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_cleanup_failed$"):
+                contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaisesRegex(preflight.Rejected, "^docker_cli_timeout$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier", True)
         start, cleanup = [call.args[0] for call in run.call_args_list]
         name = next(arg.split("=", 1)[1] for arg in start if arg.startswith("--name="))
@@ -363,7 +530,7 @@ class PreflightTests(unittest.TestCase):
     def test_isolated_launcher_passes_only_db_url_via_stdin_without_socket_mount_or_ports(self):
         url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
         image_id = "sha256:" + "a" * 64
-        result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
+        result = subprocess.CompletedProcess([], 0, stdout=worker_output(), stderr=b"")
         with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
                 patch.object(preflight, "command", return_value=image_id) as command, \
                 patch.object(preflight.subprocess, "run", return_value=result) as run:
@@ -389,7 +556,7 @@ class PreflightTests(unittest.TestCase):
                 patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", side_effect=[subprocess.TimeoutExpired("docker", 90),
                              subprocess.CompletedProcess([], 0)]) as run, \
-                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_unavailable_output_suppressed$"):
+                self.assertRaisesRegex(preflight.Rejected, "^docker_cli_timeout$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")
         args = run.call_args_list[0].args[0]
         name = next(arg.split("=", 1)[1] for arg in args if arg.startswith("--name="))
@@ -401,11 +568,12 @@ class PreflightTests(unittest.TestCase):
         with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
                 patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", return_value=result), \
-                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_failed_output_suppressed$"):
+                self.assertRaisesRegex(preflight.Rejected, "^verifier_start_unconfirmed$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")
 
     def test_isolated_known_policy_failure_retains_only_its_fixed_code(self):
-        result = subprocess.CompletedProcess([], 1, stdout=b"FAIL expected_54_tables\n", stderr=b"private")
+        result = subprocess.CompletedProcess([], preflight.WORKER_POLICY_EXIT,
+                                             stdout=worker_output("FAIL expected_54_tables"), stderr=b"private")
         with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
                 patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", return_value=result), \
@@ -456,9 +624,9 @@ class PreflightTests(unittest.TestCase):
 
     def test_worker_rejects_stale_image_before_any_db_connection(self):
         output = io.StringIO()
-        with patch.object(sys, "stdin", io.StringIO(json.dumps({"script_sha256": "old-version"}))), \
+        with patch.object(sys, "stdin", io.StringIO(json.dumps({"script_sha256": "old-version", "database_url": "test-only-url"}))), \
                 patch.object(preflight, "runtime_checks") as runtime, contextlib.redirect_stdout(output):
-            self.assertEqual(preflight.isolated_worker(), 1)
+            self.assertEqual(preflight.isolated_worker(), preflight.WORKER_POLICY_EXIT)
             runtime.assert_not_called()
         self.assertEqual(output.getvalue(), "FAIL verifier_script_mismatch\n")
 
@@ -466,12 +634,12 @@ class PreflightTests(unittest.TestCase):
         payload = {"script_sha256": preflight.script_digest(),
                    "database_url": "test-only-url"}
         for error, expected in ((None, "PASS isolated_db_api_checks\n"),
-                                (RuntimeError("test-only-private-value"), "FAIL database_runtime_probe_failed\n")):
+                                (RuntimeError("test-only-private-value"), "FAIL verifier_python_exception\n")):
             output = io.StringIO()
             with patch.object(sys, "stdin", io.StringIO(json.dumps(payload))), \
                     patch.object(preflight, "runtime_checks", side_effect=error) as runtime, \
                     contextlib.redirect_stdout(output):
-                self.assertEqual(preflight.isolated_worker(), int(error is not None))
+                self.assertEqual(preflight.isolated_worker(), preflight.WORKER_EXCEPTION_EXIT if error else 0)
                 runtime.assert_called_once_with(payload["database_url"])
             self.assertEqual(output.getvalue(), expected)
 

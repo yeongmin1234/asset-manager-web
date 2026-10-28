@@ -51,6 +51,39 @@ DOCKER_INFO_ARGS = ["info", "--format", "{{.ServerVersion}}"]
 DOCKER_RESOURCE_INFO_ARGS = ["info", "--format",
     '{"cpu_period":{{json .CPUCfsPeriod}},"cpu_quota":{{json .CPUCfsQuota}},'
     '"pids":{{json .PidsLimit}},"memory":{{json .MemoryLimit}}}']
+WORKER_STARTED = "SCM_PREFLIGHT_WORKER_STARTED_V1"
+WORKER_POLICY_EXIT = 20
+WORKER_EXCEPTION_EXIT = 21
+WORKER_BOOTSTRAP_EXIT = 22
+WORKER_POLICY_CODES = frozenset({
+    "verifier_input_invalid", "verifier_script_mismatch", "verifier_unregistered_failure",
+    "runtime_checks_require_python_3_12", "runtime_dependencies_missing_use_verifier_image",
+    "database_target_rejected", "database_password_missing", "database_configuration_invalid",
+    "database_connection_failed", "database_query_failed", "database_cleanup_failed",
+    "database_identity_or_readonly_invalid", "expected_54_tables", "alembic_revision_invalid",
+    "readonly_role_has_write_or_owner_privileges", "readonly_role_has_elevated_privileges",
+    "expected_identity_mapping_or_grant_missing", "expected_scm_admin_missing",
+    "identity_api_connection_failed", "identity_api_response_invalid",
+    "identity_openapi_unreachable", "running_identity_handoff_routes_missing",
+    "scm_user_data_changed_during_checks",
+})
+# Catch load/import/syntax errors before the worker's own exception handler exists.
+# This constant contains no credentials and is the only allowed Python bootstrap.
+WORKER_BOOTSTRAP = """import sys
+print('SCM_PREFLIGHT_WORKER_STARTED_V1', flush=True)
+try:
+    import runpy
+    sys.argv = ['/srv/new-scm/deploy/preflight.py', '--isolated-worker']
+    runpy.run_path(sys.argv[0], run_name='__main__')
+except SystemExit as exc:
+    if exc.code in (0, 20, 21):
+        raise
+    print('FAIL verifier_python_bootstrap_failed', flush=True)
+    raise SystemExit(22)
+except BaseException:
+    print('FAIL verifier_python_bootstrap_failed', flush=True)
+    raise SystemExit(22)
+"""
 
 
 def verifier_run_args(name, image_id, cpu_limit=True, pid_limit=True):
@@ -62,7 +95,7 @@ def verifier_run_args(name, image_id, cpu_limit=True, pid_limit=True):
             "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--user=10001:10001",
             "--memory=256m"] + optional + ["--log-driver=none",
             "--tmpfs=/tmp:rw,noexec,nosuid,size=16m", "--interactive", "--entrypoint=python",
-            image_id, "-I", "-B", "/srv/new-scm/deploy/preflight.py", "--isolated-worker"]
+            image_id, "-I", "-B", "-c", WORKER_BOOTSTRAP]
 
 
 def trusted_executable(name):
@@ -274,6 +307,27 @@ def host_docker_checks(docker_sudo=False):
             "postgres_loopback_binding_changed")
 
 
+def identity_api_checks():
+    import httpx
+    try:
+        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
+            for host in ("127.0.0.1", "172.17.0.1"):
+                response = client.get("http://" + host + ":8010/openapi.json")
+                require(response.status_code == 200, "identity_openapi_unreachable")
+                try:
+                    data = response.json()
+                except (ValueError, TypeError):
+                    raise Rejected("identity_api_response_invalid") from None
+                require(isinstance(data, dict) and isinstance(data.get("paths"), dict),
+                        "identity_api_response_invalid")
+                paths = data["paths"]
+                require(all(isinstance(paths.get(path), dict) and "post" in paths[path]
+                            for path in ("/auth/scm-handoff/issue", "/auth/scm-handoff/exchange")),
+                        "running_identity_handoff_routes_missing")
+    except httpx.HTTPError:
+        raise Rejected("identity_api_connection_failed") from None
+
+
 def runtime_checks(raw_url):
     require(sys.version_info >= (3, 12), "runtime_checks_require_python_3_12")
     validated_database_url(raw_url)
@@ -282,16 +336,21 @@ def runtime_checks(raw_url):
         import psycopg
         from sqlalchemy import create_engine, text
         from sqlalchemy.engine import make_url
+        from sqlalchemy.exc import SQLAlchemyError
         from app.db.identity import load_identity
     except ImportError:
         raise Rejected("runtime_dependencies_missing_use_verifier_image") from None
-    url = make_url(raw_url)
-    # The NAS preflight probes the same host loopback target used by db-relay.
-    engine = create_engine(url.set(host="127.0.0.1", port=15432), pool_size=1, max_overflow=0,
-                           connect_args={"connect_timeout": 3,
-                                         "options": "-c default_transaction_read_only=on -c statement_timeout=3000"})
+    engine = None
+    stage = "database_configuration_invalid"
     try:
+        url = make_url(raw_url)
+        # The NAS preflight probes the same host loopback target used by db-relay.
+        engine = create_engine(url.set(host="127.0.0.1", port=15432), pool_size=1, max_overflow=0,
+                               connect_args={"connect_timeout": 3,
+                                             "options": "-c default_transaction_read_only=on -c statement_timeout=3000"})
+        stage = "database_connection_failed"
         with engine.connect() as db:
+            stage = "database_query_failed"
             identity = db.execute(text("SELECT current_database(), current_user, current_setting('transaction_read_only')")).one()
             require(tuple(identity) == ("new_scm_dev", "new_scm_ro", "on"), "database_identity_or_readonly_invalid")
             require(db.execute(text("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p')")).scalar_one() == 54,
@@ -320,23 +379,61 @@ def runtime_checks(raw_url):
             snapshot_sql = text("SELECT count(*), md5(coalesce(string_agg(md5(row_to_json(u)::text), '' ORDER BY u.id), '')) FROM public.users u")
             before = tuple(db.execute(snapshot_sql).one())
             # Only GET requests. No code issuance, exchange, session, or DB writes.
-            with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-                for host in ("127.0.0.1", "172.17.0.1"):
-                    response = client.get(f"http://{host}:8010/openapi.json")
-                    require(response.status_code == 200, "identity_openapi_unreachable")
-                    paths = response.json().get("paths", {})
-                    require(all("post" in paths.get(path, {}) for path in
-                                ("/auth/scm-handoff/issue", "/auth/scm-handoff/exchange")),
-                            "running_identity_handoff_routes_missing")
+            stage = None
+            identity_api_checks()
+            stage = "database_query_failed"
             require(tuple(db.execute(snapshot_sql).one()) == before, "scm_user_data_changed_during_checks")
             db.rollback()
+    except (SQLAlchemyError, psycopg.Error, OSError):
+        if stage is None:
+            raise  # Unexpected API-side exceptions belong to the Python category.
+        raise Rejected(stage) from None
     finally:
-        engine.dispose()
+        if engine is not None:
+            failure_pending = sys.exc_info()[1] is not None
+            try:
+                engine.dispose()
+            except (SQLAlchemyError, psycopg.Error, OSError):
+                # A secondary cleanup failure must not replace the original error.
+                if not failure_pending:
+                    raise Rejected("database_cleanup_failed") from None
 
 
 def script_digest():
     # Git checkouts may use CRLF on a build PC and LF on the NAS.
     return sha256(Path(__file__).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+
+
+def verifier_result_code(result):
+    """Return only registered diagnostics, never Docker stdout/stderr content."""
+    exit_codes = {125: "docker_run_failed", 126: "verifier_command_not_executable",
+                  127: "verifier_command_not_found", 137: "isolated_process_killed",
+                  130: "isolated_process_interrupted", 143: "isolated_process_terminated"}
+    if result.returncode in exit_codes:
+        return exit_codes[result.returncode]
+    if result.returncode < 0:
+        return "docker_cli_interrupted"
+    try:
+        lines = result.stdout.decode("utf-8").splitlines()
+    except (UnicodeError, AttributeError):
+        return "verifier_result_invalid"
+    if not lines or lines[0] != WORKER_STARTED:
+        return "verifier_result_missing" if result.returncode == 0 else "verifier_start_unconfirmed"
+    if len(lines) == 1:
+        return "verifier_python_process_failed"
+    if len(lines) != 2:
+        return "verifier_result_invalid"
+    if result.returncode == 0 and lines[1] == "PASS isolated_db_api_checks":
+        return None
+    if result.returncode == WORKER_POLICY_EXIT and lines[1].startswith("FAIL "):
+        code = lines[1][5:]
+        if code in WORKER_POLICY_CODES:
+            return code
+    if result.returncode == WORKER_EXCEPTION_EXIT and lines[1] == "FAIL verifier_python_exception":
+        return "verifier_python_exception"
+    if result.returncode == WORKER_BOOTSTRAP_EXIT and lines[1] == "FAIL verifier_python_bootstrap_failed":
+        return "verifier_python_bootstrap_failed"
+    return "verifier_result_invalid"
 
 
 def isolated_runtime_checks(raw_url, image, docker_sudo=False):
@@ -355,8 +452,12 @@ def isolated_runtime_checks(raw_url, image, docker_sudo=False):
         # Normal worker exits are already removed by --rm. CLI errors/timeouts
         # may leave a container, so only those paths need forced cleanup.
         needs_cleanup = not 0 <= result.returncode < 125
-    except (OSError, subprocess.TimeoutExpired):
-        raise Rejected("isolated_verifier_unavailable_output_suppressed") from None
+    except FileNotFoundError:
+        raise Rejected("docker_cli_executable_missing") from None
+    except subprocess.TimeoutExpired:
+        raise Rejected("docker_cli_timeout") from None
+    except OSError:
+        raise Rejected("docker_cli_execution_failed") from None
     finally:
         # Killing a Docker CLI on timeout does not necessarily stop its container.
         # The unique name belongs only to this disposable verifier.
@@ -364,39 +465,34 @@ def isolated_runtime_checks(raw_url, image, docker_sudo=False):
             try:
                 cleanup = subprocess.run(docker_argv(["rm", "--force", name], docker_sudo),
                                          env=docker_environment(), capture_output=True, timeout=10)
-                require(cleanup.returncode == 0, "isolated_verifier_cleanup_failed")
+                if cleanup.returncode != 0:
+                    print("WARN isolated_verifier_cleanup_failed")
             except (OSError, subprocess.TimeoutExpired):
-                raise Rejected("isolated_verifier_cleanup_failed") from None
-    # Only our fixed status codes may reach the terminal, never raw Docker output.
-    safe_codes = {"verifier_script_mismatch", "runtime_checks_require_python_3_12",
-                  "runtime_dependencies_missing_use_verifier_image", "database_runtime_probe_failed",
-                  "database_identity_or_readonly_invalid", "expected_54_tables", "alembic_revision_invalid",
-                  "readonly_role_has_write_or_owner_privileges", "readonly_role_has_elevated_privileges",
-                  "expected_identity_mapping_or_grant_missing", "expected_scm_admin_missing",
-                  "identity_openapi_unreachable", "running_identity_handoff_routes_missing",
-                  "scm_user_data_changed_during_checks"}
-    output = result.stdout.decode("utf-8", errors="replace").strip()
-    if result.returncode != 0:
-        if output in {"FAIL " + code for code in safe_codes}:
-            raise Rejected(output[5:])
-        raise Rejected("docker_sudo_or_verifier_failed" if docker_sudo
-                       else "isolated_verifier_failed_output_suppressed")
-    require(output == "PASS isolated_db_api_checks", "isolated_verifier_response_invalid")
+                print("WARN isolated_verifier_cleanup_failed")
+    code = verifier_result_code(result)
+    require(code is None, code)
 
 
 def isolated_worker():
     try:
-        payload = json.load(sys.stdin)
+        try:
+            payload = json.load(sys.stdin)
+        except (ValueError, TypeError):
+            raise Rejected("verifier_input_invalid") from None
+        require(isinstance(payload, dict) and set(payload) == {"script_sha256", "database_url"}
+                and all(isinstance(value, str) for value in payload.values()), "verifier_input_invalid")
         require(payload["script_sha256"] == script_digest(),
                 "verifier_script_mismatch")
         runtime_checks(payload["database_url"])
         print("PASS isolated_db_api_checks")
         return 0
     except Rejected as exc:
-        print("FAIL " + str(exc))
+        code = str(exc) if str(exc) in WORKER_POLICY_CODES else "verifier_unregistered_failure"
+        print("FAIL " + code)
+        return WORKER_POLICY_EXIT
     except Exception:
-        print("FAIL database_runtime_probe_failed")
-    return 1
+        print("FAIL verifier_python_exception")
+        return WORKER_EXCEPTION_EXIT
 
 
 def host_checks(env, url, isolated_image=None, docker_sudo=False):
@@ -405,14 +501,24 @@ def host_checks(env, url, isolated_image=None, docker_sudo=False):
         # Noninteractive: authenticate with sudo -v in the caller's terminal first.
         docker_command(DOCKER_INFO_ARGS, docker_sudo)
     baseline = protected_state(docker_sudo)
+    failure_pending = False
     try:
         host_docker_checks(docker_sudo)
         if isolated_image:
             isolated_runtime_checks(url, isolated_image, docker_sudo)
         else:
             runtime_checks(url)
+    except Rejected:
+        failure_pending = True
+        raise
     finally:
-        require(protected_state(docker_sudo) == baseline, "protected_listeners_or_postgres_state_changed")
+        try:
+            require(protected_state(docker_sudo) == baseline, "protected_listeners_or_postgres_state_changed")
+        except Rejected as exc:
+            if not failure_pending:
+                raise
+            print("WARN protected_state_changed_after_failure" if str(exc) == "protected_listeners_or_postgres_state_changed"
+                  else "WARN protected_state_recheck_failed")
 
 
 def main():
