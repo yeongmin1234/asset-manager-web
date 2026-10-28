@@ -48,14 +48,19 @@ POSTGRES_NETWORK_FORMAT = '{{json .NetworkSettings.Networks}}'
 POSTGRES_BINDING_FORMAT = '{{json .HostConfig.PortBindings}}'
 BRIDGE_FORMAT = '{{json .IPAM.Config}}'
 DOCKER_INFO_ARGS = ["info", "--format", "{{.ServerVersion}}"]
+DOCKER_RESOURCE_INFO_ARGS = ["info", "--format",
+    '{"cpu_period":{{json .CPUCfsPeriod}},"cpu_quota":{{json .CPUCfsQuota}},'
+    '"pids":{{json .PidsLimit}},"memory":{{json .MemoryLimit}}}']
 
 
-def verifier_run_args(name, image_id):
+def verifier_run_args(name, image_id, cpu_limit=True, pid_limit=True):
     require(re.fullmatch(r"scm-preflight-[0-9a-f]{32}", name), "verifier_name_invalid")
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "verifier_image_invalid")
+    require(type(cpu_limit) is bool and type(pid_limit) is bool, "verifier_resource_capabilities_invalid")
+    optional = (["--pids-limit=64"] if pid_limit else []) + (["--cpus=1"] if cpu_limit else [])
     return ["run", "--rm", "--name=" + name, "--pull=never", "--network=host", "--read-only",
             "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--user=10001:10001",
-            "--pids-limit=64", "--memory=256m", "--cpus=1", "--log-driver=none",
+            "--memory=256m"] + optional + ["--log-driver=none",
             "--tmpfs=/tmp:rw,noexec,nosuid,size=16m", "--interactive", "--entrypoint=python",
             image_id, "-I", "-B", "/srv/new-scm/deploy/preflight.py", "--isolated-worker"]
 
@@ -73,9 +78,9 @@ def trusted_executable(name):
     return str(resolved)
 
 
-def docker_argv(args, docker_sudo=False):
+def docker_argv(args, docker_sudo=False, cpu_limit=True, pid_limit=True):
     """Only fixed daemon queries and the hardened disposable verifier may escalate."""
-    allowed = args == DOCKER_INFO_ARGS or args in [
+    allowed = args in (DOCKER_INFO_ARGS, DOCKER_RESOURCE_INFO_ARGS) or args in [
         ["inspect", "--format", value, "asset-postgres"]
         for value in (POSTGRES_STATE_FORMAT, POSTGRES_NETWORK_FORMAT, POSTGRES_BINDING_FORMAT)]
     allowed = allowed or args == ["network", "inspect", "--format", BRIDGE_FORMAT, "bridge"]
@@ -85,7 +90,7 @@ def docker_argv(args, docker_sudo=False):
         allowed = bool(re.fullmatch(r"scm-preflight-[0-9a-f]{32}", args[2]))
     if args and args[0] == "run" and len(args) >= 5:
         name = args[2][len("--name="):] if args[2].startswith("--name=") else ""
-        allowed = args == verifier_run_args(name, args[-5])
+        allowed = args == verifier_run_args(name, args[-5], cpu_limit, pid_limit)
     require(allowed, "docker_command_not_allowed")
     if docker_sudo:
         require(sys.platform == "linux", "docker_sudo_requires_linux")
@@ -105,6 +110,30 @@ def docker_environment():
 def docker_command(args, docker_sudo=False):
     return command(docker_argv(args, docker_sudo), docker_environment(),
                    "docker_sudo_command_failed" if docker_sudo else "docker_command_failed")
+
+
+def verifier_resource_limits(docker_sudo=False):
+    # Query only capability booleans. Do not start trial containers or alter cgroups.
+    raw = docker_command(DOCKER_RESOURCE_INFO_ARGS, docker_sudo)
+    try:
+        capabilities = json.loads(raw)
+    except (ValueError, TypeError):
+        raise Rejected("verifier_resource_capabilities_invalid") from None
+    require(isinstance(capabilities, dict)
+            and set(capabilities) == {"cpu_period", "cpu_quota", "pids", "memory"}
+            and all(type(value) is bool for value in capabilities.values()),
+            "verifier_resource_capabilities_invalid")
+    # Memory is mandatory; only CPU/PID limits have a compatibility exception.
+    require(capabilities["memory"], "verifier_memory_limit_unsupported")
+    cpu_limit = capabilities["cpu_period"] and capabilities["cpu_quota"]
+    pid_limit = capabilities["pids"]
+    if not cpu_limit:
+        print("WARN verifier_cpu_limit_unsupported")
+    if not pid_limit:
+        print("WARN verifier_pid_limit_unsupported")
+    if not (cpu_limit and pid_limit):
+        print("WARN verifier_resource_limits_incomplete")
+    return cpu_limit, pid_limit
 
 
 def compose_config(executable=None, env_file=None):
@@ -313,11 +342,13 @@ def script_digest():
 def isolated_runtime_checks(raw_url, image, docker_sudo=False):
     # Resolve an existing local image to an immutable ID. Never pull or build.
     require(bool(image) and not image.startswith("-"), "verifier_image_invalid")
+    cpu_limit, pid_limit = verifier_resource_limits(docker_sudo)
     image_id = docker_command(["image", "inspect", "--format", "{{.Id}}", image], docker_sudo).strip()
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "verifier_image_invalid")
     payload = json.dumps({"database_url": raw_url, "script_sha256": script_digest()}).encode()
     name = "scm-preflight-" + uuid4().hex
-    args = docker_argv(verifier_run_args(name, image_id), docker_sudo)
+    args = docker_argv(verifier_run_args(name, image_id, cpu_limit, pid_limit),
+                       docker_sudo, cpu_limit, pid_limit)
     needs_cleanup = True
     try:
         result = subprocess.run(args, input=payload, env=docker_environment(), capture_output=True, timeout=90)

@@ -39,14 +39,109 @@ def config():
 
 
 class PreflightTests(unittest.TestCase):
+    def test_resource_capabilities_choose_only_supported_limits_with_or_without_sudo(self):
+        for sudo in (False, True):
+            for period in (False, True):
+                for quota in (False, True):
+                    for pids in (False, True):
+                        capabilities = {"cpu_period": period, "cpu_quota": quota, "pids": pids, "memory": True}
+                        output = io.StringIO()
+                        result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
+                        with self.subTest(sudo=sudo, capabilities=capabilities), \
+                                patch.object(preflight.sys, "platform", "linux"), \
+                                patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
+                                patch.object(preflight, "docker_command", side_effect=[json.dumps(capabilities), "sha256:" + "a" * 64]) as query, \
+                                patch.object(preflight.subprocess, "run", return_value=result) as run, \
+                                contextlib.redirect_stdout(output):
+                            preflight.isolated_runtime_checks("test-only-url", "local-verifier", sudo)
+                        self.assertEqual(query.call_args_list[0].args, (preflight.DOCKER_RESOURCE_INFO_ARGS, sudo))
+                        args = run.call_args.args[0]
+                        self.assertEqual("--cpus=1" in args, period and quota)
+                        self.assertEqual("--pids-limit=64" in args, pids)
+                        for option in ("--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+                                       "--user=10001:10001", "--memory=256m", "--tmpfs=/tmp:rw,noexec,nosuid,size=16m"):
+                            self.assertIn(option, args)
+                        expected = []
+                        if not (period and quota):
+                            expected.append("WARN verifier_cpu_limit_unsupported")
+                        if not pids:
+                            expected.append("WARN verifier_pid_limit_unsupported")
+                        if expected:
+                            expected.append("WARN verifier_resource_limits_incomplete")
+                        self.assertEqual(output.getvalue().splitlines(), expected)
+                        run.assert_called_once()
+
+    def test_unknown_resource_capabilities_stop_without_container_or_raw_output(self):
+        values = ["test-only-private", "null", "[]", "{}",
+                  json.dumps({"cpu_period": True, "cpu_quota": True, "pids": True}),
+                  json.dumps({"cpu_period": None, "cpu_quota": True, "pids": True, "memory": True}),
+                  json.dumps({"cpu_period": "true", "cpu_quota": True, "pids": True, "memory": True}),
+                  json.dumps({"cpu_period": True, "cpu_quota": True, "pids": 1, "memory": True}),
+                  json.dumps({"cpu_period": True, "cpu_quota": True, "pids": True, "memory": True, "extra": True})]
+        for value in values:
+            output = io.StringIO()
+            with self.subTest(case=values.index(value)), patch.object(preflight, "docker_command", return_value=value) as query, \
+                    patch.object(preflight.subprocess, "run") as run, contextlib.redirect_stdout(output), \
+                    self.assertRaisesRegex(preflight.Rejected, "^verifier_resource_capabilities_invalid$"):
+                preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+            self.assertEqual(output.getvalue(), "")
+            query.assert_called_once_with(preflight.DOCKER_RESOURCE_INFO_ARGS, False)
+            run.assert_not_called()
+
+    def test_memory_support_is_mandatory_and_never_dropped(self):
+        capabilities = {"cpu_period": False, "cpu_quota": False, "pids": False, "memory": False}
+        with patch.object(preflight, "docker_command", return_value=json.dumps(capabilities)), \
+                patch.object(preflight.subprocess, "run") as run, \
+                self.assertRaisesRegex(preflight.Rejected, "^verifier_memory_limit_unsupported$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+        run.assert_not_called()
+
+    def test_capability_query_failure_does_not_guess_or_start_a_verifier(self):
+        for sudo in (False, True):
+            code = "docker_sudo_command_failed" if sudo else "docker_command_failed"
+            with self.subTest(sudo=sudo), patch.object(preflight, "docker_command", side_effect=preflight.Rejected(code)), \
+                    patch.object(preflight.subprocess, "run") as run, \
+                    self.assertRaisesRegex(preflight.Rejected, "^" + code + "$"):
+                preflight.isolated_runtime_checks("test-only-url", "local-verifier", sudo)
+            run.assert_not_called()
+
+    def test_optional_resource_limits_do_not_relax_mandatory_security_allowlist(self):
+        name, image = "scm-preflight-" + "b" * 32, "sha256:" + "a" * 64
+        for cpu, pids in ((True, True), (True, False), (False, True), (False, False)):
+            args = preflight.verifier_run_args(name, image, cpu, pids)
+            preflight.docker_argv(args, False, cpu, pids)
+            for mandatory in ("--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges:true",
+                              "--user=10001:10001", "--memory=256m", "--tmpfs=/tmp:rw,noexec,nosuid,size=16m"):
+                with self.subTest(cpu=cpu, pids=pids, mandatory=mandatory), self.assertRaises(preflight.Rejected):
+                    preflight.docker_argv([arg for arg in args if arg != mandatory], False, cpu, pids)
+        with self.assertRaisesRegex(preflight.Rejected, "^docker_command_not_allowed$"):
+            preflight.docker_argv(preflight.verifier_run_args(name, image, False, False))
+
+    def test_runtime_failure_does_not_retry_without_supported_resource_limits(self):
+        capabilities = {"cpu_period": True, "cpu_quota": True, "pids": True, "memory": True}
+        failed = subprocess.CompletedProcess([], 1, stdout=b"", stderr=b"test-only-private-runtime-error")
+        output = io.StringIO()
+        with patch.object(preflight, "docker_command", side_effect=[json.dumps(capabilities), "sha256:" + "a" * 64]), \
+                patch.object(preflight.subprocess, "run", return_value=failed) as run, \
+                contextlib.redirect_stdout(output), \
+                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_failed_output_suppressed$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+        run.assert_called_once()
+        self.assertIn("--cpus=1", run.call_args.args[0])
+        self.assertIn("--pids-limit=64", run.call_args.args[0])
+        self.assertEqual(output.getvalue(), "")
+
     def test_docker_sudo_uses_only_trusted_noninteractive_local_cli(self):
         with patch.object(preflight.sys, "platform", "linux"), \
                 patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name):
             args = preflight.docker_argv(preflight.DOCKER_INFO_ARGS, True)
+            resource_args = preflight.docker_argv(preflight.DOCKER_RESOURCE_INFO_ARGS, True)
         self.assertEqual(args, ["/usr/bin/sudo", "-n", "--", "/usr/bin/docker",
                                "--host=unix:///var/run/docker.sock", "info", "--format", "{{.ServerVersion}}"])
         self.assertNotIn("-S", args)
         self.assertNotIn("-E", args)
+        self.assertEqual(resource_args[:5], args[:5])
+        self.assertEqual(resource_args[5:], preflight.DOCKER_RESOURCE_INFO_ARGS)
 
     def test_docker_never_escalates_implicitly(self):
         with patch.object(preflight, "trusted_executable") as trusted:
@@ -59,6 +154,7 @@ class PreflightTests(unittest.TestCase):
         run = preflight.verifier_run_args(name, "sha256:" + "a" * 64)
         for args in (["restart", "asset-postgres"], ["stop", "asset-postgres"],
                      ["rm", "--force", "asset-postgres"], ["compose", "up", "-d"],
+                     ["info", "--format", "{{json .}}"],
                      ["inspect", "asset-postgres"],
                      ["inspect", "--format", "{{json .Config.Env}}", "asset-postgres"],
                      run + ["--privileged"],
@@ -154,7 +250,8 @@ class PreflightTests(unittest.TestCase):
     def test_sudo_verifier_keeps_payload_on_stdin_and_nonroot_container(self):
         url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
         result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
-        with patch.object(preflight.sys, "platform", "linux"), \
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight.sys, "platform", "linux"), \
                 patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
                 patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64) as query, \
                 patch.object(preflight.subprocess, "run", return_value=result) as run:
@@ -170,7 +267,8 @@ class PreflightTests(unittest.TestCase):
 
     def test_sudo_timeout_cleanup_failure_is_fixed_and_targets_only_its_verifier(self):
         failed = subprocess.CompletedProcess([], 1, stdout=b"private", stderr=b"private")
-        with patch.object(preflight.sys, "platform", "linux"), \
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight.sys, "platform", "linux"), \
                 patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
                 patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", side_effect=[subprocess.TimeoutExpired("docker", 90), failed]) as run, \
@@ -266,7 +364,8 @@ class PreflightTests(unittest.TestCase):
         url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
         image_id = "sha256:" + "a" * 64
         result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
-        with patch.object(preflight, "command", return_value=image_id) as command, \
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight, "command", return_value=image_id) as command, \
                 patch.object(preflight.subprocess, "run", return_value=result) as run:
             preflight.isolated_runtime_checks(url, "local-verifier")
         self.assertEqual(command.call_count, 1)
@@ -286,7 +385,8 @@ class PreflightTests(unittest.TestCase):
         run.assert_called_once()  # --rm handles a normally completed worker.
 
     def test_isolated_timeout_cleans_up_only_its_unique_verifier(self):
-        with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", side_effect=[subprocess.TimeoutExpired("docker", 90),
                              subprocess.CompletedProcess([], 0)]) as run, \
                 self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_unavailable_output_suppressed$"):
@@ -298,14 +398,16 @@ class PreflightTests(unittest.TestCase):
 
     def test_isolated_docker_output_is_never_forwarded(self):
         result = subprocess.CompletedProcess([], 1, stdout=b"test-only-private-value", stderr=b"private")
-        with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", return_value=result), \
                 self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_failed_output_suppressed$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")
 
     def test_isolated_known_policy_failure_retains_only_its_fixed_code(self):
         result = subprocess.CompletedProcess([], 1, stdout=b"FAIL expected_54_tables\n", stderr=b"private")
-        with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
+        with patch.object(preflight, "verifier_resource_limits", return_value=(True, True)), \
+                patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
                 patch.object(preflight.subprocess, "run", return_value=result), \
                 self.assertRaisesRegex(preflight.Rejected, "^expected_54_tables$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")

@@ -17,7 +17,7 @@ DB URL만 stdin 파이프로 전달하며 handoff/diagnostics/JWT 키는 전달�
 수신 서버, 포트 공개, SCM 서비스 실행, 스키마 변경은 없다.
 
 컨테이너는 비루트 UID 10001, 읽기 전용 루트, capability 제거, no-new-privileges,
-메모리/CPU/PID 제한, 로그 드라이버 none, 자동 삭제 조건으로 실행한다.
+필수 메모리 제한, 지원 여부에 따른 CPU/PID 제한, 로그 드라이버 none, 자동 삭제 조건으로 실행한다.
 Docker CLI 시간 초과 시 고유한 `scm-preflight-*` 이름의 검증 컨테이너만 강제 정리한다.
 기존 컨테이너 이름을 정리 대상으로 사용하지 않는다. Docker 데몬 장애·호스트 종료 시
 정리를 보장할 수 없으며, 이 경우 해당 검증 컨테이너의 잔존 여부를 확인해야 한다.
@@ -90,6 +90,38 @@ sudo 옵션을 전달하지 않으며 내부 UID는 계속 10001이다. DB URL�
 실패하면 같은 터미널에서 사용자가 다시 인증하고 `scm-preflight-*` 잔존 여부를 조회해야 한다.
 기존 PostgreSQL이나 자산관리 컨테이너를 정리하지 않는다.
 
+### Synology CPU CFS / PID 제한 호환성
+
+임시 검증 컨테이너를 실행하기 전에 같은 로컬 Docker 데몬에 `info --format`을 조회한다.
+선택하는 필드는 `CPUCfsPeriod`, `CPUCfsQuota`, `PidsLimit`, `MemoryLimit` 네 개의
+boolean뿐이다. 전체 Docker 정보, 환경변수, 원본 오류는 출력하지 않는다. `--docker-sudo`를
+사용하면 이 조회도 기존 허용 목록과 `sudo -n` 경로를 따른다. 시험 컨테이너를 띄우거나
+커널·cgroup·Docker 설정을 바꾸지 않는다.
+
+- CPU period와 quota가 **모두 true**이면 `--cpus=1`을 유지한다. 하나라도 false이면
+  이 옵션만 제외하고 `WARN verifier_cpu_limit_unsupported`를 출력한다.
+- PID 지원이 true이면 `--pids-limit=64`를 유지한다. false이면 이 옵션만 제외하고
+  `WARN verifier_pid_limit_unsupported`를 출력한다.
+- 하나라도 제외하면 `WARN verifier_resource_limits_incomplete`를 함께 출력한다.
+  이는 **CPU/PID 자원 제한이 완전히 적용되지 않은 상태**이며, DB/API 조회가 PASS여도
+  자원 격리가 완전하게 적용되었다는 의미가 아니다.
+- JSON/필드가 없거나 boolean이 아닌 등 지원 여부를 확인하지 못하면
+  `FAIL verifier_resource_capabilities_invalid`로 컨테이너 실행 전에 중단한다.
+  조회 자체의 권한·통신 실패도 기존 고정 실패 코드로 중단하며 미지원으로 추정하지 않는다.
+- 메모리 지원이 false이면 `FAIL verifier_memory_limit_unsupported`로 중단한다.
+  `--memory=256m`은 호환성을 이유로 제거하지 않는다.
+
+CPU/PID 지원 플래그의 모든 조합에서도 `--read-only`, `--cap-drop=ALL`,
+`--security-opt=no-new-privileges:true`, UID 10001, 메모리 제한, 제한된 tmpfs는 유지한다.
+필수 보안 옵션을 제거한 실행 명령은 허용 목록에서 거부한다. Docker가 지원한다고
+보고했는데 실행이 실패하는 경우에는 stderr 내용으로 추정해 옵션을 제거하거나 자동
+재시도하지 않는다. 데몬의 지원 보고에 따른 선택이며 실제 컨테이너의 cgroup 강제 적용을
+별도로 측정한 결과는 아니다. 이번 변경에서 NAS 컨테이너 실행은 수행하지 않았다.
+
+NAS 실행 명령은 위의 `sudo -v`와 `--docker-sudo --isolated-image` 명령 그대로다.
+수정된 스크립트와 같은 내용으로 검증 이미지를 다시 준비해야 한다. `--config-only`는
+이 자원 지원 조회도 하지 않으며 Python 3.8 표준 라이브러리만으로 기존처럼 실행된다.
+
 ## 2. Python 3.12 전용 이미지 준비
 
 확보된 기본 Python 3.12 이미지에는 DB/API 검사 의존성이 없으므로 **기본 이미지만으로는
@@ -124,7 +156,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/preflight.py \
 로컬 이미지를 immutable ID로 확인하고 `--pull=never`로 실행하므로 NAS에서 자동으로
 이미지를 받거나 빌드하지 않는다. NAS 소스와 이미지의 preflight 내용이 다르면 DB 접속
 전에 `verifier_script_mismatch`로 중단한다(CRLF/LF 차이는 무시).
-이번 sudo 지원 수정도 이미지 안의 preflight에 반영되도록 검증 이미지를 다시 만들어야 한다.
+sudo 및 Synology 자원 제한 지원 수정도 이미지 안의 preflight에 반영되도록 검증 이미지를 다시 만들어야 한다.
 Docker 권한이 제한된 NAS에서는 위의 `sudo -v`와 `--docker-sudo` 최종 명령을 사용한다.
 
 검사 대상은 `new_scm_dev` / `new_scm_ro`뿐이다. 모든 SQL은 SELECT이며 연결 시
@@ -183,4 +215,6 @@ origin 정책 불일치가 있으면 배포 차단 사유다. NAS 실연결, 검
 - [MDN Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie): SameSite와 Secure, cross-origin fetch의 credentials 조건.
 - [Docker host network](https://docs.docker.com/engine/network/drivers/host/): Linux host 네트워크 공유와 포트 공개의 관계.
 - [Docker run](https://docs.docker.com/engine/containers/run/): 읽기 전용 루트, capability 및 리소스 제한.
+- [Docker 자원 제한](https://docs.docker.com/engine/containers/resource_constraints/): 커널 기능 지원과 `docker info` 조회.
+- [Docker Engine 20.10 Info 타입](https://github.com/moby/moby/blob/v20.10.24/api/types/types.go): CPU CFS·PID·메모리 지원 boolean 필드.
 - [sudo 공식 매뉴얼 원본](https://github.com/sudo-project/sudo/blob/main/docs/sudo.man.in): 터미널 암호 입력, `-v` 인증 캐시와 `-n` 비대화형 실행.
