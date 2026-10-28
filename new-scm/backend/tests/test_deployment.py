@@ -5,7 +5,6 @@ import unittest
 from unittest.mock import patch
 from sqlalchemy.dialects.postgresql.psycopg import PGDialect_psycopg
 
-from app.core import handoff
 from app.db import database
 
 
@@ -51,24 +50,6 @@ class DeploymentBoundaryTests(unittest.TestCase):
                 self.assertRaises(database.DatabaseUnavailable):
             database._engine()
 
-    def test_only_exact_pinned_gateway_http_address_is_allowed(self):
-        for address in ("http://172.17.0.1:8010", "http://nas-host:8011", "http://nas-host:8010/other",
-                        "http://nas-host:8010?x=y", "http://nas-host:8010#fragment", "http://other:8010"):
-            with patch.object(handoff, "get_settings", return_value=SimpleNamespace(
-                identity_base_url=address, handoff_key="test-only-" * 5
-            )), patch.object(handoff.httpx, "Client") as client:
-                with self.assertRaises(handoff.HandoffRejected):
-                    handoff.exchange_identity("test-code-" * 5)
-                client.assert_not_called()
-
-    def test_pinned_gateway_exchange_does_not_follow_redirects_or_proxy_environment(self):
-        with patch.object(handoff, "get_settings", return_value=SimpleNamespace(
-            identity_base_url="http://nas-host:8010", handoff_key="test-only-" * 5
-        )), patch.object(handoff.httpx, "Client") as client:
-            client.return_value.__enter__.return_value.post.return_value = SimpleNamespace(
-                status_code=200, json=lambda: {"issuer": "asset-manager", "subject": "3", "audience": "new-scm"})
-            self.assertEqual(handoff.exchange_identity("test-code-" * 5), ("asset-manager", "3"))
-        self.assertEqual(client.call_args.kwargs, {"timeout": 3.0, "follow_redirects": False, "trust_env": False})
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY deploy/preflight.py ./deploy/preflight.py
 COPY deploy/check_preflight_image.py ./deploy/check_preflight_image.py
-COPY backend/app/db/identity.py ./backend/app/db/identity.py
+COPY backend/app/db/auth_policy.py ./backend/app/db/auth_policy.py
 # COPY preserves restrictive source modes (for example NAS files with mode 600).
 # Normalize only this image's files and directory traversal permissions.
 RUN chown -R 0:0 /srv/new-scm \
@@ -14,7 +14,7 @@ RUN chown -R 0:0 /srv/new-scm \
                  /srv/new-scm/backend/app /srv/new-scm/backend/app/db \
     && chmod 644 /srv/new-scm/deploy/preflight.py \
                  /srv/new-scm/deploy/check_preflight_image.py \
-                 /srv/new-scm/backend/app/db/identity.py
+                 /srv/new-scm/backend/app/db/auth_policy.py
 USER 10001:10001
 # Fail the build if the final nonroot user cannot read/import/execute the verifier.
 RUN ["python", "-I", "-B", "/srv/new-scm/deploy/check_preflight_image.py"]

@@ -24,16 +24,15 @@ def config():
         "frontend": {"networks": {"scm_internal": {}},
                      "ports": [{"host_ip": "127.0.0.1", "published": "8011", "target": 80}],
                      "build": {"args": {"VITE_SCM_API_BASE_URL": "/api/v1"}}},
-        "backend": {"networks": {"scm_internal": {}}, "extra_hosts": {"nas-host": "172.17.0.1"},
+        "backend": {"networks": {"scm_internal": {}},
                     "environment": {
                         "SCM_ENV": "development",
                         "SCM_DATABASE_URL": "postgresql+psycopg://new_scm_ro:test-only@localhost:15432/new_scm_dev",
                         "SCM_DATABASE_SOCKET_DIR": "/srv/new-scm/db-socket",
                         "SCM_DIAGNOSTICS_KEY": "test-diagnostics-" * 3, "SCM_CORS_ORIGINS": "",
                         "SCM_BIND_HOST": "127.0.0.1", "SCM_HTTP_PORT": "8011",
-                        "VITE_SCM_API_BASE_URL": "/api/v1", "SCM_IDENTITY_BASE_URL": "http://nas-host:8010",
-                        "SCM_HANDOFF_KEY": "test-handoff-" * 4,
-                        "SCM_HANDOFF_ORIGIN": "http://127.0.0.1:3010",
+                        "VITE_SCM_API_BASE_URL": "/api/v1",
+                        "SCM_AUTH_DATABASE_URL": "postgresql+psycopg://new_scm_auth:test-only@localhost:15432/new_scm_dev",
                         "SCM_FRONTEND_ORIGIN": "http://127.0.0.1:8011"}},
     }}
 
@@ -97,7 +96,7 @@ class PreflightTests(unittest.TestCase):
                             "module['isolated_worker'].__globals__['runtime_checks']=fail\n"
                             "raise SystemExit(module['isolated_worker']())\n", encoding="utf-8")
             bootstrap = preflight.WORKER_BOOTSTRAP.replace("'/srv/new-scm/deploy/preflight.py'", repr(str(path)))
-            payload = {"script_sha256": preflight.script_digest(), "database_url": "test-only-url"}
+            payload = {"script_sha256": preflight.script_digest(), "database_url": "test-only-url", "auth_database_url": "test-only-auth-url"}
             result = subprocess.run([sys.executable, "-I", "-B", "-c", bootstrap],
                                     input=json.dumps(payload).encode(), capture_output=True)
             self.assertEqual(result.returncode, preflight.WORKER_EXCEPTION_EXIT)
@@ -113,7 +112,7 @@ class PreflightTests(unittest.TestCase):
             runtime.assert_not_called()
             self.assertEqual(output.getvalue(), "FAIL verifier_input_invalid\n")
         output = io.StringIO()
-        payload = {"script_sha256": preflight.script_digest(), "database_url": "test-only-url"}
+        payload = {"script_sha256": preflight.script_digest(), "database_url": "test-only-url", "auth_database_url": "test-only-auth-url"}
         with patch.object(sys, "stdin", io.StringIO(json.dumps(payload))), \
                 patch.object(preflight, "runtime_checks", side_effect=preflight.Rejected("test-only-private")), \
                 contextlib.redirect_stdout(output):
@@ -158,7 +157,7 @@ class PreflightTests(unittest.TestCase):
                 engine.connect.return_value.__enter__.return_value.execute.side_effect = error
             kwargs = {"side_effect": ArgumentError("test-only-private")} if phase == "configuration" else {"return_value": engine}
             with self.subTest(phase=phase), patch("sqlalchemy.create_engine", **kwargs), \
-                    patch.object(preflight, "identity_api_checks") as api, \
+                    patch("httpx.Client") as api, \
                     self.assertRaisesRegex(preflight.Rejected, "^" + expected + "$"):
                 preflight.runtime_checks(url)
             api.assert_not_called()
@@ -175,25 +174,6 @@ class PreflightTests(unittest.TestCase):
             preflight.runtime_checks(url)
         self.assertEqual(output.getvalue(), "")
 
-    def test_api_transport_status_and_response_failures_are_distinct(self):
-        import httpx
-        for failure, expected in (("connect", "identity_api_connection_failed"), ("status", "identity_openapi_unreachable"),
-                                  ("json", "identity_api_response_invalid"), ("shape", "identity_api_response_invalid"),
-                                  ("routes", "running_identity_handoff_routes_missing")):
-            response = MagicMock(status_code=503 if failure == "status" else 200)
-            response.json.return_value = [] if failure == "shape" else {"paths": {}}
-            if failure == "json":
-                response.json.side_effect = ValueError("test-only-private")
-            with self.subTest(failure=failure), patch("httpx.Client") as http, \
-                    self.assertRaisesRegex(preflight.Rejected, "^" + expected + "$"):
-                client = http.return_value.__enter__.return_value
-                if failure == "connect":
-                    client.get.side_effect = httpx.ConnectError("test-only-private")
-                else:
-                    client.get.return_value = response
-                preflight.identity_api_checks()
-            client.post.assert_not_called()
-
     def test_original_verifier_failure_survives_failed_host_state_recheck(self):
         output = io.StringIO()
         with patch.object(preflight.sys, "platform", "linux"), \
@@ -201,7 +181,7 @@ class PreflightTests(unittest.TestCase):
                 patch.object(preflight, "host_docker_checks"), \
                 patch.object(preflight, "isolated_runtime_checks", side_effect=preflight.Rejected("database_connection_failed")), \
                 contextlib.redirect_stdout(output), self.assertRaisesRegex(preflight.Rejected, "^database_connection_failed$"):
-            preflight.host_checks({}, "test-only-url", "local-verifier")
+            preflight.host_checks({"SCM_AUTH_DATABASE_URL": "test-only-auth-url"}, "test-only-url", "local-verifier")
         self.assertEqual(output.getvalue(), "WARN protected_state_recheck_failed\n")
 
     def test_resource_capabilities_choose_only_supported_limits_with_or_without_sudo(self):
@@ -428,7 +408,7 @@ class PreflightTests(unittest.TestCase):
                                    "--host=unix:///var/run/docker.sock"])
         self.assertIn("--user=10001:10001", args)
         self.assertNotIn(url, " ".join(args))
-        self.assertEqual(set(json.loads(run.call_args.kwargs["input"])), {"database_url", "script_sha256"})
+        self.assertEqual(set(json.loads(run.call_args.kwargs["input"])), {"database_url", "auth_database_url", "script_sha256"})
         run.assert_called_once()
 
     def test_sudo_timeout_cleanup_failure_is_fixed_and_targets_only_its_verifier(self):
@@ -470,29 +450,19 @@ class PreflightTests(unittest.TestCase):
             with self.subTest(case=url), self.assertRaises(preflight.Rejected):
                 preflight.validated_database_url(url)
 
-    def test_origins_reject_private_http_cross_host_and_production_http(self):
-        cases = (
-            ("development", "http://192.168.222.210:3010", "http://127.0.0.1:8011",
-             "browser_http_requires_local_tunnel"),
-            ("development", "http://localhost:3010", "http://127.0.0.1:8011",
-             "handoff_requires_same_site_browser_origins"),
-            ("production", "https://asset.example", "https://scm.example",
-             "handoff_requires_same_site_browser_origins"),
-            ("production", "http://127.0.0.1:3010", "http://127.0.0.1:8011",
-             "production_requires_https"),
-        )
-        for mode, source, destination, code in cases:
+    def test_standalone_origins_reject_private_http_and_production_http(self):
+        for mode, destination in (("development", "http://192.168.222.210:8011"),
+                                  ("production", "http://127.0.0.1:8011"),
+                                  ("development", "http://127.0.0.1:5174")):
             candidate = config()
-            candidate["services"]["backend"]["environment"].update(
-                SCM_ENV=mode, SCM_HANDOFF_ORIGIN=source, SCM_FRONTEND_ORIGIN=destination)
-            with self.subTest(mode=mode, source=source), self.assertRaisesRegex(preflight.Rejected, code):
+            candidate["services"]["backend"]["environment"].update(SCM_ENV=mode, SCM_FRONTEND_ORIGIN=destination)
+            with self.subTest(mode=mode, destination=destination), self.assertRaises(preflight.Rejected):
                 preflight.validate_config(candidate)
 
-    def test_production_accepts_same_https_host_with_different_ports(self):
+    def test_standalone_production_accepts_own_https_origin_without_asset_origin(self):
         candidate = config()
         candidate["services"]["backend"]["environment"].update(
-            SCM_ENV="production", SCM_HANDOFF_ORIGIN="https://portal.example:443",
-            SCM_FRONTEND_ORIGIN="https://portal.example:8443")
+            SCM_ENV="production", SCM_FRONTEND_ORIGIN="https://scm.example:8443")
         preflight.validate_config(candidate)
 
     def test_command_errors_expose_only_fixed_codes(self):
@@ -545,7 +515,7 @@ class PreflightTests(unittest.TestCase):
             self.assertNotIn(flag, args)
         self.assertNotIn(url, " ".join(args))
         payload = json.loads(run.call_args_list[0].kwargs["input"])
-        self.assertEqual(set(payload), {"database_url", "script_sha256"})
+        self.assertEqual(set(payload), {"database_url", "auth_database_url", "script_sha256"})
         self.assertEqual(payload["database_url"], url)
         name = next(arg.split("=", 1)[1] for arg in args if arg.startswith("--name="))
         self.assertTrue(name.startswith("scm-preflight-"))
@@ -580,35 +550,27 @@ class PreflightTests(unittest.TestCase):
                 self.assertRaisesRegex(preflight.Rejected, "^expected_54_tables$"):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")
 
-    def test_runtime_checks_use_only_readonly_db_queries_and_api_gets(self):
+    def test_runtime_checks_use_only_readonly_queries_and_no_asset_http_calls(self):
         def result(value):
             return SimpleNamespace(one=lambda: value, scalar_one=lambda: value,
                                    scalars=lambda: SimpleNamespace(all=lambda: value))
-        engine = MagicMock()
+        engine, auth_engine = MagicMock(), MagicMock()
         db = engine.connect.return_value.__enter__.return_value
         db.execute.side_effect = [result(("new_scm_dev", "new_scm_ro", "on")), result(54),
-                                  result(["20261027_0013"]), result(0), result(0), result(False),
-                                  result("admin"), result((1, "test-only-hash")), result((1, "test-only-hash"))]
-        response = SimpleNamespace(status_code=200, json=lambda: {"paths": {
-            "/auth/scm-handoff/issue": {"post": {}}, "/auth/scm-handoff/exchange": {"post": {}}}})
-        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
-        with patch("sqlalchemy.create_engine", return_value=engine) as create, \
-                patch("app.db.identity.load_identity", return_value=(SimpleNamespace(id=1),
-                      [("action", "system.access")])), patch("httpx.Client") as http:
-            client = http.return_value.__enter__.return_value
-            client.get.return_value = response
-            preflight.runtime_checks(url)
-        target = create.call_args.args[0]
-        self.assertEqual((target.host, target.port, target.username, target.database),
-                         ("127.0.0.1", 15432, "new_scm_ro", "new_scm_dev"))
-        self.assertIn("default_transaction_read_only=on", create.call_args.kwargs["connect_args"]["options"])
-        self.assertTrue(all(str(call.args[0]).strip().upper().startswith("SELECT ")
-                            for call in db.execute.call_args_list))
-        self.assertEqual([call.args[0] for call in client.get.call_args_list],
-                         ["http://127.0.0.1:8010/openapi.json", "http://172.17.0.1:8010/openapi.json"])
-        client.post.assert_not_called()
-        db.rollback.assert_called_once()
+                                 result(["20261028_0014"]), result(0), result(0), result(False)]
+        env = config()["services"]["backend"]["environment"]
+        with patch("sqlalchemy.create_engine", side_effect=[engine, auth_engine]) as create, \
+                patch("app.db.auth_policy.verify_auth_connection") as policy, patch("httpx.Client") as http:
+            preflight.runtime_checks(env["SCM_DATABASE_URL"], env["SCM_AUTH_DATABASE_URL"])
+        self.assertEqual([call.args[0].username for call in create.call_args_list], ["new_scm_ro", "new_scm_auth"])
+        for call in create.call_args_list:
+            self.assertEqual((call.args[0].host, call.args[0].port), ("127.0.0.1", 15432))
+            self.assertIn("default_transaction_read_only=on", call.kwargs["connect_args"]["options"])
+        self.assertTrue(all(str(call.args[0]).strip().upper().startswith("SELECT ") for call in db.execute.call_args_list))
+        policy.assert_called_once()
+        http.assert_not_called()
         engine.dispose.assert_called_once()
+        auth_engine.dispose.assert_called_once()
 
     def test_runtime_checks_stop_before_table_queries_when_identity_is_wrong(self):
         engine = MagicMock()
@@ -624,7 +586,7 @@ class PreflightTests(unittest.TestCase):
 
     def test_worker_rejects_stale_image_before_any_db_connection(self):
         output = io.StringIO()
-        with patch.object(sys, "stdin", io.StringIO(json.dumps({"script_sha256": "old-version", "database_url": "test-only-url"}))), \
+        with patch.object(sys, "stdin", io.StringIO(json.dumps({"script_sha256": "old-version", "database_url": "test-only-url", "auth_database_url": "test-only-auth-url"}))), \
                 patch.object(preflight, "runtime_checks") as runtime, contextlib.redirect_stdout(output):
             self.assertEqual(preflight.isolated_worker(), preflight.WORKER_POLICY_EXIT)
             runtime.assert_not_called()
@@ -632,7 +594,7 @@ class PreflightTests(unittest.TestCase):
 
     def test_worker_returns_no_probe_values_or_exception_details(self):
         payload = {"script_sha256": preflight.script_digest(),
-                   "database_url": "test-only-url"}
+                   "database_url": "test-only-url", "auth_database_url": "test-only-auth-url"}
         for error, expected in ((None, "PASS isolated_db_api_checks\n"),
                                 (RuntimeError("test-only-private-value"), "FAIL verifier_python_exception\n")):
             output = io.StringIO()
@@ -640,7 +602,7 @@ class PreflightTests(unittest.TestCase):
                     patch.object(preflight, "runtime_checks", side_effect=error) as runtime, \
                     contextlib.redirect_stdout(output):
                 self.assertEqual(preflight.isolated_worker(), preflight.WORKER_EXCEPTION_EXIT if error else 0)
-                runtime.assert_called_once_with(payload["database_url"])
+                runtime.assert_called_once_with(payload["database_url"], payload["auth_database_url"])
             self.assertEqual(output.getvalue(), expected)
 
     def test_host_state_is_compared_even_when_runtime_probe_fails(self):
@@ -649,7 +611,7 @@ class PreflightTests(unittest.TestCase):
                 patch.object(preflight, "host_docker_checks"), \
                 patch.object(preflight, "runtime_checks", side_effect=RuntimeError("test-only-private-value")), \
                 self.assertRaisesRegex(preflight.Rejected, "^protected_listeners_or_postgres_state_changed$"):
-            preflight.host_checks({}, "test-only-url")
+            preflight.host_checks({"SCM_AUTH_DATABASE_URL": "test-only-auth-url"}, "test-only-url")
         self.assertEqual(state.call_count, 2)
 
     def test_old_host_python_gets_explicit_runtime_requirement(self):
@@ -657,52 +619,21 @@ class PreflightTests(unittest.TestCase):
                 self.assertRaisesRegex(preflight.Rejected, "^runtime_checks_require_python_3_12$"):
             preflight.runtime_checks("test-only-url")
 
-    def test_identity_gateway_accepts_compose_output_formats(self):
-        for extra_hosts in ({"nas-host": "172.17.0.1"},
-                            ["nas-host:172.17.0.1"],
-                            ["nas-host=172.17.0.1"]):
-            with self.subTest(extra_hosts=extra_hosts):
-                candidate = config()
-                candidate["services"]["backend"]["extra_hosts"] = extra_hosts
+    def test_standalone_forbids_identity_gateway_in_all_compose_formats(self):
+        for extra_hosts in ({"nas-host": "172.17.0.1"}, ["nas-host:172.17.0.1"],
+                            ["nas-host=172.17.0.1"], ["nas-host=172.17.0.1", "nas-host=172.17.0.1"]):
+            candidate = config()
+            candidate["services"]["backend"]["extra_hosts"] = extra_hosts
+            with self.assertRaisesRegex(preflight.Rejected, "^standalone_external_identity_route_forbidden$"):
                 preflight.validate_config(candidate)
-
-    def test_identity_gateway_rejects_wrong_missing_and_duplicate_mappings(self):
-        rejected = (
-            None, {}, [], "nas-host=172.17.0.1",
-            {"other-host": "172.17.0.1"},
-            {"nas-host": "172.17.0.2"},
-            {"nas-host": "host-gateway"},
-            {"nas-host": ["172.17.0.1"]},
-            {"nas-host": "172.17.0.1", "other-host": "172.17.0.1"},
-            ["nas-host:172.17.0.1", "nas-host:172.17.0.1"],
-            ["nas-host=172.17.0.1", "nas-host=172.17.0.1"],
-            ["nas-host:172.17.0.1", "nas-host=172.17.0.1"],
-            ["nas-host=172.17.0.1", "nas-host=172.17.0.2"],
-            ["nas-host=172.17.0.1", "other-host=172.17.0.1"],
-            ["nas-host=172.17.0.1 "],
-            [{"nas-host": "172.17.0.1"}],
-        )
-        for separator in (":", "="):
-            for host, ip in (("other-host", "172.17.0.1"),
-                             ("NAS-HOST", "172.17.0.1"),
-                             ("nas-host", "172.17.0.2"),
-                             ("nas-host", "127.0.0.1"),
-                             ("nas-host", "host-gateway"),
-                             ("nas-host", "")):
-                rejected += ([f"{host}{separator}{ip}"],)
-        for extra_hosts in rejected:
-            with self.subTest(extra_hosts=extra_hosts):
-                candidate = config()
-                candidate["services"]["backend"]["extra_hosts"] = extra_hosts
-                with self.assertRaisesRegex(preflight.Rejected, "^identity_gateway_invalid$"):
-                    preflight.validate_config(candidate)
+        preflight.validate_config(config())
 
     def test_policy_rejects_public_port_wrong_role_origins_and_missing_secrets(self):
         for field, value in (("SCM_BIND_HOST", "0.0.0.0"), ("SCM_HTTP_PORT", "3010"),
                              ("SCM_HANDOFF_ORIGIN", "http://127.0.0.1:5173"),
                              ("SCM_HANDOFF_ORIGIN", "http://localhost:3010"),
                              ("SCM_FRONTEND_ORIGIN", "http://nas.example:8011"),
-                             ("SCM_HANDOFF_KEY", ""), ("SCM_CORS_ORIGINS", "*")):
+                             ("SCM_AUTH_DATABASE_URL", ""), ("SCM_CORS_ORIGINS", "*")):
             candidate = config()
             candidate["services"]["backend"]["environment"][field] = value
             with self.subTest(field=field), self.assertRaises(preflight.Rejected):

@@ -1,0 +1,73 @@
+# 4-2H preparation only. Starting any service requires separate approval.
+# Never merge this file with the operating Compose project.
+name: new-scm-4-2h
+services:
+  db-relay:
+    image: ${SCM_TEST_BACKEND_IMAGE:?Approved local backend image ID required}
+    pull_policy: never
+    user: "10001:10001"
+    entrypoint: ["python", "-B", "-m", "app.db.relay"]
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+    volumes:
+      - scm_db_socket:/srv/new-scm/db-socket
+    healthcheck:
+      test: ["CMD", "python", "-B", "-m", "app.db.relay", "--check"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging: {driver: none}
+    restart: "no"
+
+  backend:
+    image: ${SCM_TEST_BACKEND_IMAGE:?Approved local backend image ID required}
+    pull_policy: never
+    user: "10001:10001"
+    env_file:
+      - ${SCM_ENV_FILE:-../.env}
+    environment:
+      SCM_LOG_FILE: ""
+      SCM_DATABASE_SOCKET_DIR: /srv/new-scm/db-socket
+    depends_on:
+      db-relay: {condition: service_healthy}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    tmpfs: [/tmp]
+    volumes:
+      - scm_db_socket:/srv/new-scm/db-socket:ro
+    healthcheck:
+      test: ["CMD", "python", "-B", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8012/health', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging: {driver: none}
+    restart: "no"
+    networks: [scm_internal]
+
+  frontend:
+    image: ${SCM_TEST_FRONTEND_IMAGE:?Approved local NAS-test frontend image ID required}
+    pull_policy: never
+    user: "101:101"
+    depends_on:
+      backend: {condition: service_healthy}
+    ports: ["127.0.0.1:8011:8081"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    tmpfs: [/tmp]
+    logging: {driver: none}
+    restart: "no"
+    networks: [scm_internal]
+
+# CPU CFS/PID limits are deliberately absent for the confirmed NAS profile.
+# Memory limits remain mandatory. This is not a complete resource isolation policy.
+networks:
+  scm_internal:
+volumes:
+  scm_db_socket:

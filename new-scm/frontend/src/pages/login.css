@@ -1,0 +1,6 @@
+.scm-login{min-height:100vh;display:grid;place-items:center;background:#eef2f6;padding:24px;color:#243247}
+.scm-login__card{width:min(100%,400px);background:white;padding:36px;border-radius:16px;box-shadow:0 12px 40px #22334c18;display:grid;gap:20px}
+.scm-login__card h1,.scm-login__card p{margin:0}.scm-login__card label{display:grid;gap:8px;font-weight:600}
+.scm-login__card input{padding:12px;border:1px solid #a6b4c7;border-radius:6px;font:inherit;min-width:0}
+.scm-login__card button{padding:13px;background:#194c87;color:white;border:0;border-radius:6px;font:inherit;cursor:pointer}
+.scm-login__card [role=alert]{color:#a12532}.scm-login__card small{line-height:1.6;color:#52647b}

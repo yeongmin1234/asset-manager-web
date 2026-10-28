@@ -10,10 +10,8 @@ class Settings:
     diagnostics_key: str
     cors_origins: tuple[str, ...]
     log_file: str
-    identity_base_url: str = ""
-    handoff_key: str = ""
-    handoff_origin: str = ""
     frontend_origin: str = ""
+    auth_database_url: str = ""
 
 
 def get_settings() -> Settings:
@@ -33,8 +31,6 @@ def get_settings() -> Settings:
         diagnostics_key=os.getenv("SCM_DIAGNOSTICS_KEY", ""),
         cors_origins=origins,
         log_file=os.getenv("SCM_LOG_FILE", ""),
-        identity_base_url=os.getenv("SCM_IDENTITY_BASE_URL", "").strip().rstrip("/"),
-        handoff_key=os.getenv("SCM_HANDOFF_KEY", ""),
-        handoff_origin=os.getenv("SCM_HANDOFF_ORIGIN", "").strip().rstrip("/"),
         frontend_origin=os.getenv("SCM_FRONTEND_ORIGIN", "").strip().rstrip("/"),
+        auth_database_url=os.getenv("SCM_AUTH_DATABASE_URL", "").strip(),
     )

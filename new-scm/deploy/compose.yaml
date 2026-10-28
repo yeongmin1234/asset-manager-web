@@ -27,9 +27,6 @@ services:
     environment:
       SCM_LOG_FILE: ""
       SCM_DATABASE_SOCKET_DIR: /srv/new-scm/db-socket
-      SCM_IDENTITY_BASE_URL: http://nas-host:8010
-    extra_hosts:
-      - "nas-host:172.17.0.1"
     depends_on:
       db-relay:
         condition: service_healthy

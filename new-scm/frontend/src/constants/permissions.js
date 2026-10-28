@@ -1,4 +1,4 @@
-import { ACCOUNT_TYPES } from "./accountTypes";
+import { ACCOUNT_TYPES } from "./accountTypes.js";
 export const ACCOUNT_STATUS = {
   ACTIVE: "active",
   SUSPENDED: "suspended",

@@ -8,9 +8,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
-from app.core.handoff import MappingUnavailable, resolve_principal
+from app.db.identity import load_identity
+from app.db.local_auth import principal_for
+from app.core.auth import Principal
+from sqlalchemy.exc import SQLAlchemyError
+import re
 from app.core.permissions import enforce_permission
-from app.core import scm_session
 import app.main as main
 from fastapi import HTTPException
 
@@ -36,16 +39,12 @@ class IdentityRepositoryTests(unittest.TestCase):
             db.execute(text("INSERT INTO public.users VALUES (7, 'SCM 사용자', 'employee', 'active')"))
             db.execute(text("INSERT INTO public.users VALUES (8, '관리자', 'admin', 'active')"))
             db.execute(text("INSERT INTO public.scm_identity_mappings VALUES (1, 'asset-manager', '42', 7, 1)"))
-        self.patch = patch("app.core.handoff._engine", return_value=self.engine)
-        self.patch.start()
 
     def tearDown(self):
-        self.patch.stop()
         self.engine.dispose()
-        scm_session._sessions.clear()
 
     def test_mapping_and_system_grant_revocation(self):
-        principal = resolve_principal("asset-manager", "42")
+        principal = self.legacy_principal("asset-manager", "42")
         self.assertEqual(principal.action_grants, frozenset())
         with self.assertRaises(HTTPException):
             enforce_permission(principal)
@@ -53,7 +52,7 @@ class IdentityRepositoryTests(unittest.TestCase):
             db.execute(text("INSERT INTO public.scm_user_grants VALUES (7, 'action', 'system.access')"))
             db.execute(text("INSERT INTO public.scm_user_grants VALUES (7, 'menu', '/sales')"))
             db.execute(text("INSERT INTO public.scm_user_grants VALUES (7, 'action', 'data.read')"))
-        principal = resolve_principal("asset-manager", "42")
+        principal = self.legacy_principal("asset-manager", "42")
         self.assertIs(enforce_permission(principal, menu="/sales", action="data.read"), principal)
         with self.assertRaises(HTTPException):
             enforce_permission(principal, action="data.create")
@@ -62,19 +61,19 @@ class IdentityRepositoryTests(unittest.TestCase):
         with self.engine.begin() as db:
             db.execute(text("DELETE FROM public.scm_user_grants WHERE grant_name='system.access'"))
         with self.assertRaises(HTTPException):
-            enforce_permission(resolve_principal("asset-manager", "42"))
+            enforce_permission(self.legacy_principal("asset-manager", "42"))
 
     def test_missing_and_disabled_mapping_or_user(self):
-        self.assertIsNone(resolve_principal("asset-manager", "43"))
-        self.assertIsNone(resolve_principal("asset-manager", "042"))
-        self.assertIsNone(resolve_principal("asset-manager", "٤٢"))
+        self.assertIsNone(self.legacy_principal("asset-manager", "43"))
+        self.assertIsNone(self.legacy_principal("asset-manager", "042"))
+        self.assertIsNone(self.legacy_principal("asset-manager", "٤٢"))
         with self.engine.begin() as db:
             db.execute(text("UPDATE public.scm_identity_mappings SET is_active=0"))
-        self.assertIsNone(resolve_principal("asset-manager", "42"))
+        self.assertIsNone(self.legacy_principal("asset-manager", "42"))
         with self.engine.begin() as db:
             db.execute(text("UPDATE public.scm_identity_mappings SET is_active=1"))
             db.execute(text("UPDATE public.users SET status='suspended' WHERE id=7"))
-        self.assertIsNone(resolve_principal("asset-manager", "42"))
+        self.assertIsNone(self.legacy_principal("asset-manager", "42"))
 
     def test_duplicate_mapping_and_missing_user_blocked(self):
         with self.engine.begin() as db:
@@ -92,40 +91,39 @@ class IdentityRepositoryTests(unittest.TestCase):
         with self.engine.begin() as db:
             db.execute(text("INSERT INTO public.scm_identity_mappings VALUES (2, 'asset-manager', '43', 8, 1)"))
             db.execute(text("INSERT INTO public.scm_user_grants VALUES (8, 'action', 'system.access')"))
-        principal = resolve_principal("asset-manager", "43")
+        principal = self.legacy_principal("asset-manager", "43")
         with self.assertRaises(HTTPException):
             enforce_permission(principal, admin=True)
         with self.engine.begin() as db:
             db.execute(text("INSERT INTO public.scm_user_grants VALUES (8, 'action', 'admin.manage')"))
-        principal = resolve_principal("asset-manager", "43")
+        principal = self.legacy_principal("asset-manager", "43")
         self.assertIs(enforce_permission(principal, admin=True), principal)
 
     def test_database_failure_denies(self):
         with self.engine.begin() as db:
             db.execute(text("DROP TABLE public.scm_user_grants"))
-        with self.assertRaises(MappingUnavailable):
-            resolve_principal("asset-manager", "42")
+        with self.assertRaises(SQLAlchemyError):
+            self.legacy_principal("asset-manager", "42")
 
-    def test_actual_repository_controls_session_and_revocation(self):
-        settings = SimpleNamespace(handoff_origin="http://127.0.0.1:5173",
-                                   frontend_origin="http://127.0.0.1:5174",
-                                   environment="development")
-        with patch.object(main, "settings", settings), patch.object(
-            main, "exchange_identity", return_value=("asset-manager", "42")
-        ), TestClient(main.app) as client:
-            request = lambda: client.post("/api/v1/auth/handoff", json={"code": "x" * 40},
-                                          headers={"Origin": settings.handoff_origin})
-            self.assertEqual(request().status_code, 403)
-            with self.engine.begin() as db:
-                db.execute(text("INSERT INTO public.scm_user_grants VALUES (7, 'action', 'system.access')"))
-            response = request()
-            self.assertEqual(response.status_code, 200)
-            self.assertIn("scm_session", response.cookies)
-            self.assertEqual(client.get("/api/v1/auth/me").status_code, 200)
-            with self.engine.begin() as db:
-                db.execute(text("UPDATE public.scm_identity_mappings SET is_active=0"))
-            self.assertEqual(client.get("/api/v1/auth/me").status_code, 403)
-            self.assertEqual(request().status_code, 403)
+    def test_standalone_principal_ignores_legacy_mapping_activation(self):
+        with self.engine.begin() as db:
+            db.execute(text("UPDATE public.scm_identity_mappings SET is_active=0"))
+            self.assertEqual(principal_for(db, 7).subject, "7")
+            self.assertIsNone(principal_for(db, 999))
+            self.assertEqual(db.execute(text("SELECT count(*) FROM public.scm_identity_mappings")).scalar_one(), 1)
+
+    def legacy_principal(self, issuer, subject):
+        # Preservation test only. No legacy verifier is wired into the application.
+        if not re.fullmatch(r"[1-9][0-9]*", subject):
+            return None
+        with self.engine.connect() as db:
+            result = load_identity(db, issuer, subject)
+        if result is None:
+            return None
+        row, grants = result
+        return Principal(str(row.id), row.name, row.account_type, row.status,
+                         frozenset(name for kind,name in grants if kind == "menu"),
+                         frozenset(name for kind,name in grants if kind == "action"))
 
 
 if __name__ == "__main__":

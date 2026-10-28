@@ -25,6 +25,21 @@ class Rejected(Exception):
     pass
 
 
+class Pending(Rejected):
+    """Expected preparation state; never authorizes a database change."""
+
+
+PHASES = ("pre-migration", "post-migration")
+PENDING_CODES = frozenset({"auth_migration_required", "standalone_admin_setup_required"})
+WORKER_PENDING_EXIT = 23
+
+
+class SafeArgumentParser(argparse.ArgumentParser):
+    def error(self, _message):
+        print("FAIL arguments_invalid")
+        raise SystemExit(1)
+
+
 def require(condition, code):
     if not condition:
         raise Rejected(code)
@@ -62,9 +77,12 @@ WORKER_POLICY_CODES = frozenset({
     "database_connection_failed", "database_query_failed", "database_cleanup_failed",
     "database_identity_or_readonly_invalid", "expected_54_tables", "alembic_revision_invalid",
     "readonly_role_has_write_or_owner_privileges", "readonly_role_has_elevated_privileges",
-    "expected_identity_mapping_or_grant_missing", "expected_scm_admin_missing",
-    "identity_api_connection_failed", "identity_api_response_invalid",
-    "identity_openapi_unreachable", "running_identity_handoff_routes_missing",
+    "auth_database_target_rejected", "auth_database_identity_invalid", "auth_schema_privileges_invalid",
+    "auth_role_has_business_write_or_owner_privileges", "auth_role_can_read_legacy_passwords",
+    "auth_role_has_elevated_privileges", "auth_role_has_schema_create_privilege", "standalone_admin_not_provisioned",
+    "migration_phase_invalid", "pre_migration_revision_or_schema_invalid",
+    "auth_schema_columns_invalid", "auth_schema_primary_keys_invalid", "auth_schema_foreign_keys_invalid",
+    "auth_schema_indexes_invalid", "auth_schema_checks_invalid", "auth_role_has_database_create_privilege",
     "scm_user_data_changed_during_checks",
 })
 # Catch load/import/syntax errors before the worker's own exception handler exists.
@@ -76,7 +94,7 @@ try:
     sys.argv = ['/srv/new-scm/deploy/preflight.py', '--isolated-worker']
     runpy.run_path(sys.argv[0], run_name='__main__')
 except SystemExit as exc:
-    if exc.code in (0, 20, 21):
+    if exc.code in (0, 20, 21, 23):
         raise
     print('FAIL verifier_python_bootstrap_failed', flush=True)
     raise SystemExit(22)
@@ -185,6 +203,7 @@ def compose_config(executable=None, env_file=None):
     require(match and tuple(map(int, match.groups())) >= (2, 20, 1), "compose_2_20_1_required")
     base = cli + ["--project-name", "new-scm", "--env-file", str(path),
                   "-f", str(ROOT / "deploy" / "compose.yaml")]
+    command(base + ["config", "--quiet"], environment, "compose_config_invalid")
     try:
         config = json.loads(command(base + ["config", "--format", "json"], environment))
     except (ValueError, UnicodeError):
@@ -192,14 +211,14 @@ def compose_config(executable=None, env_file=None):
     return config
 
 
-def validated_database_url(value):
+def validated_database_url(value, role="new_scm_ro"):
     """No application/SQLAlchemy imports: this path must work on NAS Python 3.8."""
     try:
         url = urlsplit(value)
         port = url.port
         valid = (isinstance(value, str) and not any(c.isspace() for c in value)
                  and url.scheme == "postgresql+psycopg"
-                 and unquote(url.username or "") == "new_scm_ro"
+                 and unquote(url.username or "") == role
                  and url.path == "/new_scm_dev" and url.hostname
                  and url.netloc.count("@") == 1 and not url.query and not url.fragment
                  and (port is None or 0 < port < 65536))
@@ -224,7 +243,8 @@ def browser_origin(value):
     return url
 
 
-def validate_config(config):
+def validate_config(config, phase="post-migration"):
+    require(phase in PHASES, "migration_phase_invalid")
     services = config["services"]
     require(set(services) == {"db-relay", "backend", "frontend"}, "unexpected_services")
     backend, frontend, relay = (services[name] for name in ("backend", "frontend", "db-relay"))
@@ -241,39 +261,33 @@ def validate_config(config):
             "frontend_must_bind_loopback_8011")
     require(frontend["build"]["args"]["VITE_SCM_API_BASE_URL"] == "/api/v1",
             "frontend_api_base_invalid")
-    # Compose versions emit a mapping or a list using ':' / '=' separators.
-    # Match the entire value so extra entries and duplicates remain forbidden.
-    require(backend["extra_hosts"] in ({"nas-host": "172.17.0.1"},
-                                       ["nas-host:172.17.0.1"],
-                                       ["nas-host=172.17.0.1"]),
-            "identity_gateway_invalid")
+    require(not backend.get("extra_hosts"), "standalone_external_identity_route_forbidden")
     env = backend["environment"]
     required = ("SCM_ENV", "SCM_DATABASE_URL", "SCM_DIAGNOSTICS_KEY", "SCM_CORS_ORIGINS",
                 "SCM_BIND_HOST", "SCM_HTTP_PORT", "VITE_SCM_API_BASE_URL",
-                "SCM_IDENTITY_BASE_URL", "SCM_HANDOFF_KEY", "SCM_HANDOFF_ORIGIN", "SCM_FRONTEND_ORIGIN")
+                "SCM_AUTH_DATABASE_URL", "SCM_FRONTEND_ORIGIN")
     require(all(key in env for key in required), "required_env_keys_missing")
     require(env["SCM_ENV"] in {"development", "production"}, "environment_invalid")
     require(env["SCM_BIND_HOST"] == "127.0.0.1" and env["SCM_HTTP_PORT"] == "8011",
             "env_bind_must_match_loopback_8011")
     require(env["VITE_SCM_API_BASE_URL"] == "/api/v1", "env_api_base_invalid")
-    require(len(env["SCM_HANDOFF_KEY"] or "") >= 32
-            and len(env["SCM_DIAGNOSTICS_KEY"] or "") >= 32,
-            "handoff_and_diagnostics_keys_require_32_characters")
-    require(env["SCM_HANDOFF_KEY"] != env["SCM_DIAGNOSTICS_KEY"], "keys_must_be_distinct")
-    require(env["SCM_IDENTITY_BASE_URL"] == "http://nas-host:8010"
-            and env["SCM_DATABASE_SOCKET_DIR"] == "/srv/new-scm/db-socket", "internal_route_invalid")
+    require(len(env["SCM_DIAGNOSTICS_KEY"] or "") >= 32, "diagnostics_key_requires_32_characters")
+    require(not any(env.get(key) for key in ("SCM_HANDOFF_KEY", "SCM_IDENTITY_BASE_URL", "SCM_HANDOFF_ORIGIN")),
+            "legacy_auth_settings_must_be_removed_from_standalone_env")
+    require(env["SCM_DATABASE_SOCKET_DIR"] == "/srv/new-scm/db-socket", "internal_route_invalid")
     url = validated_database_url(env["SCM_DATABASE_URL"])
-    source = browser_origin(env["SCM_HANDOFF_ORIGIN"] or "")
+    if phase == "post-migration" or env["SCM_AUTH_DATABASE_URL"]:
+        validated_database_url(env["SCM_AUTH_DATABASE_URL"], "new_scm_auth")
+        reader_target, writer_target = urlsplit(url), urlsplit(env["SCM_AUTH_DATABASE_URL"])
+        require((reader_target.hostname, reader_target.port) == (writer_target.hostname, writer_target.port),
+                "auth_and_reader_targets_differ")
     destination = browser_origin(env["SCM_FRONTEND_ORIGIN"] or "")
-    # SameSite=Lax cookies cannot support a cross-site fetch handoff.
-    require((source.scheme, source.hostname) == (destination.scheme, destination.hostname),
-            "handoff_requires_same_site_browser_origins")
     if env["SCM_ENV"] == "production":
-        require(source.scheme == destination.scheme == "https", "production_requires_https")
+        require(destination.scheme == "https", "production_requires_https")
     else:
         require(destination.scheme == "http" and destination.hostname in {"127.0.0.1", "localhost"}
                 and destination.port == 8011, "initial_validation_requires_local_tunnel_8011")
-    allowed = {env["SCM_HANDOFF_ORIGIN"], env["SCM_FRONTEND_ORIGIN"]}
+    allowed = {env["SCM_FRONTEND_ORIGIN"]}
     for origin in (env["SCM_CORS_ORIGINS"] or "").split(","):
         if origin.strip():
             browser_origin(origin.strip())
@@ -286,8 +300,6 @@ def protected_state(docker_sudo=False):
     cli = ["ss", "-lntp"] if shutil.which("ss") else ["netstat", "-lntp"]
     listeners = command(cli).splitlines()
     protected = sorted(line for line in listeners if re.search(r":(80|8080|3010|8010)\s", line))
-    require(all(any(re.search(rf":{port}\s", line) for line in listeners) for port in (3010, 8010)),
-            "existing_asset_listeners_not_found")
     require(not any(re.search(r":8011\s", line) for line in listeners), "port_8011_in_use")
     # Only these fields are fetched. Full inspect would reveal container secrets.
     container = docker_command(["inspect", "--format", POSTGRES_STATE_FORMAT, "asset-postgres"], docker_sudo)
@@ -307,29 +319,9 @@ def host_docker_checks(docker_sudo=False):
             "postgres_loopback_binding_changed")
 
 
-def identity_api_checks():
-    import httpx
-    try:
-        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-            for host in ("127.0.0.1", "172.17.0.1"):
-                response = client.get("http://" + host + ":8010/openapi.json")
-                require(response.status_code == 200, "identity_openapi_unreachable")
-                try:
-                    data = response.json()
-                except (ValueError, TypeError):
-                    raise Rejected("identity_api_response_invalid") from None
-                require(isinstance(data, dict) and isinstance(data.get("paths"), dict),
-                        "identity_api_response_invalid")
-                paths = data["paths"]
-                require(all(isinstance(paths.get(path), dict) and "post" in paths[path]
-                            for path in ("/auth/scm-handoff/issue", "/auth/scm-handoff/exchange")),
-                        "running_identity_handoff_routes_missing")
-    except httpx.HTTPError:
-        raise Rejected("identity_api_connection_failed") from None
-
-
-def runtime_checks(raw_url):
+def runtime_checks(raw_url, auth_url=None, phase="post-migration"):
     require(sys.version_info >= (3, 12), "runtime_checks_require_python_3_12")
+    require(phase in PHASES, "migration_phase_invalid")
     validated_database_url(raw_url)
     try:
         import httpx
@@ -337,7 +329,7 @@ def runtime_checks(raw_url):
         from sqlalchemy import create_engine, text
         from sqlalchemy.engine import make_url
         from sqlalchemy.exc import SQLAlchemyError
-        from app.db.identity import load_identity
+        from app.db.auth_policy import verify_auth_connection
     except ImportError:
         raise Rejected("runtime_dependencies_missing_use_verifier_image") from None
     engine = None
@@ -355,11 +347,12 @@ def runtime_checks(raw_url):
             require(tuple(identity) == ("new_scm_dev", "new_scm_ro", "on"), "database_identity_or_readonly_invalid")
             require(db.execute(text("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p')")).scalar_one() == 54,
                     "expected_54_tables")
-            require(db.execute(text("SELECT version_num FROM public.alembic_version")).scalars().all() == ["20261027_0013"],
+            expected = "20261027_0013" if phase == "pre-migration" else "20261028_0014"
+            require(db.execute(text("SELECT version_num FROM public.alembic_version")).scalars().all() == [expected],
                     "alembic_revision_invalid")
             writable = db.execute(text("""
                 SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f') AND (
+                WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' AND c.relkind IN ('r','p','v','m','f') AND (
                     has_table_privilege(c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE') OR
                     has_any_column_privilege(c.oid, 'INSERT,UPDATE') OR
                     pg_has_role(current_user, c.relowner, 'MEMBER'))
@@ -371,19 +364,30 @@ def runtime_checks(raw_url):
             """)).scalar_one()
             require(elevated == 0 and not db.execute(text("SELECT has_schema_privilege('public', 'CREATE')")).scalar_one(),
                     "readonly_role_has_elevated_privileges")
-            mapped = load_identity(db, "asset-manager", "3")
-            require(mapped is not None and mapped[0].id == 1
-                    and ("action", "system.access") in mapped[1], "expected_identity_mapping_or_grant_missing")
-            require(db.execute(text("SELECT username FROM public.users WHERE id=1")).scalar_one() == "admin",
-                    "expected_scm_admin_missing")
-            snapshot_sql = text("SELECT count(*), md5(coalesce(string_agg(md5(row_to_json(u)::text), '' ORDER BY u.id), '')) FROM public.users u")
-            before = tuple(db.execute(snapshot_sql).one())
-            # Only GET requests. No code issuance, exchange, session, or DB writes.
-            stage = None
-            identity_api_checks()
-            stage = "database_query_failed"
-            require(tuple(db.execute(snapshot_sql).one()) == before, "scm_user_data_changed_during_checks")
+            if phase == "pre-migration":
+                require(db.execute(text("SELECT to_regnamespace('scm_auth') IS NULL")).scalar_one(),
+                        "pre_migration_revision_or_schema_invalid")
             db.rollback()
+        if phase == "pre-migration":
+            raise Pending("auth_migration_required")
+        validated_database_url(auth_url, "new_scm_auth")
+        auth_engine = create_engine(make_url(auth_url).set(host="127.0.0.1", port=15432),
+            pool_size=1, max_overflow=0, hide_parameters=True,
+            connect_args={"connect_timeout": 3, "options": "-c default_transaction_read_only=on -c statement_timeout=3000"})
+        try:
+            stage = "database_connection_failed"
+            with auth_engine.connect() as db:
+                stage = "database_query_failed"
+                try:
+                    verify_auth_connection(db)
+                except ValueError as exc:
+                    if str(exc) == "standalone_admin_not_provisioned":
+                        raise Pending("standalone_admin_setup_required") from None
+                    require(str(exc) in WORKER_POLICY_CODES, "verifier_unregistered_failure")
+                    raise Rejected(str(exc)) from None
+                db.rollback()
+        finally:
+            auth_engine.dispose()
     except (SQLAlchemyError, psycopg.Error, OSError):
         if stage is None:
             raise  # Unexpected API-side exceptions belong to the Python category.
@@ -425,6 +429,9 @@ def verifier_result_code(result):
         return "verifier_result_invalid"
     if result.returncode == 0 and lines[1] == "PASS isolated_db_api_checks":
         return None
+    if result.returncode == WORKER_PENDING_EXIT and lines[1].startswith("PENDING "):
+        code = lines[1][8:]
+        return code if code in PENDING_CODES else "verifier_result_invalid"
     if result.returncode == WORKER_POLICY_EXIT and lines[1].startswith("FAIL "):
         code = lines[1][5:]
         if code in WORKER_POLICY_CODES:
@@ -436,13 +443,17 @@ def verifier_result_code(result):
     return "verifier_result_invalid"
 
 
-def isolated_runtime_checks(raw_url, image, docker_sudo=False):
+def isolated_runtime_checks(raw_url, image, docker_sudo=False, auth_url="", phase="post-migration"):
+    require(phase in PHASES, "migration_phase_invalid")
     # Resolve an existing local image to an immutable ID. Never pull or build.
     require(bool(image) and not image.startswith("-"), "verifier_image_invalid")
     cpu_limit, pid_limit = verifier_resource_limits(docker_sudo)
     image_id = docker_command(["image", "inspect", "--format", "{{.Id}}", image], docker_sudo).strip()
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "verifier_image_invalid")
-    payload = json.dumps({"database_url": raw_url, "script_sha256": script_digest()}).encode()
+    data = {"database_url": raw_url, "auth_database_url": auth_url, "script_sha256": script_digest()}
+    if phase != "post-migration":
+        data["phase"] = phase
+    payload = json.dumps(data).encode()
     name = "scm-preflight-" + uuid4().hex
     args = docker_argv(verifier_run_args(name, image_id, cpu_limit, pid_limit),
                        docker_sudo, cpu_limit, pid_limit)
@@ -470,6 +481,8 @@ def isolated_runtime_checks(raw_url, image, docker_sudo=False):
             except (OSError, subprocess.TimeoutExpired):
                 print("WARN isolated_verifier_cleanup_failed")
     code = verifier_result_code(result)
+    if code in PENDING_CODES:
+        raise Pending(code)
     require(code is None, code)
 
 
@@ -479,13 +492,27 @@ def isolated_worker():
             payload = json.load(sys.stdin)
         except (ValueError, TypeError):
             raise Rejected("verifier_input_invalid") from None
-        require(isinstance(payload, dict) and set(payload) == {"script_sha256", "database_url"}
+        require(isinstance(payload, dict) and set(payload) in (
+                    {"script_sha256", "database_url", "auth_database_url"},
+                    {"script_sha256", "database_url", "auth_database_url", "phase"})
                 and all(isinstance(value, str) for value in payload.values()), "verifier_input_invalid")
         require(payload["script_sha256"] == script_digest(),
                 "verifier_script_mismatch")
-        runtime_checks(payload["database_url"])
+        phase = payload.get("phase", "post-migration")
+        require(phase in PHASES, "migration_phase_invalid")
+        if phase == "post-migration":
+            runtime_checks(payload["database_url"], payload["auth_database_url"])
+        else:
+            runtime_checks(payload["database_url"], payload["auth_database_url"], phase=phase)
         print("PASS isolated_db_api_checks")
         return 0
+    except Pending as exc:
+        code = str(exc)
+        if code in PENDING_CODES:
+            print("PENDING " + code)
+            return WORKER_PENDING_EXIT
+        print("FAIL verifier_unregistered_failure")
+        return WORKER_POLICY_EXIT
     except Rejected as exc:
         code = str(exc) if str(exc) in WORKER_POLICY_CODES else "verifier_unregistered_failure"
         print("FAIL " + code)
@@ -495,7 +522,7 @@ def isolated_worker():
         return WORKER_EXCEPTION_EXIT
 
 
-def host_checks(env, url, isolated_image=None, docker_sudo=False):
+def host_checks(env, url, isolated_image=None, docker_sudo=False, phase="post-migration"):
     require(sys.platform == "linux", "nas_checks_require_linux")
     if docker_sudo:
         # Noninteractive: authenticate with sudo -v in the caller's terminal first.
@@ -505,9 +532,18 @@ def host_checks(env, url, isolated_image=None, docker_sudo=False):
     try:
         host_docker_checks(docker_sudo)
         if isolated_image:
-            isolated_runtime_checks(url, isolated_image, docker_sudo)
+            if phase == "post-migration":
+                isolated_runtime_checks(url, isolated_image, docker_sudo, env["SCM_AUTH_DATABASE_URL"])
+            else:
+                isolated_runtime_checks(url, isolated_image, docker_sudo, env["SCM_AUTH_DATABASE_URL"], phase=phase)
         else:
-            runtime_checks(url)
+            if phase == "post-migration":
+                runtime_checks(url, env["SCM_AUTH_DATABASE_URL"])
+            else:
+                runtime_checks(url, env["SCM_AUTH_DATABASE_URL"], phase=phase)
+    except Pending:
+        # A safety-state change must override an otherwise expected PENDING.
+        raise
     except Rejected:
         failure_pending = True
         raise
@@ -522,8 +558,10 @@ def host_checks(env, url, isolated_image=None, docker_sudo=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = SafeArgumentParser(description=__doc__)
     parser.add_argument("--config-only", action="store_true", help="Skip NAS/DB/API probes")
+    parser.add_argument("--phase", choices=PHASES, default="post-migration",
+                        help="Before migration: only existing RO DB; after: strict standalone auth checks")
     parser.add_argument("--compose-executable", help="Optional standalone Compose binary")
     parser.add_argument("--env-file", type=Path, help="Explicit alternative env file; never modified")
     parser.add_argument("--docker-sudo", action="store_true",
@@ -537,14 +575,23 @@ def main():
     try:
         require(not (args.config_only and args.isolated_image), "config_only_does_not_start_verifier")
         config = compose_config(args.compose_executable, args.env_file)
-        env, url = validate_config(config)
+        env, url = validate_config(config, args.phase)
         print("PASS compose/env/network/port policy (no values printed)")
         if not args.config_only:
-            host_checks(env, url, args.isolated_image, args.docker_sudo)
-            print("PASS NAS host DB/readonly/schema/mapping/API/protected-state checks")
-        print("PENDING container-to-host routing, Unix volume, live Nginx, shared-key equality, browser SSO")
+            host_checks(env, url, args.isolated_image, args.docker_sudo, phase=args.phase)
+            print("PASS NAS host DB/readonly/auth-schema/auth-role/admin/protected-state checks")
+        print("PENDING nas_application_runtime_not_executed")
+        if args.config_only:
+            print("PENDING database_runtime_checks_not_run")
         print("NO application services built/started; NO deployment approval implied")
         return 0
+    except Pending as exc:
+        if str(exc) in PENDING_CODES:
+            print("PASS existing_database_readonly_and_protected_state_checks")
+            print("PENDING " + str(exc))
+            print("PENDING nas_application_runtime_not_executed")
+            return 2
+        print("FAIL verifier_unregistered_failure")
     except Rejected as exc:
         print("FAIL " + str(exc))  # Only fixed error identifiers reach this branch.
     except (KeyError, TypeError, AttributeError):

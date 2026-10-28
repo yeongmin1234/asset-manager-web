@@ -1,4 +1,4 @@
-"""SCM authentication boundary. No identity is trusted until a verifier is wired."""
+"""Persistent SCM cookie authentication. External bearer verification is disabled."""
 
 from dataclasses import dataclass
 from typing import Protocol
@@ -37,7 +37,6 @@ def unauthorized() -> HTTPException:
     return HTTPException(
         status_code=401,
         detail="인증이 필요합니다.",
-        headers={"WWW-Authenticate": "Bearer"},
     )
 
 
@@ -49,17 +48,13 @@ def get_current_principal(
         session_token = request.cookies.get("scm_session", "")
         if not session_token:
             raise unauthorized()
-        from app.core.handoff import resolve_principal
-        from app.core.scm_session import lookup
-        identity = lookup(session_token)
-        if identity is None:
-            raise unauthorized()
+        from app.core.local_auth import lookup
         try:
-            principal = resolve_principal(*identity)
+            principal = lookup(session_token)
         except Exception:
-            raise unauthorized() from None
-        if principal is None:
-            raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
+            raise HTTPException(status_code=503, detail="auth_unavailable") from None
+        if principal is None or principal.status != "active":
+            raise unauthorized()
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             from app.core.config import get_settings
             if request.headers.get("origin") != get_settings().frontend_origin:

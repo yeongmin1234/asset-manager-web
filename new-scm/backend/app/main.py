@@ -1,12 +1,11 @@
-"""Independent new SCM system API. No business writes in stage 3."""
+"""Independent SCM authentication API; business APIs remain gated placeholders."""
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from time import monotonic
 from secrets import compare_digest
 
-from fastapi import Depends, FastAPI, Header, Request, HTTPException, Response
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, Header, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,8 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.core.auth import Principal
 from app.core.permissions import require_permission
-from app.core.handoff import HandoffRejected, MappingUnavailable, exchange_identity, resolve_principal
-from app.core.scm_session import create as create_session, revoke as revoke_session, SESSION_SECONDS
+from app.core.auth_routes import router as auth_router
 from app.db.database import DatabaseUnavailable, probe_database
 
 settings = get_settings()
@@ -39,7 +37,7 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/openapi.json" if settings.environment == "development" else None,
 )
-browser_origins = tuple(dict.fromkeys((*settings.cors_origins, settings.handoff_origin, settings.frontend_origin)))
+browser_origins = tuple(dict.fromkeys((*settings.cors_origins, settings.frontend_origin)))
 browser_origins = tuple(origin for origin in browser_origins if origin and origin != "*")
 if browser_origins:
     app.add_middleware(
@@ -66,10 +64,12 @@ def failure(code: str, message: str, status_code: int) -> JSONResponse:
 async def request_log(request: Request, call_next):
     start = monotonic()
     response = await call_next(request)
+    if request.url.path.startswith(("/api/v1/auth/", "/api/v1/admin/auth/")):
+        response.headers["Cache-Control"] = "no-store"
     logger.info(
         "request method=%s path=%s status=%s duration_ms=%d",
         request.method,
-        request.url.path,
+        request.scope.get("route").path if request.scope.get("route") else "unmatched",
         response.status_code,
         int((monotonic() - start) * 1000),
     )
@@ -115,43 +115,7 @@ def auth_me(response: Response, principal: Principal = Depends(require_permissio
     })
 
 
-class HandoffBody(BaseModel):
-    code: str = Field(min_length=32, max_length=256)
-
-
-@app.post("/api/v1/auth/handoff")
-def auth_handoff(payload: HandoffBody, request: Request, response: Response):
-    if not settings.handoff_origin or request.headers.get("origin") != settings.handoff_origin:
-        raise HTTPException(status_code=403, detail="요청 출처가 올바르지 않습니다.")
-    try:
-        issuer, subject = exchange_identity(payload.code)
-    except HandoffRejected:
-        raise HTTPException(status_code=401, detail="인증 인계에 실패했습니다.") from None
-    try:
-        principal = resolve_principal(issuer, subject)
-    except MappingUnavailable:
-        raise HTTPException(status_code=503, detail="SCM 사용자 매핑을 확인할 수 없습니다.") from None
-    if principal is None:
-        raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
-    if "system.access" not in principal.action_grants:
-        raise HTTPException(status_code=403, detail="SCM 접근 권한이 없습니다.")
-    token = create_session(issuer, subject)
-    response.set_cookie("scm_session", token, max_age=SESSION_SECONDS, httponly=True,
-                        secure=settings.environment == "production", samesite="lax", path="/api/v1")
-    response.headers["Cache-Control"] = "no-store"
-    return success({"authenticated": True})
-
-
-@app.post("/api/v1/auth/logout")
-def auth_logout(request: Request, response: Response):
-    if not settings.frontend_origin or request.headers.get("origin") != settings.frontend_origin:
-        raise HTTPException(status_code=403, detail="요청 출처가 올바르지 않습니다.")
-    token = request.cookies.get("scm_session", "")
-    if token:
-        revoke_session(token)
-    response.delete_cookie("scm_session", path="/api/v1")
-    response.headers["Cache-Control"] = "no-store"
-    return success({"logged_out": True})
+app.include_router(auth_router)
 
 
 @app.get("/api/v1/system/db-status")
@@ -168,7 +132,7 @@ def database_status(x_scm_diagnostics_key: str | None = Header(default=None)):
     return success(result)
 
 
-@app.api_route("/api/v1/{unimplemented_path:path}", methods=["GET", "POST", "PATCH", "PUT", "DELETE"])
+@app.api_route("/api/v1/{unimplemented_path:path}", methods=["GET", "POST", "PATCH", "PUT", "DELETE"], include_in_schema=False)
 def unimplemented_api(
     unimplemented_path: str,
     _principal: Principal = Depends(require_permission()),

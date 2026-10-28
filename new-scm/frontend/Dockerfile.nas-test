@@ -1,0 +1,20 @@
+# Dedicated nonroot frontend for the local-only 4-2H test project.
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY . .
+ARG VITE_SCM_API_BASE_URL=/api/v1
+RUN test "$VITE_SCM_API_BASE_URL" = /api/v1 && npm run build
+
+FROM nginx:1.27-alpine
+COPY nginx.nas-test.conf /etc/nginx/nginx.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+RUN chmod 644 /etc/nginx/nginx.conf \
+    && chmod 755 /usr/share /usr/share/nginx /usr/share/nginx/html \
+    && find /usr/share/nginx/html -type d -exec chmod 755 {} + \
+    && find /usr/share/nginx/html -type f -exec chmod 644 {} +
+USER 101:101
+EXPOSE 8081
+# Bypass root-oriented /docker-entrypoint.d scripts; all writable paths are in /tmp.
+ENTRYPOINT ["nginx", "-g", "daemon off;"]

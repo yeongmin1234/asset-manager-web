@@ -19,7 +19,7 @@ def main():
         directories = [Path("/srv"), ROOT, ROOT / "deploy", ROOT / "backend",
                        ROOT / "backend/app", ROOT / "backend/app/db"]
         files = [ROOT / "deploy/preflight.py", ROOT / "deploy/check_preflight_image.py",
-                 ROOT / "backend/app/db/identity.py"]
+                 ROOT / "backend/app/db/auth_policy.py"]
         for path, mode in [(p, 0o755) for p in directories] + [(p, 0o644) for p in files]:
             metadata = path.stat()
             if (metadata.st_uid, metadata.st_gid, stat.S_IMODE(metadata.st_mode)) != (0, 0, mode):
@@ -28,7 +28,7 @@ def main():
             compile(path.read_bytes(), str(path), "exec")
         code = "verifier_image_import_failed"
         module = runpy.run_path(str(files[0]))
-        for name in ("app.db.identity", "sqlalchemy", "psycopg", "httpx"):
+        for name in ("app.db.auth_policy", "sqlalchemy", "psycopg", "httpx"):
             importlib.import_module(name)
         code = "verifier_image_execution_failed"
         base = [sys.executable, "-I", "-B", str(files[0])]

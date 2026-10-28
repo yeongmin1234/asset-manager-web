@@ -1,70 +1,50 @@
-# 신규 SCM 독립 실행 기반 (3단계)
+# 신규 SCM — 독립 인증 / 4-2H
 
-이 폴더는 기존 자산관리 backend/frontend와 분리된 신규 SCM 작업본입니다. 이번 단계의 API는 상태 확인 전용이며 업무 데이터 쓰기 API가 없습니다. 실제 NAS 배포는 수행하지 않았습니다.
+NAS 적용 전 최신 검증은 [4-2I 결과·적용 전/후 명령·승인 및 롤백 조건](docs/SCM_NAS_4_2I_VERIFICATION.md)을 따릅니다. `--phase pre-migration`은 기존 0013 DB를 조회만 하며 신규 인증 DB 준비를 PENDING으로 구분합니다. 실제 NAS 실행/DB 변경은 별도 승인 사항입니다.
+
+작업 범위는 이 폴더뿐입니다. 기존 자산관리 로그인·인증 API, SSO/handoff, 공유 인증 키 없이 SCM 주소에서 직접 로그인합니다. 실제 NAS 배포·DB 변경·Git 커밋/Push는 수행하지 않았습니다.
 
 ## 구성
 
-- backend: FastAPI + SQLAlchemy + psycopg. DB는 new_scm_dev만 허용하고 DB 점검은 읽기 전용 세션으로 실행합니다.
-- frontend: SCM 미리보기 화면 84개 파일을 복사한 독립 Vite 앱. 기존 자산관리 API 서비스와 작업기록 브리지는 복사본에서 비활성화했습니다.
-- deploy: 신규 서비스만 담은 Docker Compose와 Nginx 프록시 설정.
-- runtime: 신규 SCM 전용 로그·업로드 경로. 업로드 API는 아직 없습니다.
+- FastAPI / Python 3.12: SCM 전용 로그인·로그아웃, 30분 만료 DB 세션, 관리자 로그인 계정 설정 API.
+- React / Vite: 직접 로그인, 로그아웃, 세션 확인, 기존 메뉴별 권한, 실제 인증 계정 설정 화면.
+- PostgreSQL `new_scm_dev`: 업무 조회는 `new_scm_ro`; 인증 쓰기는 별도 최소 권한 `new_scm_auth`.
+- `public.users`의 기존 비밀번호·54개 public 테이블·사용자 매핑을 보존하고 `scm_auth` 스키마에만 인증 테이블 3개를 추가합니다.
+- 기존 업무 화면은 유지합니다. 다수 업무 화면의 샘플 데이터/메모리 상태 및 미구현 업무 API는 그대로이며 실제 업무 CRUD 구현 완료를 의미하지 않습니다.
 
-## 로컬 실행
+## 개발 실행
 
-PowerShell 창 두 개에서 각각 실행합니다.
+로컬 **테스트 DB**에 승인된 마이그레이션과 명시적으로 선택한 계정의 초기 비밀번호 설정을 먼저 진행합니다. 기본 비밀번호와 자동 생성 계정은 없습니다.
 
-1. 이 폴더에서 ./run_backend.ps1
-2. 이 폴더에서 ./run_frontend.ps1
-3. 브라우저에서 http://127.0.0.1:5174/
+1. Python 3.12 가상환경에 `python -m pip install -r backend/requirements.txt`.
+2. `.env.development.example`을 별도 `.env.development`로 준비하고 로컬 테스트 DB URL 두 개를 안전하게 입력합니다. NAS `.env`는 덮어쓰지 않습니다.
+3. PowerShell 창 하나에서 `./run_backend.ps1` (127.0.0.1:8012, 코드 reload).
+4. 다른 창에서 `./run_frontend.ps1` (127.0.0.1:5174, Vite HMR).
+5. `http://127.0.0.1:5174`에서 SCM 전용 로그인. Ctrl+C로 개발 서버를 중지합니다.
 
-백엔드는 127.0.0.1:8012, 프론트엔드는 127.0.0.1:5174에만 바인딩됩니다. 각 창에서 Ctrl+C로 중지합니다. 프론트엔드 패키지는 신규 폴더 안에 독립 복사되어 있습니다. 재설치 시에는 새 폴더 안에서만 npm ci를 실행하세요.
+개발과 NAS 설정은 별도 파일입니다. Windows는 해당 파일의 NTFS 접근 권한도 소유자 중심으로 제한하세요. Linux/NAS 검사는 일반 사용자 소유·600·심볼릭 링크 금지를 유지합니다.
 
-- GET http://127.0.0.1:8012/health: 서버만 확인하며 DB에 접속하지 않습니다.
-- GET http://127.0.0.1:8012/api/v1/system/status: 프론트엔드 상태 표시용입니다.
-- GET http://127.0.0.1:8012/api/v1/system/db-status: X-SCM-Diagnostics-Key 헤더가 필요합니다. DB가 설정되지 않은 현재 상태에서는 503입니다.
-
-프론트엔드의 `VITE_SCM_API_BASE_URL`은 `/api/v1`로 고정 검증합니다. 설정은 `.env.example`에 기록되어 있으며, 브라우저 요청은 같은 출처의 프록시를 통해서만 전송됩니다. 임의의 외부 API 주소는 허용하지 않습니다.
-
-기존 `.env`는 덮어쓰지 않습니다. `SCM_DATABASE_URL`은 `postgresql+psycopg` 드라이버와 `new_scm_ro` / `new_scm_dev`만 허용하며 URL query는 금지합니다. 비밀번호는 URL 인코딩하고 명령행이나 보고서에 넣지 마세요. 모든 DB 연결에 `default_transaction_read_only=on`과 statement timeout을 적용합니다.
-
-## 배포 준비
-
-NAS Python 3.8.15의 의존성 없는 설정 검사와 Docker 소켓을 노출하지 않는 선택적
-Python 3.12 검증 환경은 [4-2G 사전 검증 안내](docs/SCM_PREFLIGHT_4_2G.md)를 따릅니다.
-`python3 deploy/preflight.py --config-only`는 표준 라이브러리만 사용합니다.
-DB/API 전체 검사는 Python 3.12 의존성 또는 별도 검증 이미지가 필요합니다.
-Docker 데몬에 sudo가 필요한 NAS에서는 같은 터미널에서 `sudo -v`로 인증한 뒤 일반
-사용자로 `--docker-sudo --isolated-image new-scm-preflight:4-2g` 옵션을 사용합니다.
-Python 전체를 sudo로 실행하거나 `.env`의 소유권·600 권한을 바꾸지 않습니다.
-Synology에서 CPU CFS/PID 제한이 미지원으로 확인되면 해당 옵션만 제외하고 자원 제한
-불완전 진단을 출력합니다. 메모리 제한과 필수 보안 옵션은 유지하며, 지원 여부가 불명확하면 중단합니다.
-격리 검증은 Docker 종료 코드와 worker 결과 규약으로 CLI·Python·DB·API 실패를 구분합니다.
-실패 분류 수정 후에는 같은 소스로 검증 이미지를 재생성해야 합니다. 원본 stderr·예외·비밀값은 출력하지 않습니다.
-검증 이미지는 COPY 후 이미지 내부 디렉터리 755 / Python 파일 644를 보장합니다.
-빌드 중 UID 10001로 읽기·import·실행 smoke 검사를 수행하며, NAS 원본 권한은 변경하지 않습니다.
-
-Compose 2.20.1 호환 설정입니다. 프론트엔드·백엔드는 `scm_internal`에서 통신하고 NAS 공개 포트는 `127.0.0.1:8011`뿐입니다. 별도 `db-relay`만 host 네트워크를 사용해 기존 `127.0.0.1:15432`에 연결합니다. UID 10001 전용 Unix 소켓을 신규 볼륨에 만들며 TCP 수신 포트·Docker 소켓·DB 자격정보가 없습니다. 백엔드는 DB URL의 계정·비밀번호·DB명을 유지하고 호스트만 이 소켓으로 대체합니다. PostgreSQL 컨테이너 IP 변경에 의존하지 않습니다. 기존 컨테이너와 네트워크는 수정하지 않습니다. 초기 검증용 restart 정책은 `no`입니다.
-
-인증 API는 `nas-host:8010`이며 이 이름을 확인된 게이트웨이 `172.17.0.1`에 고정합니다. 이 정확한 HTTP 주소만 내부 예외로 허용합니다. NAS 방화벽에서 신규 네트워크의 접근이 차단되면 중단하고 보고합니다. `.env`는 소유자만 읽는 600 권한을 유지하고, 실제 handoff/frontend origin을 확인하기 전에는 예제의 빈 값을 채우지 않습니다. handoff 키는 기존 인증 서버의 전용 키와 같아야 하며 JWT 키와는 별개입니다.
-
-NAS의 `new-scm` 디렉터리에서 backend requirements가 설치된 Python으로 `python3 deploy/preflight.py`를 실행합니다. 서비스 시작 없이 Compose, 환경설정, 포트, 기존 프로세스, DB 읽기 전용 권한, 54개 테이블, revision, subject 3 → SCM 사용자 1 매핑과 grant, 인증 API를 검사합니다. 설정 출력은 메모리에서만 처리하며 비밀값·원본 오류는 출력하지 않습니다. `--config-only`는 NAS 실연결 검사를 생략합니다. 호스트 검사가 통과해도 컨테이너 네트워크·소켓 볼륨·실제 Nginx·공유 키 일치·브라우저 SSO는 별도 검증 대상입니다.
-
-다른 PC의 초기 접근은 SSH의 `-L 127.0.0.1:8011:127.0.0.1:8011` 포워딩을 사용합니다. 통합 로그인도 시험하려면 같은 SSH 연결에 `-L 127.0.0.1:3010:127.0.0.1:3010`을 추가하고 두 사이트를 같은 `127.0.0.1` 호스트로 접속해야 합니다. 로컬 포트 충돌을 먼저 확인합니다. 이때 확인된 브라우저 출처만 CORS/handoff/frontend 설정에 허용합니다. HTTP 개발 검증과 HTTPS 운영 설정은 구분합니다.
-
-기존 SCM 버튼의 빌드 설정 `VITE_SCM_API_URL` / `VITE_SCM_FRONTEND_URL`은 신규 프론트엔드의 동일 출처 Nginx를 가리켜야 합니다. 기존 기본값 8012/5174로는 이 구성을 사용할 수 없습니다. 기존 설정은 변경하지 않았으며 확인·필요한 변경은 별도 승인 대상입니다. 세션은 단일 프로세스 메모리에 저장되고 30분 후 만료됩니다. 원본 로그아웃의 즉시 전파는 미구현입니다. 업무 API는 여전히 미구현이며 `system.access`만으로 모든 업무 메뉴가 열리지는 않습니다.
-
-모든 사전 확인과 사용자 승인 후에만 다음을 실행합니다. 이번 작업에서는 실행하지 않았습니다. `config`는 반드시 `--quiet`로 실행하고 `--environment` 또는 전체 `inspect` 출력은 사용하지 않습니다.
+## 검증
 
 ```sh
-docker compose --project-name new-scm --env-file .env -f deploy/compose.yaml config --quiet
-python3 deploy/preflight.py
-# 미해결 항목 검토 및 사용자 승인 후 신규 프로젝트만 실행
-docker compose --project-name new-scm --env-file .env -f deploy/compose.yaml up -d --build db-relay backend frontend
+python -B deploy/run_tests.py
+cd frontend
+npm test
+npm run build
 ```
 
-## 주의
+일반 실행은 PostgreSQL·POSIX·Compose·이미지 검사를 환경에 따라 명시적으로 skip합니다. 전체 검증은 격리 로컬 PostgreSQL Unix socket, Compose 실행 파일, 새로 빌드한 검증 이미지 ID를 명시합니다.
 
-- backend/, frontend/ 원본, 기존 .env는 변경하지 않았습니다.
-- asset_manager_dev에 접속하지 않았습니다.
-- new_scm_dev의 스키마를 변경하지 않습니다. Alembic 자동 실행 코드가 없습니다.
-- NAS 접속과 배포는 진행하지 않았습니다.
+```sh
+python -B deploy/run_tests.py --postgres-socket /tmp/scm-standalone-pg-<임시ID> --compose-executable <Compose실행파일> --verifier-image sha256:<검증이미지ID>
+```
+
+PostgreSQL 테스트는 네트워크 없는 **빈 임시 클러스터** 전용입니다. NAS·기존 DB에서 실행하지 마세요. 테스트 러너는 DB 컨테이너를 만들지 않으며 SCM 서비스를 실행하지 않습니다. 이미지 옵션을 주면 비루트·network=none 검증 컨테이너 1개를 실행합니다.
+
+## NAS 반영 준비
+
+[독립 운영 전환 보고서 및 DB·백업·초기 관리자·NAS 검증 절차](docs/SCM_STANDALONE_4_2H.md)를 먼저 읽으세요.
+[격리 기동·중지·롤백 및 승인 체크리스트](docs/SCM_NAS_4_2H_READINESS.md)는 독립 인증 기준으로 갱신했습니다.
+이전 `SCM_AUTH_HANDOFF_4_2E.md`, `SCM_PREFLIGHT_4_2G.md` 등은 과거 연동 단계의 기록이며 현재 배포 설정으로 사용하지 않습니다.
+
+Compose는 NAS 호스트 `127.0.0.1:8011`만 게시하고 API는 내부 8012로 통신합니다. DB relay는 UID 10001 전용 Unix 소켓으로 기존 호스트 loopback 15432에 연결합니다. Docker 소켓을 앱/검증 이미지에 마운트하지 않습니다. NAS CPU/PID 제한 미지원 감지·고정 진단·메모리 제한·비루트·read-only·cap-drop·no-new-privileges·tmpfs를 유지합니다.

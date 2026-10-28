@@ -1,7 +1,14 @@
 .env
+.venv/
+.env.*
+!.env.example
+!.env.development.example
+/runtime/4-2h/
+/runtime/backups/
 !deploy/create_readonly_role.sql
 !deploy/auth_4_2e_verify.sql
 !deploy/auth_4_2e_apply.sql
+!deploy/standalone_auth_role.sql
 **/__pycache__/
 **/.pytest_cache/
 **/node_modules/
