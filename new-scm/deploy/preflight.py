@@ -86,7 +86,11 @@ def validate_config(config):
             "frontend_must_bind_loopback_8011")
     require(frontend["build"]["args"]["VITE_SCM_API_BASE_URL"] == "/api/v1",
             "frontend_api_base_invalid")
-    require(backend["extra_hosts"] in ({"nas-host": "172.17.0.1"}, ["nas-host:172.17.0.1"]),
+    # Compose versions emit a mapping or a list using ':' / '=' separators.
+    # Match the entire value so extra entries and duplicates remain forbidden.
+    require(backend["extra_hosts"] in ({"nas-host": "172.17.0.1"},
+                                       ["nas-host:172.17.0.1"],
+                                       ["nas-host=172.17.0.1"]),
             "identity_gateway_invalid")
     env = backend["environment"]
     required = ("SCM_ENV", "SCM_DATABASE_URL", "SCM_DIAGNOSTICS_KEY", "SCM_CORS_ORIGINS",

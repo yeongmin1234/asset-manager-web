@@ -34,6 +34,46 @@ class PreflightTests(unittest.TestCase):
     def test_local_tunnel_configuration_passes(self):
         preflight.validate_config(config())
 
+    def test_identity_gateway_accepts_compose_output_formats(self):
+        for extra_hosts in ({"nas-host": "172.17.0.1"},
+                            ["nas-host:172.17.0.1"],
+                            ["nas-host=172.17.0.1"]):
+            with self.subTest(extra_hosts=extra_hosts):
+                candidate = config()
+                candidate["services"]["backend"]["extra_hosts"] = extra_hosts
+                preflight.validate_config(candidate)
+
+    def test_identity_gateway_rejects_wrong_missing_and_duplicate_mappings(self):
+        rejected = (
+            None, {}, [], "nas-host=172.17.0.1",
+            {"other-host": "172.17.0.1"},
+            {"nas-host": "172.17.0.2"},
+            {"nas-host": "host-gateway"},
+            {"nas-host": ["172.17.0.1"]},
+            {"nas-host": "172.17.0.1", "other-host": "172.17.0.1"},
+            ["nas-host:172.17.0.1", "nas-host:172.17.0.1"],
+            ["nas-host=172.17.0.1", "nas-host=172.17.0.1"],
+            ["nas-host:172.17.0.1", "nas-host=172.17.0.1"],
+            ["nas-host=172.17.0.1", "nas-host=172.17.0.2"],
+            ["nas-host=172.17.0.1", "other-host=172.17.0.1"],
+            ["nas-host=172.17.0.1 "],
+            [{"nas-host": "172.17.0.1"}],
+        )
+        for separator in (":", "="):
+            for host, ip in (("other-host", "172.17.0.1"),
+                             ("NAS-HOST", "172.17.0.1"),
+                             ("nas-host", "172.17.0.2"),
+                             ("nas-host", "127.0.0.1"),
+                             ("nas-host", "host-gateway"),
+                             ("nas-host", "")):
+                rejected += ([f"{host}{separator}{ip}"],)
+        for extra_hosts in rejected:
+            with self.subTest(extra_hosts=extra_hosts):
+                candidate = config()
+                candidate["services"]["backend"]["extra_hosts"] = extra_hosts
+                with self.assertRaisesRegex(preflight.Rejected, "^identity_gateway_invalid$"):
+                    preflight.validate_config(candidate)
+
     def test_policy_rejects_public_port_wrong_role_origins_and_missing_secrets(self):
         for field, value in (("SCM_BIND_HOST", "0.0.0.0"), ("SCM_HTTP_PORT", "3010"),
                              ("SCM_HANDOFF_ORIGIN", "http://127.0.0.1:5173"),
