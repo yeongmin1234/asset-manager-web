@@ -1,9 +1,17 @@
 import copy
+import ast
+import contextlib
+import io
 import importlib.util
+import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import MagicMock, patch
 
 spec = importlib.util.spec_from_file_location("scm_preflight", Path(__file__).with_name("preflight.py"))
 preflight = importlib.util.module_from_spec(spec)
@@ -33,6 +41,207 @@ def config():
 class PreflightTests(unittest.TestCase):
     def test_local_tunnel_configuration_passes(self):
         preflight.validate_config(config())
+
+    def test_config_policy_runs_without_site_packages_or_backend_imports(self):
+        source = Path(preflight.__file__).read_text(encoding="utf-8")
+        ast.parse(source, feature_version=(3, 8))
+        code = ("import runpy,json,sys; "
+                "module=runpy.run_path(sys.argv[1]); "
+                "module['validate_config'](json.load(sys.stdin)); "
+                "assert not any(n.startswith(('sqlalchemy','httpx','psycopg','app.')) for n in sys.modules)")
+        result = subprocess.run([sys.executable, "-S", "-B", "-c", code, preflight.__file__],
+                                input=json.dumps(config()), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, "stdlib-only config check failed (output suppressed)")
+
+    def test_stdlib_database_policy_rejects_overrides_wrong_targets_and_missing_password(self):
+        for url in ("", None, "invalid-url", "postgresql://new_scm_ro:test-only@localhost/new_scm_dev",
+                    "postgresql+psycopg://postgres:test-only@localhost/new_scm_dev",
+                    "postgresql+psycopg://new_scm_ro:test-only@localhost/asset_manager_prod",
+                    "postgresql+psycopg://new_scm_ro:test-only@localhost/new_scm_dev?user=postgres",
+                    "postgresql+psycopg://new_scm_ro:test-only@localhost/new_scm_dev#fragment",
+                    "postgresql+psycopg://new_scm_ro@localhost/new_scm_dev",
+                    "postgresql+psycopg://new_scm_ro:test-only@localhost:bad/new_scm_dev"):
+            with self.subTest(case=url), self.assertRaises(preflight.Rejected):
+                preflight.validated_database_url(url)
+
+    def test_origins_reject_private_http_cross_host_and_production_http(self):
+        cases = (
+            ("development", "http://192.168.222.210:3010", "http://127.0.0.1:8011",
+             "browser_http_requires_local_tunnel"),
+            ("development", "http://localhost:3010", "http://127.0.0.1:8011",
+             "handoff_requires_same_site_browser_origins"),
+            ("production", "https://asset.example", "https://scm.example",
+             "handoff_requires_same_site_browser_origins"),
+            ("production", "http://127.0.0.1:3010", "http://127.0.0.1:8011",
+             "production_requires_https"),
+        )
+        for mode, source, destination, code in cases:
+            candidate = config()
+            candidate["services"]["backend"]["environment"].update(
+                SCM_ENV=mode, SCM_HANDOFF_ORIGIN=source, SCM_FRONTEND_ORIGIN=destination)
+            with self.subTest(mode=mode, source=source), self.assertRaisesRegex(preflight.Rejected, code):
+                preflight.validate_config(candidate)
+
+    def test_production_accepts_same_https_host_with_different_ports(self):
+        candidate = config()
+        candidate["services"]["backend"]["environment"].update(
+            SCM_ENV="production", SCM_HANDOFF_ORIGIN="https://portal.example:443",
+            SCM_FRONTEND_ORIGIN="https://portal.example:8443")
+        preflight.validate_config(candidate)
+
+    def test_command_errors_expose_only_fixed_codes(self):
+        for exc, code in ((FileNotFoundError("test-only-private-value"), "required_command_missing"),
+                          (subprocess.TimeoutExpired("test-only-private-value", 1),
+                           "command_timeout_output_suppressed"),
+                          (PermissionError("test-only-private-value"), "command_unavailable_output_suppressed")):
+            with self.subTest(code=code), patch.object(preflight.subprocess, "run", side_effect=exc), \
+                    self.assertRaisesRegex(preflight.Rejected, "^" + code + "$"):
+                preflight.command(["missing-tool"])
+
+    def test_main_keeps_unexpected_errors_and_malformed_config_private(self):
+        for value, code in ((RuntimeError("test-only-private-value"), "preflight_unavailable_details_suppressed"),
+                            ({}, "configuration_structure_invalid")):
+            output = io.StringIO()
+            kwargs = {"side_effect": value} if isinstance(value, Exception) else {"return_value": value}
+            with patch.object(sys, "argv", ["preflight.py", "--config-only"]), \
+                    patch.object(preflight, "compose_config", **kwargs), contextlib.redirect_stdout(output):
+                self.assertEqual(preflight.main(), 1)
+            self.assertEqual(output.getvalue(), "FAIL " + code + "\n")
+
+    def test_config_only_never_starts_runtime_or_docker_probe(self):
+        with patch.object(sys, "argv", ["preflight.py", "--config-only"]), \
+                patch.object(preflight, "compose_config", return_value=config()), \
+                patch.object(preflight, "host_checks") as host, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(preflight.main(), 0)
+            host.assert_not_called()
+
+    def test_config_only_cannot_start_an_isolated_image(self):
+        with patch.object(sys, "argv", ["preflight.py", "--config-only", "--isolated-image", "local-image"]), \
+                patch.object(preflight, "compose_config") as compose, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(preflight.main(), 1)
+            compose.assert_not_called()
+
+    def test_isolated_launcher_passes_only_db_url_via_stdin_without_socket_mount_or_ports(self):
+        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
+        image_id = "sha256:" + "a" * 64
+        result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
+        with patch.object(preflight, "command", return_value=image_id) as command, \
+                patch.object(preflight.subprocess, "run", return_value=result) as run:
+            preflight.isolated_runtime_checks(url, "local-verifier")
+        command.assert_called_once_with(["docker", "image", "inspect", "--format", "{{.Id}}", "local-verifier"])
+        args = run.call_args_list[0].args[0]
+        for flag in ("--rm", "--pull=never", "--network=host", "--read-only", "--cap-drop=ALL", "--log-driver=none"):
+            self.assertIn(flag, args)
+        for flag in ("--volume", "-v", "--mount", "--env", "-e", "--env-file", "--publish", "-p", "--privileged"):
+            self.assertNotIn(flag, args)
+        self.assertNotIn(url, " ".join(args))
+        payload = json.loads(run.call_args_list[0].kwargs["input"])
+        self.assertEqual(set(payload), {"database_url", "script_sha256"})
+        self.assertEqual(payload["database_url"], url)
+        name = next(arg.split("=", 1)[1] for arg in args if arg.startswith("--name="))
+        self.assertTrue(name.startswith("scm-preflight-"))
+        self.assertEqual(run.call_args_list[1].args[0], ["docker", "rm", "--force", name])
+
+    def test_isolated_timeout_cleans_up_only_its_unique_verifier(self):
+        with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
+                patch.object(preflight.subprocess, "run", side_effect=[subprocess.TimeoutExpired("docker", 90),
+                             subprocess.CompletedProcess([], 0)]) as run, \
+                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_unavailable_output_suppressed$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+        args = run.call_args_list[0].args[0]
+        name = next(arg.split("=", 1)[1] for arg in args if arg.startswith("--name="))
+        self.assertEqual(run.call_args_list[1].args[0], ["docker", "rm", "--force", name])
+
+    def test_isolated_docker_output_is_never_forwarded(self):
+        result = subprocess.CompletedProcess([], 1, stdout=b"test-only-private-value", stderr=b"private")
+        with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
+                patch.object(preflight.subprocess, "run", return_value=result), \
+                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_failed_output_suppressed$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+
+    def test_isolated_known_policy_failure_retains_only_its_fixed_code(self):
+        result = subprocess.CompletedProcess([], 1, stdout=b"FAIL expected_54_tables\n", stderr=b"private")
+        with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
+                patch.object(preflight.subprocess, "run", return_value=result), \
+                self.assertRaisesRegex(preflight.Rejected, "^expected_54_tables$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier")
+
+    def test_runtime_checks_use_only_readonly_db_queries_and_api_gets(self):
+        def result(value):
+            return SimpleNamespace(one=lambda: value, scalar_one=lambda: value,
+                                   scalars=lambda: SimpleNamespace(all=lambda: value))
+        engine = MagicMock()
+        db = engine.connect.return_value.__enter__.return_value
+        db.execute.side_effect = [result(("new_scm_dev", "new_scm_ro", "on")), result(54),
+                                  result(["20261027_0013"]), result(0), result(0), result(False),
+                                  result("admin"), result((1, "test-only-hash")), result((1, "test-only-hash"))]
+        response = SimpleNamespace(status_code=200, json=lambda: {"paths": {
+            "/auth/scm-handoff/issue": {"post": {}}, "/auth/scm-handoff/exchange": {"post": {}}}})
+        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
+        with patch("sqlalchemy.create_engine", return_value=engine) as create, \
+                patch("app.db.identity.load_identity", return_value=(SimpleNamespace(id=1),
+                      [("action", "system.access")])), patch("httpx.Client") as http:
+            client = http.return_value.__enter__.return_value
+            client.get.return_value = response
+            preflight.runtime_checks(url)
+        target = create.call_args.args[0]
+        self.assertEqual((target.host, target.port, target.username, target.database),
+                         ("127.0.0.1", 15432, "new_scm_ro", "new_scm_dev"))
+        self.assertIn("default_transaction_read_only=on", create.call_args.kwargs["connect_args"]["options"])
+        self.assertTrue(all(str(call.args[0]).strip().upper().startswith("SELECT ")
+                            for call in db.execute.call_args_list))
+        self.assertEqual([call.args[0] for call in client.get.call_args_list],
+                         ["http://127.0.0.1:8010/openapi.json", "http://172.17.0.1:8010/openapi.json"])
+        client.post.assert_not_called()
+        db.rollback.assert_called_once()
+        engine.dispose.assert_called_once()
+
+    def test_runtime_checks_stop_before_table_queries_when_identity_is_wrong(self):
+        engine = MagicMock()
+        db = engine.connect.return_value.__enter__.return_value
+        db.execute.return_value.one.return_value = ("other_database", "postgres", "off")
+        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
+        with patch("sqlalchemy.create_engine", return_value=engine), patch("httpx.Client") as http, \
+                self.assertRaisesRegex(preflight.Rejected, "^database_identity_or_readonly_invalid$"):
+            preflight.runtime_checks(url)
+        db.execute.assert_called_once()
+        http.assert_not_called()
+        engine.dispose.assert_called_once()
+
+    def test_worker_rejects_stale_image_before_any_db_connection(self):
+        output = io.StringIO()
+        with patch.object(sys, "stdin", io.StringIO(json.dumps({"script_sha256": "old-version"}))), \
+                patch.object(preflight, "runtime_checks") as runtime, contextlib.redirect_stdout(output):
+            self.assertEqual(preflight.isolated_worker(), 1)
+            runtime.assert_not_called()
+        self.assertEqual(output.getvalue(), "FAIL verifier_script_mismatch\n")
+
+    def test_worker_returns_no_probe_values_or_exception_details(self):
+        payload = {"script_sha256": preflight.script_digest(),
+                   "database_url": "test-only-url"}
+        for error, expected in ((None, "PASS isolated_db_api_checks\n"),
+                                (RuntimeError("test-only-private-value"), "FAIL database_runtime_probe_failed\n")):
+            output = io.StringIO()
+            with patch.object(sys, "stdin", io.StringIO(json.dumps(payload))), \
+                    patch.object(preflight, "runtime_checks", side_effect=error) as runtime, \
+                    contextlib.redirect_stdout(output):
+                self.assertEqual(preflight.isolated_worker(), int(error is not None))
+                runtime.assert_called_once_with(payload["database_url"])
+            self.assertEqual(output.getvalue(), expected)
+
+    def test_host_state_is_compared_even_when_runtime_probe_fails(self):
+        with patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "protected_state", side_effect=[b"before", b"after"]) as state, \
+                patch.object(preflight, "host_docker_checks"), \
+                patch.object(preflight, "runtime_checks", side_effect=RuntimeError("test-only-private-value")), \
+                self.assertRaisesRegex(preflight.Rejected, "^protected_listeners_or_postgres_state_changed$"):
+            preflight.host_checks({}, "test-only-url")
+        self.assertEqual(state.call_count, 2)
+
+    def test_old_host_python_gets_explicit_runtime_requirement(self):
+        with patch.object(preflight.sys, "version_info", (3, 8, 15)), \
+                self.assertRaisesRegex(preflight.Rejected, "^runtime_checks_require_python_3_12$"):
+            preflight.runtime_checks("test-only-url")
 
     def test_identity_gateway_accepts_compose_output_formats(self):
         for extra_hosts in ({"nas-host": "172.17.0.1"},

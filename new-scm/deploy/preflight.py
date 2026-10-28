@@ -1,6 +1,7 @@
-"""Read-only NAS preparation checks. Never builds, starts, or changes services.
+"""Read-only NAS preparation checks. Never deploys application services.
 
-Run with a Python environment containing new-scm/backend/requirements.txt.
+Config-only checks use Python 3.8+ and the standard library only.
+DB/API checks use Python 3.12+ dependencies, optionally in a disposable verifier.
 Compose output and subprocess errors are captured because they may hold secrets.
 """
 import argparse
@@ -13,7 +14,8 @@ import shutil
 import stat
 import subprocess
 import sys
-from urllib.parse import urlsplit
+from uuid import uuid4
+from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -29,7 +31,14 @@ def require(condition, code):
 
 
 def command(args, environment=None):
-    result = subprocess.run(args, env=environment, capture_output=True, timeout=30)
+    try:
+        result = subprocess.run(args, env=environment, capture_output=True, timeout=30)
+    except FileNotFoundError:
+        raise Rejected("required_command_missing") from None
+    except subprocess.TimeoutExpired:
+        raise Rejected("command_timeout_output_suppressed") from None
+    except OSError:
+        raise Rejected("command_unavailable_output_suppressed") from None
     require(result.returncode == 0, "command_failed_output_suppressed")
     return result.stdout.decode("utf-8")
 
@@ -50,8 +59,29 @@ def compose_config(executable=None, env_file=None):
     require(match and tuple(map(int, match.groups())) >= (2, 20, 1), "compose_2_20_1_required")
     base = cli + ["--project-name", "new-scm", "--env-file", str(path),
                   "-f", str(ROOT / "deploy" / "compose.yaml")]
-    config = json.loads(command(base + ["config", "--format", "json"], environment))
+    try:
+        config = json.loads(command(base + ["config", "--format", "json"], environment))
+    except (ValueError, UnicodeError):
+        raise Rejected("compose_json_invalid") from None
     return config
+
+
+def validated_database_url(value):
+    """No application/SQLAlchemy imports: this path must work on NAS Python 3.8."""
+    try:
+        url = urlsplit(value)
+        port = url.port
+        valid = (isinstance(value, str) and not any(c.isspace() for c in value)
+                 and url.scheme == "postgresql+psycopg"
+                 and unquote(url.username or "") == "new_scm_ro"
+                 and url.path == "/new_scm_dev" and url.hostname
+                 and url.netloc.count("@") == 1 and not url.query and not url.fragment
+                 and (port is None or 0 < port < 65536))
+    except (ValueError, TypeError, AttributeError):
+        valid = False
+    require(valid, "database_target_rejected")
+    require(bool(url.password), "database_password_missing")
+    return value
 
 
 def browser_origin(value):
@@ -69,7 +99,6 @@ def browser_origin(value):
 
 
 def validate_config(config):
-    from app.db.database import _validated_url
     services = config["services"]
     require(set(services) == {"db-relay", "backend", "frontend"}, "unexpected_services")
     backend, frontend, relay = (services[name] for name in ("backend", "frontend", "db-relay"))
@@ -107,8 +136,7 @@ def validate_config(config):
     require(env["SCM_HANDOFF_KEY"] != env["SCM_DIAGNOSTICS_KEY"], "keys_must_be_distinct")
     require(env["SCM_IDENTITY_BASE_URL"] == "http://nas-host:8010"
             and env["SCM_DATABASE_SOCKET_DIR"] == "/srv/new-scm/db-socket", "internal_route_invalid")
-    url = _validated_url(env["SCM_DATABASE_URL"])
-    require(bool(url.password), "database_password_missing")
+    url = validated_database_url(env["SCM_DATABASE_URL"])
     source = browser_origin(env["SCM_HANDOFF_ORIGIN"] or "")
     destination = browser_origin(env["SCM_FRONTEND_ORIGIN"] or "")
     # SameSite=Lax cookies cannot support a cross-site fetch handoff.
@@ -141,11 +169,8 @@ def protected_state():
     return sha256(("\n".join(protected) + container).encode()).digest()
 
 
-def host_checks(env, url):
-    import httpx
-    from sqlalchemy import create_engine, text
+def host_docker_checks():
     require(sys.platform == "linux", "nas_checks_require_linux")
-    baseline = protected_state()
     networks = json.loads(command(["docker", "inspect", "--format",
                                   "{{json .NetworkSettings.Networks}}", "asset-postgres"]))
     require(set(networks) == {"bridge"}, "postgres_network_differs_from_confirmed_bridge")
@@ -156,6 +181,20 @@ def host_checks(env, url):
                                  "{{json .HostConfig.PortBindings}}", "asset-postgres"]))
     require(binding.get("5432/tcp") == [{"HostIp": "127.0.0.1", "HostPort": "15432"}],
             "postgres_loopback_binding_changed")
+
+
+def runtime_checks(raw_url):
+    require(sys.version_info >= (3, 12), "runtime_checks_require_python_3_12")
+    validated_database_url(raw_url)
+    try:
+        import httpx
+        import psycopg
+        from sqlalchemy import create_engine, text
+        from sqlalchemy.engine import make_url
+        from app.db.identity import load_identity
+    except ImportError:
+        raise Rejected("runtime_dependencies_missing_use_verifier_image") from None
+    url = make_url(raw_url)
     # The NAS preflight probes the same host loopback target used by db-relay.
     engine = create_engine(url.set(host="127.0.0.1", port=15432), pool_size=1, max_overflow=0,
                            connect_args={"connect_timeout": 3,
@@ -182,7 +221,6 @@ def host_checks(env, url):
             """)).scalar_one()
             require(elevated == 0 and not db.execute(text("SELECT has_schema_privilege('public', 'CREATE')")).scalar_one(),
                     "readonly_role_has_elevated_privileges")
-            from app.db.identity import load_identity
             mapped = load_identity(db, "asset-manager", "3")
             require(mapped is not None and mapped[0].id == 1
                     and ("action", "system.access") in mapped[1], "expected_identity_mapping_or_grant_missing")
@@ -203,7 +241,78 @@ def host_checks(env, url):
             db.rollback()
     finally:
         engine.dispose()
-    require(protected_state() == baseline, "protected_listeners_or_postgres_state_changed")
+
+
+def script_digest():
+    # Git checkouts may use CRLF on a build PC and LF on the NAS.
+    return sha256(Path(__file__).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+
+
+def isolated_runtime_checks(raw_url, image):
+    # Resolve an existing local image to an immutable ID. Never pull or build.
+    require(bool(image) and not image.startswith("-"), "verifier_image_invalid")
+    image_id = command(["docker", "image", "inspect", "--format", "{{.Id}}", image]).strip()
+    require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "verifier_image_invalid")
+    payload = json.dumps({"database_url": raw_url, "script_sha256": script_digest()}).encode()
+    name = "scm-preflight-" + uuid4().hex
+    args = ["docker", "run", "--rm", "--name=" + name, "--pull=never", "--network=host", "--read-only",
+            "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--user=10001:10001",
+            "--pids-limit=64", "--memory=256m", "--cpus=1", "--log-driver=none",
+            "--tmpfs=/tmp:rw,noexec,nosuid,size=16m", "--interactive", "--entrypoint=python",
+            image_id, "-I", "-B", "/srv/new-scm/deploy/preflight.py", "--isolated-worker"]
+    try:
+        result = subprocess.run(args, input=payload, capture_output=True, timeout=90)
+    except (OSError, subprocess.TimeoutExpired):
+        raise Rejected("isolated_verifier_unavailable_output_suppressed") from None
+    finally:
+        # Killing a Docker CLI on timeout does not necessarily stop its container.
+        # The unique name belongs only to this disposable verifier.
+        try:
+            subprocess.run(["docker", "rm", "--force", name], capture_output=True, timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            raise Rejected("isolated_verifier_cleanup_failed") from None
+    # Only our fixed status codes may reach the terminal, never raw Docker output.
+    safe_codes = {"verifier_script_mismatch", "runtime_checks_require_python_3_12",
+                  "runtime_dependencies_missing_use_verifier_image", "database_runtime_probe_failed",
+                  "database_identity_or_readonly_invalid", "expected_54_tables", "alembic_revision_invalid",
+                  "readonly_role_has_write_or_owner_privileges", "readonly_role_has_elevated_privileges",
+                  "expected_identity_mapping_or_grant_missing", "expected_scm_admin_missing",
+                  "identity_openapi_unreachable", "running_identity_handoff_routes_missing",
+                  "scm_user_data_changed_during_checks"}
+    output = result.stdout.decode("utf-8", errors="replace").strip()
+    if result.returncode != 0:
+        if output in {"FAIL " + code for code in safe_codes}:
+            raise Rejected(output[5:])
+        raise Rejected("isolated_verifier_failed_output_suppressed")
+    require(output == "PASS isolated_db_api_checks", "isolated_verifier_response_invalid")
+
+
+def isolated_worker():
+    try:
+        payload = json.load(sys.stdin)
+        require(payload["script_sha256"] == script_digest(),
+                "verifier_script_mismatch")
+        runtime_checks(payload["database_url"])
+        print("PASS isolated_db_api_checks")
+        return 0
+    except Rejected as exc:
+        print("FAIL " + str(exc))
+    except Exception:
+        print("FAIL database_runtime_probe_failed")
+    return 1
+
+
+def host_checks(env, url, isolated_image=None):
+    require(sys.platform == "linux", "nas_checks_require_linux")
+    baseline = protected_state()
+    try:
+        host_docker_checks()
+        if isolated_image:
+            isolated_runtime_checks(url, isolated_image)
+        else:
+            runtime_checks(url)
+    finally:
+        require(protected_state() == baseline, "protected_listeners_or_postgres_state_changed")
 
 
 def main():
@@ -211,19 +320,27 @@ def main():
     parser.add_argument("--config-only", action="store_true", help="Skip NAS/DB/API probes")
     parser.add_argument("--compose-executable", help="Optional standalone Compose binary")
     parser.add_argument("--env-file", type=Path, help="Explicit alternative env file; never modified")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--isolated-image", help="Existing trusted verifier image; runs a disposable DB/API probe")
+    modes.add_argument("--isolated-worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.isolated_worker:
+        return isolated_worker()
     try:
+        require(not (args.config_only and args.isolated_image), "config_only_does_not_start_verifier")
         config = compose_config(args.compose_executable, args.env_file)
         env, url = validate_config(config)
         print("PASS compose/env/network/port policy (no values printed)")
         if not args.config_only:
-            host_checks(env, url)
+            host_checks(env, url, args.isolated_image)
             print("PASS NAS host DB/readonly/schema/mapping/API/protected-state checks")
         print("PENDING container-to-host routing, Unix volume, live Nginx, shared-key equality, browser SSO")
-        print("NO containers built/started; NO deployment approval implied")
+        print("NO application services built/started; NO deployment approval implied")
         return 0
     except Rejected as exc:
         print("FAIL " + str(exc))  # Only fixed error identifiers reach this branch.
+    except (KeyError, TypeError, AttributeError):
+        print("FAIL configuration_structure_invalid")
     except Exception:
         print("FAIL preflight_unavailable_details_suppressed")
     return 1

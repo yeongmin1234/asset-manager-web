@@ -1,0 +1,9 @@
+FROM python:3.12-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /srv/new-scm
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY deploy/preflight.py ./deploy/preflight.py
+COPY backend/app/db/identity.py ./backend/app/db/identity.py
+USER 10001:10001
+ENTRYPOINT ["python", "-I", "-B", "/srv/new-scm/deploy/preflight.py", "--isolated-worker"]

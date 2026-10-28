@@ -1,0 +1,10 @@
+# The verifier build context contains only these non-secret inputs.
+**
+!backend/
+!backend/requirements.txt
+!backend/app/
+!backend/app/db/
+!backend/app/db/identity.py
+!deploy/
+!deploy/preflight.py
+!deploy/Dockerfile.preflight
