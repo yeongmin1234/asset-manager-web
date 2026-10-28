@@ -26,7 +26,8 @@ Docker CLI 시간 초과 시 고유한 `scm-preflight-*` 이름의 검증 컨테
 
 `new-scm` 디렉터리에서 기존 `.env` 소유자로 실행한다. `.env`의 기존 600 권한을
 확인하며 스크립트가 파일·권한을 수정하지 않는다. `sudo`로 Python만 실행하면 소유자
-검사가 실패할 수 있다. Docker 조회 권한과 호스트 `ss` 또는 `netstat`도 필요하다.
+검사가 실패한다. `SUDO_USER`/`SUDO_UID`로 소유자 검사를 우회하지 않는다.
+전체 검사에는 호스트 `ss` 또는 `netstat`도 필요하다.
 
 ```sh
 cd '/volume6/총무/서버/자산관리 프로젝트/asset-manager-web/new-scm'
@@ -34,10 +35,60 @@ docker compose version --short
 PYTHONDONTWRITEBYTECODE=1 python3 deploy/preflight.py --config-only
 ```
 
-현재 알려진 `.env`의 NAS IP HTTP origin은 `browser_http_requires_local_tunnel`로
+NAS IP HTTP origin을 사용하는 경우 `browser_http_requires_local_tunnel`로
 실패해야 정상이다. 이번 코드 수정은 이를 허용하지 않는다. `--config-only`는 이미지
 빌드·Pull·컨테이너 실행·DB/API 연결을 하지 않는다. Compose의 해석된 설정과 정책을
 검사하지만 NAS DB나 실제 SSO 성공을 의미하지 않는다.
+
+### Docker 데몬 조회만 sudo가 필요한 NAS
+
+스크립트 자체는 반드시 `.env` 소유자 `yeong00o`로 실행한다. `--docker-sudo`를 추가해도
+Compose `version/config`, `.env` 읽기와 소유자·600 검사, 리스너 조회는 일반 사용자 권한이다.
+이 단계는 Docker 데몬에 접근하지 않으므로 `--config-only`에 sudo 인증이 필요하지 않다.
+
+전체 검사는 아래 최종 명령으로 실행한다. **신뢰할 수 있는 최신 검증 이미지가 이미
+로드되어 있어야 한다.** 원격 명령 전달용 비대화형 SSH가 아니라 사용자 터미널에서 실행한다.
+필요하면 `ssh -t -p 9680 yeong00o@192.168.222.210`으로 터미널을 확보한다.
+
+```sh
+cd '/volume6/총무/서버/자산관리 프로젝트/asset-manager-web/new-scm'
+if sudo -v 2>/dev/null; then
+  PYTHONDONTWRITEBYTECODE=1 python3 deploy/preflight.py \
+    --docker-sudo --isolated-image new-scm-preflight:4-2g
+else
+  printf 'FAIL docker_sudo_authentication_failed\n'
+fi
+```
+
+`sudo -v`의 암호는 sudo가 터미널에서 직접 받는다. Python은 암호를 입력받거나 저장하지
+않으며 `sudo -S`, askpass, 암호 환경변수, `sudo python3`, 비밀번호 없는 sudo 설정을 쓰지 않는다.
+인증은 같은 터미널에서 먼저 완료해야 한다. 이후 스크립트의 sudo는 모두 `-n`이므로
+인증이 없거나 만료되면 재입력·자동 우회 없이 고정 코드로 중단한다.
+
+승격할 수 있는 명령은 고정된 `docker info --format`, 기존 PostgreSQL의 선택된 상태
+필드와 bridge 조회, 로컬 검증 이미지 ID 조회, 제한된 `scm-preflight-*` 검증 컨테이너
+실행·정리뿐이다. 전체 inspect, 기존 컨테이너 rm/restart, Compose up, 임의 컨테이너
+실행은 명령 허용 목록에서 거부한다. 이 제한은 스크립트의 호출 범위이며 NAS sudoers
+정책을 새로 설정하는 것은 아니다. sudo와 Docker 실행 파일도 root 소유이며 그룹/다른
+사용자가 쓰지 못하는 실제 경로인지 확인한다. 이 조건이 안 맞으면 권한을 바꾸지 않고 중단한다.
+
+데몬 호출은 `unix:///var/run/docker.sock`을 명시하고 다른 Docker context/endpoint 환경을
+제외한다. 소켓 자체의 권한·소유자, 사용자 그룹, sudoers는 바꾸지 않는다. 검증 컨테이너에는
+sudo 옵션을 전달하지 않으며 내부 UID는 계속 10001이다. DB URL은 sudo 암호 입력과
+섞이지 않는 stdin 파이프로만 전달한다. 기존 sudo I/O 감사가 stdin을 기록하는 환경에서는
+그 입력도 감사 대상일 수 있다. 감사 설정은 스크립트가 변경하지 않는다.
+
+주요 고정 실패 코드는 다음과 같다. 실제 stdout/stderr와 비밀값은 보고하지 않는다.
+
+- `docker_sudo_command_failed`: sudo 인증/권한 또는 Docker 조회 실패. 사용자가 같은 터미널에서 인증·권한을 확인해야 한다.
+- `docker_sudo_executable_missing` / `docker_sudo_executable_untrusted`: 필요한 신뢰 가능한 실행 파일을 사용할 수 없음.
+- `docker_sudo_or_verifier_failed`: 승격된 실행 또는 검증 컨테이너가 알려진 정책 코드 없이 실패함.
+- `isolated_verifier_cleanup_failed`: 시간 초과/CLI 장애 후 임시 컨테이너 정리를 확인하지 못함. 자동 재시도·배포를 중단한다.
+
+정상 종료한 검증 컨테이너는 `--rm`으로 삭제된다. 시간 초과나 Docker CLI 장애가 있으면
+해당 실행의 고유 이름만 `sudo -n docker rm --force`로 정리한다. 인증 만료 등으로 이 정리도
+실패하면 같은 터미널에서 사용자가 다시 인증하고 `scm-preflight-*` 잔존 여부를 조회해야 한다.
+기존 PostgreSQL이나 자산관리 컨테이너를 정리하지 않는다.
 
 ## 2. Python 3.12 전용 이미지 준비
 
@@ -64,7 +115,8 @@ docker save -o "$HOME/new-scm-preflight-4-2g.tar" new-scm-preflight:4-2g
 컨테이너를 실제로 실행**하므로, 컨테이너를 전혀 실행하지 않는 단계에서는 1번만 사용한다.
 
 ```sh
-docker load -i /검토한/전송경로/new-scm-preflight-4-2g.tar
+# 이미지 로드는 별도 준비 작업. Docker 권한이 필요한 NAS에서는 sudo를 사용한다.
+sudo docker load -i /검토한/전송경로/new-scm-preflight-4-2g.tar
 PYTHONDONTWRITEBYTECODE=1 python3 deploy/preflight.py \
   --isolated-image new-scm-preflight:4-2g
 ```
@@ -72,6 +124,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/preflight.py \
 로컬 이미지를 immutable ID로 확인하고 `--pull=never`로 실행하므로 NAS에서 자동으로
 이미지를 받거나 빌드하지 않는다. NAS 소스와 이미지의 preflight 내용이 다르면 DB 접속
 전에 `verifier_script_mismatch`로 중단한다(CRLF/LF 차이는 무시).
+이번 sudo 지원 수정도 이미지 안의 preflight에 반영되도록 검증 이미지를 다시 만들어야 한다.
+Docker 권한이 제한된 NAS에서는 위의 `sudo -v`와 `--docker-sudo` 최종 명령을 사용한다.
 
 검사 대상은 `new_scm_dev` / `new_scm_ro`뿐이다. 모든 SQL은 SELECT이며 연결 시
 `default_transaction_read_only=on`, 연결/문장 시간 제한을 지정한다. 54개 테이블,
@@ -122,10 +176,11 @@ origin만 허용하고 credentials를 유지한다. `localhost`와 `127.0.0.1`�
 
 ## 남은 검증과 근거
 
-현재 NAS의 origin 정책 불일치는 배포 차단 사유다. NAS 실연결, 검증 이미지의 실제 실행,
+origin 정책 불일치가 있으면 배포 차단 사유다. NAS 실연결, 검증 이미지의 실제 실행,
 컨테이너 내부 DB 릴레이/Unix 볼륨/Nginx, 공유 키 일치, 브라우저 SSO는 아직 별도 검증
 대상이다. 전체 검사 PASS도 실제 SCM 서비스 배포 승인으로 취급하지 않는다.
 
 - [MDN Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie): SameSite와 Secure, cross-origin fetch의 credentials 조건.
 - [Docker host network](https://docs.docker.com/engine/network/drivers/host/): Linux host 네트워크 공유와 포트 공개의 관계.
 - [Docker run](https://docs.docker.com/engine/containers/run/): 읽기 전용 루트, capability 및 리소스 제한.
+- [sudo 공식 매뉴얼 원본](https://github.com/sudo-project/sudo/blob/main/docs/sudo.man.in): 터미널 암호 입력, `-v` 인증 캐시와 `-n` 비대화형 실행.

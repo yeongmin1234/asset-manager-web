@@ -33,6 +33,9 @@ NAS Python 3.8.15의 의존성 없는 설정 검사와 Docker 소켓을 노출�
 Python 3.12 검증 환경은 [4-2G 사전 검증 안내](docs/SCM_PREFLIGHT_4_2G.md)를 따릅니다.
 `python3 deploy/preflight.py --config-only`는 표준 라이브러리만 사용합니다.
 DB/API 전체 검사는 Python 3.12 의존성 또는 별도 검증 이미지가 필요합니다.
+Docker 데몬에 sudo가 필요한 NAS에서는 같은 터미널에서 `sudo -v`로 인증한 뒤 일반
+사용자로 `--docker-sudo --isolated-image new-scm-preflight:4-2g` 옵션을 사용합니다.
+Python 전체를 sudo로 실행하거나 `.env`의 소유권·600 권한을 바꾸지 않습니다.
 
 Compose 2.20.1 호환 설정입니다. 프론트엔드·백엔드는 `scm_internal`에서 통신하고 NAS 공개 포트는 `127.0.0.1:8011`뿐입니다. 별도 `db-relay`만 host 네트워크를 사용해 기존 `127.0.0.1:15432`에 연결합니다. UID 10001 전용 Unix 소켓을 신규 볼륨에 만들며 TCP 수신 포트·Docker 소켓·DB 자격정보가 없습니다. 백엔드는 DB URL의 계정·비밀번호·DB명을 유지하고 호스트만 이 소켓으로 대체합니다. PostgreSQL 컨테이너 IP 변경에 의존하지 않습니다. 기존 컨테이너와 네트워크는 수정하지 않습니다. 초기 검증용 restart 정책은 `no`입니다.
 

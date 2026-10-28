@@ -30,7 +30,7 @@ def require(condition, code):
         raise Rejected(code)
 
 
-def command(args, environment=None):
+def command(args, environment=None, failure_code="command_failed_output_suppressed"):
     try:
         result = subprocess.run(args, env=environment, capture_output=True, timeout=30)
     except FileNotFoundError:
@@ -39,8 +39,72 @@ def command(args, environment=None):
         raise Rejected("command_timeout_output_suppressed") from None
     except OSError:
         raise Rejected("command_unavailable_output_suppressed") from None
-    require(result.returncode == 0, "command_failed_output_suppressed")
+    require(result.returncode == 0, failure_code)
     return result.stdout.decode("utf-8")
+
+
+POSTGRES_STATE_FORMAT = '{{json .Id}} {{json .State.StartedAt}} {{json .RestartCount}} {{json .NetworkSettings.Networks}} {{json .HostConfig.PortBindings}}'
+POSTGRES_NETWORK_FORMAT = '{{json .NetworkSettings.Networks}}'
+POSTGRES_BINDING_FORMAT = '{{json .HostConfig.PortBindings}}'
+BRIDGE_FORMAT = '{{json .IPAM.Config}}'
+DOCKER_INFO_ARGS = ["info", "--format", "{{.ServerVersion}}"]
+
+
+def verifier_run_args(name, image_id):
+    require(re.fullmatch(r"scm-preflight-[0-9a-f]{32}", name), "verifier_name_invalid")
+    require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "verifier_image_invalid")
+    return ["run", "--rm", "--name=" + name, "--pull=never", "--network=host", "--read-only",
+            "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--user=10001:10001",
+            "--pids-limit=64", "--memory=256m", "--cpus=1", "--log-driver=none",
+            "--tmpfs=/tmp:rw,noexec,nosuid,size=16m", "--interactive", "--entrypoint=python",
+            image_id, "-I", "-B", "/srv/new-scm/deploy/preflight.py", "--isolated-worker"]
+
+
+def trusted_executable(name):
+    path = shutil.which(name)
+    require(path, "docker_sudo_executable_missing")
+    try:
+        resolved = Path(path).resolve(strict=True)
+        metadata = resolved.stat()
+    except OSError:
+        raise Rejected("docker_sudo_executable_unavailable") from None
+    require(stat.S_ISREG(metadata.st_mode) and metadata.st_uid == 0
+            and not metadata.st_mode & 0o022, "docker_sudo_executable_untrusted")
+    return str(resolved)
+
+
+def docker_argv(args, docker_sudo=False):
+    """Only fixed daemon queries and the hardened disposable verifier may escalate."""
+    allowed = args == DOCKER_INFO_ARGS or args in [
+        ["inspect", "--format", value, "asset-postgres"]
+        for value in (POSTGRES_STATE_FORMAT, POSTGRES_NETWORK_FORMAT, POSTGRES_BINDING_FORMAT)]
+    allowed = allowed or args == ["network", "inspect", "--format", BRIDGE_FORMAT, "bridge"]
+    if len(args) == 5 and args[:4] == ["image", "inspect", "--format", "{{.Id}}"]:
+        allowed = isinstance(args[4], str) and bool(args[4]) and not args[4].startswith("-")
+    if len(args) == 3 and args[:2] == ["rm", "--force"]:
+        allowed = bool(re.fullmatch(r"scm-preflight-[0-9a-f]{32}", args[2]))
+    if args and args[0] == "run" and len(args) >= 5:
+        name = args[2][len("--name="):] if args[2].startswith("--name=") else ""
+        allowed = args == verifier_run_args(name, args[-5])
+    require(allowed, "docker_command_not_allowed")
+    if docker_sudo:
+        require(sys.platform == "linux", "docker_sudo_requires_linux")
+        prefix = [trusted_executable("sudo"), "-n", "--", trusted_executable("docker")]
+    else:
+        prefix = ["docker"]
+    # Probe this NAS, regardless of a shell's Docker context or remote endpoint.
+    return prefix + ["--host=unix:///var/run/docker.sock"] + args
+
+
+def docker_environment():
+    return {key: value for key, value in os.environ.items()
+            if not key.startswith(("DOCKER_", "COMPOSE_", "SCM_", "VITE_"))
+            and key != "SUDO_ASKPASS"}
+
+
+def docker_command(args, docker_sudo=False):
+    return command(docker_argv(args, docker_sudo), docker_environment(),
+                   "docker_sudo_command_failed" if docker_sudo else "docker_command_failed")
 
 
 def compose_config(executable=None, env_file=None):
@@ -155,7 +219,7 @@ def validate_config(config):
     return env, url
 
 
-def protected_state():
+def protected_state(docker_sudo=False):
     require(shutil.which("ss") or shutil.which("netstat"), "ss_or_netstat_required")
     cli = ["ss", "-lntp"] if shutil.which("ss") else ["netstat", "-lntp"]
     listeners = command(cli).splitlines()
@@ -164,21 +228,19 @@ def protected_state():
             "existing_asset_listeners_not_found")
     require(not any(re.search(r":8011\s", line) for line in listeners), "port_8011_in_use")
     # Only these fields are fetched. Full inspect would reveal container secrets.
-    template = '{{json .Id}} {{json .State.StartedAt}} {{json .RestartCount}} {{json .NetworkSettings.Networks}} {{json .HostConfig.PortBindings}}'
-    container = command(["docker", "inspect", "--format", template, "asset-postgres"])
+    container = docker_command(["inspect", "--format", POSTGRES_STATE_FORMAT, "asset-postgres"], docker_sudo)
     return sha256(("\n".join(protected) + container).encode()).digest()
 
 
-def host_docker_checks():
+def host_docker_checks(docker_sudo=False):
     require(sys.platform == "linux", "nas_checks_require_linux")
-    networks = json.loads(command(["docker", "inspect", "--format",
-                                  "{{json .NetworkSettings.Networks}}", "asset-postgres"]))
+    networks = json.loads(docker_command(["inspect", "--format", POSTGRES_NETWORK_FORMAT,
+                                        "asset-postgres"], docker_sudo))
     require(set(networks) == {"bridge"}, "postgres_network_differs_from_confirmed_bridge")
-    bridge = json.loads(command(["docker", "network", "inspect", "--format",
-                                "{{json .IPAM.Config}}", "bridge"]))
+    bridge = json.loads(docker_command(["network", "inspect", "--format", BRIDGE_FORMAT, "bridge"], docker_sudo))
     require(any(item.get("Gateway") == "172.17.0.1" for item in bridge), "docker_gateway_changed")
-    binding = json.loads(command(["docker", "inspect", "--format",
-                                 "{{json .HostConfig.PortBindings}}", "asset-postgres"]))
+    binding = json.loads(docker_command(["inspect", "--format", POSTGRES_BINDING_FORMAT,
+                                       "asset-postgres"], docker_sudo))
     require(binding.get("5432/tcp") == [{"HostIp": "127.0.0.1", "HostPort": "15432"}],
             "postgres_loopback_binding_changed")
 
@@ -248,29 +310,32 @@ def script_digest():
     return sha256(Path(__file__).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
 
 
-def isolated_runtime_checks(raw_url, image):
+def isolated_runtime_checks(raw_url, image, docker_sudo=False):
     # Resolve an existing local image to an immutable ID. Never pull or build.
     require(bool(image) and not image.startswith("-"), "verifier_image_invalid")
-    image_id = command(["docker", "image", "inspect", "--format", "{{.Id}}", image]).strip()
+    image_id = docker_command(["image", "inspect", "--format", "{{.Id}}", image], docker_sudo).strip()
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "verifier_image_invalid")
     payload = json.dumps({"database_url": raw_url, "script_sha256": script_digest()}).encode()
     name = "scm-preflight-" + uuid4().hex
-    args = ["docker", "run", "--rm", "--name=" + name, "--pull=never", "--network=host", "--read-only",
-            "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--user=10001:10001",
-            "--pids-limit=64", "--memory=256m", "--cpus=1", "--log-driver=none",
-            "--tmpfs=/tmp:rw,noexec,nosuid,size=16m", "--interactive", "--entrypoint=python",
-            image_id, "-I", "-B", "/srv/new-scm/deploy/preflight.py", "--isolated-worker"]
+    args = docker_argv(verifier_run_args(name, image_id), docker_sudo)
+    needs_cleanup = True
     try:
-        result = subprocess.run(args, input=payload, capture_output=True, timeout=90)
+        result = subprocess.run(args, input=payload, env=docker_environment(), capture_output=True, timeout=90)
+        # Normal worker exits are already removed by --rm. CLI errors/timeouts
+        # may leave a container, so only those paths need forced cleanup.
+        needs_cleanup = not 0 <= result.returncode < 125
     except (OSError, subprocess.TimeoutExpired):
         raise Rejected("isolated_verifier_unavailable_output_suppressed") from None
     finally:
         # Killing a Docker CLI on timeout does not necessarily stop its container.
         # The unique name belongs only to this disposable verifier.
-        try:
-            subprocess.run(["docker", "rm", "--force", name], capture_output=True, timeout=10)
-        except (OSError, subprocess.TimeoutExpired):
-            raise Rejected("isolated_verifier_cleanup_failed") from None
+        if needs_cleanup:
+            try:
+                cleanup = subprocess.run(docker_argv(["rm", "--force", name], docker_sudo),
+                                         env=docker_environment(), capture_output=True, timeout=10)
+                require(cleanup.returncode == 0, "isolated_verifier_cleanup_failed")
+            except (OSError, subprocess.TimeoutExpired):
+                raise Rejected("isolated_verifier_cleanup_failed") from None
     # Only our fixed status codes may reach the terminal, never raw Docker output.
     safe_codes = {"verifier_script_mismatch", "runtime_checks_require_python_3_12",
                   "runtime_dependencies_missing_use_verifier_image", "database_runtime_probe_failed",
@@ -283,7 +348,8 @@ def isolated_runtime_checks(raw_url, image):
     if result.returncode != 0:
         if output in {"FAIL " + code for code in safe_codes}:
             raise Rejected(output[5:])
-        raise Rejected("isolated_verifier_failed_output_suppressed")
+        raise Rejected("docker_sudo_or_verifier_failed" if docker_sudo
+                       else "isolated_verifier_failed_output_suppressed")
     require(output == "PASS isolated_db_api_checks", "isolated_verifier_response_invalid")
 
 
@@ -302,17 +368,20 @@ def isolated_worker():
     return 1
 
 
-def host_checks(env, url, isolated_image=None):
+def host_checks(env, url, isolated_image=None, docker_sudo=False):
     require(sys.platform == "linux", "nas_checks_require_linux")
-    baseline = protected_state()
+    if docker_sudo:
+        # Noninteractive: authenticate with sudo -v in the caller's terminal first.
+        docker_command(DOCKER_INFO_ARGS, docker_sudo)
+    baseline = protected_state(docker_sudo)
     try:
-        host_docker_checks()
+        host_docker_checks(docker_sudo)
         if isolated_image:
-            isolated_runtime_checks(url, isolated_image)
+            isolated_runtime_checks(url, isolated_image, docker_sudo)
         else:
             runtime_checks(url)
     finally:
-        require(protected_state() == baseline, "protected_listeners_or_postgres_state_changed")
+        require(protected_state(docker_sudo) == baseline, "protected_listeners_or_postgres_state_changed")
 
 
 def main():
@@ -320,6 +389,8 @@ def main():
     parser.add_argument("--config-only", action="store_true", help="Skip NAS/DB/API probes")
     parser.add_argument("--compose-executable", help="Optional standalone Compose binary")
     parser.add_argument("--env-file", type=Path, help="Explicit alternative env file; never modified")
+    parser.add_argument("--docker-sudo", action="store_true",
+                        help="Use sudo -n only for allowed Docker daemon operations; authenticate with sudo -v first")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--isolated-image", help="Existing trusted verifier image; runs a disposable DB/API probe")
     modes.add_argument("--isolated-worker", action="store_true", help=argparse.SUPPRESS)
@@ -332,7 +403,7 @@ def main():
         env, url = validate_config(config)
         print("PASS compose/env/network/port policy (no values printed)")
         if not args.config_only:
-            host_checks(env, url, args.isolated_image)
+            host_checks(env, url, args.isolated_image, args.docker_sudo)
             print("PASS NAS host DB/readonly/schema/mapping/API/protected-state checks")
         print("PENDING container-to-host routing, Unix volume, live Nginx, shared-key equality, browser SSO")
         print("NO application services built/started; NO deployment approval implied")

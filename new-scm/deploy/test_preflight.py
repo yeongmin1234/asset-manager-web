@@ -39,6 +39,147 @@ def config():
 
 
 class PreflightTests(unittest.TestCase):
+    def test_docker_sudo_uses_only_trusted_noninteractive_local_cli(self):
+        with patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name):
+            args = preflight.docker_argv(preflight.DOCKER_INFO_ARGS, True)
+        self.assertEqual(args, ["/usr/bin/sudo", "-n", "--", "/usr/bin/docker",
+                               "--host=unix:///var/run/docker.sock", "info", "--format", "{{.ServerVersion}}"])
+        self.assertNotIn("-S", args)
+        self.assertNotIn("-E", args)
+
+    def test_docker_never_escalates_implicitly(self):
+        with patch.object(preflight, "trusted_executable") as trusted:
+            args = preflight.docker_argv(preflight.DOCKER_INFO_ARGS)
+        trusted.assert_not_called()
+        self.assertEqual(args[:2], ["docker", "--host=unix:///var/run/docker.sock"])
+
+    def test_docker_allowlist_rejects_service_changes_secret_inspect_and_unhardened_runs(self):
+        name = "scm-preflight-" + "b" * 32
+        run = preflight.verifier_run_args(name, "sha256:" + "a" * 64)
+        for args in (["restart", "asset-postgres"], ["stop", "asset-postgres"],
+                     ["rm", "--force", "asset-postgres"], ["compose", "up", "-d"],
+                     ["inspect", "asset-postgres"],
+                     ["inspect", "--format", "{{json .Config.Env}}", "asset-postgres"],
+                     run + ["--privileged"],
+                     ["--volume=/var/run/docker.sock:/var/run/docker.sock"] + run,
+                     [arg.replace("--user=10001:10001", "--user=0:0") for arg in run]):
+            with self.subTest(operation=args[0]), patch.object(preflight, "trusted_executable") as trusted, \
+                    self.assertRaises(preflight.Rejected):
+                preflight.docker_argv(args, True)
+            trusted.assert_not_called()
+
+    def test_sudo_executable_missing_or_untrusted_fails_before_execution(self):
+        with patch.object(preflight.shutil, "which", return_value=None), \
+                self.assertRaisesRegex(preflight.Rejected, "^docker_sudo_executable_missing$"):
+            preflight.trusted_executable("sudo")
+        for mode, uid in ((0o100777, 0), (0o100755, 1000)):
+            resolved = SimpleNamespace(stat=lambda: SimpleNamespace(st_mode=mode, st_uid=uid))
+            with self.subTest(mode=mode, uid=uid), patch.object(preflight.shutil, "which", return_value="/untrusted"), \
+                    patch.object(preflight.Path, "resolve", return_value=resolved), \
+                    self.assertRaisesRegex(preflight.Rejected, "^docker_sudo_executable_untrusted$"):
+                preflight.trusted_executable("docker")
+
+    def test_daemon_environment_drops_remote_context_and_secret_variables(self):
+        with patch.dict(os.environ, {"DOCKER_HOST": "tcp://other-host:2375", "DOCKER_CONTEXT": "other",
+                                     "DOCKER_CONFIG": "/other/config", "SCM_HANDOFF_KEY": "test-only-private",
+                                     "SUDO_ASKPASS": "/other/helper"}):
+            env = preflight.docker_environment()
+        self.assertFalse(any(key.startswith(("DOCKER_", "SCM_", "COMPOSE_", "VITE_")) for key in env))
+        self.assertNotIn("SUDO_ASKPASS", env)
+
+    def test_sudo_auth_denial_stops_before_state_probes_and_prints_no_raw_output(self):
+        failed = subprocess.CompletedProcess([], 1, stdout=b"test-only-private", stderr=b"test-only-private")
+        output = io.StringIO()
+        with patch.object(sys, "argv", ["preflight.py", "--docker-sudo", "--isolated-image", "local-verifier"]), \
+                patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "compose_config", return_value=config()), \
+                patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
+                patch.object(preflight.subprocess, "run", return_value=failed) as run, \
+                patch.object(preflight, "protected_state") as state, \
+                patch.object(preflight, "isolated_runtime_checks") as runtime, contextlib.redirect_stdout(output):
+            self.assertEqual(preflight.main(), 1)
+        self.assertTrue(output.getvalue().endswith("FAIL docker_sudo_command_failed\n"))
+        self.assertNotIn("test-only-private", output.getvalue())
+        state.assert_not_called()
+        runtime.assert_not_called()
+        run.assert_called_once()
+        self.assertNotIn("input", run.call_args.kwargs)
+
+    def test_config_only_ignores_sudo_and_keeps_compose_unprivileged(self):
+        with patch.object(sys, "argv", ["preflight.py", "--config-only", "--docker-sudo"]), \
+                patch.object(preflight, "compose_config", return_value=config()), \
+                patch.object(preflight, "trusted_executable") as trusted, \
+                patch.object(preflight, "docker_command") as docker, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(preflight.main(), 0)
+        trusted.assert_not_called()
+        docker.assert_not_called()
+
+    @unittest.skipUnless(os.name == "posix", "POSIX file permissions required")
+    def test_env_owner_and_600_checks_cannot_be_bypassed_by_sudo_user(self):
+        with tempfile.TemporaryDirectory(prefix="scm-owner-test-") as directory:
+            path = Path(directory) / ".env"
+            path.write_text("# synthetic fixture only\n", encoding="utf-8")
+            path.chmod(0o600)
+            uid = path.stat().st_uid
+            with patch.dict(os.environ, {"SUDO_UID": str(uid), "SUDO_USER": "test-owner"}), \
+                    patch.object(preflight.os, "geteuid", return_value=uid + 1), \
+                    patch.object(preflight, "command") as command, \
+                    self.assertRaisesRegex(preflight.Rejected, "^env_owner_must_be_current_user$"):
+                preflight.compose_config(env_file=path)
+            command.assert_not_called()
+            path.chmod(0o644)
+            with patch.object(preflight, "command") as command, \
+                    self.assertRaisesRegex(preflight.Rejected, "^env_mode_must_be_600$"):
+                preflight.compose_config(env_file=path)
+            command.assert_not_called()
+            self.assertEqual(path.read_text(encoding="utf-8"), "# synthetic fixture only\n")
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+
+    def test_host_queries_receive_sudo_but_listener_query_does_not(self):
+        with patch.object(preflight.shutil, "which", return_value="/usr/bin/ss"), \
+                patch.object(preflight, "command", return_value="LISTEN 0 1 127.0.0.1:3010 0.0.0.0:*\nLISTEN 0 1 127.0.0.1:8010 0.0.0.0:*") as command, \
+                patch.object(preflight, "docker_command", return_value="container-snapshot") as docker:
+            preflight.protected_state(True)
+        command.assert_called_once_with(["ss", "-lntp"])
+        docker.assert_called_once_with(["inspect", "--format", preflight.POSTGRES_STATE_FORMAT, "asset-postgres"], True)
+        outputs = [json.dumps({"bridge": {}}), json.dumps([{"Gateway": "172.17.0.1"}]),
+                   json.dumps({"5432/tcp": [{"HostIp": "127.0.0.1", "HostPort": "15432"}]})]
+        with patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "docker_command", side_effect=outputs) as docker:
+            preflight.host_docker_checks(True)
+        self.assertEqual(docker.call_count, 3)
+        self.assertTrue(all(call.args[1] is True for call in docker.call_args_list))
+
+    def test_sudo_verifier_keeps_payload_on_stdin_and_nonroot_container(self):
+        url = config()["services"]["backend"]["environment"]["SCM_DATABASE_URL"]
+        result = subprocess.CompletedProcess([], 0, stdout=b"PASS isolated_db_api_checks\n", stderr=b"")
+        with patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
+                patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64) as query, \
+                patch.object(preflight.subprocess, "run", return_value=result) as run:
+            preflight.isolated_runtime_checks(url, "local-verifier", True)
+        self.assertEqual(query.call_args.args[1], True)
+        args = run.call_args.args[0]
+        self.assertEqual(args[:5], ["/usr/bin/sudo", "-n", "--", "/usr/bin/docker",
+                                   "--host=unix:///var/run/docker.sock"])
+        self.assertIn("--user=10001:10001", args)
+        self.assertNotIn(url, " ".join(args))
+        self.assertEqual(set(json.loads(run.call_args.kwargs["input"])), {"database_url", "script_sha256"})
+        run.assert_called_once()
+
+    def test_sudo_timeout_cleanup_failure_is_fixed_and_targets_only_its_verifier(self):
+        failed = subprocess.CompletedProcess([], 1, stdout=b"private", stderr=b"private")
+        with patch.object(preflight.sys, "platform", "linux"), \
+                patch.object(preflight, "trusted_executable", side_effect=lambda name: "/usr/bin/" + name), \
+                patch.object(preflight, "docker_command", return_value="sha256:" + "a" * 64), \
+                patch.object(preflight.subprocess, "run", side_effect=[subprocess.TimeoutExpired("docker", 90), failed]) as run, \
+                self.assertRaisesRegex(preflight.Rejected, "^isolated_verifier_cleanup_failed$"):
+            preflight.isolated_runtime_checks("test-only-url", "local-verifier", True)
+        start, cleanup = [call.args[0] for call in run.call_args_list]
+        name = next(arg.split("=", 1)[1] for arg in start if arg.startswith("--name="))
+        self.assertEqual(cleanup, start[:5] + ["rm", "--force", name])
+
     def test_local_tunnel_configuration_passes(self):
         preflight.validate_config(config())
 
@@ -128,7 +269,9 @@ class PreflightTests(unittest.TestCase):
         with patch.object(preflight, "command", return_value=image_id) as command, \
                 patch.object(preflight.subprocess, "run", return_value=result) as run:
             preflight.isolated_runtime_checks(url, "local-verifier")
-        command.assert_called_once_with(["docker", "image", "inspect", "--format", "{{.Id}}", "local-verifier"])
+        self.assertEqual(command.call_count, 1)
+        self.assertEqual(command.call_args.args[0], ["docker", "--host=unix:///var/run/docker.sock",
+                         "image", "inspect", "--format", "{{.Id}}", "local-verifier"])
         args = run.call_args_list[0].args[0]
         for flag in ("--rm", "--pull=never", "--network=host", "--read-only", "--cap-drop=ALL", "--log-driver=none"):
             self.assertIn(flag, args)
@@ -140,7 +283,7 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(payload["database_url"], url)
         name = next(arg.split("=", 1)[1] for arg in args if arg.startswith("--name="))
         self.assertTrue(name.startswith("scm-preflight-"))
-        self.assertEqual(run.call_args_list[1].args[0], ["docker", "rm", "--force", name])
+        run.assert_called_once()  # --rm handles a normally completed worker.
 
     def test_isolated_timeout_cleans_up_only_its_unique_verifier(self):
         with patch.object(preflight, "command", return_value="sha256:" + "a" * 64), \
@@ -150,7 +293,8 @@ class PreflightTests(unittest.TestCase):
             preflight.isolated_runtime_checks("test-only-url", "local-verifier")
         args = run.call_args_list[0].args[0]
         name = next(arg.split("=", 1)[1] for arg in args if arg.startswith("--name="))
-        self.assertEqual(run.call_args_list[1].args[0], ["docker", "rm", "--force", name])
+        self.assertEqual(run.call_args_list[1].args[0], ["docker", "--host=unix:///var/run/docker.sock",
+                                                       "rm", "--force", name])
 
     def test_isolated_docker_output_is_never_forwarded(self):
         result = subprocess.CompletedProcess([], 1, stdout=b"test-only-private-value", stderr=b"private")
