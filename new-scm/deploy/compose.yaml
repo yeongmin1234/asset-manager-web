@@ -1,32 +1,70 @@
 name: new-scm
 services:
+  # Linux NAS only. Uses the existing loopback publication, never a container IP.
+  # The only listener is a private Unix socket; no NAS TCP port is added.
+  db-relay:
+    build:
+      context: ../backend
+    entrypoint: ["python", "-m", "app.db.relay"]
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - scm_db_socket:/srv/new-scm/db-socket
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.db.relay", "--check"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: "no"
+
   backend:
     build:
       context: ../backend
     env_file:
-      - ../.env
+      - ${SCM_ENV_FILE:-../.env}
     environment:
-      SCM_LOG_FILE: /srv/new-scm/logs/api.log
+      SCM_LOG_FILE: ""
+      SCM_DATABASE_SOCKET_DIR: /srv/new-scm/db-socket
+      SCM_IDENTITY_BASE_URL: http://nas-host:8010
+    extra_hosts:
+      - "nas-host:172.17.0.1"
+    depends_on:
+      db-relay:
+        condition: service_healthy
     read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     tmpfs:
       - /tmp
     volumes:
-      - ../runtime/logs:/srv/new-scm/logs
-      - ../runtime/uploads:/srv/new-scm/uploads
-    restart: unless-stopped
+      - scm_db_socket:/srv/new-scm/db-socket:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8012/health', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: "no"
     networks:
       - scm_internal
 
   frontend:
     build:
       context: ../frontend
+      args:
+        VITE_SCM_API_BASE_URL: /api/v1
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - "${SCM_BIND_HOST:-127.0.0.1}:${SCM_HTTP_PORT:-8011}:80"
-    restart: unless-stopped
+      - "127.0.0.1:8011:80"
+    restart: "no"
     networks:
       - scm_internal
 
 networks:
   scm_internal:
+
+volumes:
+  scm_db_socket:

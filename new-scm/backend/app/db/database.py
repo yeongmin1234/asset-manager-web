@@ -1,8 +1,9 @@
 """Read-only access to new_scm_dev only. No ORM metadata creation."""
 from functools import lru_cache
+import os
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
@@ -20,9 +21,11 @@ def _validated_url(raw_url: str):
         raise DatabaseUnavailable("database_not_configured")
     try:
         url = make_url(raw_url)
-    except (ValueError, TypeError):
+    except (SQLAlchemyError, ValueError, TypeError):
         raise DatabaseUnavailable("database_configuration_invalid") from None
-    if url.get_backend_name() != "postgresql" or url.database != EXPECTED_DATABASE:
+    if (url.drivername != "postgresql+psycopg" or url.database != EXPECTED_DATABASE
+            or url.username != "new_scm_ro" or url.query):
+        # Query parameters such as dbname/user/service can override URL fields.
         raise DatabaseUnavailable("database_target_rejected")
     return url
 
@@ -30,6 +33,12 @@ def _validated_url(raw_url: str):
 @lru_cache(maxsize=1)
 def _engine():
     url = _validated_url(get_settings().database_url)
+    socket_dir = os.getenv("SCM_DATABASE_SOCKET_DIR", "")
+    if socket_dir:
+        if socket_dir != "/srv/new-scm/db-socket":
+            raise DatabaseUnavailable("database_socket_rejected")
+        url = URL.create(url.drivername, username=url.username, password=url.password,
+                         database=url.database, port=15432, query={"host": socket_dir})
     return create_engine(
         url,
         pool_size=2,

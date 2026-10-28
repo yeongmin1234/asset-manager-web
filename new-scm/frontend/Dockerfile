@@ -3,7 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npm run build
+ARG VITE_SCM_API_BASE_URL=/api/v1
+RUN test "$VITE_SCM_API_BASE_URL" = /api/v1 && npm run build
 
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -20,10 +20,14 @@ class MappingUnavailable(Exception):
 def exchange_identity(code: str) -> tuple[str, str]:
     settings = get_settings()
     parsed = urlparse(settings.identity_base_url)
+    # This hostname is pinned to the verified NAS Docker gateway by Compose.
+    internal_http = settings.identity_base_url == "http://nas-host:8010"
     if (not settings.handoff_key or len(settings.handoff_key) < 32
             or parsed.scheme not in {"https", "http"}
-            or (parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost"})
-            or parsed.username or parsed.password or not parsed.hostname):
+            or (parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost"}
+                and not internal_http)
+            or parsed.username or parsed.password or not parsed.hostname
+            or parsed.path or parsed.query or parsed.fragment):
         raise HandoffRejected()
     try:
         with httpx.Client(timeout=3.0, follow_redirects=False, trust_env=False) as client:
